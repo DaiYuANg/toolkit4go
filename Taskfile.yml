@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  GREETING: Hello, world!
+
+tasks:
+  default:
+    desc: Print a greeting message
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+
+  tag:
+    desc: Auto bump patch version and push tag
+    cmds:
+      - go run ./scripts/tagger
+
+  tag:minor:
+    desc: bump minor
+    cmds:
+      - go run ./scripts/tagger -minor
+
+  tag:major:
+    desc: bump major
+    cmds:
+      - go run ./scripts/tagger -major
