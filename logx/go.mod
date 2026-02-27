@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/toolkit4go/logger
+module github.com/DaiYuANg/toolkit4go/logx
 
 go 1.25.0
 
