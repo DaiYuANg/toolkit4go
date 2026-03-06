@@ -49,7 +49,7 @@ func New(engine ...*gin.Engine) *Adapter {
 func (a *Adapter) WithHuma(opts adapter.HumaOptions) *Adapter {
 	a.humaCfg = opts
 	cfg := huma.DefaultConfig(opts.Title, opts.Version)
-	cfg.OpenAPI.Info.Description = opts.Description
+	cfg.Info.Description = opts.Description
 	a.huma = humagin.New(a.engine, cfg)
 	return a
 }
@@ -155,7 +155,7 @@ func (a *Adapter) wrapHandler(handler adapter.HandlerFunc) gin.HandlerFunc {
 				slog.String("path", req.URL.Path),
 				slog.String("error", err.Error()),
 			)
-			c.Error(err)
+			_ = c.Error(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
 	}

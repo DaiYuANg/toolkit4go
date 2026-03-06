@@ -37,7 +37,7 @@ type Service struct {
 // NewService 创建 Huma 服务
 func NewService(api huma.API, title, version, description string) *Service {
 	config := huma.DefaultConfig(title, version)
-	config.OpenAPI.Info.Description = description
+	config.Info.Description = description
 
 	return &Service{
 		api:    api,
@@ -101,7 +101,7 @@ func (s *Service) swaggerUIHTML(openAPIPath string) string {
         SwaggerUIBundle({url: "%s", dom_id: '#swagger-ui'});
     </script>
 </body>
-</html>`, s.config.OpenAPI.Info.Title, openAPIPath)
+</html>`, s.config.Info.Title, openAPIPath)
 }
 
 func (s *Service) loggerOrDefault() *slog.Logger {

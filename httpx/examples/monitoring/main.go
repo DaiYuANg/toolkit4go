@@ -22,7 +22,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	server := httpx.NewServer(
 		httpx.WithLogger(logx.NewSlog(logger)),

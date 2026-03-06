@@ -54,7 +54,7 @@ func New(app ...*fiber.App) *Adapter {
 func (a *Adapter) WithHuma(opts adapter.HumaOptions) *Adapter {
 	a.humaCfg = opts
 	cfg := huma.DefaultConfig(opts.Title, opts.Version)
-	cfg.OpenAPI.Info.Description = opts.Description
+	cfg.Info.Description = opts.Description
 	a.huma = humafiber.New(a.app, cfg)
 
 	// Fiber 需要直接注册路由到 app
@@ -210,9 +210,9 @@ func convertRequest(c *fiber.Ctx) *http.Request {
 	}
 
 	header := make(http.Header)
-	c.Request().Header.VisitAll(func(k, v []byte) {
+	for k, v := range c.Request().Header.All() {
 		header.Add(string(k), string(v))
-	})
+	}
 
 	req := &http.Request{
 		Method:        c.Method(),

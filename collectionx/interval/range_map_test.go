@@ -1,0 +1,51 @@
+package interval
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestRangeMap_PutOverride(t *testing.T) {
+	t.Parallel()
+
+	m := NewRangeMap[int, string]()
+	require.True(t, m.Put(0, 10, "A"))
+	require.True(t, m.Put(3, 6, "B"))
+
+	entries := m.Entries()
+	require.Equal(
+		t,
+		[]RangeEntry[int, string]{
+			{Range: Range[int]{Start: 0, End: 3}, Value: "A"},
+			{Range: Range[int]{Start: 3, End: 6}, Value: "B"},
+			{Range: Range[int]{Start: 6, End: 10}, Value: "A"},
+		},
+		entries,
+	)
+
+	value, ok := m.Get(4)
+	require.True(t, ok)
+	require.Equal(t, "B", value)
+}
+
+func TestRangeMap_DeleteRangeAndOption(t *testing.T) {
+	t.Parallel()
+
+	m := NewRangeMap[int, int]()
+	m.Put(0, 5, 1)
+	m.Put(5, 10, 2)
+	require.True(t, m.DeleteRange(2, 8))
+
+	require.Equal(
+		t,
+		[]RangeEntry[int, int]{
+			{Range: Range[int]{Start: 0, End: 2}, Value: 1},
+			{Range: Range[int]{Start: 8, End: 10}, Value: 2},
+		},
+		m.Entries(),
+	)
+
+	require.True(t, m.GetOption(4).IsAbsent())
+	require.True(t, m.GetOption(9).IsPresent())
+}

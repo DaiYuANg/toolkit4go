@@ -144,7 +144,7 @@ func TestLogger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// 测试基本日志
 	logger.Info("test info message")
@@ -158,7 +158,7 @@ func TestLoggerWithFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// 测试带字段日志
 	logger.WithField("user_id", "123").Info("user action")
@@ -174,7 +174,7 @@ func TestLoggerWithError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// 测试带 error 日志
 	err = os.ErrNotExist
@@ -186,7 +186,7 @@ func TestLoggerWithContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	ctx := context.Background()
 	l := logger.WithContext(ctx).Logger()
@@ -198,7 +198,7 @@ func TestSlogIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// 测试 slog 集成
 	slogLogger := NewSlog(logger)
@@ -212,7 +212,7 @@ func TestDevelopmentConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	logger.Debug("development mode debug")
 	logger.Info("development mode info")
@@ -225,7 +225,7 @@ func TestProductionConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	logger.Info("production mode info")
 	logger.Error("production mode error")
@@ -239,7 +239,7 @@ func TestProductionConfig(t *testing.T) {
 func TestMustNew(t *testing.T) {
 	// 测试正常情况
 	logger := MustNew(WithConsole(true))
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 	logger.Info("must new test")
 
 	// 测试错误配置（应该 panic）
@@ -269,7 +269,7 @@ func TestLoggerLevels(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer logger.Close()
+			defer func() { _ = logger.Close() }()
 
 			if logger.GetLevel() != tt.level {
 				t.Errorf("expected level %s, got %s", tt.level.String(), logger.GetLevel().String())
@@ -283,7 +283,7 @@ func TestLoggerConvenienceMethods(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// 测试便捷方法
 	logger.Debug("debug message", "key", "value")
@@ -335,7 +335,7 @@ func TestOopsIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// 测试创建 oops 错误
 	err = oops.New("user.not_found")
@@ -362,7 +362,7 @@ func TestOopsf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	oopsErr := logger.Oopsf("user.%s", "not_found")
 	if oopsErr == nil {
@@ -378,7 +378,7 @@ func TestWithCallerOption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger1.Close()
+	defer func() { _ = logger1.Close() }()
 	if logger1.Config().addCaller {
 		t.Fatal("expected caller to be disabled")
 	}
@@ -387,7 +387,7 @@ func TestWithCallerOption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger2.Close()
+	defer func() { _ = logger2.Close() }()
 	if !logger2.Config().addCaller {
 		t.Fatal("expected caller to be enabled")
 	}

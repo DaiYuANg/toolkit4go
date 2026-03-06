@@ -42,7 +42,7 @@ func New() *Adapter {
 func (a *Adapter) WithHuma(opts adapter.HumaOptions) *Adapter {
 	a.humaCfg = opts
 	cfg := huma.DefaultConfig(opts.Title, opts.Version)
-	cfg.OpenAPI.Info.Description = opts.Description
+	cfg.Info.Description = opts.Description
 	a.huma = humachi.New(a.router, cfg)
 	return a
 }

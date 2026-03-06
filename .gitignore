@@ -74,3 +74,4 @@ Temporary Items
 .idea
 .gocache
 .pnpm-store
+.cache

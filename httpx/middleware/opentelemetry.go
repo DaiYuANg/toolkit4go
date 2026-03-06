@@ -9,7 +9,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -27,10 +26,10 @@ func OpenTelemetryMiddleware(next http.Handler) http.Handler {
 		opts := []trace.SpanStartOption{
 			trace.WithSpanKind(trace.SpanKindServer),
 			trace.WithAttributes(
-				semconv.HTTPMethod(r.Method),
-				semconv.HTTPTarget(r.URL.EscapedPath()),
-				semconv.HTTPURL(r.URL.String()),
-				semconv.NetHostName(r.Host),
+				attribute.String("http.request.method", r.Method),
+				attribute.String("url.path", r.URL.EscapedPath()),
+				attribute.String("url.full", r.URL.String()),
+				attribute.String("server.address", r.Host),
 			),
 		}
 
@@ -47,7 +46,7 @@ func OpenTelemetryMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, r)
 
 		// 记录响应状态码
-		span.SetAttributes(semconv.HTTPStatusCode(wrapped.statusCode))
+		span.SetAttributes(attribute.Int("http.response.status_code", wrapped.statusCode))
 
 		// 记录延迟
 		span.SetAttributes(

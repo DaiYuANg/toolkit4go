@@ -49,7 +49,7 @@ func New(engine ...*echo.Echo) *Adapter {
 func (a *Adapter) WithHuma(opts adapter.HumaOptions) *Adapter {
 	a.humaCfg = opts
 	cfg := huma.DefaultConfig(opts.Title, opts.Version)
-	cfg.OpenAPI.Info.Description = opts.Description
+	cfg.Info.Description = opts.Description
 	a.huma = humaecho.New(a.engine, cfg)
 	return a
 }

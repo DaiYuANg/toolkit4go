@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	slogLogger := logx.NewSlog(logger)
 	stdAdapter := std.New()

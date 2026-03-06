@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/httpx"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/DaiYuANg/arcgo/logx"
@@ -26,17 +27,17 @@ type User struct {
 type UserStore struct {
 	mu     sync.RWMutex
 	nextID int
-	users  map[int]User
+	users  *collectionmapping.Map[int, User]
 }
 
 func NewUserStore() *UserStore {
 	now := time.Now().UTC()
 	return &UserStore{
 		nextID: 3,
-		users: map[int]User{
+		users: collectionmapping.NewMapFrom(map[int]User{
 			1: {ID: 1, Name: "Alice", Email: "alice@example.com", Age: 26, CreatedAt: now, UpdatedAt: now},
 			2: {ID: 2, Name: "Bob", Email: "bob@example.com", Age: 30, CreatedAt: now, UpdatedAt: now},
-		},
+		}),
 	}
 }
 
@@ -44,13 +45,14 @@ func (s *UserStore) List(search string, limit, offset int) ([]User, int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	items := make([]User, 0, len(s.users))
-	for _, u := range s.users {
+	items := make([]User, 0, s.users.Len())
+	s.users.Range(func(_ int, u User) bool {
 		if search != "" && !strings.Contains(strings.ToLower(u.Name+u.Email), strings.ToLower(search)) {
-			continue
+			return true
 		}
 		items = append(items, u)
-	}
+		return true
+	})
 
 	total := len(items)
 	if offset >= total {
@@ -68,8 +70,7 @@ func (s *UserStore) List(search string, limit, offset int) ([]User, int) {
 func (s *UserStore) Get(id int) (User, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	u, ok := s.users[id]
-	return u, ok
+	return s.users.Get(id)
 }
 
 func (s *UserStore) Create(in CreateUserBody) User {
@@ -78,7 +79,7 @@ func (s *UserStore) Create(in CreateUserBody) User {
 
 	now := time.Now().UTC()
 	u := User{ID: s.nextID, Name: in.Name, Email: in.Email, Age: in.Age, CreatedAt: now, UpdatedAt: now}
-	s.users[u.ID] = u
+	s.users.Set(u.ID, u)
 	s.nextID++
 	return u
 }
@@ -87,7 +88,7 @@ func (s *UserStore) Update(id int, in UpdateUserBody) (User, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	u, ok := s.users[id]
+	u, ok := s.users.Get(id)
 	if !ok {
 		return User{}, false
 	}
@@ -102,18 +103,14 @@ func (s *UserStore) Update(id int, in UpdateUserBody) (User, bool) {
 		u.Age = *in.Age
 	}
 	u.UpdatedAt = time.Now().UTC()
-	s.users[id] = u
+	s.users.Set(id, u)
 	return u, true
 }
 
 func (s *UserStore) Delete(id int) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.users[id]; !ok {
-		return false
-	}
-	delete(s.users, id)
-	return true
+	return s.users.Delete(id)
 }
 
 type ListUsersInput struct {
@@ -190,7 +187,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	store := NewUserStore()
 	stdAdapter := std.New()

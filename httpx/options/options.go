@@ -229,9 +229,11 @@ func (o *HTTPClientOptions) Build() *http.Client {
 type ContextOptions struct {
 	Timeout       time.Duration
 	Deadline      time.Time
-	ValueKeys     map[string]interface{}
+	ValueKeys     map[contextValueKey]any
 	CancelOnPanic bool
 }
+
+type contextValueKey string
 
 // ContextOption Context 配置选项函数
 type ContextOption func(*ContextOptions)
@@ -254,9 +256,9 @@ func WithContextDeadline(deadline time.Time) ContextOption {
 func WithContextValue(key string, value interface{}) ContextOption {
 	return func(o *ContextOptions) {
 		if o.ValueKeys == nil {
-			o.ValueKeys = make(map[string]interface{})
+			o.ValueKeys = make(map[contextValueKey]any)
 		}
-		o.ValueKeys[key] = value
+		o.ValueKeys[contextValueKey(key)] = value
 	}
 }
 
@@ -290,8 +292,8 @@ func (o *ContextOptions) Build() (context.Context, context.CancelFunc) {
 // WithContextValue 设置 Context 值（辅助函数）
 func WithContextValueOpt(o *ContextOptions, key string, value interface{}) *ContextOptions {
 	if o.ValueKeys == nil {
-		o.ValueKeys = make(map[string]interface{})
+		o.ValueKeys = make(map[contextValueKey]any)
 	}
-	o.ValueKeys[key] = value
+	o.ValueKeys[contextValueKey(key)] = value
 	return o
 }

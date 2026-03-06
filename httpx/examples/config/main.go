@@ -21,7 +21,7 @@ type UserOutput struct {
 
 func main() {
 	logger, _ := logx.New(logx.WithConsole(true))
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 	slogLogger := logx.NewSlog(logger)
 
 	fmt.Println("=== Example 1: Using ServerOptions ===")
