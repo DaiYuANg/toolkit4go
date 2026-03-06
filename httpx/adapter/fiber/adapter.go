@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -99,12 +100,18 @@ func (a *Adapter) Router() *fiber.App {
 
 // Listen documents related behavior.
 func (a *Adapter) Listen(addr string) error {
-	return a.app.Listen(addr)
+	if err := a.app.Listen(addr); err != nil {
+		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, err)
+	}
+	return nil
 }
 
 // Shutdown documents related behavior.
 func (a *Adapter) Shutdown() error {
-	return a.app.Shutdown()
+	if err := a.app.Shutdown(); err != nil {
+		return fmt.Errorf("httpx/fiber: shutdown: %w", err)
+	}
+	return nil
 }
 
 // ListenContext starts related services.
@@ -119,17 +126,17 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		if isExpectedFiberClose(err) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, err)
 	case <-ctx.Done():
 		shutdownErr := a.Shutdown()
 		listenErr := <-errCh
 		if shutdownErr != nil {
-			return shutdownErr
+			return fmt.Errorf("httpx/fiber: shutdown on %q: %w", addr, shutdownErr)
 		}
 		if isExpectedFiberClose(listenErr) {
 			return nil
 		}
-		return listenErr
+		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, listenErr)
 	}
 }
 
@@ -145,7 +152,7 @@ func (a *Adapter) wrapHandler(handler adapter.HandlerFunc) fiber.Handler {
 				slog.String("path", c.Path()),
 				slog.String("error", err.Error()),
 			)
-			return err
+			return fmt.Errorf("httpx/fiber: handler failed: %w", err)
 		}
 		return nil
 	}
@@ -208,11 +215,6 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 // HumaAPI returns related data.
 func (a *Adapter) HumaAPI() huma.API {
 	return a.huma
-}
-
-// HasHuma checks related state.
-func (a *Adapter) HasHuma() bool {
-	return a.huma != nil
 }
 
 func (w *responseWriter) applyHeaders() {

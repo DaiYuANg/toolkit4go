@@ -246,11 +246,11 @@ func (b *Bus) snapshotHandlersByEventTypeLocked(eventType reflect.Type) []Handle
 		return nil
 	}
 
-	return lo.Map(lo.Values(byID), func(sub *subscription, _ int) HandlerFunc {
-		if sub == nil {
-			return nil
+	return lo.FilterMap(lo.Values(byID), func(sub *subscription, _ int) (HandlerFunc, bool) {
+		if sub == nil || sub.handler == nil {
+			return nil, false
 		}
-		return sub.handler
+		return sub.handler, true
 	})
 }
 

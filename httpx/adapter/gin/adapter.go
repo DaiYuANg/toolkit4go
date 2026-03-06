@@ -5,6 +5,7 @@ package gin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -94,7 +95,10 @@ func (a *Adapter) Router() *gin.Engine {
 
 // Listen starts related services.
 func (a *Adapter) Listen(addr string) error {
-	return a.engine.Run(addr)
+	if err := a.engine.Run(addr); err != nil {
+		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
+	}
+	return nil
 }
 
 // ListenContext starts related services.
@@ -118,18 +122,18 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			return err
+			return fmt.Errorf("httpx/gin: shutdown on %q: %w", addr, err)
 		}
 		err := <-errCh
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
 	}
 }
 
@@ -158,9 +162,4 @@ func (a *Adapter) wrapHandler(handler adapter.HandlerFunc) gin.HandlerFunc {
 // HumaAPI returns related data.
 func (a *Adapter) HumaAPI() huma.API {
 	return a.huma
-}
-
-// HasHuma checks related state.
-func (a *Adapter) HasHuma() bool {
-	return a.huma != nil
 }

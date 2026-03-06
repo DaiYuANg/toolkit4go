@@ -1,6 +1,7 @@
 package configx
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -86,16 +87,22 @@ func (c *Config) GetIntSlice(path string) []int {
 // Unmarshal documents related behavior.
 // path documents related behavior.
 func (c *Config) Unmarshal(path string, out any) error {
-	return c.k.Unmarshal(path, out)
+	if err := c.k.Unmarshal(path, out); err != nil {
+		return fmt.Errorf("configx: unmarshal %q: %w", path, err)
+	}
+	return nil
 }
 
 // UnmarshalWithValidate documents related behavior.
 // path documents related behavior.
 func (c *Config) UnmarshalWithValidate(path string, out any) error {
 	if err := c.k.Unmarshal(path, out); err != nil {
-		return err
+		return fmt.Errorf("configx: unmarshal %q: %w", path, err)
 	}
-	return c.validate.Struct(out)
+	if err := c.validate.Struct(out); err != nil {
+		return fmt.Errorf("configx: validate %q: %w", path, err)
+	}
+	return nil
 }
 
 // Exists checks related state.

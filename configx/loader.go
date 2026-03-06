@@ -1,6 +1,8 @@
 package configx
 
 import (
+	"fmt"
+
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
@@ -16,12 +18,15 @@ type Loader struct {
 func (l *Loader) Load(out any) error {
 	cfg, err := l.loadInternal()
 	if err != nil {
-		return err
+		return fmt.Errorf("configx: load config: %w", err)
 	}
 	if err := cfg.k.Unmarshal("", out); err != nil {
-		return err
+		return fmt.Errorf("configx: unmarshal config into output: %w", err)
 	}
-	return cfg.validateStruct(out)
+	if err := cfg.validateStruct(out); err != nil {
+		return fmt.Errorf("configx: validate output: %w", err)
+	}
+	return nil
 }
 
 // LoadConfig returns related data.
@@ -58,10 +63,10 @@ func (l *LoaderT[T]) Load() mo.Result[T] {
 
 	var out T
 	if err := cfg.k.Unmarshal("", &out); err != nil {
-		return mo.Err[T](err)
+		return mo.Err[T](fmt.Errorf("configx: unmarshal config into typed output: %w", err))
 	}
 	if err := cfg.validateStruct(out); err != nil {
-		return mo.Err[T](err)
+		return mo.Err[T](fmt.Errorf("configx: validate typed output: %w", err))
 	}
 	return mo.Ok(out)
 }
@@ -82,14 +87,14 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 	if opts.defaults.IsPresent() {
 		defaults, _ := opts.defaults.Get()
 		if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("configx: load defaults map: %w", err)
 		}
 	}
 
 	// Note.
 	if opts.defaultsStruct != nil {
 		if err := loadDefaultsStruct(k, opts.defaultsStruct); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("configx: load defaults struct: %w", err)
 		}
 	}
 
@@ -97,16 +102,16 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 	for _, src := range opts.priority {
 		switch src {
 		case SourceDotenv:
-			if err := loadDotenv(k, opts.dotenvFiles, opts.ignoreDotenvErr); err != nil {
-				return nil, err
+			if err := loadDotenv(opts.dotenvFiles, opts.ignoreDotenvErr); err != nil {
+				return nil, fmt.Errorf("configx: load dotenv source: %w", err)
 			}
 		case SourceFile:
 			if err := loadFiles(k, opts.files); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("configx: load file source: %w", err)
 			}
 		case SourceEnv:
 			if err := loadEnv(k, opts.envPrefix); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("configx: load env source: %w", err)
 			}
 		}
 	}

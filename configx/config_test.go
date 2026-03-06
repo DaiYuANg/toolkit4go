@@ -1,6 +1,8 @@
 package configx
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -99,6 +101,43 @@ func TestWithIgnoreDotenvError(t *testing.T) {
 	var cfg SimpleConfig
 	err := Load(&cfg,
 		WithDotenv("not-exists.env"),
+		WithIgnoreDotenvError(false),
+		WithPriority(SourceDotenv),
+	)
+	assert.Error(t, err)
+}
+
+func TestDotenvDefaultModeIsOptional(t *testing.T) {
+	var cfg SimpleConfig
+	err := Load(&cfg,
+		WithDotenv("not-exists.env"),
+		WithPriority(SourceDotenv),
+	)
+	assert.NoError(t, err)
+}
+
+func TestWithIgnoreDotenvError_IgnoreParseError(t *testing.T) {
+	envFile := filepath.Join(t.TempDir(), ".env")
+	writeErr := os.WriteFile(envFile, []byte("BROKEN='unclosed"), 0o600)
+	assert.NoError(t, writeErr)
+
+	var cfg SimpleConfig
+	err := Load(&cfg,
+		WithDotenv(envFile),
+		WithIgnoreDotenvError(true),
+		WithPriority(SourceDotenv),
+	)
+	assert.NoError(t, err)
+}
+
+func TestWithIgnoreDotenvError_StrictParseError(t *testing.T) {
+	envFile := filepath.Join(t.TempDir(), ".env")
+	writeErr := os.WriteFile(envFile, []byte("BROKEN='unclosed"), 0o600)
+	assert.NoError(t, writeErr)
+
+	var cfg SimpleConfig
+	err := Load(&cfg,
+		WithDotenv(envFile),
 		WithIgnoreDotenvError(false),
 		WithPriority(SourceDotenv),
 	)

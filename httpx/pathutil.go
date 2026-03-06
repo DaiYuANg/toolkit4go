@@ -1,6 +1,10 @@
 package httpx
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/samber/lo"
+)
 
 func joinRoutePath(basePath, path string) string {
 	base := normalizeRoutePrefix(basePath)
@@ -29,9 +33,6 @@ func joinRoutePath(basePath, path string) string {
 }
 
 func normalizeRoutePrefix(prefix string) string {
-	clean := strings.TrimSpace(prefix)
-	if clean == "" || clean == "/" {
-		return ""
-	}
-	return "/" + strings.Trim(clean, "/")
+	clean := strings.Trim(strings.TrimSpace(prefix), "/")
+	return lo.Ternary(clean == "", "", "/"+clean)
 }

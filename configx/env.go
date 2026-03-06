@@ -1,6 +1,7 @@
 package configx
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -11,19 +12,25 @@ import (
 
 // loadDotenv loads related configuration.
 // ignoreErr documents related behavior.
-func loadDotenv(k *koanf.Koanf, files []string, ignoreErr bool) error {
+func loadDotenv(files []string, ignoreErr bool) error {
 	for _, f := range files {
-		// Note.
-		if _, err := os.Stat(f); os.IsNotExist(err) {
-			if !ignoreErr {
-				return err
+		if _, err := os.Stat(f); err != nil {
+			if ignoreErr {
+				continue
 			}
-			// Note.
-			continue
+			if os.IsNotExist(err) {
+				return fmt.Errorf("configx: dotenv file %q not found: %w", f, err)
+			}
+			return fmt.Errorf("configx: stat dotenv file %q: %w", f, err)
 		}
-		if err := godotenv.Load(f); err != nil && !ignoreErr {
-			return err
+
+		if err := godotenv.Load(f); err != nil {
+			if ignoreErr {
+				continue
+			}
+			return fmt.Errorf("configx: load dotenv file %q: %w", f, err)
 		}
+
 		// Note.
 	}
 	return nil
@@ -49,7 +56,10 @@ func loadEnv(k *koanf.Koanf, prefix string) error {
 		EnvironFunc: os.Environ,
 	})
 
-	return k.Load(p, nil)
+	if err := k.Load(p, nil); err != nil {
+		return fmt.Errorf("configx: load env prefix %q: %w", normalizedPrefix, err)
+	}
+	return nil
 }
 
 func normalizeEnvPrefix(prefix string) string {
@@ -57,8 +67,5 @@ func normalizeEnvPrefix(prefix string) string {
 	if clean == "" {
 		return ""
 	}
-	if strings.HasSuffix(clean, "_") {
-		return clean
-	}
-	return clean + "_"
+	return strings.TrimSuffix(clean, "_") + "_"
 }

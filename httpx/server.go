@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -226,15 +227,20 @@ func (s *Server) ListenAndServe(addr string) error {
 		slog.String("address", addr),
 		slog.String("adapter", s.adapter.Name()),
 		slog.Int("routes", routeCount),
-		slog.Bool("huma_enabled", s.adapter.HasHuma()),
 		slog.Bool("openapi_docs_enabled", !s.humaOpts.DisableDocsRoutes),
 	)
 
 	if listenable, ok := s.adapter.(adapter.ListenableAdapter); ok {
-		return listenable.Listen(addr)
+		if err := listenable.Listen(addr); err != nil {
+			return fmt.Errorf("httpx: adapter %q listen on %q: %w", s.adapter.Name(), addr, err)
+		}
+		return nil
 	}
 
-	return http.ListenAndServe(addr, s.Handler())
+	if err := http.ListenAndServe(addr, s.Handler()); err != nil {
+		return fmt.Errorf("httpx: listen on %q: %w", addr, err)
+	}
+	return nil
 }
 
 // ListenAndServeContext starts related services.
@@ -260,19 +266,19 @@ func (s *Server) ListenAndServeContext(ctx context.Context, addr string) error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("httpx: listen on %q: %w", addr, err)
 	case <-ctx.Done():
 		s.logger.Info("Shutting down server")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			return err
+			return fmt.Errorf("httpx: shutdown server on %q: %w", addr, err)
 		}
 		err := <-errCh
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("httpx: listen on %q: %w", addr, err)
 	}
 }
 
@@ -294,11 +300,6 @@ func (s *Server) Validator() *validator.Validate {
 // HumaAPI returns related data.
 func (s *Server) HumaAPI() huma.API {
 	return s.adapter.HumaAPI()
-}
-
-// HasHuma checks related state.
-func (s *Server) HasHuma() bool {
-	return s.adapter.HasHuma()
 }
 
 func (s *Server) addRoute(route RouteInfo) {

@@ -106,7 +106,6 @@ func TestServer_GenericGetWithDefaultHuma(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "pong")
-	assert.True(t, server.HasHuma())
 }
 
 func TestServer_GenericPostDecodeBody(t *testing.T) {
@@ -421,7 +420,6 @@ func TestServer_DefaultHumaEnabled(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "from huma")
-	assert.True(t, server.HasHuma())
 	assert.NotNil(t, server.HumaAPI())
 }
 
@@ -489,8 +487,6 @@ func (f *fakeHumaAdapter) ConfigureHuma(opts adapter.HumaOptions) {
 }
 
 func (f *fakeHumaAdapter) HumaAPI() huma.API { return nil }
-
-func (f *fakeHumaAdapter) HasHuma() bool { return f.enabled }
 
 func TestServer_OpenAPIOptionsCallAdapter(t *testing.T) {
 	fake := &fakeHumaAdapter{}

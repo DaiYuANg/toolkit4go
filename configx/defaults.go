@@ -1,6 +1,7 @@
 package configx
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -12,9 +13,12 @@ import (
 func loadDefaultsStruct(k *koanf.Koanf, defaults any) error {
 	defaultMap, err := structToMap(defaults)
 	if err != nil {
-		return err
+		return fmt.Errorf("configx: convert defaults struct: %w", err)
 	}
-	return k.Load(confmap.Provider(defaultMap, "."), nil)
+	if err := k.Load(confmap.Provider(defaultMap, "."), nil); err != nil {
+		return fmt.Errorf("configx: load defaults struct into koanf: %w", err)
+	}
+	return nil
 }
 
 // structToMap converts related values.
@@ -66,7 +70,7 @@ func structToMap(s any) (map[string]any, error) {
 		if value.Kind() == reflect.Struct {
 			nested, err := structToMap(value.Interface())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("configx: convert nested field %q: %w", field.Name, err)
 			}
 			result[tag] = nested
 		} else {

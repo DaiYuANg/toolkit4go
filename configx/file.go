@@ -1,6 +1,7 @@
 package configx
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/knadh/koanf/parsers/json"
@@ -29,7 +30,7 @@ func loadFiles(k *koanf.Koanf, files []string) error {
 		}
 
 		if err := k.Load(file.Provider(f), parser); err != nil {
-			return err
+			return fmt.Errorf("configx: load config file %q: %w", f, err)
 		}
 	}
 	return nil

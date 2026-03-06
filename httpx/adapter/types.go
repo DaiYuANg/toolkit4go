@@ -37,9 +37,6 @@ type Adapter interface {
 
 	// HumaAPI returns related data.
 	HumaAPI() huma.API
-
-	// HasHuma enables related functionality.
-	HasHuma() bool
 }
 
 // RouterAdapter exposes router objects with strong typing.
@@ -113,10 +110,7 @@ func normalizeDocsPath(path string) string {
 	if trimmed == "" {
 		return "/docs"
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		return "/" + trimmed
-	}
-	return trimmed
+	return ensureLeadingSlash(trimmed)
 }
 
 func normalizeOpenAPIPath(path string) string {
@@ -131,10 +125,14 @@ func normalizeOpenAPIPath(path string) string {
 	if trimmed == "" {
 		return "/openapi"
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		return "/" + trimmed
+	return ensureLeadingSlash(trimmed)
+}
+
+func ensureLeadingSlash(path string) string {
+	if strings.HasPrefix(path, "/") {
+		return path
 	}
-	return trimmed
+	return "/" + path
 }
 
 // WithRouteParams documents related behavior.

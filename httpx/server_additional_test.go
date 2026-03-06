@@ -25,8 +25,6 @@ func (f *fakeFiberAdapterNoApp) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 func (f *fakeFiberAdapterNoApp) HumaAPI() huma.API { return nil }
 
-func (f *fakeFiberAdapterNoApp) HasHuma() bool { return false }
-
 func (f *fakeFiberAdapterNoApp) Listen(addr string) error { return ErrAdapterNotFound }
 
 type fakeAdapterWithoutHuma struct{}
@@ -40,8 +38,6 @@ func (f *fakeAdapterWithoutHuma) Group(prefix string) adapter.Adapter { return f
 func (f *fakeAdapterWithoutHuma) ServeHTTP(w http.ResponseWriter, r *http.Request) {}
 
 func (f *fakeAdapterWithoutHuma) HumaAPI() huma.API { return nil }
-
-func (f *fakeAdapterWithoutHuma) HasHuma() bool { return false }
 
 func TestServer_GenericHandlerReturnsHTTPXError(t *testing.T) {
 	server := NewServer()

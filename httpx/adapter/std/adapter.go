@@ -3,6 +3,7 @@ package std
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -92,7 +93,10 @@ func (a *Adapter) Router() *chi.Mux {
 
 // Listen starts related services.
 func (a *Adapter) Listen(addr string) error {
-	return http.ListenAndServe(addr, a.router)
+	if err := http.ListenAndServe(addr, a.router); err != nil {
+		return fmt.Errorf("httpx/std: listen on %q: %w", addr, err)
+	}
+	return nil
 }
 
 // ListenContext starts related services.
@@ -116,18 +120,18 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("httpx/std: listen on %q: %w", addr, err)
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			return err
+			return fmt.Errorf("httpx/std: shutdown on %q: %w", addr, err)
 		}
 		err := <-errCh
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("httpx/std: listen on %q: %w", addr, err)
 	}
 }
 
@@ -148,11 +152,6 @@ func (a *Adapter) wrapHandler(handler adapter.HandlerFunc) http.HandlerFunc {
 // HumaAPI returns related data.
 func (a *Adapter) HumaAPI() huma.API {
 	return a.huma
-}
-
-// HasHuma checks related state.
-func (a *Adapter) HasHuma() bool {
-	return a.huma != nil
 }
 
 func joinPath(prefix, path string) string {
