@@ -34,6 +34,27 @@ go tool task test
 go tool task check
 ```
 
+## Git 提交前 Hook
+
+仓库使用 `lefthook`（通过 `go tool` 管理）。
+
+每个 clone 只需执行一次安装：
+
+```bash
+go tool task git:hooks:install
+```
+
+手动执行 hook：
+
+```bash
+go tool task git:hooks:run
+```
+
+`pre-commit` 会在提交前执行：
+
+- `go tool task fmt`
+- `go tool task lint`
+
 ## 说明
 
 - 代码注释统一为英文。

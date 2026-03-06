@@ -38,6 +38,27 @@ go tool task test
 go tool task check
 ```
 
+## Git Pre-Commit Hook
+
+This repo uses `lefthook` (managed via `go tool`).
+
+Install hooks (run once per clone):
+
+```bash
+go tool task git:hooks:install
+```
+
+Run hooks manually:
+
+```bash
+go tool task git:hooks:run
+```
+
+The `pre-commit` hook runs:
+
+- `go tool task fmt`
+- `go tool task lint`
+
 ## Notes
 
 - Code comments are now English-only.
