@@ -9,6 +9,7 @@ import (
 
 	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/fiber"
 	"github.com/DaiYuANg/arcgo/logx"
 	"github.com/danielgtaylor/huma/v2"
@@ -212,7 +213,11 @@ func main() {
 	defer func() { _ = logger.Close() }()
 
 	store := NewUserStore()
-	fiberAdapter := fiber.New()
+	fiberAdapter := fiber.New(nil, adapter.HumaOptions{
+		Title:       "ArcGo Fiber API",
+		Version:     "1.0.0",
+		Description: "Typed Fiber API example",
+	})
 	fiberAdapter.Router().Use(fiberrecover.New(), fiberlogger.New())
 
 	server := httpx.NewServer(
@@ -220,21 +225,18 @@ func main() {
 		httpx.WithLogger(logx.NewSlog(logger)),
 		httpx.WithPrintRoutes(true),
 		httpx.WithValidator(validator.New(validator.WithRequiredStructEnabled())),
-		httpx.WithOpenAPIInfo("ArcGo Fiber API", "1.0.0", "Typed Fiber API example"),
 	)
 
-	if err = httpx.Get(server, "/health", func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
+	httpx.MustGet(server, "/health", func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
 		out := &HealthOutput{}
 		out.Body.Status = "ok"
 		out.Body.Time = time.Now().UTC().Format(time.RFC3339)
 		return out, nil
-	}, huma.OperationTags("system")); err != nil {
-		panic(err)
-	}
+	}, huma.OperationTags("system"))
 
 	api := server.Group("/api/v1")
 
-	if err = httpx.GroupGet(api, "/users", func(ctx context.Context, input *ListUsersInput) (*ListUsersOutput, error) {
+	httpx.MustGroupGet(api, "/users", func(ctx context.Context, input *ListUsersInput) (*ListUsersOutput, error) {
 		limit := input.Limit
 		if limit <= 0 {
 			limit = 10
@@ -256,11 +258,9 @@ func main() {
 		out.Body.Page = page
 		out.Body.Limit = limit
 		return out, nil
-	}, huma.OperationTags("users")); err != nil {
-		panic(err)
-	}
+	}, huma.OperationTags("users"))
 
-	if err = httpx.GroupGet(api, "/users/{id}", func(ctx context.Context, input *GetUserInput) (*GetUserOutput, error) {
+	httpx.MustGroupGet(api, "/users/{id}", func(ctx context.Context, input *GetUserInput) (*GetUserOutput, error) {
 		u, ok := store.Get(input.ID)
 		if !ok {
 			return nil, httpx.NewError(404, "user not found")
@@ -268,20 +268,16 @@ func main() {
 		out := &GetUserOutput{}
 		out.Body = u
 		return out, nil
-	}, huma.OperationTags("users")); err != nil {
-		panic(err)
-	}
+	}, huma.OperationTags("users"))
 
-	if err = httpx.GroupPost(api, "/users", func(ctx context.Context, input *CreateUserInput) (*CreateUserOutput, error) {
+	httpx.MustGroupPost(api, "/users", func(ctx context.Context, input *CreateUserInput) (*CreateUserOutput, error) {
 		u := store.Create(input.Body)
 		out := &CreateUserOutput{}
 		out.Body = u
 		return out, nil
-	}, huma.OperationTags("users")); err != nil {
-		panic(err)
-	}
+	}, huma.OperationTags("users"))
 
-	if err = httpx.GroupPut(api, "/users/{id}", func(ctx context.Context, input *UpdateUserInput) (*UpdateUserOutput, error) {
+	httpx.MustGroupPut(api, "/users/{id}", func(ctx context.Context, input *UpdateUserInput) (*UpdateUserOutput, error) {
 		u, ok := store.Update(input.ID, input.Body)
 		if !ok {
 			return nil, httpx.NewError(404, "user not found")
@@ -289,11 +285,9 @@ func main() {
 		out := &UpdateUserOutput{}
 		out.Body = u
 		return out, nil
-	}, huma.OperationTags("users")); err != nil {
-		panic(err)
-	}
+	}, huma.OperationTags("users"))
 
-	if err = httpx.GroupDelete(api, "/users/{id}", func(ctx context.Context, input *DeleteUserInput) (*DeleteUserOutput, error) {
+	httpx.MustGroupDelete(api, "/users/{id}", func(ctx context.Context, input *DeleteUserInput) (*DeleteUserOutput, error) {
 		deleted := store.Delete(input.ID)
 		if !deleted {
 			return nil, httpx.NewError(404, "user not found")
@@ -301,9 +295,7 @@ func main() {
 		out := &DeleteUserOutput{}
 		out.Body.Deleted = true
 		return out, nil
-	}, huma.OperationTags("users")); err != nil {
-		panic(err)
-	}
+	}, huma.OperationTags("users"))
 
 	fmt.Println("Fiber example server running at :8080")
 	fmt.Println("GET  /health")
@@ -315,7 +307,5 @@ func main() {
 	fmt.Println("OpenAPI: http://localhost:8080/openapi.json")
 	fmt.Println("Docs:    http://localhost:8080/docs")
 
-	if err = server.ListenAndServe(":8080"); err != nil {
-		panic(err)
-	}
+	server.ListenAndServe(":8080")
 }

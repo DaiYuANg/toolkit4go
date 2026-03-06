@@ -26,7 +26,7 @@ func benchmarkServerWithPingRoute(b *testing.B) *Server {
 		return out, nil
 	})
 	if err != nil {
-		b.Fatalf("register benchmark route: %v", err)
+		b.Fatal(err)
 	}
 	return server
 }
@@ -46,7 +46,7 @@ func BenchmarkServerRegisterGet(b *testing.B) {
 			return out, nil
 		})
 		if err != nil {
-			b.Fatalf("register route: %v", err)
+			b.Fatal(err)
 		}
 	}
 }

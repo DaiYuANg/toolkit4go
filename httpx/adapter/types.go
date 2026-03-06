@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/samber/lo"
 )
 
 // HandlerFunc documents related behavior.
@@ -45,11 +46,6 @@ type RouterAdapter[R any] interface {
 	Router() R
 }
 
-// HumaConfigurator configures related behavior.
-type HumaConfigurator interface {
-	ConfigureHuma(opts HumaOptions)
-}
-
 // ListenableAdapter starts related services.
 type ListenableAdapter interface {
 	Listen(addr string) error
@@ -85,6 +81,21 @@ func DefaultHumaOptions() HumaOptions {
 		DocsPath:    "/docs",
 		OpenAPIPath: "/openapi",
 	}
+}
+
+// MergeHumaOptions merges multiple HumaOptions into one.
+// Later options override earlier options for non-empty fields.
+func MergeHumaOptions(opts ...HumaOptions) HumaOptions {
+	result := DefaultHumaOptions()
+	lo.ForEach(opts, func(opt HumaOptions, _ int) {
+		result.Title = lo.Ternary(opt.Title != "", opt.Title, result.Title)
+		result.Version = lo.Ternary(opt.Version != "", opt.Version, result.Version)
+		result.Description = lo.Ternary(opt.Description != "", opt.Description, result.Description)
+		result.DocsPath = lo.Ternary(opt.DocsPath != "", opt.DocsPath, result.DocsPath)
+		result.OpenAPIPath = lo.Ternary(opt.OpenAPIPath != "", opt.OpenAPIPath, result.OpenAPIPath)
+		result.DisableDocsRoutes = lo.Ternary(opt.DisableDocsRoutes, true, result.DisableDocsRoutes)
+	})
+	return result
 }
 
 // ApplyHumaConfig documents related behavior.

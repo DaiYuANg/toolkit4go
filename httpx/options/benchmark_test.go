@@ -15,8 +15,6 @@ func BenchmarkServerOptionsBuild(b *testing.B) {
 		Compose(
 			WithBasePath("/api/v1"),
 			WithValidation(true),
-			WithOpenAPIInfo("ArcGo API", "1.0.0", "benchmark"),
-			WithOpenAPIDocs(true),
 		)(opts)
 
 		compiled := opts.Build()

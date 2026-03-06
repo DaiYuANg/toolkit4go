@@ -94,7 +94,7 @@ func TestServer_AdapterWithoutHumaAPI(t *testing.T) {
 		return out, nil
 	})
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, ErrAdapterNotFound))
+	assert.ErrorContains(t, err, ErrAdapterNotFound.Error())
 }
 
 func TestServer_ListenAndServe_FiberWithoutApp(t *testing.T) {

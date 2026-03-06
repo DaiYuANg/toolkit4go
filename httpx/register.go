@@ -85,48 +85,119 @@ func GroupDelete[I, O any](g *Group, path string, handler TypedHandler[I, O], op
 	return GroupRoute(g, MethodDelete, path, handler, operationOptions...)
 }
 
+// MustRoute registers related handlers and panics on error.
+func MustRoute[I, O any](s *Server, method, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Route(s, method, path, handler, operationOptions...))
+}
+
+// MustGet registers related handlers and panics on error.
+func MustGet[I, O any](s *Server, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Get(s, path, handler, operationOptions...))
+}
+
+// MustPost registers related handlers and panics on error.
+func MustPost[I, O any](s *Server, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Post(s, path, handler, operationOptions...))
+}
+
+// MustPut registers related handlers and panics on error.
+func MustPut[I, O any](s *Server, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Put(s, path, handler, operationOptions...))
+}
+
+// MustPatch registers related handlers and panics on error.
+func MustPatch[I, O any](s *Server, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Patch(s, path, handler, operationOptions...))
+}
+
+// MustDelete registers related handlers and panics on error.
+func MustDelete[I, O any](s *Server, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Delete(s, path, handler, operationOptions...))
+}
+
+// MustHead registers related handlers and panics on error.
+func MustHead[I, O any](s *Server, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Head(s, path, handler, operationOptions...))
+}
+
+// MustOptions registers related handlers and panics on error.
+func MustOptions[I, O any](s *Server, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(Options(s, path, handler, operationOptions...))
+}
+
+// MustGroupRoute registers related handlers and panics on error.
+func MustGroupRoute[I, O any](g *Group, method, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(GroupRoute(g, method, path, handler, operationOptions...))
+}
+
+// MustGroupGet registers related handlers and panics on error.
+func MustGroupGet[I, O any](g *Group, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(GroupGet(g, path, handler, operationOptions...))
+}
+
+// MustGroupPost registers related handlers and panics on error.
+func MustGroupPost[I, O any](g *Group, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(GroupPost(g, path, handler, operationOptions...))
+}
+
+// MustGroupPut registers related handlers and panics on error.
+func MustGroupPut[I, O any](g *Group, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(GroupPut(g, path, handler, operationOptions...))
+}
+
+// MustGroupPatch registers related handlers and panics on error.
+func MustGroupPatch[I, O any](g *Group, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(GroupPatch(g, path, handler, operationOptions...))
+}
+
+// MustGroupDelete registers related handlers and panics on error.
+func MustGroupDelete[I, O any](g *Group, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) {
+	lo.Must0(GroupDelete(g, path, handler, operationOptions...))
+}
+
 func registerTypedWithPrefix[I, O any](s *Server, prefix, method, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) error {
 	if s == nil {
 		return fmt.Errorf("%w: server is nil", ErrRouteNotRegistered)
 	}
-	if handler == nil {
-		return fmt.Errorf("%w: handler cannot be nil", ErrRouteNotRegistered)
+
+	api := lo.Ternary(s.adapter == nil, nil, s.adapter.HumaAPI())
+	if api == nil {
+		return ErrAdapterNotFound
 	}
 
-	fullPath := joinRoutePath(joinRoutePath(s.basePath, prefix), path)
-	upperMethod := strings.ToUpper(strings.TrimSpace(method))
-	if upperMethod == "" {
-		return fmt.Errorf("%w: method is required", ErrRouteNotRegistered)
-	}
+	// Combine server base path with group prefix
+	fullPath := joinRoutePath(s.basePath, joinRoutePath(prefix, path))
 
+	// Always wrap handler with error handling and panic recovery
+	wrappedHandler := withInputValidation(s, handler)
+
+	opID := defaultOperationID(method, fullPath)
+	handlerName := handlerName(handler)
+
+	// Create operation and apply options
 	op := huma.Operation{
-		OperationID: defaultOperationID(upperMethod, fullPath),
-		Method:      upperMethod,
+		OperationID: opID,
+		Method:      method,
 		Path:        fullPath,
 	}
-	lo.ForEach(operationOptions, func(apply OperationOption, _ int) {
-		if apply != nil {
-			apply(&op)
+
+	// Apply operation options
+	lo.ForEach(operationOptions, func(opt OperationOption, _ int) {
+		if opt != nil {
+			opt(&op)
 		}
 	})
 
-	validatedHandler := withInputValidation(s, handler)
-
-	api := s.adapter.HumaAPI()
-	if api == nil {
-		return fmt.Errorf("%w: adapter %q does not expose Huma API", ErrAdapterNotFound, s.adapter.Name())
-	}
-	huma.Register[I, O](api, op, validatedHandler)
-
-	s.addRoute(RouteInfo{
-		Method:      upperMethod,
-		Path:        fullPath,
-		HandlerName: handlerName(handler),
-		Comment:     op.Summary,
-		Tags:        op.Tags,
+	huma.Register(api, op, func(ctx context.Context, input *I) (*O, error) {
+		return wrappedHandler(ctx, input)
 	})
 
-	s.printRoutesIfEnabled()
+	s.addRoute(RouteInfo{
+		Method:      method,
+		Path:        fullPath,
+		HandlerName: handlerName,
+	})
+
 	return nil
 }
 
@@ -150,26 +221,27 @@ func withInputValidation[I, O any](s *Server, handler TypedHandler[I, O]) TypedH
 
 		out, err = handler(ctx, input)
 		if err != nil {
-			return nil, toHumaError(err)
+			// Check if it's a httpx Error and convert to huma StatusError
+			var httpxErr *Error
+			if errors.As(err, &httpxErr) {
+				return nil, lo.Ternary(
+					httpxErr.Err != nil,
+					huma.NewError(httpxErr.Code, httpxErr.Message, httpxErr.Err),
+					huma.NewError(httpxErr.Code, httpxErr.Message),
+				)
+			}
+
+			// Check if it's already a huma StatusError
+			var se huma.StatusError
+			if errors.As(err, &se) {
+				return nil, err
+			}
+
+			// Wrap unknown errors as 500
+			return nil, huma.Error500InternalServerError(err.Error(), err)
 		}
 		return out, nil
 	}
-}
-
-func toHumaError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	var httpxErr *Error
-	if errors.As(err, &httpxErr) {
-		if httpxErr.Err != nil {
-			return huma.NewError(httpxErr.Code, httpxErr.Message, httpxErr.Err)
-		}
-		return huma.NewError(httpxErr.Code, httpxErr.Message)
-	}
-
-	return err
 }
 
 func handlerName(fn any) string {
@@ -177,18 +249,14 @@ func handlerName(fn any) string {
 	if !v.IsValid() || v.Kind() != reflect.Func {
 		return "unknown"
 	}
-	if runtimeFn := runtime.FuncForPC(v.Pointer()); runtimeFn != nil {
-		parts := strings.Split(runtimeFn.Name(), "/")
-		return parts[len(parts)-1]
-	}
-	return "unknown"
+
+	runtimeFn := runtime.FuncForPC(v.Pointer())
+	return lo.Ternary(runtimeFn != nil, lo.LastOr(strings.Split(runtimeFn.Name(), "/"), "unknown"), "unknown")
 }
 
 func defaultOperationID(method, path string) string {
 	cleanPath := strings.Trim(path, "/")
-	if cleanPath == "" {
-		cleanPath = "root"
-	}
+	cleanPath = lo.Ternary(cleanPath == "", "root", cleanPath)
 	cleanPath = strings.NewReplacer("/", "-", "{", "", "}", "", ":", "").Replace(cleanPath)
 	return strings.ToLower(method) + "-" + cleanPath
 }

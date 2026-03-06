@@ -198,10 +198,8 @@ func (o *ServerOptions) Build() []httpx.ServerOption {
 		opts = append(opts, httpx.WithValidation())
 	}
 
-	opts = append(opts,
-		httpx.WithOpenAPIInfo(o.HumaTitle, o.HumaVersion, o.HumaDescription),
-		httpx.WithOpenAPIDocs(o.OpenAPIDocsEnabled),
-	)
+	// Note: OpenAPI options are now configured at adapter creation time.
+	// Use adapter.New(engine, adapter.HumaOptions{Title: "...", Version: "...", DisableDocsRoutes: !o.OpenAPIDocsEnabled})
 
 	return opts
 }

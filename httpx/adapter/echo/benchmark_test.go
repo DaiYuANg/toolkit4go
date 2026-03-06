@@ -12,7 +12,7 @@ import (
 func benchmarkAdapterWithRoute(b *testing.B) *Adapter {
 	b.Helper()
 
-	a := New()
+	a := New(nil)
 	a.Handle(http.MethodGet, "/ping", func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		_ = ctx
 		_ = r

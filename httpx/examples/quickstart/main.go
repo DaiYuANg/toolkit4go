@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
 )
 
@@ -41,45 +42,41 @@ type getUserOutput struct {
 }
 
 func main() {
-	adapter := std.New()
+	adapter := std.New(adapter.HumaOptions{
+		Title:       "httpx quickstart",
+		Version:     "1.0.0",
+		Description: "Typed HTTP quickstart example",
+	})
 
 	server := httpx.NewServer(
 		httpx.WithAdapter(adapter),
 		httpx.WithBasePath("/api"),
-		httpx.WithOpenAPIInfo("httpx quickstart", "1.0.0", "Typed HTTP quickstart example"),
-		httpx.WithOpenAPIDocs(true),
 		httpx.WithValidation(),
 		httpx.WithPrintRoutes(true),
 	)
 
-	if err := httpx.Get(server, "/health", func(ctx context.Context, in *struct{}) (*healthOutput, error) {
+	httpx.MustGet(server, "/health", func(ctx context.Context, in *struct{}) (*healthOutput, error) {
 		out := &healthOutput{}
 		out.Body.Status = "ok"
 		return out, nil
-	}); err != nil {
-		log.Fatal(err)
-	}
+	})
 
 	v1 := server.Group("/v1")
 
-	if err := httpx.GroupPost(v1, "/users", func(ctx context.Context, in *createUserInput) (*createUserOutput, error) {
+	httpx.MustGroupPost(v1, "/users", func(ctx context.Context, in *createUserInput) (*createUserOutput, error) {
 		out := &createUserOutput{}
 		out.Body.ID = 1001
 		out.Body.Name = in.Body.Name
 		out.Body.Email = in.Body.Email
 		return out, nil
-	}); err != nil {
-		log.Fatal(err)
-	}
+	})
 
-	if err := httpx.GroupGet(v1, "/users/{id}", func(ctx context.Context, in *getUserInput) (*getUserOutput, error) {
+	httpx.MustGroupGet(v1, "/users/{id}", func(ctx context.Context, in *getUserInput) (*getUserOutput, error) {
 		out := &getUserOutput{}
 		out.Body.ID = in.ID
 		out.Body.Name = "demo-user"
 		return out, nil
-	}); err != nil {
-		log.Fatal(err)
-	}
+	})
 
 	log.Fatal(server.ListenAndServe(":8080"))
 }

@@ -22,29 +22,25 @@ import (
 // Note.
 // Note.
 type Adapter struct {
-	router  *chi.Mux
-	prefix  string
-	logger  *slog.Logger
-	huma    huma.API
-	humaCfg adapter.HumaOptions
+	router *chi.Mux
+	prefix string
+	logger *slog.Logger
+	huma   huma.API
 }
 
 // New creates related functionality.
-func New() *Adapter {
+func New(opts ...adapter.HumaOptions) *Adapter {
 	router := chi.NewMux()
+
+	humaOpts := adapter.MergeHumaOptions(opts...)
+	cfg := huma.DefaultConfig(humaOpts.Title, humaOpts.Version)
+	adapter.ApplyHumaConfig(&cfg, humaOpts)
 
 	return &Adapter{
 		router: router,
 		logger: slog.Default(),
+		huma:   humachi.New(router, cfg),
 	}
-}
-
-// ConfigureHuma configures related behavior.
-func (a *Adapter) ConfigureHuma(opts adapter.HumaOptions) {
-	a.humaCfg = opts
-	cfg := huma.DefaultConfig(opts.Title, opts.Version)
-	adapter.ApplyHumaConfig(&cfg, opts)
-	a.huma = humachi.New(a.router, cfg)
 }
 
 // WithLogger configures related behavior.
@@ -71,11 +67,10 @@ func (a *Adapter) Group(prefix string) adapter.Adapter {
 		nextPrefix = joinPath(a.prefix, prefix)
 	}
 	return &Adapter{
-		router:  a.router,
-		prefix:  nextPrefix,
-		logger:  a.logger,
-		huma:    a.huma,
-		humaCfg: a.humaCfg,
+		router: a.router,
+		prefix: nextPrefix,
+		logger: a.logger,
+		huma:   a.huma,
 	}
 }
 

@@ -34,7 +34,6 @@ type Server struct {
 	routeKeys   *collectionset.Set[string]
 	logger      *slog.Logger
 	printRoutes bool
-	humaOpts    adapter.HumaOptions
 	validator   *validator.Validate
 }
 
@@ -47,87 +46,12 @@ type Group struct {
 // ServerOption documents related behavior.
 type ServerOption func(*Server)
 
-// WithAdapter configures related behavior.
-func WithAdapter(adapter adapter.Adapter) ServerOption {
-	return func(s *Server) {
-		s.adapter = adapter
-	}
-}
-
-// WithAdapterName configures related behavior.
-// Deprecated: use the new replacement API documented in this package.
-func WithAdapterName(name string) ServerOption {
-	return func(s *Server) {
-		s.logger.Warn("WithAdapterName is deprecated, use adapter subpackages directly")
-	}
-}
-
-// WithBasePath configures related behavior.
-func WithBasePath(path string) ServerOption {
-	return func(s *Server) {
-		s.basePath = normalizeRoutePrefix(path)
-	}
-}
-
-// WithLogger configures related behavior.
-func WithLogger(logger *slog.Logger) ServerOption {
-	return func(s *Server) {
-		s.logger = logger
-	}
-}
-
-// WithPrintRoutes configures related behavior.
-func WithPrintRoutes(enabled bool) ServerOption {
-	return func(s *Server) {
-		s.printRoutes = enabled
-	}
-}
-
-// WithOpenAPIInfo configures related behavior.
-func WithOpenAPIInfo(title, version, description string) ServerOption {
-	return func(s *Server) {
-		if strings.TrimSpace(title) != "" {
-			s.humaOpts.Title = strings.TrimSpace(title)
-		}
-		if strings.TrimSpace(version) != "" {
-			s.humaOpts.Version = strings.TrimSpace(version)
-		}
-		if strings.TrimSpace(description) != "" {
-			s.humaOpts.Description = strings.TrimSpace(description)
-		}
-	}
-}
-
-// WithOpenAPIDocs provides default behavior.
-func WithOpenAPIDocs(enabled bool) ServerOption {
-	return func(s *Server) {
-		s.humaOpts.DisableDocsRoutes = !enabled
-	}
-}
-
-// WithValidation enables related functionality.
-func WithValidation() ServerOption {
-	return func(s *Server) {
-		if s.validator == nil {
-			s.validator = validator.New(validator.WithRequiredStructEnabled())
-		}
-	}
-}
-
-// WithValidator closes related resources.
-func WithValidator(v *validator.Validate) ServerOption {
-	return func(s *Server) {
-		s.validator = v
-	}
-}
-
 // NewServer creates related functionality.
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		logger:    slog.Default(),
 		routes:    collectionlist.NewList[RouteInfo](),
 		routeKeys: collectionset.NewSet[string](),
-		humaOpts:  adapter.DefaultHumaOptions(),
 	}
 
 	lo.ForEach(opts, func(opt ServerOption, _ int) {
@@ -135,12 +59,7 @@ func NewServer(opts ...ServerOption) *Server {
 	})
 
 	if s.adapter == nil {
-		// Note.
 		s.adapter = std.New()
-	}
-
-	if humaConfigurator, ok := s.adapter.(adapter.HumaConfigurator); ok {
-		humaConfigurator.ConfigureHuma(s.humaOpts)
 	}
 
 	return s
@@ -173,25 +92,24 @@ func (s *Server) printRoutesIfEnabled() {
 
 // GetRoutes returns related data.
 func (s *Server) GetRoutes() []RouteInfo {
-	routes := s.routesSnapshot()
-	return lo.Map(routes, func(route RouteInfo, _ int) RouteInfo {
-		return route
-	})
+	return s.routesSnapshot()
 }
 
 // GetRoutesByMethod documents related behavior.
 func (s *Server) GetRoutesByMethod(method string) []RouteInfo {
-	routes := s.routesSnapshot()
-	return lo.Filter(routes, func(route RouteInfo, _ int) bool {
-		return route.Method == strings.ToUpper(method)
+	method = strings.ToUpper(method)
+	return lo.Filter(s.routesSnapshot(), func(route RouteInfo, _ int) bool {
+		return route.Method == method
 	})
 }
 
 // GetRoutesByPath documents related behavior.
 func (s *Server) GetRoutesByPath(prefix string) []RouteInfo {
-	routes := s.routesSnapshot()
-	return lo.Filter(routes, func(route RouteInfo, _ int) bool {
-		return len(prefix) == 0 || strings.HasPrefix(route.Path, prefix)
+	if prefix == "" {
+		return s.routesSnapshot()
+	}
+	return lo.Filter(s.routesSnapshot(), func(route RouteInfo, _ int) bool {
+		return strings.HasPrefix(route.Path, prefix)
 	})
 }
 
@@ -228,7 +146,6 @@ func (s *Server) ListenAndServe(addr string) error {
 		slog.String("address", addr),
 		slog.String("adapter", s.adapter.Name()),
 		slog.Int("routes", routeCount),
-		slog.Bool("openapi_docs_enabled", !s.humaOpts.DisableDocsRoutes),
 	)
 
 	if listenable, ok := s.adapter.(adapter.ListenableAdapter); ok {
@@ -306,10 +223,12 @@ func (s *Server) HumaAPI() huma.API {
 func (s *Server) addRoute(route RouteInfo) {
 	s.routesMu.Lock()
 	defer s.routesMu.Unlock()
+
 	key := routeKey(route.Method, route.Path)
 	if s.routeKeys.Contains(key) {
 		return
 	}
+
 	s.routeKeys.Add(key)
 	s.routes.Add(route)
 }

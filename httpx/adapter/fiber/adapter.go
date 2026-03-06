@@ -28,35 +28,31 @@ import (
 // Note.
 // Note.
 type Adapter struct {
-	app     *fiber.App
-	group   fiber.Router
-	logger  *slog.Logger
-	huma    huma.API
-	humaCfg adapter.HumaOptions
+	app    *fiber.App
+	group  fiber.Router
+	logger *slog.Logger
+	huma   huma.API
 }
 
 // New creates related functionality.
-func New(app ...*fiber.App) *Adapter {
+func New(app *fiber.App, opts ...adapter.HumaOptions) *Adapter {
 	var a *fiber.App
-	if len(app) > 0 {
-		a = app[0]
+	if app != nil {
+		a = app
 	} else {
 		a = fiber.New()
 	}
+
+	humaOpts := adapter.MergeHumaOptions(opts...)
+	cfg := huma.DefaultConfig(humaOpts.Title, humaOpts.Version)
+	adapter.ApplyHumaConfig(&cfg, humaOpts)
 
 	return &Adapter{
 		app:    a,
 		group:  a,
 		logger: slog.Default(),
+		huma:   humafiber.New(a, cfg),
 	}
-}
-
-// ConfigureHuma configures related behavior.
-func (a *Adapter) ConfigureHuma(opts adapter.HumaOptions) {
-	a.humaCfg = opts
-	cfg := huma.DefaultConfig(opts.Title, opts.Version)
-	adapter.ApplyHumaConfig(&cfg, opts)
-	a.huma = humafiber.New(a.app, cfg)
 }
 
 // WithLogger configures related behavior.
@@ -78,11 +74,10 @@ func (a *Adapter) Handle(method, path string, handler adapter.HandlerFunc) {
 // Group creates related functionality.
 func (a *Adapter) Group(prefix string) adapter.Adapter {
 	return &Adapter{
-		app:     a.app,
-		group:   a.group.Group(prefix),
-		logger:  a.logger,
-		huma:    a.huma,
-		humaCfg: a.humaCfg,
+		app:    a.app,
+		group:  a.group.Group(prefix),
+		logger: a.logger,
+		huma:   a.huma,
 	}
 }
 

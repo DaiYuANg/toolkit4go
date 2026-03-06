@@ -23,35 +23,31 @@ import (
 // Note.
 // Note.
 type Adapter struct {
-	engine  *echo.Echo
-	group   *echo.Group
-	logger  *slog.Logger
-	huma    huma.API
-	humaCfg adapter.HumaOptions
+	engine *echo.Echo
+	group  *echo.Group
+	logger *slog.Logger
+	huma   huma.API
 }
 
 // New creates related functionality.
-func New(engine ...*echo.Echo) *Adapter {
+func New(engine *echo.Echo, opts ...adapter.HumaOptions) *Adapter {
 	var eng *echo.Echo
-	if len(engine) > 0 {
-		eng = engine[0]
+	if engine != nil {
+		eng = engine
 	} else {
 		eng = echo.New()
 	}
+
+	humaOpts := adapter.MergeHumaOptions(opts...)
+	cfg := huma.DefaultConfig(humaOpts.Title, humaOpts.Version)
+	adapter.ApplyHumaConfig(&cfg, humaOpts)
 
 	return &Adapter{
 		engine: eng,
 		group:  nil,
 		logger: slog.Default(),
+		huma:   humaecho.New(eng, cfg),
 	}
-}
-
-// ConfigureHuma configures related behavior.
-func (a *Adapter) ConfigureHuma(opts adapter.HumaOptions) {
-	a.humaCfg = opts
-	cfg := huma.DefaultConfig(opts.Title, opts.Version)
-	adapter.ApplyHumaConfig(&cfg, opts)
-	a.huma = humaecho.New(a.engine, cfg)
 }
 
 // WithLogger configures related behavior.
@@ -84,11 +80,10 @@ func (a *Adapter) Group(prefix string) adapter.Adapter {
 	}
 
 	return &Adapter{
-		engine:  a.engine,
-		group:   g,
-		logger:  a.logger,
-		huma:    a.huma,
-		humaCfg: a.humaCfg,
+		engine: a.engine,
+		group:  g,
+		logger: a.logger,
+		huma:   a.huma,
 	}
 }
 
