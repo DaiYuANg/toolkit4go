@@ -1,0 +1,43 @@
+{{/* 导航栏版本切换器 - Navbar Version Switcher for Hextra */}}
+{{ $versions := .context.Site.Data.versions.versions }}
+{{ $currentVersion := "" }}
+{{ $currentPath := "" }}
+
+{{ range $versions }}
+  {{ if .current }}
+    {{ $currentVersion = .name }}
+    {{ $currentPath = .path }}
+  {{ end }}
+{{ end }}
+
+{{ if $versions }}
+<div class="hx:relative hx:inline-block hx-group">
+  <button
+    class="hx:flex hx:items-center hx:gap-1 hx:px-2 hx:py-1.5 hx:text-sm hx:font-medium hx:text-gray-700 hx:dark:hx:text-gray-200 hx:hover:hx:bg-gray-100 hx:dark:hx:hover:hx:bg-gray-800 hx:rounded-md hx:transition-colors"
+    aria-haspopup="true"
+    aria-expanded="false"
+    title="{{ T "selectVersion" | default "Select version" }}"
+  >
+    <svg class="hx:w-4 hx:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+    </svg>
+    <span class="hx:hidden hx:lg:inline-block">{{ $currentVersion }}</span>
+  </button>
+
+  <div
+    class="hx:absolute hx:right-0 hx:top-full hx:mt-1 hx:w-40 hx:bg-white hx:dark:hx:bg-gray-800 hx:rounded-md hx:shadow-lg hx:ring-1 hx:ring-black hx:ring-opacity-5 hx:opacity-0 hx:invisible hx:group-hover:hx:opacity-100 hx:group-hover:hx:visible hx:transition-all hx:duration-200 hx:z-50"
+  >
+    <div class="hx:py-1" role="menu">
+      {{ range $versions }}
+      <a
+        href="{{ .path }}"
+        class="hx:block hx:px-4 hx:py-2 hx:text-sm hx:text-gray-700 hx:dark:hx:text-gray-200 hx:hover:hx:bg-gray-100 hx:dark:hx:hover:hx:bg-gray-700 {{ if .current }}hx:font-semibold hx:bg-blue-50 hx:dark:hx:bg-blue-900/20{{ end }}"
+        role="menuitem"
+      >
+        {{ .name }}{{ if .current }} ✓{{ end }}
+      </a>
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

@@ -143,3 +143,21 @@ tasks:
     desc: Alias of release:auto
     deps:
       - release:auto
+
+  docs:version:sync:
+    desc: Sync documentation versions from git tags
+    dir: '{{.ROOT_DIR}}/docs'
+    cmds:
+      - go run ./scripts/sync-versions.go
+
+  docs:serve:
+    desc: Start Hugo development server
+    dir: '{{.ROOT_DIR}}/docs'
+    cmds:
+      - go tool hugo server -D --bind 0.0.0.0
+
+  docs:build:
+    desc: Build production documentation
+    dir: '{{.ROOT_DIR}}/docs'
+    cmds:
+      - go tool hugo --gc --minify

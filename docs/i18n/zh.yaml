@@ -1,0 +1,29 @@
+# 中文翻译文件
+
+# 菜单项
+docs: 文档
+github: GitHub
+
+# 通用字符串
+readMore: 阅读全文
+editThisPage: 编辑此页面
+lastUpdated: 最后更新
+onThisPage: 本页内容
+searchPlaceholder: 搜索文档...
+searchNoResults: 未找到结果
+searchCancel: 取消
+copy: 复制
+copied: 已复制
+expand: 展开
+collapse: 收起
+
+# 页脚
+copyright: 版权所有
+poweredBy: Powered by
+
+# 404 页面
+pageNotFound: 页面未找到
+pageNotFoundDescription: 抱歉，我们找不到你要找的页面
+
+# 版本切换器
+selectVersion: 选择版本

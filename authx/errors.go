@@ -104,8 +104,7 @@ func GetCode(err error) ErrorCode {
 		return ""
 	}
 
-	var authxErr *Error
-	if errors.As(err, &authxErr) {
+	if authxErr, ok := errors.AsType[*Error](err); ok {
 		return authxErr.Code
 	}
 	return ""

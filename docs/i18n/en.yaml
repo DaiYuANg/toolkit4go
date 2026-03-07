@@ -1,0 +1,29 @@
+# English translation file
+
+# Menu items
+docs: Documentation
+github: GitHub
+
+# Common strings
+readMore: Read more
+editThisPage: Edit this page
+lastUpdated: Last updated on
+onThisPage: On this page
+searchPlaceholder: Search documentation...
+searchNoResults: No results found
+searchCancel: Cancel
+copy: Copy
+copied: Copied
+expand: Expand
+collapse: Collapse
+
+# Footer
+copyright: Copyright
+poweredBy: Powered by
+
+# 404 page
+pageNotFound: Page not found
+pageNotFoundDescription: Sorry, we couldn't find the page you're looking for
+
+# Version switcher
+selectVersion: Select version

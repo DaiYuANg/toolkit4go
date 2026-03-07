@@ -1,0 +1,42 @@
+{{/* 版本提示 Banner - Version Banner */}}
+{{ $versions := .Site.Data.versions.versions }}
+{{ $currentVersion := "" }}
+{{ $isCurrentVersion := true }}
+
+{{/* 检查当前是否为最新版本 */}}
+{{ range $versions }}
+  {{ if .current }}
+    {{ $currentVersion = .name }}
+  {{ end }}
+{{ end }}
+
+{{/* 检查当前页面路径 */}}
+{{ $pagePath := .File.Path }}
+{{ if not (hasPrefix $pagePath "versioned/") }}
+  {{ $isCurrentVersion = true }}
+{{ else }}
+  {{ $isCurrentVersion = false }}
+{{ end }}
+
+{{ if not $isCurrentVersion }}
+{{ $versionName := "" }}
+{{ range $versions }}
+  {{ if hasPrefix $pagePath (printf "versioned/%s" .name) }}
+    {{ $versionName = .name }}
+  {{ end }}
+{{ end }}
+
+{{ if $versionName }}
+<div class="hx-bg-yellow-50 hx-dark:hx-bg-yellow-900/20 hx-border-b hx-border-yellow-200 hx-dark:hx-border-yellow-900 hx-py-2">
+  <div class="hx-container hx-flex hx-items-center hx-justify-center hx-gap-2 hx-text-sm hx-text-yellow-800 hx-dark:hx-text-yellow-200">
+    <svg xmlns="http://www.w3.org/2000/svg" class="hx-w-5 hx-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <span>
+      <strong>您正在查看 {{ $versionName }} 版本文档</strong>
+      <a href="/" class="hx-underline hx-font-semibold hx-ml-2">查看最新版本 ({{ $currentVersion }})</a>
+    </span>
+  </div>
+</div>
+{{ end }}
+{{ end }}

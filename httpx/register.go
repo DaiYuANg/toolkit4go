@@ -236,8 +236,7 @@ func withInputValidation[I, O any](s *Server, handler TypedHandler[I, O]) TypedH
 
 		out, err = handler(ctx, input)
 		if err != nil {
-			var httpxErr *Error
-			if errors.As(err, &httpxErr) {
+			if httpxErr, ok := errors.AsType[*Error](err); ok {
 				return nil, lo.Ternary(
 					httpxErr.Err != nil,
 					huma.NewError(httpxErr.Code, httpxErr.Message, httpxErr.Err),
@@ -245,8 +244,7 @@ func withInputValidation[I, O any](s *Server, handler TypedHandler[I, O]) TypedH
 				)
 			}
 
-			var se huma.StatusError
-			if errors.As(err, &se) {
+			if _, ok := errors.AsType[huma.StatusError](err); ok {
 				return nil, err
 			}
 

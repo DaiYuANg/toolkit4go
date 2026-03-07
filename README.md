@@ -1,21 +1,23 @@
 # arcgo
 
-`arcgo` is a modular Go toolkit for backend infrastructure.  
+`arcgo` is a modular Go toolkit for backend infrastructure.
 It is organized by independent packages so you can adopt only what you need.
 
 English | [Chinese](./README_ZH.md)
 
-## Package Guides
+> **Documentation**: Browse the [Hugo documentation site](./docs/) for a unified documentation experience.
 
-| Package | What it solves | English | Chinese | Runnable Quickstart |
-| --- | --- | --- | --- | --- |
-| `authx` | Opinionated security layer on Authboss + Casbin | [authx/README.md](./authx/README.md) | [authx/README_ZH.md](./authx/README_ZH.md) | [authx/examples/quickstart](./authx/examples/quickstart) |
-| `collectionx` | Generic collections and concurrent-safe structures | [collectionx/README.md](./collectionx/README.md) | [collectionx/README_ZH.md](./collectionx/README_ZH.md) | [collectionx/examples/quickstart](./collectionx/examples/quickstart) |
-| `configx` | Layered config loading and validation | [configx/README.md](./configx/README.md) | [configx/README_ZH.md](./configx/README_ZH.md) | - |
-| `eventx` | In-memory typed event bus | [eventx/README.md](./eventx/README.md) | [eventx/README_ZH.md](./eventx/README_ZH.md) | - |
-| `httpx` | Typed HTTP routing across adapters | [httpx/README.md](./httpx/README.md) | [httpx/README_ZH.md](./httpx/README_ZH.md) | [httpx/examples/quickstart](./httpx/examples/quickstart) |
-| `logx` | Structured logging with zerolog + slog bridge | [logx/README.md](./logx/README.md) | [logx/README_ZH.md](./logx/README_ZH.md) | - |
-| `observability` | Optional observability facade with OTel/Prometheus adapters | [observability/README.md](./observability/README.md) | [observability/README_ZH.md](./observability/README_ZH.md) | [observability/examples/multi](./observability/examples/multi) |
+## Packages
+
+| Package | Description |
+| --- | --- |
+| `authx` | Opinionated security layer on Authboss + Casbin |
+| `collectionx` | Generic collections and concurrent-safe structures |
+| `configx` | Layered config loading and validation |
+| `eventx` | In-memory typed event bus |
+| `httpx` | Typed HTTP routing across adapters |
+| `logx` | Structured logging with zerolog + slog bridge |
+| `observability` | Optional observability facade with OTel/Prometheus adapters |
 
 ## How To Choose Quickly
 
@@ -61,9 +63,10 @@ go tool task git:hooks:run
 The `pre-commit` hook runs:
 
 - `go tool task fmt`
-- `go tool task lint`
+- `go tool task lint
+```
 
 ## Notes
 
-- Code comments are now English-only.
-- Chinese docs are kept as `README_ZH.md` files per package.
+- Code comments are English-only.
+- All documentation is available at the Hugo documentation site.
