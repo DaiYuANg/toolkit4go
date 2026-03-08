@@ -9,6 +9,11 @@ weight: 5
 
 `httpx` is a lightweight HTTP service organization layer built on top of Huma.
 
+## Roadmap
+
+- Module roadmap: [httpx roadmap](./roadmap)
+- Global roadmap: [ArcGo roadmap](../roadmap)
+
 ## What You Get
 
 - Unified typed route registration across adapters (`Get`, `Post`, `Put`, `Patch`, `Delete`...)

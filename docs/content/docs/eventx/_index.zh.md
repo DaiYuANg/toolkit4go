@@ -9,6 +9,11 @@ weight: 4
 
 `eventx` 是一个用于 Go 服务的内存强类型事件总线。
 
+## 路线图
+
+- 模块路线图：[eventx roadmap](./roadmap)
+- 全局路线图：[ArcGo roadmap](../roadmap)
+
 ## 核心能力
 
 - 泛型类型订阅：`Subscribe[T Event]`
@@ -83,7 +88,7 @@ if errors.Is(err, eventx.ErrAsyncQueueFull) {
 ```go
 otelObs := otelobs.New()
 promObs := promobs.New()
-obs := observability.Multi(otelObs, promObs)
+obs := observabilityx.Multi(otelObs, promObs)
 
 bus := eventx.New(
     eventx.WithObservability(obs),

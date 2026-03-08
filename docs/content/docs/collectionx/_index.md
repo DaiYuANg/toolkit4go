@@ -9,6 +9,11 @@ weight: 2
 
 `collectionx` provides strongly typed collection data structures for Go, including concurrent variants and non-standard structures like `MultiMap`, `Table`, `Trie`, and interval structures.
 
+## Roadmap
+
+- Module roadmap: [collectionx roadmap](./roadmap)
+- Global roadmap: [ArcGo roadmap](../roadmap)
+
 ## Why Use collectionx
 
 Go standard containers are intentionally minimal. `collectionx` focuses on:

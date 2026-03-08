@@ -20,22 +20,37 @@ go get github.com/DaiYuANg/arcgo/{package}
 | Package | Purpose | Description |
 | --- | --- | --- |
 | [authx](./authx) | Authentication & Authorization | Opinionated security layer based on Authboss + Casbin |
+| [clientx](./clientx) | Protocol Clients | Protocol-oriented clients (`http/tcp/udp`) with shared engineering conventions |
 | [collectionx](./collectionx) | Data Structures | Generic collections and concurrency-safe structures |
 | [configx](./configx) | Configuration Management | Hierarchical configuration loading and validation |
 | [eventx](./eventx) | Event Bus | In-process strongly typed event bus |
 | [httpx](./httpx) | HTTP Routing | Multi-framework unified strongly typed HTTP routing |
 | [logx](./logx) | Logging | Structured logging with slog interoperability |
-| [observability](./observability) | Observability | Optional observability abstraction (OTel/Prometheus) |
+| [observabilityx](./observabilityx) | Observability | Optional observability abstraction (OTel/Prometheus) |
+
+## Roadmap
+
+- Unified roadmap (all modules): [ArcGo roadmap](./roadmap)
+- Module-level roadmap details:
+- [authx roadmap](./authx/roadmap)
+- [clientx roadmap](./clientx/roadmap)
+- [collectionx roadmap](./collectionx/roadmap)
+- [configx roadmap](./configx/roadmap)
+- [eventx roadmap](./eventx/roadmap)
+- [httpx roadmap](./httpx/roadmap)
+- [logx roadmap](./logx/roadmap)
+- [observabilityx roadmap](./observabilityx/roadmap)
 
 ## How to Choose
 
 - Need container/data utilities: Start with `collectionx`
 - Need authentication/authorization abstraction based on Authboss + Casbin: Start with `authx`
+- Need protocol-oriented clients (`http/tcp/udp`) with shared conventions: Start with `clientx`
 - Need configuration loading from `.env` + files + environment variables: Start with `configx`
 - Need in-process typed pub/sub: Start with `eventx`
 - Need unified typed HTTP handlers across frameworks: Start with `httpx`
 - Need structured logging with rotation: Start with `logx`
-- Need optional telemetry abstraction (OTel/Prometheus): Start with `observability`
+- Need optional telemetry abstraction (OTel/Prometheus): Start with `observabilityx`
 
 ## Typical Combinations
 

@@ -20,22 +20,37 @@ go get github.com/DaiYuANg/arcgo/{package}
 | 包 | 作用 | 描述 |
 | --- | --- | --- |
 | [authx](./authx) | 认证与授权 | 基于 Authboss + Casbin 的 Opinionated 安全抽象层 |
+| [clientx](./clientx) | 协议客户端 | 协议导向客户端（`http/tcp/udp`）+ 共享工程约束 |
 | [collectionx](./collectionx) | 数据结构 | 泛型集合与并发安全结构 |
 | [configx](./configx) | 配置管理 | 分层配置加载与校验 |
 | [eventx](./eventx) | 事件总线 | 进程内强类型事件总线 |
 | [httpx](./httpx) | HTTP 路由 | 多框架统一强类型 HTTP 路由 |
 | [logx](./logx) | 日志记录 | 结构化日志与 slog 互通 |
-| [observability](./observability) | 可观测性 | 可选可观测性抽象（OTel/Prometheus） |
+| [observabilityx](./observabilityx) | 可观测性 | 可选可观测性抽象（OTel/Prometheus） |
+
+## 路线图
+
+- 统一路线图（含全部模块）: [ArcGo roadmap](./roadmap)
+- 模块细化路线图：
+- [authx roadmap](./authx/roadmap)
+- [clientx roadmap](./clientx/roadmap)
+- [collectionx roadmap](./collectionx/roadmap)
+- [configx roadmap](./configx/roadmap)
+- [eventx roadmap](./eventx/roadmap)
+- [httpx roadmap](./httpx/roadmap)
+- [logx roadmap](./logx/roadmap)
+- [observabilityx roadmap](./observabilityx/roadmap)
 
 ## 如何选择
 
 - 需要容器/数据辅助：从 `collectionx` 开始
 - 需要基于 Authboss + Casbin 的认证/授权抽象：从 `authx` 开始
+- 需要协议导向客户端（`http/tcp/udp`）并共享工程约束：从 `clientx` 开始
 - 需要从 `.env` + 文件 + 环境变量加载配置：从 `configx` 开始
 - 需要进程内带类型负载的 pub/sub：从 `eventx` 开始
 - 需要跨框架的统一类型化 HTTP 处理器：从 `httpx` 开始
 - 需要结构化日志和轮转：从 `logx` 开始
-- 需要可选的遥测抽象（OTel/Prometheus）：从 `observability` 开始
+- 需要可选的遥测抽象（OTel/Prometheus）：从 `observabilityx` 开始
 
 ## 典型组合
 
@@ -89,3 +104,4 @@ go tool task git:hooks:run
 
 - [GitHub 仓库](https://github.com/DaiYuANg/arcgo)
 - [Go 模块](https://pkg.go.dev/github.com/DaiYuANg/arcgo)
+

@@ -1,7 +1,7 @@
 # arcgo
 
 `arcgo` is a modular Go toolkit for backend infrastructure.
-It is organized by independent packages so you can adopt only what you need.
+It is package-oriented, supports incremental adoption, and allows inter-package composition.
 
 English | [Chinese](./README_ZH.md)
 
@@ -17,7 +17,7 @@ English | [Chinese](./README_ZH.md)
 | `eventx` | In-memory typed event bus |
 | `httpx` | Typed HTTP routing across adapters |
 | `logx` | Structured logging with zerolog + slog bridge |
-| `observability` | Optional observability facade with OTel/Prometheus adapters |
+| `observabilityx` | Optional observability facade with OTel/Prometheus adapters |
 
 ## How To Choose Quickly
 
@@ -27,7 +27,7 @@ English | [Chinese](./README_ZH.md)
 - You need process-local pub/sub with typed payloads: start with `eventx`.
 - You need unified typed HTTP handlers across frameworks: start with `httpx`.
 - You need structured logs and rotation: start with `logx`.
-- You need optional telemetry abstraction (OTel/Prometheus): start with `observability`.
+- You need optional telemetry abstraction (OTel/Prometheus): start with `observabilityx`.
 
 ## Typical Stack Combinations
 
@@ -63,7 +63,7 @@ go tool task git:hooks:run
 The `pre-commit` hook runs:
 
 - `go tool task fmt`
-- `go tool task lint
+- `go tool task lint`
 ```
 
 ## Notes

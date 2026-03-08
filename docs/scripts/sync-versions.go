@@ -135,11 +135,11 @@ func createVersionsConfig(tags []string) []Version {
 		}
 
 		if i == 0 {
-			// 当前版本路径为空
-			version.Path = ""
+			// 当前版本入口固定到 /docs
+			version.Path = "/docs"
 		} else {
-			// 历史版本路径
-			version.Path = fmt.Sprintf("/versioned/%s", tag)
+			// 历史版本入口固定到 /versioned/<tag>/docs
+			version.Path = fmt.Sprintf("/versioned/%s/docs", tag)
 		}
 
 		versions = append(versions, version)

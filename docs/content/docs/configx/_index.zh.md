@@ -9,6 +9,11 @@ weight: 3
 
 `configx` 是基于 `koanf` 和 `validator` 构建的分层配置加载器。
 
+## 路线图
+
+- 模块路线图：[configx roadmap](./roadmap)
+- 全局路线图：[ArcGo roadmap](../roadmap)
+
 ## 支持的功能
 
 - `.env` 加载 (`WithDotenv`)
@@ -129,7 +134,7 @@ _, _, _, _ = name, port, exists, all
 ```go
 otelObs := otelobs.New()
 promObs := promobs.New()
-obs := observability.Multi(otelObs, promObs)
+obs := observabilityx.Multi(otelObs, promObs)
 
 err := configx.Load(&cfg,
     configx.WithObservability(obs),

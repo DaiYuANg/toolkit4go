@@ -1,6 +1,6 @@
 # arcgo
 
-`arcgo` 是模块化的 Go 后端基础设施工具集，可按需引入。
+`arcgo` 是模块化的 Go 后端基础设施工具集，按包组织、可按需引入，并允许包间依赖组合。
 
 [English](./README.md) | Chinese
 
@@ -16,7 +16,7 @@
 | `eventx` | 进程内强类型事件总线 |
 | `httpx` | 多框架统一强类型 HTTP 路由 |
 | `logx` | 结构化日志与 `slog` 互通 |
-| `observability` | 可选可观测性抽象（OTel/Prometheus） |
+| `observabilityx` | 可选可观测性抽象（OTel/Prometheus） |
 
 ## 快速选择
 
@@ -26,7 +26,7 @@
 - 需要进程内带类型的事件总线：从 `eventx` 开始
 - 需要跨框架的统一 HTTP 路由：从 `httpx` 开始
 - 需要结构化日志和日志轮转：从 `logx` 开始
-- 需要可选的遥测抽象（OTel/Prometheus）：从 `observability` 开始
+- 需要可选的遥测抽象（OTel/Prometheus）：从 `observabilityx` 开始
 
 ## 常见组合
 
@@ -62,7 +62,7 @@ go tool task git:hooks:run
 `pre-commit` 会在提交前执行：
 
 - `go tool task fmt`
-- `go tool task lint
+- `go tool task lint`
 ```
 
 ## 说明

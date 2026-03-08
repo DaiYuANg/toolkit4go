@@ -9,9 +9,9 @@ import (
 	"github.com/DaiYuANg/arcgo/httpx"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/DaiYuANg/arcgo/logx"
-	"github.com/DaiYuANg/arcgo/observability"
-	otelobs "github.com/DaiYuANg/arcgo/observability/otel"
-	promobs "github.com/DaiYuANg/arcgo/observability/prometheus"
+	"github.com/DaiYuANg/arcgo/observabilityx"
+	otelobs "github.com/DaiYuANg/arcgo/observabilityx/otel"
+	promobs "github.com/DaiYuANg/arcgo/observabilityx/prometheus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -45,7 +45,7 @@ func main() {
 	defer func() { _ = logger.Close() }()
 
 	prom := promobs.New(promobs.WithNamespace("authx_example"))
-	obs := observability.Multi(otelobs.New(), prom)
+	obs := observabilityx.Multi(otelobs.New(), prom)
 
 	manager, err := authx.NewManager(
 		authx.WithLogger(logx.NewSlog(logger)),

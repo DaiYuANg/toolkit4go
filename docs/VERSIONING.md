@@ -4,43 +4,33 @@
 
 ## 📁 目录结构
 
-```
+```text
 docs/
 ├── content/
-│   ├── docs/                # 当前版本文档（最新版本）
-│   └── versioned/           # 历史版本文档
-│       ├── v0.2.2/          # v0.2.2 版本文档
-│       ├── v0.2.1/          # v0.2.1 版本文档
-│       └── v0.0.1/          # v0.0.1 版本文档
+│   ├── docs/                      # 当前版本文档
+│   └── versioned/                 # 历史版本文档
+│       ├── v0.2.1/
+│       ├── v0.2.0/
+│       └── ...
 ├── data/
-│   └── versions.yaml        # 版本配置文件
+│   └── versions.yaml              # 版本配置
 ├── layouts/
-│   └── partials/
-│       ├── navbar/
-│       │   └── end.html     # 导航栏版本切换器
-│       └── version-banner.html  # 版本提示横幅
-├── scripts/
-│   └── sync-versions.go     # Go 版本同步脚本（跨平台）
-└── VERSIONING.md            # 本文档
+│   ├── _partials/                 # Hextra v0.12+ 覆盖模板
+│   │   ├── navbar.html
+│   │   └── navbar/version-switcher.html
+└── scripts/
+    └── sync-versions.go
 ```
+
+## ✅ 运行前提（Hextra）
+
+- 主题版本：`github.com/imfing/hextra v0.12.1`
+- Hugo 最低版本：`0.146.0`（extended）
+- 推荐命令：`go tool hugo`（避免全局 `hugo` 版本不一致）
 
 ## 🚀 快速开始
 
-### 添加新版本
-
-当你发布新的 git tag 后，执行以下步骤：
-
-#### 方式一：使用 Taskfile（推荐）
-
-```bash
-# 同步版本文档
-go tool task docs:version:sync
-
-# 启动开发服务器
-go tool task docs:serve
-```
-
-#### 方式二：直接运行 Go 脚本
+### 发布新版本后同步
 
 ```bash
 cd docs
@@ -48,123 +38,58 @@ go run scripts/sync-versions.go
 ```
 
 脚本会自动：
-1. 读取所有 git tags
-2. 更新 `data/versions.yaml` 配置文件
-3. 创建对应的版本文档目录
+1. 读取 git tags
+2. 更新 `data/versions.yaml`
+3. 初始化缺失的版本目录
 
-### 手动管理版本
-
-#### 1. 更新 versions.yaml
-
-编辑 `docs/data/versions.yaml`：
+## 🧩 versions.yaml 规范
 
 ```yaml
 versions:
-  - name: "v0.3.0"          # 新版本号
+  - name: "v0.3.0"
     release: "v0.3.0"
-    path: ""                # 当前版本路径为空
-    current: true           # 标记为当前版本
-    
-  - name: "v0.2.2"          # 之前的版本
+    path: "/docs"
+    current: true
+
+  - name: "v0.2.2"
     release: "v0.2.2"
-    path: "/versioned/v0.2.2"
+    path: "/versioned/v0.2.2/docs"
     current: false
 ```
 
-#### 2. 创建版本文档目录
+要点：
+- 当前版本路径固定用 `/docs`
+- 历史版本路径用 `/versioned/<tag>/docs`
+- 列表顺序建议新到旧
 
-```bash
-# 复制当前文档到新版本目录
-cp -r docs/content/docs docs/content/versioned/v0.2.2
-```
-
-#### 3. 更新当前文档
-
-更新 `docs/content/docs` 下的文档内容，作为下一个版本的文档。
-
-## 🎨 版本切换器
-
-版本切换器位于导航栏右侧，显示为一个文档图标 📄。
-
-- 点击图标会显示所有可用版本
-- 选择版本后会跳转到对应版本的文档
-- 当前版本会显示 ✓ 标记
-
-## 📊 版本配置说明
-
-### versions.yaml 字段
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `name` | string | 版本显示名称 |
-| `release` | string | Git tag 名称 |
-| `path` | string | 文档路径（当前版本为空） |
-| `current` | boolean | 是否为当前版本 |
-
-### 版本顺序
-
-版本按在 `versions.yaml` 中的顺序排列，**第一个版本为当前版本**。
-
-## 🔧 开发服务器
-
-启动开发服务器预览版本文档：
+## 🔧 本地预览
 
 ```bash
 cd docs
-go tool hugo server -D
+go tool hugo server --buildDrafts --disableFastRender
 ```
 
 访问：
-- 当前版本：http://localhost:1313/
-- 历史版本：http://localhost:1313/versioned/v0.2.2/
+- 当前文档入口：`http://localhost:1313/docs/`
+- 历史版本入口：`http://localhost:1313/versioned/v0.2.2/docs/`
 
-## 📝 最佳实践
+## 🐛 故障排查
 
-### 1. 发布新版本时
+### 多版本切换器不显示
 
-1. 创建 git tag：`git tag v0.3.0`
-2. 运行同步脚本：`./scripts/sync-versions.sh`
-3. 验证版本切换器显示正确
-4. 提交更改
+1. 检查 `docs/data/versions.yaml` 是否存在且合法
+2. 检查 `docs/layouts/_partials/navbar.html` 中是否有 `type: versions` 分支
+3. 检查 `docs/layouts/_partials/navbar/version-switcher.html` 是否存在
+4. 执行 `go tool hugo version`，确认 Hugo >= `0.146.0`（extended）
 
-### 2. 文档更新
+### 切换后跳到错误版本或 404
 
-- **当前版本文档**：直接编辑 `docs/content/docs` 下的文件
-- **历史版本文档**：编辑 `docs/content/versioned/<version>` 下的文件
-
-### 3. 版本数量
-
-建议只保留最近的 **3-5 个主要版本** 的文档，避免站点过大。
-
-## 🐛 故障排除
-
-### 版本切换器不显示
-
-1. 检查 `docs/data/versions.yaml` 是否存在
-2. 检查 `docs/layouts/partials/navbar/end.html` 是否正确
-3. 重启 Hugo 服务器
-
-### 版本文档内容不正确
-
-1. 确认版本目录结构正确
-2. 检查 `_index.md` 文件是否存在
-3. 清除缓存：`hugo --gc`
-
-## 📖 示例
-
-### 查看当前版本配置
+1. 检查 `versions.yaml` 的 `path` 是否为 `/docs` 和 `/versioned/<tag>/docs`
+2. 检查 `docs/content/versioned/` 下是否存在误嵌套目录（例如 `v0.2.1/v0.2.2`）
+3. 清理缓存后重启：
 
 ```bash
-cat docs/data/versions.yaml
+cd docs
+go tool hugo --gc
+go tool hugo server --buildDrafts --disableFastRender
 ```
-
-### 列出版本文档目录
-
-```bash
-ls -la docs/content/versioned/
-```
-
-## 🔗 相关资源
-
-- [Hugo 多版本文档](https://gohugo.io/content-management/multilingual/)
-- [Hextra 主题文档](https://imfing.github.io/hextra/)

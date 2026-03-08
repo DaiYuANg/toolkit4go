@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 )
 
 // Publish dispatches one event synchronously to all matching subscribers.
@@ -44,7 +44,7 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 	obs := b.observabilitySafe()
 	start := time.Now()
 	ctx, span := obs.StartSpan(ctx, "eventx.publish.async.enqueue",
-		observability.String("event_name", eventName(event)),
+		observabilityx.String("event_name", eventName(event)),
 	)
 	defer span.End()
 
@@ -52,12 +52,12 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 		err := ErrBusClosed
 		span.RecordError(err)
 		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observability.String("result", "closed"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "closed"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("result", "closed"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "closed"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		return ErrBusClosed
 	}
@@ -76,23 +76,23 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 		if err != nil {
 			span.RecordError(err)
 			obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-				observability.String("result", "pool_error"),
-				observability.String("event_name", eventName(event)),
+				observabilityx.String("result", "pool_error"),
+				observabilityx.String("event_name", eventName(event)),
 			)
 			obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-				observability.String("result", "pool_error"),
-				observability.String("event_name", eventName(event)),
+				observabilityx.String("result", "pool_error"),
+				observabilityx.String("event_name", eventName(event)),
 			)
 			return fmt.Errorf("failed to submit task to ants pool: %w", err)
 		}
 
 		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observability.String("result", "submitted"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "submitted"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("result", "submitted"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "submitted"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		return nil
 	}
@@ -105,23 +105,23 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 	select {
 	case b.asyncQueue <- publishTask{ctx: ctx, event: event, handlers: handlers}:
 		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observability.String("result", "enqueued"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "enqueued"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("result", "enqueued"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "enqueued"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		return nil
 	default:
 		span.RecordError(ErrAsyncQueueFull)
 		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observability.String("result", "queue_full"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "queue_full"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("result", "queue_full"),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("result", "queue_full"),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		return ErrAsyncQueueFull
 	}
@@ -139,7 +139,7 @@ func (b *Bus) executeTask(task publishTask) {
 	}
 	if err != nil {
 		b.observabilitySafe().AddCounter(task.ctx, metricAsyncDispatchErrorTotal, 1,
-			observability.String("event_name", eventName(task.event)),
+			observabilityx.String("event_name", eventName(task.event)),
 		)
 	}
 }

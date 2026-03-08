@@ -8,9 +8,9 @@ import (
 	"github.com/DaiYuANg/arcgo/eventx"
 	"github.com/DaiYuANg/arcgo/httpx"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
-	"github.com/DaiYuANg/arcgo/observability"
-	otelobs "github.com/DaiYuANg/arcgo/observability/otel"
-	promobs "github.com/DaiYuANg/arcgo/observability/prometheus"
+	"github.com/DaiYuANg/arcgo/observabilityx"
+	otelobs "github.com/DaiYuANg/arcgo/observabilityx/otel"
+	promobs "github.com/DaiYuANg/arcgo/observabilityx/prometheus"
 )
 
 type userCreated struct {
@@ -23,7 +23,7 @@ func (e userCreated) Name() string {
 
 func main() {
 	prom := promobs.New(promobs.WithNamespace("eventx_example"))
-	obs := observability.Multi(otelobs.New(), prom)
+	obs := observabilityx.Multi(otelobs.New(), prom)
 
 	bus := eventx.New(
 		eventx.WithObservability(obs),

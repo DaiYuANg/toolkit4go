@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/samber/lo"
 )
 
@@ -21,23 +21,23 @@ func (b *Bus) dispatch(ctx context.Context, event Event, handlers []HandlerFunc,
 	obs := b.observabilitySafe()
 	start := time.Now()
 	ctx, span := obs.StartSpan(ctx, "eventx.dispatch",
-		observability.String("mode", mode),
-		observability.String("event_name", eventName(event)),
-		observability.Int64("handlers", int64(len(handlers))),
+		observabilityx.String("mode", mode),
+		observabilityx.String("event_name", eventName(event)),
+		observabilityx.Int64("handlers", int64(len(handlers))),
 	)
 	defer span.End()
 
 	result := "success"
 	defer func() {
 		obs.AddCounter(ctx, metricDispatchTotal, 1,
-			observability.String("mode", mode),
-			observability.String("result", result),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("mode", mode),
+			observabilityx.String("result", result),
+			observabilityx.String("event_name", eventName(event)),
 		)
 		obs.RecordHistogram(ctx, metricDispatchDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("mode", mode),
-			observability.String("result", result),
-			observability.String("event_name", eventName(event)),
+			observabilityx.String("mode", mode),
+			observabilityx.String("result", result),
+			observabilityx.String("event_name", eventName(event)),
 		)
 	}()
 

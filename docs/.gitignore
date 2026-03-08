@@ -1,2 +1,4 @@
 public
 resources
+.gocache
+.tmp-public

@@ -7,7 +7,7 @@ draft: false
 
 # ArcGo
 
-**ArcGo** is a modular Go backend infrastructure toolkit. It consists of independent packages, so you can adopt only what you need.
+**ArcGo** is a modular Go backend infrastructure toolkit. It is package-oriented, supports incremental adoption, and allows inter-package composition.
 
 ## Quick Start
 
@@ -17,11 +17,11 @@ go get github.com/DaiYuANg/arcgo/{package}
 
 ## Core Features
 
-- 🧩 **Modular Design** - Each package is independent, use what you need
-- 🔒 **Type Safety** - Strongly typed API based on Go generics
-- 🚀 **Production Ready** - Proven patterns and best practices
-- 📦 **Zero Dependency Intrusion** - No forced technology stack
-- 🔍 **Observability** - Optional OpenTelemetry and Prometheus integration
+- 🧩 **Modular Organization** - Split by package, adopt incrementally, and compose with inter-package dependencies (for example `collectionx`, `observabilityx`)
+- 🔒 **Type Safety** - Strongly typed APIs built with Go generics and explicit interfaces
+- 🧪 **Experimental Stage** - The project is under active iteration; APIs and behavior may still change
+- 🔗 **Dependency-Transparent** - Not locked to one framework, but introduces required dependencies per feature
+- 🔍 **Observability Extensions** - Optional OpenTelemetry and Prometheus integration via `observabilityx`
 
 ## Package Overview
 
@@ -32,7 +32,7 @@ go get github.com/DaiYuANg/arcgo/{package}
   {{< card link="/docs/eventx" title="eventx" subtitle="In-process strongly typed event bus" icon="lightning-bolt" >}}
   {{< card link="/docs/httpx" title="httpx" subtitle="Multi-framework unified strongly typed HTTP routing" icon="server" >}}
   {{< card link="/docs/logx" title="logx" subtitle="Structured logging with slog interoperability" icon="document-text" >}}
-  {{< card link="/docs/observability" title="observability" subtitle="Optional observability abstraction (OTel/Prometheus)" icon="chart-bar" >}}
+  {{< card link="/docs/observabilityx" title="observabilityx" subtitle="Optional observability abstraction (OTel/Prometheus)" icon="chart-bar" >}}
 {{< /cards >}}
 
 ## Typical Combinations
@@ -107,7 +107,7 @@ httpx.Get(s, "/health", func(ctx context.Context, input *struct{}) (*HealthOutpu
   
   - **Single Responsibility** - Each package focuses on solving one type of problem
   - **Interface Abstraction** - Based on interfaces rather than implementations, easy to test and replace
-  - **Optional Integration** - Core features have no external dependencies, advanced features are optional
+  - **Composition First** - Components are composable and may rely on shared base packages (for example `collectionx`/`observabilityx`)
   - **Documentation First** - Complete documentation and example code
 {{< /callout >}}
 
@@ -121,7 +121,7 @@ Choose the package you need:
 - Need event bus: Start with [eventx](/docs/eventx)
 - Need HTTP routing: Start with [httpx](/docs/httpx)
 - Need logging: Start with [logx](/docs/logx)
-- Need observability: Start with [observability](/docs/observability)
+- Need observability: Start with [observabilityx](/docs/observabilityx)
 
 ## Links
 

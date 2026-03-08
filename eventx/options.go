@@ -3,7 +3,7 @@ package eventx
 import (
 	"context"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 )
 
 const (
@@ -26,7 +26,7 @@ type options struct {
 	parallel      bool
 	middleware    []Middleware
 	onAsyncError  asyncErrorHandler
-	observability observability.Observability
+	observability observabilityx.Observability
 }
 
 func defaultOptions() options {
@@ -42,7 +42,7 @@ func defaultOptions() options {
 		parallel:      false,
 		middleware:    nil,
 		onAsyncError:  nil,
-		observability: observability.Nop(),
+		observability: observabilityx.Nop(),
 	}
 }
 
@@ -111,7 +111,7 @@ func WithAsyncErrorHandler(handler func(ctx context.Context, event Event, err er
 }
 
 // WithObservability sets optional observability integration for bus runtime.
-func WithObservability(obs observability.Observability) Option {
+func WithObservability(obs observabilityx.Observability) Option {
 	return func(o *options) {
 		o.observability = obs
 	}

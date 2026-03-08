@@ -9,6 +9,11 @@ weight: 3
 
 `configx` is a hierarchical configuration loader built on `koanf` and `validator`.
 
+## Roadmap
+
+- Module roadmap: [configx roadmap](./roadmap)
+- Global roadmap: [ArcGo roadmap](../roadmap)
+
 ## Supported Features
 
 - `.env` loading (`WithDotenv`)
@@ -129,7 +134,7 @@ _, _, _, _ = name, port, exists, all
 ```go
 otelObs := otelobs.New()
 promObs := promobs.New()
-obs := observability.Multi(otelObs, promObs)
+obs := observabilityx.Multi(otelObs, promObs)
 
 err := configx.Load(&cfg,
     configx.WithObservability(obs),

@@ -4,14 +4,14 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 )
 
-func (b *Bus) observabilitySafe() observability.Observability {
+func (b *Bus) observabilitySafe() observabilityx.Observability {
 	if b == nil {
-		return observability.Nop()
+		return observabilityx.Nop()
 	}
-	return observability.Normalize(b.observability, b.logger)
+	return observabilityx.Normalize(b.observability, b.logger)
 }
 
 func eventName(event Event) string {

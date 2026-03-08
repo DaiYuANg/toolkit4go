@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/eventx"
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/samber/lo"
 )
 
@@ -273,7 +273,7 @@ func NewEventPublisher(opts ...EventPublisherOption) *EventPublisher {
 type EventPublisherOption func(*eventPublisherConfig)
 
 type eventPublisherConfig struct {
-	observability  observability.Observability
+	observability  observabilityx.Observability
 	logger         *slog.Logger
 	parallel       bool
 	asyncWorkers   int
@@ -305,7 +305,7 @@ func WithEventPublisherAsync(workers, queueSize int, onError func(ctx context.Co
 }
 
 // WithEventPublisherObservability sets observability for the event publisher.
-func WithEventPublisherObservability(obs observability.Observability) EventPublisherOption {
+func WithEventPublisherObservability(obs observabilityx.Observability) EventPublisherOption {
 	return func(cfg *eventPublisherConfig) {
 		cfg.observability = obs
 	}

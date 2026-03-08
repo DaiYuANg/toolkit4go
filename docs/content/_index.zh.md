@@ -7,7 +7,7 @@ draft: false
 
 # ArcGo
 
-**ArcGo** 是一个模块化的 Go 后端基础设施工具集。它由独立的包组成，因此你可以只采用你需要的部分。
+**ArcGo** 是一个模块化的 Go 后端基础设施工具集。它按包组织、可按需引入，并允许包间依赖组合。
 
 ## 快速开始
 
@@ -17,11 +17,11 @@ go get github.com/DaiYuANg/arcgo/{package}
 
 ## 核心特性
 
-- 🧩 **模块化设计** - 每个包都是独立的，按需使用
-- 🔒 **类型安全** - 基于 Go 泛型的强类型 API
-- 🚀 **生产就绪** - 经过验证的模式和最佳实践
-- 📦 **零依赖侵入** - 不强制使用特定的技术栈
-- 🔍 **可观测性** - 可选的 OpenTelemetry 和 Prometheus 集成
+- 🧩 **模块化组织** - 按包拆分并支持按需引入，允许包间依赖组合（如 `collectionx`、`observabilityx`）
+- 🔒 **类型安全** - 基于 Go 泛型与显式接口的强类型 API
+- 🧪 **实验性阶段** - 当前处于快速迭代，API 与行为仍可能调整
+- 🔗 **依赖可控** - 不锁定单一框架，但会按功能引入必要依赖
+- 🔍 **可观测性扩展** - 通过 `observabilityx` 可选对接 OpenTelemetry 与 Prometheus
 
 ## 包概览
 
@@ -32,7 +32,7 @@ go get github.com/DaiYuANg/arcgo/{package}
   {{< card link="/docs/eventx" title="eventx" subtitle="进程内强类型事件总线" icon="lightning-bolt" >}}
   {{< card link="/docs/httpx" title="httpx" subtitle="多框架统一强类型 HTTP 路由" icon="server" >}}
   {{< card link="/docs/logx" title="logx" subtitle="结构化日志与 slog 互通" icon="document-text" >}}
-  {{< card link="/docs/observability" title="observability" subtitle="可选可观测性抽象（OTel/Prometheus）" icon="chart-bar" >}}
+  {{< card link="/docs/observabilityx" title="observabilityx" subtitle="可选可观测性抽象（OTel/Prometheus）" icon="chart-bar" >}}
 {{< /cards >}}
 
 ## 典型组合
@@ -107,7 +107,7 @@ httpx.Get(s, "/health", func(ctx context.Context, input *struct{}) (*HealthOutpu
 
   - **单一职责** - 每个包专注于解决一类问题
   - **接口抽象** - 基于接口而非实现，易于测试和替换
-  - **可选集成** - 核心功能无外部依赖，高级功能可选集成
+  - **组合优先** - 组件可组合，并可依赖共享基础包（如 `collectionx`/`observabilityx`）
   - **文档优先** - 完整的文档和示例代码
 {{< /callout >}}
 
@@ -121,7 +121,7 @@ httpx.Get(s, "/health", func(ctx context.Context, input *struct{}) (*HealthOutpu
 - 需要事件总线：从 [eventx](/docs/eventx) 开始
 - 需要 HTTP 路由：从 [httpx](/docs/httpx) 开始
 - 需要日志记录：从 [logx](/docs/logx) 开始
-- 需要可观测性：从 [observability](/docs/observability) 开始
+- 需要可观测性：从 [observabilityx](/docs/observabilityx) 开始
 
 ## 链接
 

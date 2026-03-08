@@ -9,6 +9,11 @@ weight: 6
 
 `logx` 是基于 `zerolog` 构建的结构化日志包，具有基于选项的配置和可选的 `slog` 互操作性。
 
+## 路线图
+
+- 模块路线图：[logx roadmap](./roadmap)
+- 全局路线图：[ArcGo roadmap](../roadmap)
+
 ## 功能
 
 - 强类型级别（`TraceLevel`、`DebugLevel`、`InfoLevel`...）

@@ -9,6 +9,11 @@ weight: 2
 
 `collectionx` 为 Go 提供强类型的集合数据结构，包括并发安全变体和非标准结构（如 `MultiMap`、`Table`、`Trie`、区间结构）。
 
+## 路线图
+
+- 模块路线图：[collectionx roadmap](./roadmap)
+- 全局路线图：[ArcGo roadmap](../roadmap)
+
 ## 为什么使用 collectionx
 
 Go 标准容器是有意保持最小化。`collectionx` 专注于：

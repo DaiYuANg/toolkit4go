@@ -1,6 +1,6 @@
 baseURL: https://arcgo.example.org/
 languageCode: zh-cn
-title: ArcGo 文档
+title: ArcGo
 languageDefault: zh
 
 module:
@@ -47,49 +47,65 @@ menu:
       weight: 1
       params:
         type: versions
+    - identifier: roadmap
+      name: Roadmap
+      nameEn: Roadmap
+      pageRef: /docs/roadmap
+      weight: 2
     - identifier: authx
       name: AuthX
       nameEn: AuthX
       pageRef: /docs/authx
-      weight: 2
+      weight: 3
+    - identifier: clientx
+      name: ClientX
+      nameEn: ClientX
+      pageRef: /docs/clientx
+      weight: 4
     - identifier: collectionx
       name: CollectionX
       nameEn: CollectionX
       pageRef: /docs/collectionx
-      weight: 3
+      weight: 5
     - identifier: configx
       name: ConfigX
       nameEn: ConfigX
       pageRef: /docs/configx
-      weight: 4
+      weight: 6
     - identifier: eventx
       name: EventX
       nameEn: EventX
       pageRef: /docs/eventx
-      weight: 5
+      weight: 7
     - identifier: httpx
       name: HTTPX
       nameEn: HTTPX
       pageRef: /docs/httpx
-      weight: 6
+      weight: 8
     - identifier: logx
       name: LogX
       nameEn: LogX
       pageRef: /docs/logx
-      weight: 7
-    - identifier: observability
-      name: Observability
-      nameEn: Observability
-      pageRef: /docs/observability
-      weight: 8
+      weight: 9
+    - identifier: observabilityx
+      name: ObservabilityX
+      nameEn: ObservabilityX
+      pageRef: /docs/observabilityx
+      weight: 10
     - identifier: github
       name: GitHub
       nameEn: GitHub
       url: https://github.com/DaiYuANg/arcgo
-      weight: 9
+      weight: 11
+    - identifier: theme-toggle
+      name: Theme
+      weight: 12
+      params:
+        type: theme-toggle
+        label: false
     - identifier: language-switch
       name: Language Switcher
-      weight: 10
+      weight: 13
       params:
         type: language-switch
         label: true

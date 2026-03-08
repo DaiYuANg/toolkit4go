@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 )
 
 // IdentityProvider is business-side identity loading contract.
@@ -21,7 +21,7 @@ type Manager struct {
 	userProviders  *identityProviderChain
 	policySources  *PolicySourceChain
 	logger         *slog.Logger
-	obs            observability.Observability
+	obs            observabilityx.Observability
 	diagnostics    *DiagnosticsTracker
 	eventPublisher *EventPublisher
 
@@ -45,11 +45,11 @@ func (m *Manager) loggerSafe() *slog.Logger {
 	return normalizeLogger(m.logger)
 }
 
-func (m *Manager) observabilitySafe() observability.Observability {
+func (m *Manager) observabilitySafe() observabilityx.Observability {
 	if m == nil {
-		return observability.Nop()
+		return observabilityx.Nop()
 	}
-	return observability.Normalize(m.obs, m.logger)
+	return observabilityx.Normalize(m.obs, m.logger)
 }
 
 // NewManager creates manager with spring-security-style option chain.
@@ -73,7 +73,7 @@ func NewManager(opts ...ManagerOption) (*Manager, error) {
 		})}
 	}
 
-	obs := observability.Normalize(cfg.observability, cfg.logger)
+	obs := observabilityx.Normalize(cfg.observability, cfg.logger)
 	logger := normalizeLogger(obs.Logger()).With("component", "authx.manager")
 
 	userProviders, err := newIdentityProviderChain(cfg.providers...)
@@ -143,7 +143,7 @@ func (m *Manager) Authenticate(ctx context.Context, credential Credential) (cont
 		credentialKind = credential.Kind()
 	}
 	ctx, span := obs.StartSpan(ctx, "authx.authenticate",
-		observability.String("auth.credential.kind", credentialKind),
+		observabilityx.String("auth.credential.kind", credentialKind),
 	)
 	defer span.End()
 
@@ -151,12 +151,12 @@ func (m *Manager) Authenticate(ctx context.Context, credential Credential) (cont
 	result := "success"
 	defer func() {
 		obs.AddCounter(ctx, metricAuthenticateTotal, 1,
-			observability.String("result", result),
-			observability.String("credential_kind", credentialKind),
+			observabilityx.String("result", result),
+			observabilityx.String("credential_kind", credentialKind),
 		)
 		obs.RecordHistogram(ctx, metricAuthenticateDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("result", result),
-			observability.String("credential_kind", credentialKind),
+			observabilityx.String("result", result),
+			observabilityx.String("credential_kind", credentialKind),
 		)
 	}()
 
@@ -194,8 +194,8 @@ func (m *Manager) Can(ctx context.Context, action, resource string) (bool, error
 
 	obs := m.observabilitySafe()
 	ctx, span := obs.StartSpan(ctx, "authx.authorize",
-		observability.String("auth.action", action),
-		observability.String("auth.resource", resource),
+		observabilityx.String("auth.action", action),
+		observabilityx.String("auth.resource", resource),
 	)
 	defer span.End()
 
@@ -203,12 +203,12 @@ func (m *Manager) Can(ctx context.Context, action, resource string) (bool, error
 	result := "allow"
 	defer func() {
 		obs.AddCounter(ctx, metricAuthorizeTotal, 1,
-			observability.String("result", result),
-			observability.String("action", action),
+			observabilityx.String("result", result),
+			observabilityx.String("action", action),
 		)
 		obs.RecordHistogram(ctx, metricAuthorizeDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("result", result),
-			observability.String("action", action),
+			observabilityx.String("result", result),
+			observabilityx.String("action", action),
 		)
 	}()
 
@@ -317,12 +317,12 @@ func (m *Manager) LoadPolicies(ctx context.Context) (int64, error) {
 	result := "success"
 	defer func() {
 		obs.AddCounter(ctx, metricPolicyReloadTotal, 1,
-			observability.String("operation", "load"),
-			observability.String("result", result),
+			observabilityx.String("operation", "load"),
+			observabilityx.String("result", result),
 		)
 		obs.RecordHistogram(ctx, metricPolicyReloadDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("operation", "load"),
-			observability.String("result", result),
+			observabilityx.String("operation", "load"),
+			observabilityx.String("result", result),
 		)
 	}()
 
@@ -408,12 +408,12 @@ func (m *Manager) ReplacePolicies(ctx context.Context, snapshot PolicySnapshot) 
 	result := "success"
 	defer func() {
 		obs.AddCounter(ctx, metricPolicyReloadTotal, 1,
-			observability.String("operation", "replace"),
-			observability.String("result", result),
+			observabilityx.String("operation", "replace"),
+			observabilityx.String("result", result),
 		)
 		obs.RecordHistogram(ctx, metricPolicyReloadDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("operation", "replace"),
-			observability.String("result", result),
+			observabilityx.String("operation", "replace"),
+			observabilityx.String("result", result),
 		)
 	}()
 

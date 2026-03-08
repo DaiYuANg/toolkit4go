@@ -9,6 +9,11 @@ weight: 4
 
 `eventx` is an in-memory strongly typed event bus for Go services.
 
+## Roadmap
+
+- Module roadmap: [eventx roadmap](./roadmap)
+- Global roadmap: [ArcGo roadmap](../roadmap)
+
 ## Core Capabilities
 
 - Generic type subscription: `Subscribe[T Event]`
@@ -83,7 +88,7 @@ if errors.Is(err, eventx.ErrAsyncQueueFull) {
 ```go
 otelObs := otelobs.New()
 promObs := promobs.New()
-obs := observability.Multi(otelObs, promObs)
+obs := observabilityx.Multi(otelObs, promObs)
 
 bus := eventx.New(
     eventx.WithObservability(obs),

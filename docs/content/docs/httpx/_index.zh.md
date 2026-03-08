@@ -9,6 +9,11 @@ weight: 5
 
 `httpx` 是构建在 Huma 之上的轻量级 HTTP 服务组织层。
 
+## Roadmap
+
+- 模块路线图见：[httpx roadmap](./roadmap)
+- 全局路线图见：[ArcGo roadmap](../roadmap)
+
 ## 你得到什么
 
 - 跨适配器的统一类型化路由注册（`Get`、`Post`、`Put`、`Patch`、`Delete`...）

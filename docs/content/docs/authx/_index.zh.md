@@ -14,6 +14,12 @@ weight: 1
 - **Authboss** 用于认证
 - **Casbin** 用于授权
 
+## Roadmap
+
+- 模块路线图见：[authx roadmap](./roadmap)
+- 迭代执行计划见：[authx iteration plan](./iteration-plan)
+- 全局路线图见：[ArcGo roadmap](../roadmap)
+
 ## 设计目标
 
 业务代码应该只与 AuthX API 交互：
@@ -130,7 +136,7 @@ manager, err := authx.NewManager(
 ```go
 otelObs := otelobs.New()
 promObs := promobs.New()
-obs := observability.Multi(otelObs, promObs)
+obs := observabilityx.Multi(otelObs, promObs)
 
 manager, err := authx.NewManager(
     authx.WithObservability(obs),

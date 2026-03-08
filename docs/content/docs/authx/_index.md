@@ -14,6 +14,12 @@ It is based on:
 - **Authboss** for authentication
 - **Casbin** for authorization
 
+## Roadmap
+
+- Module roadmap: [authx roadmap](./roadmap)
+- Iteration execution plan: [authx iteration plan](./iteration-plan)
+- Global roadmap: [ArcGo roadmap](../roadmap)
+
 ## Design Goals
 
 Business code should only interact with the AuthX API:
@@ -130,7 +136,7 @@ manager, err := authx.NewManager(
 ```go
 otelObs := otelobs.New()
 promObs := promobs.New()
-obs := observability.Multi(otelObs, promObs)
+obs := observabilityx.Multi(otelObs, promObs)
 
 manager, err := authx.NewManager(
     authx.WithObservability(obs),

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
@@ -95,7 +95,7 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 		opts = NewOptions()
 	}
 
-	obs := observability.Normalize(opts.observability, nil)
+	obs := observabilityx.Normalize(opts.observability, nil)
 	ctx, span := obs.StartSpan(context.Background(), "configx.load")
 	defer span.End()
 
@@ -103,10 +103,10 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 	result := "success"
 	defer func() {
 		obs.AddCounter(ctx, metricConfigLoadTotal, 1,
-			observability.String("result", result),
+			observabilityx.String("result", result),
 		)
 		obs.RecordHistogram(ctx, metricConfigLoadDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("result", result),
+			observabilityx.String("result", result),
 		)
 	}()
 
@@ -211,7 +211,7 @@ func LoadConfigT[T any](opts ...Option) (*Config, error) {
 
 func loadSourceWithObservability(
 	ctx context.Context,
-	obs observability.Observability,
+	obs observabilityx.Observability,
 	source Source,
 	fn func() error,
 ) error {
@@ -221,7 +221,7 @@ func loadSourceWithObservability(
 
 	sourceName := source.String()
 	sourceCtx, sourceSpan := obs.StartSpan(ctx, "configx.load."+sourceName,
-		observability.String("source", sourceName),
+		observabilityx.String("source", sourceName),
 	)
 	defer sourceSpan.End()
 
@@ -229,12 +229,12 @@ func loadSourceWithObservability(
 	result := "success"
 	defer func() {
 		obs.AddCounter(sourceCtx, metricConfigSourceLoadTotal, 1,
-			observability.String("source", sourceName),
-			observability.String("result", result),
+			observabilityx.String("source", sourceName),
+			observabilityx.String("result", result),
 		)
 		obs.RecordHistogram(sourceCtx, metricConfigSourceLoadDurationMS, float64(time.Since(start).Milliseconds()),
-			observability.String("source", sourceName),
-			observability.String("result", result),
+			observabilityx.String("source", sourceName),
+			observabilityx.String("result", result),
 		)
 	}()
 

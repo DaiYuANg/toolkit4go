@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 )
 
 // ManagerOption configures manager construction.
@@ -15,7 +15,7 @@ type managerConfig struct {
 	providers      []IdentityProvider
 	sources        []PolicySource
 	logger         *slog.Logger
-	observability  observability.Observability
+	observability  observabilityx.Observability
 	eventPublisher *EventPublisher
 }
 
@@ -59,7 +59,7 @@ func WithLogger(logger *slog.Logger) ManagerOption {
 }
 
 // WithObservability sets optional observability integration.
-func WithObservability(obs observability.Observability) ManagerOption {
+func WithObservability(obs observabilityx.Observability) ManagerOption {
 	return func(cfg *managerConfig) error {
 		if cfg == nil {
 			return fmt.Errorf("%w: manager config is nil", ErrInvalidAuthenticator)

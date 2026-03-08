@@ -1,0 +1,79 @@
+{{/* 导航栏版本切换器 - Navbar Version Switcher for Hextra */}}
+{{ $versions := .context.Site.Data.versions.versions }}
+{{ $currentVersion := "" }}
+{{ $activeVersion := "" }}
+{{ $currentRelPermalink := strings.TrimSuffix "/" .context.RelPermalink }}
+{{ $pathNoLang := $currentRelPermalink }}
+{{ $langPrefix := printf "/%s" .context.Lang }}
+{{ $docsSuffix := "" }}
+
+{{ if eq $pathNoLang $langPrefix }}
+  {{ $pathNoLang = "/" }}
+{{ else if hasPrefix $pathNoLang (printf "%s/" $langPrefix) }}
+  {{ $pathNoLang = strings.TrimPrefix $langPrefix $pathNoLang }}
+{{ end }}
+
+{{ range $versions }}
+  {{ if .current }}
+    {{ $currentVersion = .name }}
+  {{ end }}
+  {{ if hasPrefix $pathNoLang (printf "/versioned/%s" .name) }}
+    {{ $activeVersion = .name }}
+  {{ end }}
+  {{ if and .current (hasPrefix $pathNoLang "/docs") }}
+    {{ $activeVersion = .name }}
+  {{ end }}
+{{ end }}
+
+{{ if hasPrefix $pathNoLang "/docs/" }}
+  {{ $docsSuffix = strings.TrimPrefix "/docs" $pathNoLang }}
+{{ else }}
+  {{ range $versions }}
+    {{ $versionDocsPrefix := printf "/versioned/%s/docs/" .name }}
+    {{ if hasPrefix $pathNoLang $versionDocsPrefix }}
+      {{ $docsSuffix = strings.TrimPrefix (printf "/versioned/%s/docs" .name) $pathNoLang }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+{{ if eq $activeVersion "" }}
+  {{ $activeVersion = $currentVersion }}
+{{ end }}
+
+{{ if $versions }}
+<details class="hx:relative hx:inline-block">
+  <summary
+    class="hx:flex hx:items-center hx:gap-1 hx:h-7 hx:px-2 hx:text-xs hx:font-medium hx:text-gray-600 hx:dark:hx:text-gray-400 hx:hover:hx:bg-gray-100 hx:hover:hx:text-gray-900 hx:dark:hx:hover:bg-primary-100/5 hx:dark:hx:hover:text-gray-50 hx:rounded-md hx:transition-colors hx:cursor-pointer"
+    style="list-style: none;"
+    title="{{ T "selectVersion" | default "Select version" }}"
+  >
+    <svg class="hx:w-4 hx:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+    </svg>
+    <span class="hx:hidden hx:lg:inline-block">{{ $activeVersion }}</span>
+  </summary>
+
+  <div class="hx:absolute hx:right-0 hx:top-full hx:mt-1 hx:z-20 hx:min-w-40 hx:max-h-64 hx:overflow-auto hx:rounded-lg hx:border hx:border-gray-200 hx:bg-white hx:p-1 hx:text-sm hx:shadow-lg hx:dark:border-neutral-700 hx:dark:bg-neutral-900">
+    <div class="hx:py-1" role="menu">
+      {{ range $versions }}
+      {{ $basePath := strings.TrimSuffix "/" .path }}
+      {{ $targetPath := .path }}
+      {{ if and (ne $docsSuffix "") (ne $basePath "") }}
+        {{ $targetPath = printf "%s%s" $basePath $docsSuffix }}
+      {{ end }}
+      {{ if not ($.context.Site.GetPage $targetPath) }}
+        {{ $targetPath = .path }}
+      {{ end }}
+      {{ $targetPath = relLangURL (strings.TrimPrefix "/" $targetPath) }}
+      <a
+        href="{{ $targetPath }}"
+        class="hx:relative hx:block hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9 hx:text-gray-700 hx:dark:hx:text-gray-300 hx:hover:hx:bg-gray-100 hx:hover:hx:text-gray-900 hx:dark:hx:hover:bg-neutral-800 hx:dark:hx:hover:text-gray-100 {{ if eq .name $activeVersion }}hx:font-semibold hx:text-primary-700 hx:dark:hx:text-primary-300{{ end }}"
+        role="menuitem"
+      >
+        {{ .name }}{{ if eq .name $activeVersion }} ✓{{ end }}
+      </a>
+      {{ end }}
+    </div>
+  </div>
+</details>
+{{ end }}

@@ -3,9 +3,9 @@ package authx
 import (
 	"log/slog"
 
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 )
 
 func normalizeLogger(logger *slog.Logger) *slog.Logger {
-	return observability.NormalizeLogger(logger)
+	return observabilityx.NormalizeLogger(logger)
 }

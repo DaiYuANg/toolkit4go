@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/panjf2000/ants/v2"
 	"github.com/samber/lo"
 )
@@ -23,7 +23,7 @@ type Bus struct {
 	asyncQueue    chan publishTask
 	workerWG      sync.WaitGroup
 	dispatchWG    sync.WaitGroup
-	observability observability.Observability
+	observability observabilityx.Observability
 	logger        *slog.Logger
 }
 
@@ -49,7 +49,7 @@ func New(opts ...Option) *Bus {
 		parallel:      cfg.parallel,
 		middleware:    cfg.middleware,
 		onAsyncErr:    cfg.onAsyncError,
-		observability: observability.Normalize(cfg.observability, nil),
+		observability: observabilityx.Normalize(cfg.observability, nil),
 	}
 	b.logger = b.observability.Logger().With("component", "eventx.bus")
 

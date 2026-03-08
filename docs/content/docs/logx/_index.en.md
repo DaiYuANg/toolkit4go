@@ -9,6 +9,11 @@ weight: 6
 
 `logx` is a structured logging package built on `zerolog` with option-based configuration and optional `slog` interoperability.
 
+## Roadmap
+
+- Module roadmap: [logx roadmap](./roadmap)
+- Global roadmap: [ArcGo roadmap](../roadmap)
+
 ## Features
 
 - Strongly typed levels (`TraceLevel`, `DebugLevel`, `InfoLevel`...)

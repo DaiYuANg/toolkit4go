@@ -1,7 +1,7 @@
 package configx
 
 import (
-	"github.com/DaiYuANg/arcgo/observability"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/go-playground/validator/v10"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -50,7 +50,7 @@ type Options struct {
 	validate        *validator.Validate
 	validateLevel   ValidateLevel
 	ignoreDotenvErr bool
-	observability   observability.Observability
+	observability   observabilityx.Observability
 }
 
 // Option documents related behavior.
@@ -63,7 +63,7 @@ func NewOptions() *Options {
 		priority:        []Source{SourceDotenv, SourceFile, SourceEnv},
 		validateLevel:   ValidateLevelNone,
 		ignoreDotenvErr: true,
-		observability:   observability.Nop(),
+		observability:   observabilityx.Nop(),
 	}
 }
 
@@ -135,7 +135,7 @@ func WithIgnoreDotenvError(ignore bool) Option {
 }
 
 // WithObservability sets optional observability integration.
-func WithObservability(obs observability.Observability) Option {
+func WithObservability(obs observabilityx.Observability) Option {
 	return func(o *Options) {
 		o.observability = obs
 	}
