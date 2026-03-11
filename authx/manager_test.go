@@ -270,3 +270,34 @@ func TestManagerWithMappedProvider(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "u-1", principal.id)
 }
+
+func TestManagerWithProviderFunc(t *testing.T) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("secret"), bcrypt.DefaultCost)
+	assert.NoError(t, err)
+
+	manager, err := NewManager(
+		WithProviderFunc(func(ctx context.Context, principal string) (UserDetails, error) {
+			_ = ctx
+			if principal != "alice" {
+				return UserDetails{}, ErrUnauthorized
+			}
+			return UserDetails{
+				ID:           "u-1",
+				Principal:    "alice",
+				PasswordHash: string(hashedPassword),
+				Name:         "Alice",
+			}, nil
+		}),
+	)
+	assert.NoError(t, err)
+
+	_, auth, err := manager.AuthenticatePassword(context.Background(), "alice", "secret")
+	assert.NoError(t, err)
+	assert.Equal(t, "u-1", auth.Identity().ID())
+}
+
+func TestManagerWithProviderFuncNil(t *testing.T) {
+	_, err := NewManager(WithProviderFunc(nil))
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidAuthenticator))
+}

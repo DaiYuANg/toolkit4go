@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/DaiYuANg/arcgo/authx"
-	"github.com/DaiYuANg/arcgo/logx"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,13 +15,19 @@ func main() {
 	}
 
 	primaryProvider := authx.NewInMemoryIdentityProvider()
-	secondaryProvider := authx.NewInMemoryIdentityProvider()
-	if err := secondaryProvider.UpsertUser(authx.UserDetails{
-		ID:           "u-1",
-		Principal:    "alice",
-		PasswordHash: string(hashedPassword),
-		Name:         "Alice",
-	}); err != nil {
+	secondaryProvider, err := authx.NewFuncIdentityProvider(func(ctx context.Context, principal string) (authx.UserDetails, error) {
+		_ = ctx
+		if principal != "alice" {
+			return authx.UserDetails{}, authx.ErrUnauthorized
+		}
+		return authx.UserDetails{
+			ID:           "u-1",
+			Principal:    "alice",
+			PasswordHash: string(hashedPassword),
+			Name:         "Alice",
+		}, nil
+	})
+	if err != nil {
 		panic(err)
 	}
 
@@ -37,17 +42,9 @@ func main() {
 		},
 	})
 
-	logger, err := logx.New(logx.WithConsole(true), logx.WithLevel(logx.DebugLevel))
-	if err != nil {
-		panic(err)
-	}
-	defer func() { _ = logx.Close(logger) }()
-
 	manager, err := authx.NewManager(
-		authx.WithLogger(logger),
-		authx.WithSource(policySource),
-		authx.WithProvider(primaryProvider),
-		authx.WithProvider(secondaryProvider),
+		authx.WithProviders(primaryProvider, secondaryProvider),
+		authx.WithSources(policySource),
 	)
 	if err != nil {
 		panic(err)

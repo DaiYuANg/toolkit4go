@@ -82,7 +82,7 @@ func WithForbiddenHandler(handler ErrorHandler) Option {
 }
 
 // Authenticate performs credential extraction and authx authentication.
-func Authenticate(manager *authx.Manager, opts ...Option) func(http.Handler) http.Handler {
+func Authenticate(manager authx.Manager, opts ...Option) func(http.Handler) http.Handler {
 	cfg := defaultConfig(opts...)
 
 	return func(next http.Handler) http.Handler {
@@ -117,7 +117,7 @@ func Authenticate(manager *authx.Manager, opts ...Option) func(http.Handler) htt
 }
 
 // Require checks authorization decision by action/resource.
-func Require(manager *authx.Manager, action, resource string, opts ...Option) func(http.Handler) http.Handler {
+func Require(manager authx.Manager, action, resource string, opts ...Option) func(http.Handler) http.Handler {
 	cfg := defaultConfig(opts...)
 
 	normalizedAction := strings.TrimSpace(action)

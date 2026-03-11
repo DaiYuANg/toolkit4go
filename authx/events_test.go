@@ -466,12 +466,17 @@ func TestManagerWithCustomEventPublisher(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, manager)
 
+		provider, ok := manager.(interface {
+			EventPublisher() *EventPublisher
+		})
+		assert.True(t, ok)
+
 		// Verify custom publisher is returned
-		assert.Equal(t, customPublisher, manager.EventPublisher())
+		assert.Equal(t, customPublisher, provider.EventPublisher())
 
 		// Publish event through manager's publisher
 		identity := NewIdentity("u1", "user", "Test")
-		err = manager.EventPublisher().PublishAuthSuccess(context.Background(), identity)
+		err = provider.EventPublisher().PublishAuthSuccess(context.Background(), identity)
 		assert.NoError(t, err)
 
 		// Verify custom handler was called
@@ -486,9 +491,13 @@ func TestManagerWithCustomEventPublisher(t *testing.T) {
 		)
 		assert.NoError(t, err)
 		assert.NotNil(t, manager)
-		assert.NotNil(t, manager.EventPublisher())
+		provider, ok := manager.(interface {
+			EventPublisher() *EventPublisher
+		})
+		assert.True(t, ok)
+		assert.NotNil(t, provider.EventPublisher())
 
 		// Should not panic
-		assert.NotNil(t, manager.EventPublisher())
+		assert.NotNil(t, provider.EventPublisher())
 	})
 }

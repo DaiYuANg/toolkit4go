@@ -37,7 +37,7 @@ func benchmarkProviderWithPassword(b *testing.B, password string) IdentityProvid
 	return provider
 }
 
-func benchmarkManager(b *testing.B, opts ...ManagerOption) *Manager {
+func benchmarkManager(b *testing.B, opts ...ManagerOption) Manager {
 	b.Helper()
 
 	silentLogger := slog.New(slog.NewTextHandler(io.Discard, nil))

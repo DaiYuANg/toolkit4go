@@ -3,6 +3,7 @@ package authx
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 )
 
@@ -19,12 +20,7 @@ type PolicySourceChain struct {
 	sources []PolicySource
 	merger  PolicyMerger
 	name    string
-	logger  interface {
-		Debug(string, ...any)
-		Info(string, ...any)
-		Warn(string, ...any)
-		Error(string, ...any)
-	}
+	logger  *slog.Logger
 }
 
 // PolicySourceChainConfig configures a policy source chain.
@@ -102,14 +98,28 @@ func (c *PolicySourceChain) LoadPolicies(ctx context.Context) (PolicySnapshot, e
 // AddSource appends a source to the chain.
 // Returns the new source count.
 func (c *PolicySourceChain) AddSource(src PolicySource) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if src == nil {
 		return len(c.sources)
 	}
 
+	c.sources = append(c.sources, src)
+	return len(c.sources)
+}
+
+// SetSources replaces all sources in the chain.
+// Nil sources are ignored.
+func (c *PolicySourceChain) SetSources(sources ...PolicySource) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.sources = append(c.sources, src)
+	c.sources = c.sources[:0]
+	for _, src := range sources {
+		if src != nil {
+			c.sources = append(c.sources, src)
+		}
+	}
 	return len(c.sources)
 }
 
@@ -174,15 +184,10 @@ func (c *PolicySourceChain) Name() string {
 }
 
 // SetLogger sets the logger for the policy source chain.
-func (c *PolicySourceChain) SetLogger(logger interface {
-	Debug(string, ...any)
-	Info(string, ...any)
-	Warn(string, ...any)
-	Error(string, ...any)
-}) {
+func (c *PolicySourceChain) SetLogger(logger *slog.Logger) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.logger = logger
+	c.logger = normalizeLogger(logger).With("component", "authx.policy-source-chain", "name", c.name)
 }
 
 // Ensure PolicySourceChain implements PolicySource.
@@ -367,10 +372,10 @@ type CachedPolicySourceConfig struct {
 // NewCachedPolicySource creates a new cached policy source.
 // Note: This is a simplified implementation. For production use,
 // consider adding proper TTL-based invalidation with time.Duration.
-func NewCachedPolicySource(cfg CachedPolicySourceConfig) *CachedPolicySource {
+func NewCachedPolicySource(cfg CachedPolicySourceConfig) (*CachedPolicySource, error) {
 	wrapped := cfg.Wrapped
 	if wrapped == nil {
-		panic("wrapped source is required")
+		return nil, fmt.Errorf("%w: wrapped source is required", ErrInvalidPolicy)
 	}
 
 	name := cfg.Name
@@ -381,7 +386,7 @@ func NewCachedPolicySource(cfg CachedPolicySourceConfig) *CachedPolicySource {
 	return &CachedPolicySource{
 		wrapped: wrapped,
 		name:    name,
-	}
+	}, nil
 }
 
 // LoadPolicies returns cached result or loads from wrapped source.

@@ -14,6 +14,8 @@ type ManagerOption func(cfg *managerConfig) error
 type managerConfig struct {
 	providers      []IdentityProvider
 	sources        []PolicySource
+	policyMerger   PolicyMerger
+	casbinOptions  []CasbinAuthorizerOption
 	logger         *slog.Logger
 	observability  observabilityx.Observability
 	eventPublisher *EventPublisher
@@ -33,6 +35,29 @@ func WithProvider(provider IdentityProvider) ManagerOption {
 	}
 }
 
+// WithProviderFunc appends one function-based authentication provider.
+func WithProviderFunc(fn func(ctx context.Context, principal string) (UserDetails, error)) ManagerOption {
+	return func(cfg *managerConfig) error {
+		provider, err := NewFuncIdentityProvider(fn)
+		if err != nil {
+			return err
+		}
+		return WithProvider(provider)(cfg)
+	}
+}
+
+// WithProviders appends multiple authentication providers to provider chain.
+func WithProviders(providers ...IdentityProvider) ManagerOption {
+	return func(cfg *managerConfig) error {
+		for _, provider := range providers {
+			if err := WithProvider(provider)(cfg); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
 // WithSource appends one policy source.
 func WithSource(source PolicySource) ManagerOption {
 	return func(cfg *managerConfig) error {
@@ -43,6 +68,47 @@ func WithSource(source PolicySource) ManagerOption {
 			return fmt.Errorf("%w: policy source is nil", ErrInvalidPolicy)
 		}
 		cfg.sources = append(cfg.sources, source)
+		return nil
+	}
+}
+
+// WithSources appends multiple policy sources.
+func WithSources(sources ...PolicySource) ManagerOption {
+	return func(cfg *managerConfig) error {
+		for _, source := range sources {
+			if err := WithSource(source)(cfg); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// WithPolicyMerger sets the policy merger used by PolicySourceChain.
+func WithPolicyMerger(merger PolicyMerger) ManagerOption {
+	return func(cfg *managerConfig) error {
+		if cfg == nil {
+			return fmt.Errorf("%w: manager config is nil", ErrInvalidPolicy)
+		}
+		if merger == nil {
+			return fmt.Errorf("%w: policy merger is nil", ErrInvalidPolicy)
+		}
+		cfg.policyMerger = merger
+		return nil
+	}
+}
+
+// WithCasbinOptions sets additional options used to build casbin authorizer.
+func WithCasbinOptions(opts ...CasbinAuthorizerOption) ManagerOption {
+	return func(cfg *managerConfig) error {
+		if cfg == nil {
+			return fmt.Errorf("%w: manager config is nil", ErrInvalidAuthorizer)
+		}
+		for _, opt := range opts {
+			if opt != nil {
+				cfg.casbinOptions = append(cfg.casbinOptions, opt)
+			}
+		}
 		return nil
 	}
 }

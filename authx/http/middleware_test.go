@@ -123,7 +123,7 @@ func TestRequireWithoutAuthenticationReturnsUnauthorized(t *testing.T) {
 	}
 }
 
-func newTestManager(t *testing.T) *authx.Manager {
+func newTestManager(t *testing.T) authx.Manager {
 	t.Helper()
 
 	provider := authx.NewInMemoryIdentityProvider()

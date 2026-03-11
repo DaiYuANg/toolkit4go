@@ -331,10 +331,11 @@ func TestCachedPolicySource(t *testing.T) {
 		},
 	})
 
-	cached := NewCachedPolicySource(CachedPolicySourceConfig{
+	cached, err := NewCachedPolicySource(CachedPolicySourceConfig{
 		Wrapped: wrapped,
 		Name:    "test-cached",
 	})
+	assert.NoError(t, err)
 
 	assert.Equal(t, "test-cached", cached.Name())
 	assert.Equal(t, wrapped, cached.Wrapped())
@@ -371,14 +372,15 @@ func TestCachedPolicySource_Invalidate(t *testing.T) {
 		},
 	})
 
-	cached := NewCachedPolicySource(CachedPolicySourceConfig{
+	cached, err := NewCachedPolicySource(CachedPolicySourceConfig{
 		Wrapped: wrapped,
 	})
+	assert.NoError(t, err)
 
 	ctx := context.Background()
 
 	// Load to populate cache
-	_, err := cached.LoadPolicies(ctx)
+	_, err = cached.LoadPolicies(ctx)
 	assert.NoError(t, err)
 
 	// Invalidate cache
@@ -394,11 +396,8 @@ func TestCachedPolicySource_Invalidate(t *testing.T) {
 }
 
 func TestCachedPolicySource_NilWrapped(t *testing.T) {
-	assert.Panics(t, func() {
-		NewCachedPolicySource(CachedPolicySourceConfig{
-			Wrapped: nil,
-		})
-	})
+	_, err := NewCachedPolicySource(CachedPolicySourceConfig{Wrapped: nil})
+	assert.Error(t, err)
 }
 
 // errorPolicySource is a test helper that always returns an error.
