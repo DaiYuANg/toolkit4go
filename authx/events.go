@@ -224,7 +224,7 @@ func LoggingEventHandler(logger *slog.Logger) EventHandler {
 // EventPublisher is a facade over eventx.Bus for authx-specific events.
 // It provides convenient methods for publishing common authx events.
 type EventPublisher struct {
-	bus *eventx.Bus
+	bus eventx.BusRuntime
 }
 
 // NewEventPublisher creates a new event publisher using eventx.Bus.

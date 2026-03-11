@@ -412,3 +412,146 @@ func TestParallelDispatchJoinErrors(t *testing.T) {
 	require.ErrorContains(t, err, "err-a")
 	require.ErrorContains(t, err, "err-b")
 }
+
+func TestSubscribeOnce(t *testing.T) {
+	t.Parallel()
+
+	bus := New()
+	defer func() { _ = bus.Close() }()
+
+	var count int64
+	_, err := SubscribeOnce(bus, func(ctx context.Context, evt userCreated) error {
+		atomic.AddInt64(&count, 1)
+		return nil
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, bus.Publish(context.Background(), userCreated{ID: 1}))
+	require.NoError(t, bus.Publish(context.Background(), userCreated{ID: 2}))
+	require.EqualValues(t, 1, atomic.LoadInt64(&count))
+}
+
+func TestSubscribeN(t *testing.T) {
+	t.Parallel()
+
+	bus := New()
+	defer func() { _ = bus.Close() }()
+
+	var count int64
+	_, err := SubscribeN(bus, 2, func(ctx context.Context, evt userCreated) error {
+		atomic.AddInt64(&count, 1)
+		return nil
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, bus.Publish(context.Background(), userCreated{ID: 1}))
+	require.NoError(t, bus.Publish(context.Background(), userCreated{ID: 2}))
+	require.NoError(t, bus.Publish(context.Background(), userCreated{ID: 3}))
+	require.EqualValues(t, 2, atomic.LoadInt64(&count))
+}
+
+func TestSubscribeNInvalidCount(t *testing.T) {
+	t.Parallel()
+
+	bus := New()
+	defer func() { _ = bus.Close() }()
+
+	_, err := SubscribeN(bus, 0, func(ctx context.Context, evt userCreated) error {
+		return nil
+	})
+	require.ErrorIs(t, err, ErrInvalidSubscribeCount)
+}
+
+func TestCloseWaitsInFlightSyncDispatch(t *testing.T) {
+	t.Parallel()
+
+	bus := New()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	_, err := Subscribe(bus, func(ctx context.Context, evt userCreated) error {
+		close(started)
+		<-release
+		return nil
+	})
+	require.NoError(t, err)
+
+	publishDone := make(chan error, 1)
+	go func() {
+		publishDone <- bus.Publish(context.Background(), userCreated{ID: 1})
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("handler did not start in time")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- bus.Close()
+	}()
+
+	select {
+	case <-closeDone:
+		t.Fatal("close returned before in-flight dispatch finished")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case err := <-publishDone:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("publish did not complete in time")
+	}
+
+	select {
+	case err := <-closeDone:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("close did not complete in time")
+	}
+}
+
+func TestLegacyAsyncCloseWhilePublishing(t *testing.T) {
+	t.Parallel()
+
+	bus := New(
+		WithAsyncWorkers(1),
+		WithAsyncQueueSize(4),
+	)
+
+	_, err := Subscribe(bus, func(ctx context.Context, evt userCreated) error {
+		time.Sleep(2 * time.Millisecond)
+		return nil
+	})
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 200)
+	for i := 0; i < 200; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			errCh <- bus.PublishAsync(context.Background(), userCreated{ID: index})
+		}(i)
+	}
+
+	time.Sleep(5 * time.Millisecond)
+	require.NoError(t, bus.Close())
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, ErrBusClosed) || errors.Is(err, ErrAsyncQueueFull) {
+			continue
+		}
+		require.NoError(t, err)
+	}
+}

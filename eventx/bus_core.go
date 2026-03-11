@@ -13,6 +13,7 @@ import (
 
 // Bus is an in-memory strongly typed event bus.
 type Bus struct {
+	lifecycleMu   sync.Mutex
 	closed        bool
 	nextID        uint64
 	subsByType    subscriptionTable
@@ -35,8 +36,8 @@ const (
 	metricAsyncDispatchErrorTotal = "eventx_async_dispatch_error_total"
 )
 
-// New creates a new Bus.
-func New(opts ...Option) *Bus {
+// New creates a new Bus runtime.
+func New(opts ...Option) BusRuntime {
 	cfg := defaultOptions()
 	lo.ForEach(opts, func(opt Option, _ int) {
 		if opt != nil {
@@ -87,19 +88,24 @@ func (b *Bus) Close() error {
 		return nil
 	}
 
+	var queue chan publishTask
+	var pool *ants.Pool
+	b.lifecycleMu.Lock()
 	if b.closed {
+		b.lifecycleMu.Unlock()
 		return nil
 	}
 	b.closed = true
-
-	queue := b.asyncQueue
+	queue = b.asyncQueue
+	pool = b.antsPool
 	if queue != nil {
 		close(queue)
 	}
+	b.lifecycleMu.Unlock()
 
 	// Release ants pool if enabled
-	if b.antsPool != nil {
-		b.antsPool.Release()
+	if pool != nil {
+		pool.Release()
 	}
 
 	// Wait for legacy worker pool if enabled
@@ -116,4 +122,63 @@ func (b *Bus) SubscriberCount() int {
 		return 0
 	}
 	return b.subsByType.Len()
+}
+
+func (b *Bus) beginDispatch() bool {
+	if b == nil {
+		return false
+	}
+
+	b.lifecycleMu.Lock()
+	defer b.lifecycleMu.Unlock()
+	if b.closed {
+		return false
+	}
+	b.dispatchWG.Add(1)
+	return true
+}
+
+func (b *Bus) registerSubscription(eventType reflect.Type, buildHandler func(id uint64) HandlerFunc) (uint64, error) {
+	if b == nil {
+		return 0, ErrNilBus
+	}
+
+	b.lifecycleMu.Lock()
+	defer b.lifecycleMu.Unlock()
+	if b.closed {
+		return 0, ErrBusClosed
+	}
+	b.nextID++
+	id := b.nextID
+	handler := lo.Ternary(buildHandler != nil, buildHandler(id), nil)
+	b.subsByType.Put(eventType, id, &subscription{
+		id:      id,
+		handler: handler,
+	})
+	return id, nil
+}
+
+func (b *Bus) enqueueLegacyAsyncTask(task publishTask) error {
+	if b == nil {
+		return ErrNilBus
+	}
+
+	b.lifecycleMu.Lock()
+	defer b.lifecycleMu.Unlock()
+
+	if b.closed {
+		return ErrBusClosed
+	}
+	if b.asyncQueue == nil {
+		return errAsyncQueueUnavailable
+	}
+
+	b.dispatchWG.Add(1)
+	select {
+	case b.asyncQueue <- task:
+		return nil
+	default:
+		b.dispatchWG.Done()
+		return ErrAsyncQueueFull
+	}
 }

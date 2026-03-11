@@ -13,4 +13,8 @@ var (
 	ErrNilBus = errors.New("eventx: bus is nil")
 	// ErrAsyncQueueFull indicates the async queue is full.
 	ErrAsyncQueueFull = errors.New("eventx: async queue is full")
+	// ErrInvalidSubscribeCount indicates subscribe call count limit is invalid.
+	ErrInvalidSubscribeCount = errors.New("eventx: subscribe count must be greater than zero")
+
+	errAsyncQueueUnavailable = errors.New("eventx: async queue is unavailable")
 )

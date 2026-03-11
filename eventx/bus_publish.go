@@ -2,6 +2,7 @@ package eventx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -21,9 +22,11 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 		ctx = context.Background()
 	}
 
-	if b.closed {
+	if !b.beginDispatch() {
 		return ErrBusClosed
 	}
+	defer b.dispatchWG.Done()
+
 	handlers := b.snapshotHandlersByEventType(reflect.TypeOf(event))
 
 	return b.dispatch(ctx, event, handlers, "sync")
@@ -48,32 +51,35 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 	)
 	defer span.End()
 
-	if b.closed {
-		err := ErrBusClosed
-		span.RecordError(err)
-		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observabilityx.String("result", "closed"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observabilityx.String("result", "closed"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		return ErrBusClosed
-	}
 	handlers := b.snapshotHandlersByEventType(reflect.TypeOf(event))
 
 	// Use ants pool if enabled
 	if b.antsPool != nil {
+		if !b.beginDispatch() {
+			err := ErrBusClosed
+			span.RecordError(err)
+			obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
+				observabilityx.String("result", "closed"),
+				observabilityx.String("event_name", eventName(event)),
+			)
+			obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
+				observabilityx.String("result", "closed"),
+				observabilityx.String("event_name", eventName(event)),
+			)
+			return err
+		}
+
 		task := publishTask{
 			ctx:      ctx,
 			event:    event,
 			handlers: handlers,
 		}
 		err := b.antsPool.Submit(func() {
+			defer b.dispatchWG.Done()
 			b.executeTask(task)
 		})
 		if err != nil {
+			b.dispatchWG.Done()
 			span.RecordError(err)
 			obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
 				observabilityx.String("result", "pool_error"),
@@ -102,8 +108,9 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 		return b.Publish(ctx, event)
 	}
 
-	select {
-	case b.asyncQueue <- publishTask{ctx: ctx, event: event, handlers: handlers}:
+	err := b.enqueueLegacyAsyncTask(publishTask{ctx: ctx, event: event, handlers: handlers})
+	switch {
+	case err == nil:
 		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
 			observabilityx.String("result", "enqueued"),
 			observabilityx.String("event_name", eventName(event)),
@@ -113,6 +120,19 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 			observabilityx.String("event_name", eventName(event)),
 		)
 		return nil
+	case errors.Is(err, ErrBusClosed):
+		span.RecordError(err)
+		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
+			observabilityx.String("result", "closed"),
+			observabilityx.String("event_name", eventName(event)),
+		)
+		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
+			observabilityx.String("result", "closed"),
+			observabilityx.String("event_name", eventName(event)),
+		)
+		return ErrBusClosed
+	case errors.Is(err, errAsyncQueueUnavailable):
+		return b.Publish(ctx, event)
 	default:
 		span.RecordError(ErrAsyncQueueFull)
 		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
@@ -147,6 +167,9 @@ func (b *Bus) executeTask(task publishTask) {
 func (b *Bus) workerLoop() {
 	defer b.workerWG.Done()
 	for task := range b.asyncQueue {
-		b.executeTask(task)
+		func(t publishTask) {
+			defer b.dispatchWG.Done()
+			b.executeTask(t)
+		}(task)
 	}
 }

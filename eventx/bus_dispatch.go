@@ -41,9 +41,6 @@ func (b *Bus) dispatch(ctx context.Context, event Event, handlers []HandlerFunc,
 		)
 	}()
 
-	b.dispatchWG.Add(1)
-	defer b.dispatchWG.Done()
-
 	var err error
 	if b.parallel {
 		err = b.dispatchParallel(ctx, event, handlers)

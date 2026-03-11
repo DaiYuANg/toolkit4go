@@ -13,7 +13,7 @@ func (e benchmarkEvent) Name() string {
 	return "benchmark.event"
 }
 
-func benchmarkBusWithSubscribers(b *testing.B, parallelDispatch bool, subscribers int) *Bus {
+func benchmarkBusWithSubscribers(b *testing.B, parallelDispatch bool, subscribers int) BusRuntime {
 	b.Helper()
 
 	bus := New(WithParallelDispatch(parallelDispatch))

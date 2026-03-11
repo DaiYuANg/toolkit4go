@@ -45,7 +45,7 @@ func main() {
 		),
 
 		// 初始化订阅者
-		fx.Invoke(func(bus *eventx.Bus, logger *logx.Logger) {
+		fx.Invoke(func(bus eventx.BusRuntime, logger *logx.Logger) {
 			logger.Info("🚀 正在注册通知订阅者...")
 
 			// 订阅邮件通知
@@ -112,7 +112,7 @@ func main() {
 		}),
 
 		// 运行业务逻辑
-		fx.Invoke(func(lc fx.Lifecycle, bus *eventx.Bus, logger *logx.Logger) {
+		fx.Invoke(func(lc fx.Lifecycle, bus eventx.BusRuntime, logger *logx.Logger) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
 					logger.Info("📨 开始发布通知事件...")
