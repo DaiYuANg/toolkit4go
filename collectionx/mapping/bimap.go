@@ -1,7 +1,6 @@
 package mapping
 
 import (
-	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
@@ -9,16 +8,13 @@ import (
 // Both key and value must be unique in the map.
 // Zero value is ready to use.
 type BiMap[K comparable, V comparable] struct {
-	kv map[K]V
-	vk map[V]K
+	kv Map[K, V]
+	vk Map[V, K]
 }
 
 // NewBiMap creates an empty bimap.
 func NewBiMap[K comparable, V comparable]() *BiMap[K, V] {
-	return &BiMap[K, V]{
-		kv: make(map[K]V),
-		vk: make(map[V]K),
-	}
+	return &BiMap[K, V]{}
 }
 
 // Put sets key <-> value mapping.
@@ -29,34 +25,34 @@ func (m *BiMap[K, V]) Put(key K, value V) {
 	}
 	m.ensureInit()
 
-	if oldValue, ok := m.kv[key]; ok {
-		delete(m.vk, oldValue)
+	if oldValue, ok := m.kv.Get(key); ok {
+		m.vk.Delete(oldValue)
 	}
-	if oldKey, ok := m.vk[value]; ok {
-		delete(m.kv, oldKey)
+	if oldKey, ok := m.vk.Get(value); ok {
+		m.kv.Delete(oldKey)
 	}
 
-	m.kv[key] = value
-	m.vk[value] = key
+	m.kv.Set(key, value)
+	m.vk.Set(value, key)
 }
 
 // GetByKey returns value by key.
 func (m *BiMap[K, V]) GetByKey(key K) (V, bool) {
 	var zero V
-	if m == nil || m.kv == nil {
+	if m == nil {
 		return zero, false
 	}
-	value, ok := m.kv[key]
+	value, ok := m.kv.Get(key)
 	return value, ok
 }
 
 // GetByValue returns key by value.
 func (m *BiMap[K, V]) GetByValue(value V) (K, bool) {
 	var zero K
-	if m == nil || m.vk == nil {
+	if m == nil {
 		return zero, false
 	}
-	key, ok := m.vk[value]
+	key, ok := m.vk.Get(value)
 	return key, ok
 }
 
@@ -80,29 +76,29 @@ func (m *BiMap[K, V]) GetKeyOption(value V) mo.Option[K] {
 
 // DeleteByKey removes mapping by key.
 func (m *BiMap[K, V]) DeleteByKey(key K) bool {
-	if m == nil || m.kv == nil {
+	if m == nil {
 		return false
 	}
-	value, ok := m.kv[key]
+	value, ok := m.kv.Get(key)
 	if !ok {
 		return false
 	}
-	delete(m.kv, key)
-	delete(m.vk, value)
+	m.kv.Delete(key)
+	m.vk.Delete(value)
 	return true
 }
 
 // DeleteByValue removes mapping by value.
 func (m *BiMap[K, V]) DeleteByValue(value V) bool {
-	if m == nil || m.vk == nil {
+	if m == nil {
 		return false
 	}
-	key, ok := m.vk[value]
+	key, ok := m.vk.Get(value)
 	if !ok {
 		return false
 	}
-	delete(m.vk, value)
-	delete(m.kv, key)
+	m.vk.Delete(value)
+	m.kv.Delete(key)
 	return true
 }
 
@@ -123,7 +119,7 @@ func (m *BiMap[K, V]) Len() int {
 	if m == nil {
 		return 0
 	}
-	return len(m.kv)
+	return m.kv.Len()
 }
 
 // IsEmpty reports whether map has no pairs.
@@ -136,40 +132,40 @@ func (m *BiMap[K, V]) Clear() {
 	if m == nil {
 		return
 	}
-	clear(m.kv)
-	clear(m.vk)
+	m.kv.Clear()
+	m.vk.Clear()
 }
 
 // Keys returns all keys.
 func (m *BiMap[K, V]) Keys() []K {
-	if m == nil || len(m.kv) == 0 {
+	if m == nil || m.kv.Len() == 0 {
 		return nil
 	}
-	return lo.Keys(m.kv)
+	return m.kv.Keys()
 }
 
 // Values returns all values.
 func (m *BiMap[K, V]) Values() []V {
-	if m == nil || len(m.kv) == 0 {
+	if m == nil || m.kv.Len() == 0 {
 		return nil
 	}
-	return lo.Values(m.kv)
+	return m.kv.Values()
 }
 
 // All returns copied forward map.
 func (m *BiMap[K, V]) All() map[K]V {
-	if m == nil || len(m.kv) == 0 {
+	if m == nil || m.kv.Len() == 0 {
 		return map[K]V{}
 	}
-	return lo.Assign(map[K]V{}, m.kv)
+	return m.kv.All()
 }
 
 // Inverse returns copied reverse map.
 func (m *BiMap[K, V]) Inverse() map[V]K {
-	if m == nil || len(m.vk) == 0 {
+	if m == nil || m.vk.Len() == 0 {
 		return map[V]K{}
 	}
-	return lo.Assign(map[V]K{}, m.vk)
+	return m.vk.All()
 }
 
 // Range iterates all key-value pairs until fn returns false.
@@ -177,18 +173,10 @@ func (m *BiMap[K, V]) Range(fn func(key K, value V) bool) {
 	if m == nil || fn == nil {
 		return
 	}
-	for key, value := range m.kv {
-		if !fn(key, value) {
-			return
-		}
-	}
+	m.kv.Range(fn)
 }
 
 func (m *BiMap[K, V]) ensureInit() {
-	if m.kv == nil {
-		m.kv = make(map[K]V)
-	}
-	if m.vk == nil {
-		m.vk = make(map[V]K)
-	}
+	m.kv.ensureInit()
+	m.vk.ensureInit()
 }

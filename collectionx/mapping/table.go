@@ -9,15 +9,13 @@ import (
 // Similar to Guava Table and backed by map[row]map[column]value.
 // Zero value is ready to use.
 type Table[R comparable, C comparable, V any] struct {
-	data map[R]map[C]V
+	data Map[R, map[C]V]
 	size int
 }
 
 // NewTable creates an empty table.
 func NewTable[R comparable, C comparable, V any]() *Table[R, C, V] {
-	return &Table[R, C, V]{
-		data: make(map[R]map[C]V),
-	}
+	return &Table[R, C, V]{}
 }
 
 // Put sets value at (rowKey, columnKey).
@@ -36,10 +34,10 @@ func (t *Table[R, C, V]) Put(rowKey R, columnKey C, value V) {
 // Get returns value at (rowKey, columnKey).
 func (t *Table[R, C, V]) Get(rowKey R, columnKey C) (V, bool) {
 	var zero V
-	if t == nil || t.data == nil {
+	if t == nil {
 		return zero, false
 	}
-	row, ok := t.data[rowKey]
+	row, ok := t.data.Get(rowKey)
 	if !ok {
 		return zero, false
 	}
@@ -63,22 +61,23 @@ func (t *Table[R, C, V]) SetRow(rowKey R, rowValues map[C]V) {
 		return
 	}
 	t.ensureInit()
-	oldSize := len(t.data[rowKey])
+	oldRow, _ := t.data.Get(rowKey)
+	oldSize := len(oldRow)
 	if len(rowValues) == 0 {
-		delete(t.data, rowKey)
+		t.data.Delete(rowKey)
 		t.size -= oldSize
 		return
 	}
-	t.data[rowKey] = lo.Assign(map[C]V{}, rowValues)
+	t.data.Set(rowKey, lo.Assign(map[C]V{}, rowValues))
 	t.size += len(rowValues) - oldSize
 }
 
 // Row returns one row as a copied map.
 func (t *Table[R, C, V]) Row(rowKey R) map[C]V {
-	if t == nil || t.data == nil {
+	if t == nil {
 		return map[C]V{}
 	}
-	row, ok := t.data[rowKey]
+	row, ok := t.data.Get(rowKey)
 	if !ok || len(row) == 0 {
 		return map[C]V{}
 	}
@@ -87,24 +86,25 @@ func (t *Table[R, C, V]) Row(rowKey R) map[C]V {
 
 // Column returns one column as a copied map[row]value.
 func (t *Table[R, C, V]) Column(columnKey C) map[R]V {
-	if t == nil || len(t.data) == 0 {
+	if t == nil || t.data.Len() == 0 {
 		return map[R]V{}
 	}
 	out := make(map[R]V)
-	for rowKey, row := range t.data {
+	t.data.Range(func(rowKey R, row map[C]V) bool {
 		if value, ok := row[columnKey]; ok {
 			out[rowKey] = value
 		}
-	}
+		return true
+	})
 	return out
 }
 
 // Delete removes one cell and reports whether it existed.
 func (t *Table[R, C, V]) Delete(rowKey R, columnKey C) bool {
-	if t == nil || t.data == nil {
+	if t == nil {
 		return false
 	}
-	row, ok := t.data[rowKey]
+	row, ok := t.data.Get(rowKey)
 	if !ok {
 		return false
 	}
@@ -116,39 +116,44 @@ func (t *Table[R, C, V]) Delete(rowKey R, columnKey C) bool {
 	delete(row, columnKey)
 	t.size--
 	if len(row) == 0 {
-		delete(t.data, rowKey)
+		t.data.Delete(rowKey)
 	}
 	return true
 }
 
 // DeleteRow removes one row and reports whether it existed.
 func (t *Table[R, C, V]) DeleteRow(rowKey R) bool {
-	if t == nil || t.data == nil {
+	if t == nil {
 		return false
 	}
-	_, existed := t.data[rowKey]
+	row, existed := t.data.Get(rowKey)
 	if existed {
-		t.size -= len(t.data[rowKey])
-		delete(t.data, rowKey)
+		t.size -= len(row)
+		t.data.Delete(rowKey)
 	}
 	return existed
 }
 
 // DeleteColumn removes one column from all rows and returns removed cell count.
 func (t *Table[R, C, V]) DeleteColumn(columnKey C) int {
-	if t == nil || len(t.data) == 0 {
+	if t == nil || t.data.Len() == 0 {
 		return 0
 	}
 	removed := 0
-	for rowKey, row := range t.data {
+	rowsToDelete := make([]R, 0)
+	t.data.Range(func(rowKey R, row map[C]V) bool {
 		if _, ok := row[columnKey]; ok {
 			delete(row, columnKey)
 			removed++
 			t.size--
 		}
 		if len(row) == 0 {
-			delete(t.data, rowKey)
+			rowsToDelete = append(rowsToDelete, rowKey)
 		}
+		return true
+	})
+	for _, rowKey := range rowsToDelete {
+		t.data.Delete(rowKey)
 	}
 	return removed
 }
@@ -164,7 +169,7 @@ func (t *Table[R, C, V]) RowCount() int {
 	if t == nil {
 		return 0
 	}
-	return len(t.data)
+	return t.data.Len()
 }
 
 // Len returns total cell count.
@@ -185,41 +190,43 @@ func (t *Table[R, C, V]) Clear() {
 	if t == nil {
 		return
 	}
-	clear(t.data)
+	t.data.Clear()
 	t.size = 0
 }
 
 // RowKeys returns all row keys.
 func (t *Table[R, C, V]) RowKeys() []R {
-	if t == nil || len(t.data) == 0 {
+	if t == nil || t.data.Len() == 0 {
 		return nil
 	}
-	return lo.Keys(t.data)
+	return t.data.Keys()
 }
 
 // ColumnKeys returns all unique column keys.
 func (t *Table[R, C, V]) ColumnKeys() []C {
-	if t == nil || len(t.data) == 0 {
+	if t == nil || t.data.Len() == 0 {
 		return nil
 	}
 	set := make(map[C]struct{})
-	for _, row := range t.data {
+	t.data.Range(func(_ R, row map[C]V) bool {
 		for columnKey := range row {
 			set[columnKey] = struct{}{}
 		}
-	}
+		return true
+	})
 	return lo.Keys(set)
 }
 
 // All returns a deep-copied built-in map.
 func (t *Table[R, C, V]) All() map[R]map[C]V {
-	if t == nil || len(t.data) == 0 {
+	if t == nil || t.data.Len() == 0 {
 		return map[R]map[C]V{}
 	}
-	out := make(map[R]map[C]V, len(t.data))
-	for rowKey, row := range t.data {
+	out := make(map[R]map[C]V, t.data.Len())
+	t.data.Range(func(rowKey R, row map[C]V) bool {
 		out[rowKey] = lo.Assign(map[C]V{}, row)
-	}
+		return true
+	})
 	return out
 }
 
@@ -228,26 +235,25 @@ func (t *Table[R, C, V]) Range(fn func(rowKey R, columnKey C, value V) bool) {
 	if t == nil || fn == nil {
 		return
 	}
-	for rowKey, row := range t.data {
+	t.data.Range(func(rowKey R, row map[C]V) bool {
 		for columnKey, value := range row {
 			if !fn(rowKey, columnKey, value) {
-				return
+				return false
 			}
 		}
-	}
+		return true
+	})
 }
 
 func (t *Table[R, C, V]) ensureInit() {
-	if t.data == nil {
-		t.data = make(map[R]map[C]V)
-	}
+	t.data.ensureInit()
 }
 
 func (t *Table[R, C, V]) ensureRow(rowKey R) map[C]V {
-	row, ok := t.data[rowKey]
+	row, ok := t.data.Get(rowKey)
 	if !ok {
 		row = make(map[C]V)
-		t.data[rowKey] = row
+		t.data.Set(rowKey, row)
 	}
 	return row
 }

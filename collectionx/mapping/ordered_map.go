@@ -12,17 +12,13 @@ import (
 // Zero value is ready to use.
 type OrderedMap[K comparable, V any] struct {
 	order []K
-	items map[K]V
-	index map[K]int
+	items Map[K, V]
+	index Map[K, int]
 }
 
 // NewOrderedMap creates an empty ordered map.
 func NewOrderedMap[K comparable, V any]() *OrderedMap[K, V] {
-	return &OrderedMap[K, V]{
-		order: make([]K, 0),
-		items: make(map[K]V),
-		index: make(map[K]int),
-	}
+	return &OrderedMap[K, V]{}
 }
 
 // Set inserts or updates key-value pair.
@@ -32,20 +28,20 @@ func (m *OrderedMap[K, V]) Set(key K, value V) {
 	}
 	m.ensureInit()
 
-	if _, exists := m.items[key]; !exists {
+	if _, exists := m.items.Get(key); !exists {
 		m.order = append(m.order, key)
-		m.index[key] = len(m.order) - 1
+		m.index.Set(key, len(m.order)-1)
 	}
-	m.items[key] = value
+	m.items.Set(key, value)
 }
 
 // Get returns value by key.
 func (m *OrderedMap[K, V]) Get(key K) (V, bool) {
 	var zero V
-	if m == nil || m.items == nil {
+	if m == nil {
 		return zero, false
 	}
-	value, ok := m.items[key]
+	value, ok := m.items.Get(key)
 	return value, ok
 }
 
@@ -66,27 +62,27 @@ func (m *OrderedMap[K, V]) At(pos int) (K, V, bool) {
 		return zeroK, zeroV, false
 	}
 	key := m.order[pos]
-	value := m.items[key]
+	value, _ := m.items.Get(key)
 	return key, value, true
 }
 
 // Delete removes key.
 func (m *OrderedMap[K, V]) Delete(key K) bool {
-	if m == nil || m.items == nil {
+	if m == nil {
 		return false
 	}
-	pos, ok := m.index[key]
+	pos, ok := m.index.Get(key)
 	if !ok {
 		return false
 	}
 
-	delete(m.items, key)
-	delete(m.index, key)
+	m.items.Delete(key)
+	m.index.Delete(key)
 
 	copy(m.order[pos:], m.order[pos+1:])
 	m.order = m.order[:len(m.order)-1]
 	for i := pos; i < len(m.order); i++ {
-		m.index[m.order[i]] = i
+		m.index.Set(m.order[i], i)
 	}
 	return true
 }
@@ -110,8 +106,8 @@ func (m *OrderedMap[K, V]) Clear() {
 		return
 	}
 	m.order = nil
-	clear(m.items)
-	clear(m.index)
+	m.items.Clear()
+	m.index.Clear()
 }
 
 // Keys returns keys in insertion order.
@@ -128,16 +124,17 @@ func (m *OrderedMap[K, V]) Values() []V {
 		return nil
 	}
 	return lo.Map(m.order, func(key K, _ int) V {
-		return m.items[key]
+		value, _ := m.items.Get(key)
+		return value
 	})
 }
 
 // All returns copied unordered built-in map.
 func (m *OrderedMap[K, V]) All() map[K]V {
-	if m == nil || len(m.items) == 0 {
+	if m == nil || m.items.Len() == 0 {
 		return map[K]V{}
 	}
-	return lo.Assign(map[K]V{}, m.items)
+	return m.items.All()
 }
 
 // Range iterates in insertion order until fn returns false.
@@ -146,7 +143,8 @@ func (m *OrderedMap[K, V]) Range(fn func(key K, value V) bool) {
 		return
 	}
 	for _, key := range m.order {
-		if !fn(key, m.items[key]) {
+		value, _ := m.items.Get(key)
+		if !fn(key, value) {
 			return
 		}
 	}
@@ -159,8 +157,8 @@ func (m *OrderedMap[K, V]) Clone() *OrderedMap[K, V] {
 		return out
 	}
 	out.order = slices.Clone(m.order)
-	out.items = lo.Assign(map[K]V{}, m.items)
-	out.index = lo.Assign(map[K]int{}, m.index)
+	out.items.SetAll(m.items.All())
+	out.index.SetAll(m.index.All())
 	return out
 }
 
@@ -168,10 +166,6 @@ func (m *OrderedMap[K, V]) ensureInit() {
 	if m.order == nil {
 		m.order = make([]K, 0)
 	}
-	if m.items == nil {
-		m.items = make(map[K]V)
-	}
-	if m.index == nil {
-		m.index = make(map[K]int)
-	}
+	m.items.ensureInit()
+	m.index.ensureInit()
 }

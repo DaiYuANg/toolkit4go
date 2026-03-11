@@ -3,22 +3,19 @@ package mapping
 import (
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
 // MultiMap stores one key with multiple values.
 // Zero value is ready to use.
 type MultiMap[K comparable, V any] struct {
-	items      map[K][]V
+	items      Map[K, []V]
 	valueCount int
 }
 
 // NewMultiMap creates an empty multimap.
 func NewMultiMap[K comparable, V any]() *MultiMap[K, V] {
-	return &MultiMap[K, V]{
-		items: make(map[K][]V),
-	}
+	return &MultiMap[K, V]{}
 }
 
 // Put appends one value for key.
@@ -32,7 +29,10 @@ func (m *MultiMap[K, V]) PutAll(key K, values ...V) {
 		return
 	}
 	m.ensureInit()
-	m.items[key] = append(m.items[key], values...)
+
+	current, _ := m.items.Get(key)
+	current = append(current, values...)
+	m.items.Set(key, current)
 	m.valueCount += len(values)
 }
 
@@ -44,22 +44,23 @@ func (m *MultiMap[K, V]) Set(key K, values ...V) {
 	}
 	m.ensureInit()
 
-	oldCount := len(m.items[key])
+	oldValues, _ := m.items.Get(key)
+	oldCount := len(oldValues)
 	if len(values) == 0 {
-		delete(m.items, key)
+		m.items.Delete(key)
 		m.valueCount -= oldCount
 		return
 	}
-	m.items[key] = slices.Clone(values)
+	m.items.Set(key, slices.Clone(values))
 	m.valueCount += len(values) - oldCount
 }
 
 // Get returns a copy of values for key.
 func (m *MultiMap[K, V]) Get(key K) []V {
-	if m == nil || m.items == nil {
+	if m == nil {
 		return nil
 	}
-	values, ok := m.items[key]
+	values, ok := m.items.Get(key)
 	if !ok || len(values) == 0 {
 		return nil
 	}
@@ -77,12 +78,12 @@ func (m *MultiMap[K, V]) GetOption(key K) mo.Option[[]V] {
 
 // Delete removes all values for key.
 func (m *MultiMap[K, V]) Delete(key K) bool {
-	if m == nil || m.items == nil {
+	if m == nil {
 		return false
 	}
-	values, existed := m.items[key]
+	values, existed := m.items.Get(key)
 	if existed {
-		delete(m.items, key)
+		m.items.Delete(key)
 		m.valueCount -= len(values)
 	}
 	return existed
@@ -90,23 +91,37 @@ func (m *MultiMap[K, V]) Delete(key K) bool {
 
 // DeleteValueIf removes values matching predicate under key and returns removed count.
 func (m *MultiMap[K, V]) DeleteValueIf(key K, predicate func(value V) bool) int {
-	if m == nil || m.items == nil || predicate == nil {
+	if m == nil || predicate == nil {
 		return 0
 	}
 
-	values, ok := m.items[key]
+	values, ok := m.items.Get(key)
 	if !ok || len(values) == 0 {
 		return 0
 	}
 
-	next := lo.Filter(values, func(item V, _ int) bool {
-		return !predicate(item)
-	})
-	removed := len(values) - len(next)
-	if len(next) == 0 {
-		delete(m.items, key)
+	write := 0
+	for _, value := range values {
+		if predicate(value) {
+			continue
+		}
+		values[write] = value
+		write++
+	}
+
+	removed := len(values) - write
+	if removed == 0 {
+		return 0
+	}
+
+	if write == 0 {
+		m.items.Delete(key)
 	} else {
-		m.items[key] = next
+		var zero V
+		for i := write; i < len(values); i++ {
+			values[i] = zero
+		}
+		m.items.Set(key, values[:write])
 	}
 	m.valueCount -= removed
 	return removed
@@ -114,10 +129,10 @@ func (m *MultiMap[K, V]) DeleteValueIf(key K, predicate func(value V) bool) int 
 
 // ContainsKey reports whether key exists.
 func (m *MultiMap[K, V]) ContainsKey(key K) bool {
-	if m == nil || m.items == nil {
+	if m == nil {
 		return false
 	}
-	_, ok := m.items[key]
+	_, ok := m.items.Get(key)
 	return ok
 }
 
@@ -126,7 +141,7 @@ func (m *MultiMap[K, V]) Len() int {
 	if m == nil {
 		return 0
 	}
-	return len(m.items)
+	return m.items.Len()
 }
 
 // ValueCount returns total stored value count.
@@ -147,27 +162,28 @@ func (m *MultiMap[K, V]) Clear() {
 	if m == nil {
 		return
 	}
-	clear(m.items)
+	m.items.Clear()
 	m.valueCount = 0
 }
 
 // Keys returns all keys.
 func (m *MultiMap[K, V]) Keys() []K {
-	if m == nil || len(m.items) == 0 {
+	if m == nil || m.items.Len() == 0 {
 		return nil
 	}
-	return lo.Keys(m.items)
+	return m.items.Keys()
 }
 
 // All returns a deep-copied built-in map.
 func (m *MultiMap[K, V]) All() map[K][]V {
-	if m == nil || len(m.items) == 0 {
+	if m == nil || m.items.Len() == 0 {
 		return map[K][]V{}
 	}
-	out := make(map[K][]V, len(m.items))
-	for key, values := range m.items {
+	out := make(map[K][]V, m.items.Len())
+	m.items.Range(func(key K, values []V) bool {
 		out[key] = slices.Clone(values)
-	}
+		return true
+	})
 	return out
 }
 
@@ -176,15 +192,11 @@ func (m *MultiMap[K, V]) Range(fn func(key K, values []V) bool) {
 	if m == nil || fn == nil {
 		return
 	}
-	for key, values := range m.items {
-		if !fn(key, slices.Clone(values)) {
-			return
-		}
-	}
+	m.items.Range(func(key K, values []V) bool {
+		return fn(key, slices.Clone(values))
+	})
 }
 
 func (m *MultiMap[K, V]) ensureInit() {
-	if m.items == nil {
-		m.items = make(map[K][]V)
-	}
+	m.items.ensureInit()
 }
