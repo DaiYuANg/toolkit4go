@@ -1,17 +1,16 @@
 package set
 
 import (
-	"slices"
-
-	"github.com/samber/lo"
+	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
+	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 )
 
 // OrderedSet keeps insertion order of unique items.
 // Zero value is ready to use.
 type OrderedSet[T comparable] struct {
-	order []T
-	items map[T]struct{}
-	index map[T]int
+	order collectionlist.List[T]
+	items collectionmapping.Map[T, struct{}]
+	index collectionmapping.Map[T, int]
 }
 
 // NewOrderedSet creates an ordered set with optional items.
@@ -26,45 +25,44 @@ func (s *OrderedSet[T]) Add(items ...T) {
 	if s == nil || len(items) == 0 {
 		return
 	}
-	s.ensureInit()
 
-	lo.ForEach(items, func(item T, _ int) {
-		if _, exists := s.items[item]; exists {
-			return
+	for _, item := range items {
+		if _, exists := s.items.Get(item); exists {
+			continue
 		}
-		s.order = append(s.order, item)
-		s.items[item] = struct{}{}
-		s.index[item] = len(s.order) - 1
-	})
+		s.order.Add(item)
+		s.items.Set(item, struct{}{})
+		s.index.Set(item, s.order.Len()-1)
+	}
 }
 
 // Remove deletes item and reports whether it existed.
 func (s *OrderedSet[T]) Remove(item T) bool {
-	if s == nil || s.items == nil {
+	if s == nil {
 		return false
 	}
-	pos, ok := s.index[item]
+	pos, ok := s.index.Get(item)
 	if !ok {
 		return false
 	}
 
-	delete(s.items, item)
-	delete(s.index, item)
+	s.items.Delete(item)
+	s.index.Delete(item)
 
-	copy(s.order[pos:], s.order[pos+1:])
-	s.order = s.order[:len(s.order)-1]
-	for i := pos; i < len(s.order); i++ {
-		s.index[s.order[i]] = i
+	_, _ = s.order.RemoveAt(pos)
+	for i := pos; i < s.order.Len(); i++ {
+		nextItem, _ := s.order.Get(i)
+		s.index.Set(nextItem, i)
 	}
 	return true
 }
 
 // Contains reports whether item exists.
 func (s *OrderedSet[T]) Contains(item T) bool {
-	if s == nil || s.items == nil {
+	if s == nil {
 		return false
 	}
-	_, ok := s.items[item]
+	_, ok := s.items.Get(item)
 	return ok
 }
 
@@ -73,7 +71,7 @@ func (s *OrderedSet[T]) Len() int {
 	if s == nil {
 		return 0
 	}
-	return len(s.order)
+	return s.order.Len()
 }
 
 // IsEmpty reports whether set has no items.
@@ -86,26 +84,30 @@ func (s *OrderedSet[T]) Clear() {
 	if s == nil {
 		return
 	}
-	s.order = nil
-	clear(s.items)
-	clear(s.index)
+	s.order.Clear()
+	s.items.Clear()
+	s.index.Clear()
 }
 
 // Values returns items in insertion order.
 func (s *OrderedSet[T]) Values() []T {
-	if s == nil || len(s.order) == 0 {
+	if s == nil {
 		return nil
 	}
-	return slices.Clone(s.order)
+	values := s.order.Values()
+	if len(values) == 0 {
+		return nil
+	}
+	return values
 }
 
 // At returns item at insertion index.
 func (s *OrderedSet[T]) At(pos int) (T, bool) {
-	var zero T
-	if s == nil || pos < 0 || pos >= len(s.order) {
+	if s == nil {
+		var zero T
 		return zero, false
 	}
-	return s.order[pos], true
+	return s.order.Get(pos)
 }
 
 // Range iterates items in insertion order until fn returns false.
@@ -113,11 +115,7 @@ func (s *OrderedSet[T]) Range(fn func(item T) bool) {
 	if s == nil || fn == nil {
 		return
 	}
-	for _, item := range s.order {
-		if !fn(item) {
-			return
-		}
-	}
+	s.order.Range(func(_ int, item T) bool { return fn(item) })
 }
 
 // Clone returns a shallow copy.
@@ -126,20 +124,8 @@ func (s *OrderedSet[T]) Clone() *OrderedSet[T] {
 	if s == nil {
 		return out
 	}
-	out.order = slices.Clone(s.order)
-	out.items = lo.Assign(map[T]struct{}{}, s.items)
-	out.index = lo.Assign(map[T]int{}, s.index)
+	out.order.Add(s.order.Values()...)
+	out.items.SetAll(s.items.All())
+	out.index.SetAll(s.index.All())
 	return out
-}
-
-func (s *OrderedSet[T]) ensureInit() {
-	if s.order == nil {
-		s.order = make([]T, 0)
-	}
-	if s.items == nil {
-		s.items = make(map[T]struct{})
-	}
-	if s.index == nil {
-		s.index = make(map[T]int)
-	}
 }

@@ -1,13 +1,11 @@
 package set
 
-import (
-	"github.com/samber/lo"
-)
+import collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 
 // MultiSet is a bag-like set with occurrence counts.
 // Zero value is ready to use.
 type MultiSet[T comparable] struct {
-	counts map[T]int
+	counts collectionmapping.Map[T, int]
 	size   int
 }
 
@@ -23,9 +21,9 @@ func (s *MultiSet[T]) Add(items ...T) {
 	if s == nil || len(items) == 0 {
 		return
 	}
-	s.ensureInit()
 	for _, item := range items {
-		s.counts[item]++
+		current, _ := s.counts.Get(item)
+		s.counts.Set(item, current+1)
 		s.size++
 	}
 }
@@ -35,8 +33,8 @@ func (s *MultiSet[T]) AddN(item T, n int) {
 	if s == nil || n <= 0 {
 		return
 	}
-	s.ensureInit()
-	s.counts[item] += n
+	current, _ := s.counts.Get(item)
+	s.counts.Set(item, current+n)
 	s.size += n
 }
 
@@ -47,10 +45,10 @@ func (s *MultiSet[T]) Remove(item T) bool {
 
 // RemoveN removes up to n occurrences and returns removed count.
 func (s *MultiSet[T]) RemoveN(item T, n int) int {
-	if s == nil || s.counts == nil || n <= 0 {
+	if s == nil || n <= 0 {
 		return 0
 	}
-	current, ok := s.counts[item]
+	current, ok := s.counts.Get(item)
 	if !ok || current <= 0 {
 		return 0
 	}
@@ -62,9 +60,9 @@ func (s *MultiSet[T]) RemoveN(item T, n int) int {
 
 	remain := current - removed
 	if remain == 0 {
-		delete(s.counts, item)
+		s.counts.Delete(item)
 	} else {
-		s.counts[item] = remain
+		s.counts.Set(item, remain)
 	}
 	s.size -= removed
 	return removed
@@ -72,10 +70,11 @@ func (s *MultiSet[T]) RemoveN(item T, n int) int {
 
 // Count returns occurrence count for item.
 func (s *MultiSet[T]) Count(item T) int {
-	if s == nil || s.counts == nil {
+	if s == nil {
 		return 0
 	}
-	return s.counts[item]
+	value, _ := s.counts.Get(item)
+	return value
 }
 
 // Contains reports whether item exists.
@@ -96,7 +95,7 @@ func (s *MultiSet[T]) UniqueLen() int {
 	if s == nil {
 		return 0
 	}
-	return len(s.counts)
+	return s.counts.Len()
 }
 
 // IsEmpty reports whether multiset has no elements.
@@ -109,16 +108,16 @@ func (s *MultiSet[T]) Clear() {
 	if s == nil {
 		return
 	}
-	clear(s.counts)
+	s.counts.Clear()
 	s.size = 0
 }
 
 // Distinct returns all distinct elements.
 func (s *MultiSet[T]) Distinct() []T {
-	if s == nil || len(s.counts) == 0 {
+	if s == nil || s.counts.Len() == 0 {
 		return nil
 	}
-	return lo.Keys(s.counts)
+	return s.counts.Keys()
 }
 
 // Elements returns flattened elements with duplicates.
@@ -127,20 +126,21 @@ func (s *MultiSet[T]) Elements() []T {
 		return nil
 	}
 	out := make([]T, 0, s.size)
-	for item, count := range s.counts {
+	s.counts.Range(func(item T, count int) bool {
 		for i := 0; i < count; i++ {
 			out = append(out, item)
 		}
-	}
+		return true
+	})
 	return out
 }
 
 // AllCounts returns copied count map.
 func (s *MultiSet[T]) AllCounts() map[T]int {
-	if s == nil || len(s.counts) == 0 {
+	if s == nil || s.counts.Len() == 0 {
 		return map[T]int{}
 	}
-	return lo.Assign(map[T]int{}, s.counts)
+	return s.counts.All()
 }
 
 // Range iterates all distinct elements with their counts until fn returns false.
@@ -148,15 +148,5 @@ func (s *MultiSet[T]) Range(fn func(item T, count int) bool) {
 	if s == nil || fn == nil {
 		return
 	}
-	for item, count := range s.counts {
-		if !fn(item, count) {
-			return
-		}
-	}
-}
-
-func (s *MultiSet[T]) ensureInit() {
-	if s.counts == nil {
-		s.counts = make(map[T]int)
-	}
+	s.counts.Range(fn)
 }

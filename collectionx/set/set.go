@@ -1,11 +1,11 @@
 package set
 
-import "github.com/samber/lo"
+import collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 
-// Set is a generic hash set based on map[T]struct{}.
+// Set is a generic hash set.
 // Zero value is ready to use.
 type Set[T comparable] struct {
-	items map[T]struct{}
+	items collectionmapping.Map[T, struct{}]
 }
 
 // NewSet creates a new set and fills it with optional items.
@@ -20,30 +20,25 @@ func (s *Set[T]) Add(items ...T) {
 	if s == nil || len(items) == 0 {
 		return
 	}
-	s.ensureInit()
 	for _, item := range items {
-		s.items[item] = struct{}{}
+		s.items.Set(item, struct{}{})
 	}
 }
 
 // Remove deletes an item and reports whether it existed.
 func (s *Set[T]) Remove(item T) bool {
-	if s == nil || s.items == nil {
+	if s == nil {
 		return false
 	}
-	_, existed := s.items[item]
-	if existed {
-		delete(s.items, item)
-	}
-	return existed
+	return s.items.Delete(item)
 }
 
 // Contains reports whether item exists.
 func (s *Set[T]) Contains(item T) bool {
-	if s == nil || s.items == nil {
+	if s == nil {
 		return false
 	}
-	_, ok := s.items[item]
+	_, ok := s.items.Get(item)
 	return ok
 }
 
@@ -52,7 +47,7 @@ func (s *Set[T]) Len() int {
 	if s == nil {
 		return 0
 	}
-	return len(s.items)
+	return s.items.Len()
 }
 
 // IsEmpty reports whether the set has no items.
@@ -65,15 +60,15 @@ func (s *Set[T]) Clear() {
 	if s == nil {
 		return
 	}
-	clear(s.items)
+	s.items.Clear()
 }
 
 // Values returns all items as a slice.
 func (s *Set[T]) Values() []T {
-	if s == nil || len(s.items) == 0 {
+	if s == nil || s.items.Len() == 0 {
 		return nil
 	}
-	return lo.Keys(s.items)
+	return s.items.Keys()
 }
 
 // Range iterates all items until fn returns false.
@@ -81,83 +76,73 @@ func (s *Set[T]) Range(fn func(item T) bool) {
 	if s == nil || fn == nil {
 		return
 	}
-	for item := range s.items {
-		if !fn(item) {
-			return
-		}
-	}
+	s.items.Range(func(item T, _ struct{}) bool {
+		return fn(item)
+	})
 }
 
 // Clone returns a shallow copy.
 func (s *Set[T]) Clone() *Set[T] {
 	out := &Set[T]{}
-	if s == nil || len(s.items) == 0 {
+	if s == nil || s.items.Len() == 0 {
 		return out
 	}
-	out.items = lo.Assign(map[T]struct{}{}, s.items)
+	out.items.SetAll(s.items.All())
 	return out
 }
 
 // Union returns a new set that contains items from both sets.
 func (s *Set[T]) Union(other *Set[T]) *Set[T] {
 	out := s.Clone()
-	if other == nil || len(other.items) == 0 {
+	if other == nil || other.items.Len() == 0 {
 		return out
 	}
-	out.ensureInit()
-	for item := range other.items {
-		out.items[item] = struct{}{}
-	}
+	other.items.Range(func(item T, _ struct{}) bool {
+		out.items.Set(item, struct{}{})
+		return true
+	})
 	return out
 }
 
 // Intersect returns a new set that contains shared items.
 func (s *Set[T]) Intersect(other *Set[T]) *Set[T] {
 	out := &Set[T]{}
-	if s == nil || other == nil || len(s.items) == 0 || len(other.items) == 0 {
+	if s == nil || other == nil || s.items.Len() == 0 || other.items.Len() == 0 {
 		return out
 	}
 
-	left := s.items
-	right := other.items
-	if len(left) > len(right) {
+	left := &s.items
+	right := &other.items
+	if left.Len() > right.Len() {
 		left, right = right, left
 	}
 
-	out.items = make(map[T]struct{})
-	for item := range left {
-		if _, ok := right[item]; ok {
-			out.items[item] = struct{}{}
+	left.Range(func(item T, _ struct{}) bool {
+		if _, ok := right.Get(item); ok {
+			out.items.Set(item, struct{}{})
 		}
-	}
+		return true
+	})
 	return out
 }
 
 // Difference returns a new set with items in s but not in other.
 func (s *Set[T]) Difference(other *Set[T]) *Set[T] {
 	out := &Set[T]{}
-	if s == nil || len(s.items) == 0 {
-		return out
-	}
-	out.items = make(map[T]struct{}, len(s.items))
-
-	if other == nil || len(other.items) == 0 {
-		for item := range s.items {
-			out.items[item] = struct{}{}
-		}
+	if s == nil || s.items.Len() == 0 {
 		return out
 	}
 
-	for item := range s.items {
-		if _, ok := other.items[item]; !ok {
-			out.items[item] = struct{}{}
-		}
+	if other == nil || other.items.Len() == 0 {
+		out.items.SetAll(s.items.All())
+		return out
 	}
+
+	s.items.Range(func(item T, _ struct{}) bool {
+		if _, ok := other.items.Get(item); !ok {
+			out.items.Set(item, struct{}{})
+		}
+		return true
+	})
 	return out
-}
-
-func (s *Set[T]) ensureInit() {
-	if s.items == nil {
-		s.items = make(map[T]struct{})
-	}
 }

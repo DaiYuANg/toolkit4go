@@ -1,8 +1,6 @@
 package tree
 
 import (
-	"encoding/json"
-
 	common "github.com/DaiYuANg/arcgo/collectionx/internal"
 	"github.com/samber/lo"
 )
@@ -15,18 +13,17 @@ type jsonNode[K comparable, V any] struct {
 
 // ToJSON serializes tree roots and descendants to JSON.
 func (t *Tree[K, V]) ToJSON() ([]byte, error) {
-	return json.Marshal(t.toJSONNodes())
+	return common.MarshalJSONValue(t.toJSONNodes())
 }
 
 // MarshalJSON implements json.Marshaler.
 func (t *Tree[K, V]) MarshalJSON() ([]byte, error) {
-	return t.ToJSON()
+	return common.ForwardToJSON(t.ToJSON)
 }
 
 // String implements fmt.Stringer.
 func (t *Tree[K, V]) String() string {
-	data, err := t.ToJSON()
-	return common.JSONResultString(data, err, "[]")
+	return common.StringFromToJSON(t.ToJSON, "[]")
 }
 
 // ToJSON serializes concurrent tree snapshot to JSON.
@@ -36,13 +33,12 @@ func (t *ConcurrentTree[K, V]) ToJSON() ([]byte, error) {
 
 // MarshalJSON implements json.Marshaler.
 func (t *ConcurrentTree[K, V]) MarshalJSON() ([]byte, error) {
-	return t.ToJSON()
+	return common.ForwardToJSON(t.ToJSON)
 }
 
 // String implements fmt.Stringer.
 func (t *ConcurrentTree[K, V]) String() string {
-	data, err := t.ToJSON()
-	return common.JSONResultString(data, err, "[]")
+	return common.StringFromToJSON(t.ToJSON, "[]")
 }
 
 func (t *Tree[K, V]) toJSONNodes() []jsonNode[K, V] {

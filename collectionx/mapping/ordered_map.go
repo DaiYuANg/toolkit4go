@@ -1,8 +1,7 @@
 package mapping
 
 import (
-	"slices"
-
+	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
@@ -11,7 +10,7 @@ import (
 // Updating existing key does not change its order.
 // Zero value is ready to use.
 type OrderedMap[K comparable, V any] struct {
-	order []K
+	order collectionlist.List[K]
 	items Map[K, V]
 	index Map[K, int]
 }
@@ -29,8 +28,8 @@ func (m *OrderedMap[K, V]) Set(key K, value V) {
 	m.ensureInit()
 
 	if _, exists := m.items.Get(key); !exists {
-		m.order = append(m.order, key)
-		m.index.Set(key, len(m.order)-1)
+		m.order.Add(key)
+		m.index.Set(key, m.order.Len()-1)
 	}
 	m.items.Set(key, value)
 }
@@ -58,10 +57,13 @@ func (m *OrderedMap[K, V]) GetOption(key K) mo.Option[V] {
 func (m *OrderedMap[K, V]) At(pos int) (K, V, bool) {
 	var zeroK K
 	var zeroV V
-	if m == nil || pos < 0 || pos >= len(m.order) {
+	if m == nil {
 		return zeroK, zeroV, false
 	}
-	key := m.order[pos]
+	key, ok := m.order.Get(pos)
+	if !ok {
+		return zeroK, zeroV, false
+	}
 	value, _ := m.items.Get(key)
 	return key, value, true
 }
@@ -79,10 +81,10 @@ func (m *OrderedMap[K, V]) Delete(key K) bool {
 	m.items.Delete(key)
 	m.index.Delete(key)
 
-	copy(m.order[pos:], m.order[pos+1:])
-	m.order = m.order[:len(m.order)-1]
-	for i := pos; i < len(m.order); i++ {
-		m.index.Set(m.order[i], i)
+	_, _ = m.order.RemoveAt(pos)
+	for i := pos; i < m.order.Len(); i++ {
+		nextKey, _ := m.order.Get(i)
+		m.index.Set(nextKey, i)
 	}
 	return true
 }
@@ -92,7 +94,7 @@ func (m *OrderedMap[K, V]) Len() int {
 	if m == nil {
 		return 0
 	}
-	return len(m.order)
+	return m.order.Len()
 }
 
 // IsEmpty reports whether map is empty.
@@ -105,25 +107,29 @@ func (m *OrderedMap[K, V]) Clear() {
 	if m == nil {
 		return
 	}
-	m.order = nil
+	m.order.Clear()
 	m.items.Clear()
 	m.index.Clear()
 }
 
 // Keys returns keys in insertion order.
 func (m *OrderedMap[K, V]) Keys() []K {
-	if m == nil || len(m.order) == 0 {
+	if m == nil {
 		return nil
 	}
-	return slices.Clone(m.order)
+	keys := m.order.Values()
+	if len(keys) == 0 {
+		return nil
+	}
+	return keys
 }
 
 // Values returns values in key insertion order.
 func (m *OrderedMap[K, V]) Values() []V {
-	if m == nil || len(m.order) == 0 {
+	if m == nil || m.order.Len() == 0 {
 		return nil
 	}
-	return lo.Map(m.order, func(key K, _ int) V {
+	return lo.Map(m.order.Values(), func(key K, _ int) V {
 		value, _ := m.items.Get(key)
 		return value
 	})
@@ -142,12 +148,10 @@ func (m *OrderedMap[K, V]) Range(fn func(key K, value V) bool) {
 	if m == nil || fn == nil {
 		return
 	}
-	for _, key := range m.order {
+	m.order.Range(func(_ int, key K) bool {
 		value, _ := m.items.Get(key)
-		if !fn(key, value) {
-			return
-		}
-	}
+		return fn(key, value)
+	})
 }
 
 // Clone returns a shallow copy.
@@ -156,16 +160,13 @@ func (m *OrderedMap[K, V]) Clone() *OrderedMap[K, V] {
 	if m == nil {
 		return out
 	}
-	out.order = slices.Clone(m.order)
+	out.order.Add(m.order.Values()...)
 	out.items.SetAll(m.items.All())
 	out.index.SetAll(m.index.All())
 	return out
 }
 
 func (m *OrderedMap[K, V]) ensureInit() {
-	if m.order == nil {
-		m.order = make([]K, 0)
-	}
 	m.items.ensureInit()
 	m.index.ensureInit()
 }

@@ -1,13 +1,15 @@
 package prefix
 
 import (
-	common "github.com/DaiYuANg/arcgo/collectionx/internal"
+	"slices"
+
+	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
 type trieNode[V any] struct {
-	children map[rune]*trieNode[V]
+	children collectionmapping.Map[rune, *trieNode[V]]
 	hasValue bool
 	value    V
 }
@@ -45,13 +47,10 @@ func (t *Trie[V]) Put(key string, value V) bool {
 
 	node := t.root
 	for _, ch := range key {
-		if node.children == nil {
-			node.children = make(map[rune]*trieNode[V])
-		}
-		next, ok := node.children[ch]
+		next, ok := node.children.Get(ch)
 		if !ok {
 			next = &trieNode[V]{}
-			node.children[ch] = next
+			node.children.Set(ch, next)
 		}
 		node = next
 	}
@@ -180,7 +179,7 @@ func (t *Trie[V]) ensureRoot() {
 func (t *Trie[V]) findNode(key string) (*trieNode[V], bool) {
 	node := t.root
 	for _, ch := range key {
-		next, ok := node.children[ch]
+		next, ok := node.children.Get(ch)
 		if !ok {
 			return nil, false
 		}
@@ -204,7 +203,7 @@ func (t *Trie[V]) deleteRec(node *trieNode[V], runes []rune, depth int) bool {
 	}
 
 	ch := runes[depth]
-	child, ok := node.children[ch]
+	child, ok := node.children.Get(ch)
 	if !ok {
 		return false
 	}
@@ -213,8 +212,8 @@ func (t *Trie[V]) deleteRec(node *trieNode[V], runes []rune, depth int) bool {
 		return false
 	}
 
-	if !child.hasValue && len(child.children) == 0 {
-		delete(node.children, ch)
+	if !child.hasValue && child.children.Len() == 0 {
+		node.children.Delete(ch)
 	}
 	return true
 }
@@ -230,13 +229,16 @@ func (t *Trie[V]) collectPairs(node *trieNode[V], path *[]rune, out *[]keyValue[
 		})
 	}
 
-	if len(node.children) == 0 {
+	if node.children.Len() == 0 {
 		return
 	}
 
-	for _, ch := range common.SortedMapKeys(node.children) {
+	keys := node.children.Keys()
+	slices.Sort(keys)
+	for _, ch := range keys {
 		*path = append(*path, ch)
-		t.collectPairs(node.children[ch], path, out)
+		child, _ := node.children.Get(ch)
+		t.collectPairs(child, path, out)
 		*path = (*path)[:len(*path)-1]
 	}
 }

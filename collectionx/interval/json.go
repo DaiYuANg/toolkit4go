@@ -1,39 +1,33 @@
 package interval
 
-import (
-	"encoding/json"
-
-	common "github.com/DaiYuANg/arcgo/collectionx/internal"
-)
+import common "github.com/DaiYuANg/arcgo/collectionx/internal"
 
 // ToJSON serializes normalized ranges to JSON.
 func (s *RangeSet[T]) ToJSON() ([]byte, error) {
-	return json.Marshal(s.Ranges())
+	return common.MarshalJSONValue(s.Ranges())
 }
 
 // MarshalJSON implements json.Marshaler.
 func (s *RangeSet[T]) MarshalJSON() ([]byte, error) {
-	return s.ToJSON()
+	return common.ForwardToJSON(s.ToJSON)
 }
 
 // String implements fmt.Stringer.
 func (s *RangeSet[T]) String() string {
-	data, err := s.ToJSON()
-	return common.JSONResultString(data, err, "[]")
+	return common.StringFromToJSON(s.ToJSON, "[]")
 }
 
 // ToJSON serializes range-map entries to JSON.
 func (m *RangeMap[T, V]) ToJSON() ([]byte, error) {
-	return json.Marshal(m.Entries())
+	return common.MarshalJSONValue(m.Entries())
 }
 
 // MarshalJSON implements json.Marshaler.
 func (m *RangeMap[T, V]) MarshalJSON() ([]byte, error) {
-	return m.ToJSON()
+	return common.ForwardToJSON(m.ToJSON)
 }
 
 // String implements fmt.Stringer.
 func (m *RangeMap[T, V]) String() string {
-	data, err := m.ToJSON()
-	return common.JSONResultString(data, err, "[]")
+	return common.StringFromToJSON(m.ToJSON, "[]")
 }
