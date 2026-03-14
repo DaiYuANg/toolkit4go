@@ -47,3 +47,14 @@ func TestConcurrentSet_SnapshotIsIndependent(t *testing.T) {
 	s.Add(9)
 	require.False(t, snap.Contains(9))
 }
+
+func TestConcurrentSet_Merge(t *testing.T) {
+	t.Parallel()
+
+	left := NewConcurrentSet(1, 2)
+	right := NewSet(2, 3)
+	otherConcurrent := NewConcurrentSet(4, 5)
+
+	left.Merge(right).MergeConcurrent(otherConcurrent).MergeSlice([]int{5, 6})
+	require.ElementsMatch(t, []int{1, 2, 3, 4, 5, 6}, left.Values())
+}

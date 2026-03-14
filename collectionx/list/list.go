@@ -28,6 +28,27 @@ func (l *List[T]) Add(items ...T) {
 	l.items = append(l.items, items...)
 }
 
+// Merge appends all items from other list.
+func (l *List[T]) Merge(other *List[T]) *List[T] {
+	if l == nil {
+		return nil
+	}
+	if other == nil {
+		return l
+	}
+	l.Add(other.Values()...)
+	return l
+}
+
+// MergeSlice appends all items from a slice.
+func (l *List[T]) MergeSlice(items []T) *List[T] {
+	if l == nil {
+		return nil
+	}
+	l.Add(items...)
+	return l
+}
+
 // AddAt inserts one item at index. index == Len() is allowed.
 func (l *List[T]) AddAt(index int, item T) bool {
 	return l.AddAllAt(index, item)
@@ -76,6 +97,29 @@ func (l *List[T]) Set(index int, item T) bool {
 	}
 	l.items[index] = item
 	return true
+}
+
+// SetAll applies mapper to each item and replaces all items in-place.
+// Returns updated item count.
+func (l *List[T]) SetAll(mapper func(item T) T) int {
+	if mapper == nil {
+		return 0
+	}
+	return l.SetAllIndexed(func(_ int, item T) T {
+		return mapper(item)
+	})
+}
+
+// SetAllIndexed applies mapper(index, item) to each item and replaces all items in-place.
+// Returns updated item count.
+func (l *List[T]) SetAllIndexed(mapper func(index int, item T) T) int {
+	if l == nil || mapper == nil || len(l.items) == 0 {
+		return 0
+	}
+	for index, item := range l.items {
+		l.items[index] = mapper(index, item)
+	}
+	return len(l.items)
 }
 
 // RemoveAt removes and returns item at index.

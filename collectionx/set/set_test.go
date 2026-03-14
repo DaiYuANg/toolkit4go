@@ -56,3 +56,13 @@ func TestSet_RangeStop(t *testing.T) {
 	})
 	require.Equal(t, 1, visited)
 }
+
+func TestSet_Merge(t *testing.T) {
+	t.Parallel()
+
+	left := NewSet(1, 2)
+	right := NewSet(2, 3)
+
+	left.Merge(right).MergeSlice([]int{3, 4, 5})
+	require.ElementsMatch(t, []int{1, 2, 3, 4, 5}, left.Values())
+}

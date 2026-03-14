@@ -31,6 +31,39 @@ func (l *ConcurrentList[T]) Add(items ...T) {
 	l.core.Add(items...)
 }
 
+// Merge appends all items from a normal list.
+func (l *ConcurrentList[T]) Merge(other *List[T]) *ConcurrentList[T] {
+	if l == nil {
+		return nil
+	}
+	if other == nil {
+		return l
+	}
+	l.Add(other.Values()...)
+	return l
+}
+
+// MergeConcurrent appends all items from another concurrent list snapshot.
+func (l *ConcurrentList[T]) MergeConcurrent(other *ConcurrentList[T]) *ConcurrentList[T] {
+	if l == nil {
+		return nil
+	}
+	if other == nil {
+		return l
+	}
+	l.Add(other.Values()...)
+	return l
+}
+
+// MergeSlice appends all items from a slice.
+func (l *ConcurrentList[T]) MergeSlice(items []T) *ConcurrentList[T] {
+	if l == nil {
+		return nil
+	}
+	l.Add(items...)
+	return l
+}
+
 // AddAt inserts one item at index. index == Len() is allowed.
 func (l *ConcurrentList[T]) AddAt(index int, item T) bool {
 	return l.AddAllAt(index, item)
@@ -81,6 +114,34 @@ func (l *ConcurrentList[T]) Set(index int, item T) bool {
 		return false
 	}
 	return l.core.Set(index, item)
+}
+
+// SetAll applies mapper to each item and replaces all items in-place.
+// Returns updated item count.
+func (l *ConcurrentList[T]) SetAll(mapper func(item T) T) int {
+	if l == nil || mapper == nil {
+		return 0
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.core == nil {
+		return 0
+	}
+	return l.core.SetAll(mapper)
+}
+
+// SetAllIndexed applies mapper(index, item) to each item and replaces all items in-place.
+// Returns updated item count.
+func (l *ConcurrentList[T]) SetAllIndexed(mapper func(index int, item T) T) int {
+	if l == nil || mapper == nil {
+		return 0
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.core == nil {
+		return 0
+	}
+	return l.core.SetAllIndexed(mapper)
 }
 
 // RemoveAt removes and returns item at index.

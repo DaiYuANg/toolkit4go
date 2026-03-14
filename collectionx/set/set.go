@@ -25,6 +25,30 @@ func (s *Set[T]) Add(items ...T) {
 	}
 }
 
+// Merge inserts all items from other into set.
+func (s *Set[T]) Merge(other *Set[T]) *Set[T] {
+	if s == nil {
+		return nil
+	}
+	if other == nil || other.items.Len() == 0 {
+		return s
+	}
+	other.items.Range(func(item T, _ struct{}) bool {
+		s.items.Set(item, struct{}{})
+		return true
+	})
+	return s
+}
+
+// MergeSlice inserts all items from a slice into set.
+func (s *Set[T]) MergeSlice(items []T) *Set[T] {
+	if s == nil {
+		return nil
+	}
+	s.Add(items...)
+	return s
+}
+
 // Remove deletes an item and reports whether it existed.
 func (s *Set[T]) Remove(item T) bool {
 	if s == nil {

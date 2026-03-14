@@ -30,6 +30,39 @@ func (s *ConcurrentSet[T]) Add(items ...T) {
 	s.core.Add(items...)
 }
 
+// Merge inserts all items from a normal set.
+func (s *ConcurrentSet[T]) Merge(other *Set[T]) *ConcurrentSet[T] {
+	if s == nil {
+		return nil
+	}
+	if other == nil {
+		return s
+	}
+	s.Add(other.Values()...)
+	return s
+}
+
+// MergeConcurrent inserts all items from another concurrent set snapshot.
+func (s *ConcurrentSet[T]) MergeConcurrent(other *ConcurrentSet[T]) *ConcurrentSet[T] {
+	if s == nil {
+		return nil
+	}
+	if other == nil {
+		return s
+	}
+	s.Add(other.Values()...)
+	return s
+}
+
+// MergeSlice inserts all items from a slice.
+func (s *ConcurrentSet[T]) MergeSlice(items []T) *ConcurrentSet[T] {
+	if s == nil {
+		return nil
+	}
+	s.Add(items...)
+	return s
+}
+
 // AddIfAbsent inserts one item only when it does not exist.
 // Returns true when inserted, false when it already exists.
 func (s *ConcurrentSet[T]) AddIfAbsent(item T) bool {

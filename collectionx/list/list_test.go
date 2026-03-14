@@ -77,3 +77,13 @@ func TestList_OptionAPIs(t *testing.T) {
 	require.True(t, l.GetOption(10).IsAbsent())
 	require.True(t, l.RemoveAtOption(10).IsAbsent())
 }
+
+func TestList_Merge(t *testing.T) {
+	t.Parallel()
+
+	left := NewList(1, 2)
+	right := NewList(3, 4)
+
+	left.Merge(right).MergeSlice([]int{5, 6})
+	require.Equal(t, []int{1, 2, 3, 4, 5, 6}, left.Values())
+}
