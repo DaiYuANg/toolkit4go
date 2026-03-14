@@ -6,27 +6,33 @@ import (
 	modelresult "github.com/DaiYuANg/arcgo/examples/rbac_backend/internal/model/resultx"
 )
 
-type Item struct {
+type UserItem struct {
 	ID        int64     `json:"id"`
 	Username  string    `json:"username"`
 	Roles     []string  `json:"roles"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type ListData struct {
-	Items []Item `json:"items"`
-	Total int    `json:"total"`
+type Item = UserItem
+
+type UserListData struct {
+	Items []UserItem `json:"items"`
+	Total int        `json:"total"`
 }
 
-type ListOutput = modelresult.Result[ListData]
+type ListData = UserListData
 
-type GetInput struct {
+type ListOutput = modelresult.Result[UserListData]
+
+type UserGetInput struct {
 	ID int64 `path:"id" validate:"required,min=1"`
 }
 
-type GetOutput = modelresult.Result[Item]
+type GetInput = UserGetInput
 
-type CreateInput struct {
+type GetOutput = modelresult.Result[UserItem]
+
+type UserCreateInput struct {
 	Body struct {
 		Username  string   `json:"username" validate:"required,min=3,max=64"`
 		Password  string   `json:"password" validate:"required,min=3,max=128"`
@@ -34,9 +40,11 @@ type CreateInput struct {
 	} `json:"body"`
 }
 
-type CreateOutput = modelresult.Result[Item]
+type CreateInput = UserCreateInput
 
-type UpdateInput struct {
+type CreateOutput = modelresult.Result[UserItem]
+
+type UserUpdateInput struct {
 	ID   int64 `path:"id" validate:"required,min=1"`
 	Body struct {
 		Username  string   `json:"username" validate:"required,min=3,max=64"`
@@ -45,14 +53,20 @@ type UpdateInput struct {
 	} `json:"body"`
 }
 
-type UpdateOutput = modelresult.Result[Item]
+type UpdateInput = UserUpdateInput
 
-type DeleteInput struct {
+type UpdateOutput = modelresult.Result[UserItem]
+
+type UserDeleteInput struct {
 	ID int64 `path:"id" validate:"required,min=1"`
 }
 
-type DeleteData struct {
+type DeleteInput = UserDeleteInput
+
+type UserDeleteData struct {
 	Deleted bool `json:"deleted"`
 }
 
-type DeleteOutput = modelresult.Result[DeleteData]
+type DeleteData = UserDeleteData
+
+type DeleteOutput = modelresult.Result[UserDeleteData]

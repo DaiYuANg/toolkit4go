@@ -2,35 +2,45 @@ package book
 
 import modelresult "github.com/DaiYuANg/arcgo/examples/rbac_backend/internal/model/resultx"
 
-type Item struct {
+type BookItem struct {
 	ID        int64  `json:"id"`
 	Title     string `json:"title"`
 	Author    string `json:"author"`
 	CreatedBy int64  `json:"created_by"`
 }
 
-type ListData struct {
-	Items []Item `json:"items"`
-	Total int    `json:"total"`
+type Item = BookItem
+
+type BookListData struct {
+	Items []BookItem `json:"items"`
+	Total int        `json:"total"`
 }
 
-type ListOutput = modelresult.Result[ListData]
+type ListData = BookListData
 
-type CreateInput struct {
+type ListOutput = modelresult.Result[BookListData]
+
+type BookCreateInput struct {
 	Body struct {
 		Title  string `json:"title" validate:"required,min=1,max=200"`
 		Author string `json:"author" validate:"required,min=1,max=120"`
 	} `json:"body"`
 }
 
-type CreateOutput = modelresult.Result[Item]
+type CreateInput = BookCreateInput
 
-type DeleteInput struct {
+type CreateOutput = modelresult.Result[BookItem]
+
+type BookDeleteInput struct {
 	ID int64 `path:"id" validate:"required,min=1"`
 }
 
-type DeleteData struct {
+type DeleteInput = BookDeleteInput
+
+type BookDeleteData struct {
 	Deleted bool `json:"deleted"`
 }
 
-type DeleteOutput = modelresult.Result[DeleteData]
+type DeleteData = BookDeleteData
+
+type DeleteOutput = modelresult.Result[BookDeleteData]
