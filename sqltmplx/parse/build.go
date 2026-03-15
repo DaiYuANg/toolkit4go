@@ -1,0 +1,72 @@
+package parse
+
+import (
+	"fmt"
+
+	"github.com/DaiYuANg/arcgo/sqltmplx/scan"
+	"github.com/expr-lang/expr"
+)
+
+type frameKind int
+
+const (
+	frameRoot frameKind = iota
+	frameIf
+	frameWhere
+	frameSet
+)
+
+type frame struct {
+	kind frameKind
+	out  *[]Node
+}
+
+func Build(tokens []scan.Token) ([]Node, error) {
+	var nodes []Node
+	stack := []frame{{kind: frameRoot, out: &nodes}}
+
+	appendNode := func(n Node) {
+		out := stack[len(stack)-1].out
+		*out = append(*out, n)
+	}
+
+	for _, tok := range tokens {
+		switch tok.Kind {
+		case scan.Text:
+			appendNode(TextNode{Text: tok.Value})
+		case scan.Directive:
+			d, err := parseDirective(tok.Value)
+			if err != nil {
+				return nil, err
+			}
+			switch {
+			case d.If != nil:
+				program, err := expr.Compile(d.If.Expr)
+				if err != nil {
+					return nil, fmt.Errorf("sqltmplx: compile expr %q: %w", d.If.Expr, err)
+				}
+				node := &IfNode{RawExpr: d.If.Expr, Program: program}
+				appendNode(node)
+				stack = append(stack, frame{kind: frameIf, out: &node.Body})
+			case d.Where != nil:
+				node := &WhereNode{}
+				appendNode(node)
+				stack = append(stack, frame{kind: frameWhere, out: &node.Body})
+			case d.Set != nil:
+				node := &SetNode{}
+				appendNode(node)
+				stack = append(stack, frame{kind: frameSet, out: &node.Body})
+			case d.End != nil:
+				if len(stack) == 1 {
+					return nil, fmt.Errorf("sqltmplx: unexpected end")
+				}
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+
+	if len(stack) != 1 {
+		return nil, fmt.Errorf("sqltmplx: unclosed block")
+	}
+	return nodes, nil
+}
