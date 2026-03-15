@@ -6,7 +6,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// ServerParams defines parameters for httpx fx module.
+// ServerParams defines parameters for httpx fxx module.
 type ServerParams struct {
 	fx.In
 
@@ -14,7 +14,7 @@ type ServerParams struct {
 	Options []httpx.ServerOption `group:"httpx_server_options"`
 }
 
-// ServerResult defines result for httpx fx module.
+// ServerResult defines result for httpx fxx module.
 type ServerResult struct {
 	fx.Out
 
@@ -27,7 +27,7 @@ func NewServer(params ServerParams) ServerResult {
 	return ServerResult{Server: httpx.New(params.Options...)}
 }
 
-// WithServerOptions adds server options into fx option group.
+// WithServerOptions adds server options into fxx option group.
 func WithServerOptions(opts ...httpx.ServerOption) fx.Option {
 	filtered := lo.Filter(opts, func(item httpx.ServerOption, _ int) bool {
 		return item != nil
@@ -44,7 +44,7 @@ func WithServerOptions(opts ...httpx.ServerOption) fx.Option {
 	)
 }
 
-// NewHttpxModule creates a httpx fx module.
+// NewHttpxModule creates a httpx fxx module.
 // It reuses httpx.ServerOption as the module input options.
 func NewHttpxModule(opts ...httpx.ServerOption) fx.Option {
 	return fx.Module("httpx",

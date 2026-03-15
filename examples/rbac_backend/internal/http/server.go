@@ -31,7 +31,7 @@ func NewFiberAdapter(
 		Huma: adapter.HumaOptions{
 			Title:       "ArcGo RBAC Backend Scaffold",
 			Version:     cfg.Version,
-			Description: "httpx(fiber) + authx(jwt) + eventx + observabilityx + bun + fx",
+			Description: "httpx(fiber) + authx(jwt) + eventx + observabilityx + bun + fxx",
 			DocsPath:    cfg.DocsPath(),
 			OpenAPIPath: cfg.OpenAPIPath(),
 			Transformers: []huma.Transformer{

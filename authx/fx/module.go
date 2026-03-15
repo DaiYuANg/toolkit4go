@@ -6,7 +6,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// EngineParams defines parameters for authx fx module.
+// EngineParams defines parameters for authx fxx module.
 type EngineParams struct {
 	fx.In
 
@@ -14,7 +14,7 @@ type EngineParams struct {
 	Options []authx.EngineOption `group:"authx_engine_options"`
 }
 
-// EngineResult defines result for authx fx module.
+// EngineResult defines result for authx fxx module.
 type EngineResult struct {
 	fx.Out
 
@@ -27,7 +27,7 @@ func NewEngine(params EngineParams) EngineResult {
 	return EngineResult{Engine: authx.NewEngine(params.Options...)}
 }
 
-// WithEngineOptions adds engine options into fx option group.
+// WithEngineOptions adds engine options into fxx option group.
 func WithEngineOptions(opts ...authx.EngineOption) fx.Option {
 	filtered := lo.Filter(opts, func(item authx.EngineOption, _ int) bool {
 		return item != nil
@@ -44,7 +44,7 @@ func WithEngineOptions(opts ...authx.EngineOption) fx.Option {
 	)
 }
 
-// NewAuthxModule creates an authx fx module.
+// NewAuthxModule creates an authx fxx module.
 // It reuses authx.EngineOption as the module input options.
 func NewAuthxModule(opts ...authx.EngineOption) fx.Option {
 	return fx.Module("authx",

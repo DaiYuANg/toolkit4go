@@ -1,5 +1,7 @@
 go 1.26.1
 
+toolchain go1.26.1
+
 use (
 	.
 	./authx
@@ -18,6 +20,7 @@ use (
 	./eventx
 	./eventx/fx
 	./examples/authx
+	./examples/clientx
 	./examples/collectionx
 	./examples/eventx
 	./examples/httpx
@@ -33,8 +36,12 @@ use (
 	./httpx/adapter/std
 	./httpx/fx
 	./kvx
+	./kvx/adapter/redis
+	./kvx/adapter/valkey
 	./logx
 	./logx/fx
 	./observabilityx
+	./pkg/fxx
+	./pkg/randomport
 	./sqltmplx
 )

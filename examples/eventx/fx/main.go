@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/archgo/eventx"
-	eventxfx "github.com/DaiYuANg/archgo/eventx/fx"
+	eventxfx "github.com/DaiYuANg/archgo/eventx/fxx"
 	"github.com/DaiYuANg/archgo/logx"
-	logxfx "github.com/DaiYuANg/archgo/logx/fx"
+	logxfx "github.com/DaiYuANg/archgo/logx/fxx"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 )
@@ -32,13 +32,13 @@ func main() {
 		fx.WithLogger(func(log *slog.Logger) fxevent.Logger {
 			return &fxevent.SlogLogger{Logger: log}
 		}),
-		// 使用 logx fx 模块（带 slog 支持）
+		// 使用 logx fxx 模块（带 slog 支持）
 		logxfx.NewLogxModuleWithSlog(
 			logx.WithLevel(logx.DebugLevel),
 			logx.WithCaller(true),
 		),
 
-		// 使用 eventx fx 模块
+		// 使用 eventx fxx 模块
 		eventxfx.NewEventxModule(
 			eventx.WithAntsPool(4),
 			eventx.WithParallelDispatch(true),

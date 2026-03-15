@@ -114,7 +114,7 @@ func Wrap(db *bun.DB, opts ...DBOption) *bun.DB {
 	})
 
 	if cfg.logQuery && cfg.logger != nil {
-		db.AddQueryHook(newQueryLogHook(cfg.logger, cfg.slowThreshold, cfg.logQuery, cfg.logArgs))
+		db.WithQueryHook(newQueryLogHook(cfg.logger, cfg.slowThreshold, cfg.logQuery, cfg.logArgs))
 	}
 
 	return db

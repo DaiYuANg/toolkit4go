@@ -11,13 +11,13 @@ import (
 // ── plain Config module ───────────────────────────────────────────────────────
 
 // ConfigParams defines the inbound dependencies for the plain Config provider.
-// Options are collected from the fx value-group "configx_options", which lets
+// Options are collected from the fxx value-group "configx_options", which lets
 // any module in the application contribute additional Option values without
 // having to know about the others.
 type ConfigParams struct {
 	fx.In
 
-	// Options contributed by any fx.Provide / fx.Supply that annotates its
+	// Options contributed by any fxx.Provide / fxx.Supply that annotates its
 	// output with `group:"configx_options"`.  The field is optional so that
 	// the module still works when no options are provided at all.
 	Options []configx.Option `group:"configx_options,soft"`
@@ -31,7 +31,7 @@ type ConfigResult struct {
 	Config *configx.Config
 }
 
-// NewConfig is the fx constructor for a plain (non-watching) *configx.Config.
+// NewConfig is the fxx constructor for a plain (non-watching) *configx.Config.
 // It is wired up automatically by [NewConfigxModule].
 func NewConfig(params ConfigParams) (ConfigResult, error) {
 	cfg, err := configx.NewConfig(params.Options...)
@@ -41,16 +41,16 @@ func NewConfig(params ConfigParams) (ConfigResult, error) {
 	return ConfigResult{Config: cfg}, nil
 }
 
-// NewConfigxModule creates an fx.Module named "configx" that provides a
+// NewConfigxModule creates an fxx.Module named "configx" that provides a
 // *configx.Config built from the supplied options.
 //
-// Any other module can contribute additional options through the fx value-group
+// Any other module can contribute additional options through the fxx value-group
 // "configx_options":
 //
-//	fx.Provide(
-//	    fx.Annotate(
+//	fxx.Provide(
+//	    fxx.Annotate(
 //	        func() configx.Option { return configx.WithEnvPrefix("APP") },
-//	        fx.ResultTags(`group:"configx_options"`),
+//	        fxx.ResultTags(`group:"configx_options"`),
 //	    ),
 //	)
 func NewConfigxModule(opts ...configx.Option) fx.Option {
@@ -102,8 +102,8 @@ type WatcherResult struct {
 	Config  *configx.Config
 }
 
-// NewFxWatcher is the fx constructor for a lifecycle-managed *configx.Watcher.
-// It integrates with the fx lifecycle so that:
+// NewFxWatcher is the fxx constructor for a lifecycle-managed *configx.Watcher.
+// It integrates with the fxx lifecycle so that:
 //
 //   - OnStart: the Watcher's watch loop is launched in a background goroutine.
 //   - OnStop:  the context is cancelled and Close is called, stopping all
@@ -126,7 +126,7 @@ func NewFxWatcher(lc fx.Lifecycle, params WatcherParams) (WatcherResult, error) 
 				// Start blocks until ctx is cancelled or w.Close() is called.
 				// Errors are forwarded to the handler registered with
 				// configx.WithWatchErrHandler; we do not surface them here
-				// because they would crash the fx app after startup.
+				// because they would crash the fxx app after startup.
 				_ = w.Start(ctx)
 			}()
 			return nil
@@ -145,9 +145,9 @@ func NewFxWatcher(lc fx.Lifecycle, params WatcherParams) (WatcherResult, error) 
 	}, nil
 }
 
-// NewConfigxWatcherModule creates an fx.Module named "configx" that provides
+// NewConfigxWatcherModule creates an fxx.Module named "configx" that provides
 // both a *configx.Watcher (lifecycle-managed) and an initial *configx.Config
-// snapshot.  Hot-reload via fsnotify is active for the lifetime of the fx app.
+// snapshot.  Hot-reload via fsnotify is active for the lifetime of the fxx app.
 //
 // Like [NewConfigxModule], additional options can be contributed through the
 // "configx_options" value-group.

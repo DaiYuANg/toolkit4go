@@ -1,4 +1,4 @@
-package dix
+package fxx
 
 import (
 	"fmt"
@@ -21,9 +21,9 @@ type SupportedFxLoggerType interface {
 
 // CreateApplicationContainer 会：
 // 1. 根据泛型类型 L 自动附加对应的 Fx logger option
-// 2. 拼上调用方传入的所有 fx.Option
+// 2. 拼上调用方传入的所有 fxx.Option
 // 3. 先 ValidateApp
-// 4. 校验通过后再 fx.New
+// 4. 校验通过后再 fxx.New
 func CreateApplicationContainer[L SupportedFxLoggerType](modules ...fx.Option) (*fx.App, error) {
 	opts := collectionx.NewList[fx.Option]()
 	opts.Add(loggerOption[L]())
@@ -31,14 +31,14 @@ func CreateApplicationContainer[L SupportedFxLoggerType](modules ...fx.Option) (
 	built := opts.Values()
 
 	if err := fx.ValidateApp(built...); err != nil {
-		return nil, fmt.Errorf("validate fx app failed: %w", err)
+		return nil, fmt.Errorf("validate fxx app failed: %w", err)
 	}
 
 	app := fx.New(built...)
 	return app, nil
 }
 
-// loggerOption 根据类型参数自动生成对应的 fx.WithLogger(...)。
+// loggerOption 根据类型参数自动生成对应的 fxx.WithLogger(...)。
 func loggerOption[L SupportedFxLoggerType]() fx.Option {
 	var zero L
 
@@ -62,6 +62,6 @@ func loggerOption[L SupportedFxLoggerType]() fx.Option {
 
 	default:
 		// 理论上约束已经兜住了，这里只是防御式分支。
-		panic(fmt.Sprintf("unsupported fx logger type: %T", zero))
+		panic(fmt.Sprintf("unsupported fxx logger type: %T", zero))
 	}
 }
