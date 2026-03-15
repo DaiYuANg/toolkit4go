@@ -65,11 +65,11 @@ func (resolver RouteResourceResolver) Resolve(routePattern string) (string, erro
 	sort.Slice(prefixes, func(i, j int) bool {
 		return len(prefixes[i]) > len(prefixes[j])
 	})
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(pattern, prefix) {
-			if resource, ok := resolver.resourceByPrefix.GetOption(prefix).Get(); ok {
-				return resource, nil
-			}
+	if prefix, found := lo.Find(prefixes, func(p string) bool {
+		return strings.HasPrefix(pattern, p)
+	}); found {
+		if resource, ok := resolver.resourceByPrefix.GetOption(prefix).Get(); ok {
+			return resource, nil
 		}
 	}
 

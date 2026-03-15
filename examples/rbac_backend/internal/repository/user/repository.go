@@ -53,10 +53,14 @@ func (r *bunRepository) CreateUser(ctx context.Context, username string, passwor
 }
 
 func (r *bunRepository) UpdateUser(ctx context.Context, id int64, username string, password string) (entity.UserModel, error) {
-	updated, err := r.base.UpdateByID(ctx, id, map[string]any{
+	fields := map[string]any{
 		"username": strings.TrimSpace(username),
-		"password": password,
-	})
+	}
+	// Only overwrite the stored hash when a new password is explicitly provided.
+	if password != "" {
+		fields["password"] = password
+	}
+	updated, err := r.base.UpdateByID(ctx, id, fields)
 	if err != nil {
 		return entity.UserModel{}, err
 	}
@@ -101,7 +105,7 @@ func (r *bunRepository) ReplaceUserRoles(ctx context.Context, userID int64, role
 
 	roles := make([]entity.RoleModel, 0, len(codes))
 	if len(codes) > 0 {
-		err := r.db.NewSelect().Model(&roles).Where("code IN (?)", bun.In(codes)).Scan(ctx)
+		err := r.db.NewSelect().Model(&roles).Where("code IN (?)", bun.List(codes)).Scan(ctx)
 		if err != nil {
 			return err
 		}

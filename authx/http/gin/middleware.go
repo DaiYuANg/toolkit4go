@@ -8,6 +8,7 @@ import (
 	"github.com/DaiYuANg/arcgo/authx"
 	authhttp "github.com/DaiYuANg/arcgo/authx/http"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 )
 
 type Option func(*config)
@@ -114,12 +115,11 @@ func requestInfoFromGin(c *gin.Context, req *http.Request) authhttp.RequestInfo 
 		pattern = path
 	}
 
-	params := map[string]string(nil)
+	var params map[string]string
 	if len(c.Params) > 0 {
-		params = make(map[string]string, len(c.Params))
-		for _, param := range c.Params {
-			params[param.Key] = param.Value
-		}
+		params = lo.Associate(c.Params, func(p gin.Param) (string, string) {
+			return p.Key, p.Value
+		})
 	}
 
 	var headers http.Header

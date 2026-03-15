@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	"github.com/samber/mo"
 )
 
 // Handler returns the server as an `http.Handler`.
@@ -114,12 +115,12 @@ func (s *Server) logRequest(r *http.Request, status int, duration time.Duration)
 		slog.Duration("duration", duration),
 	}
 
-	if route, ok := s.matchRoute(r.Method, r.URL.Path); ok {
+	mo.TupleToOption(s.matchRoute(r.Method, r.URL.Path)).ForEach(func(route RouteInfo) {
 		attrs = append(attrs,
 			slog.String("route", route.Path),
 			slog.String("handler", route.HandlerName),
 		)
-	}
+	})
 
 	s.logger.Info("httpx request", attrs...)
 }

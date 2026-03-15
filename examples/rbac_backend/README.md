@@ -8,8 +8,8 @@ A reusable backend scaffold example with:
 - Logging: `logx`
 - Events: `eventx` (async)
 - Observability: `observabilityx` + Prometheus metrics
-- AuthN: JWT (HS256)
-- AuthZ: authx engine + RBAC tables via bun (`sqlite/mysql/postgres`)
+- AuthN: JWT (HS256) — credential verification via **bcrypt** (`golang.org/x/crypto`)
+- AuthZ: `authx` engine + pure-SQL RBAC tables via bun (`sqlite/mysql/postgres`)
 - Layered architecture: `endpoint -> service -> repository`
 - HTTP endpoint registration: `httpx.Endpoint` + `server.RegisterOnly(...)`
 
@@ -41,7 +41,7 @@ A reusable backend scaffold example with:
 - `internal/model/user`: user API DTO models
 - `internal/model/role`: role API DTO models
 - `internal/entity`: database entities
-- `internal/authn`: authx guard/middleware and auth resolver mapping
+- `internal/authn`: authx guard/middleware, auth resolver mapping, and data-driven resource mapping
 - `internal/config`: configx-based app config
 - `bunx`: shared bun extension package (Open/Wrap + slog query hook + generic BaseRepository)
 
@@ -53,6 +53,8 @@ go run ./examples/rbac_backend/cmd/server
 
 Default address: `:18080`
 
+> **Note**: `OPTIONS` requests (CORS preflight) are always passed through without authentication.
+
 - health: `http://127.0.0.1:18080/health`
 - docs: `http://127.0.0.1:18080/docs`
 - openapi: `http://127.0.0.1:18080/openapi.json`
@@ -61,10 +63,16 @@ Default address: `:18080`
 
 ## Seeded Users
 
+Passwords are stored as **bcrypt** hashes (`DefaultCost = 10`). The seed plaintext credentials are:
+
 - admin: `alice / admin123`
 - user: `bob / user123`
 
 ## RBAC Model
+
+Authorization is implemented with **pure SQL** — no external policy engine is used.
+A three-table JOIN (`rbac_permissions → rbac_role_permissions → rbac_user_roles`)
+resolves whether a `(userID, action, resource)` tuple is allowed.
 
 Tables:
 
@@ -79,6 +87,21 @@ Seed permissions:
 
 - admin: full CRUD on `book/user/role`
 - user: `query:book`
+
+### Extending with a new resource
+
+Add one entry to `resourcePrefixMappings` in `internal/authn/auth.go`:
+
+```go
+var resourcePrefixMappings = []resourcePrefixMapping{
+    {pathFragment: "/books", resource: "book"},
+    {pathFragment: "/users", resource: "user"},
+    {pathFragment: "/roles", resource: "role"},
+    {pathFragment: "/orders", resource: "order"}, // ← new resource
+}
+```
+
+No other code needs to change.
 
 ## API Quick Try
 
@@ -153,6 +176,14 @@ curl -X POST http://127.0.0.1:18080/api/v1/users \
   -H "Content-Type: application/json" \
   -d '{"username":"charlie","password":"charlie123","role_codes":["editor"]}'
 ```
+
+## Password Hashing
+
+Passwords are hashed with `bcrypt.DefaultCost` (cost factor 10) in the **service layer**
+before being passed to the repository. The repository never stores or compares plaintext passwords.
+
+- `service/user` hashes on `Create`; on `Update` an empty `password` field leaves the existing hash unchanged.
+- `service/auth` fetches the user by username, then calls `bcrypt.CompareHashAndPassword`.
 
 ## Optional Env
 

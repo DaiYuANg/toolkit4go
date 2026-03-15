@@ -48,7 +48,7 @@ type UserUpdateInput struct {
 	ID   int64 `path:"id" validate:"required,min=1"`
 	Body struct {
 		Username  string   `json:"username" validate:"required,min=3,max=64"`
-		Password  string   `json:"password" validate:"required,min=3,max=128"`
+		Password  string   `json:"password" validate:"omitempty,min=3,max=128"`
 		RoleCodes []string `json:"role_codes"`
 	} `json:"body"`
 }

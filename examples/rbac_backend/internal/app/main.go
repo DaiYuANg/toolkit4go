@@ -12,7 +12,7 @@ func Run() error {
 		newAppModule(),
 	)
 	if err != nil {
-		return nil
+		return err
 	}
 	app.Run()
 	return nil

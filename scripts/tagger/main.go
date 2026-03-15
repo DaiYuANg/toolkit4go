@@ -85,9 +85,9 @@ func defineBumpTasks() *goyek.DefinedTask {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: go run ./scripts/tagger [task]")
-	fmt.Fprintln(w, "Tasks: patch, patch-push, minor, minor-push, major, major-push, help")
-	fmt.Fprintln(w, "Env: TAGGER_REMOTE=origin TAGGER_NAME=auto-tagger TAGGER_EMAIL=ci@local")
+	_, _ = fmt.Fprintln(w, "Usage: go run ./scripts/tagger [task]")
+	_, _ = fmt.Fprintln(w, "Tasks: patch, patch-push, minor, minor-push, major, major-push, help")
+	_, _ = fmt.Fprintln(w, "Env: TAGGER_REMOTE=origin TAGGER_NAME=auto-tagger TAGGER_EMAIL=ci@local")
 }
 
 func runTagger(a *goyek.A, mode bumpMode, push bool) {

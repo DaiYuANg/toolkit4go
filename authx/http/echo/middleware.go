@@ -8,6 +8,7 @@ import (
 	"github.com/DaiYuANg/arcgo/authx"
 	authhttp "github.com/DaiYuANg/arcgo/authx/http"
 	"github.com/labstack/echo/v4"
+	"github.com/samber/lo"
 )
 
 type Option func(*config)
@@ -114,12 +115,11 @@ func requestInfoFromEcho(c echo.Context, req *http.Request) authhttp.RequestInfo
 	}
 
 	paramNames := c.ParamNames()
-	params := map[string]string(nil)
+	var params map[string]string
 	if len(paramNames) > 0 {
-		params = make(map[string]string, len(paramNames))
-		for _, name := range paramNames {
-			params[name] = c.Param(name)
-		}
+		params = lo.Associate(paramNames, func(name string) (string, string) {
+			return name, c.Param(name)
+		})
 	}
 
 	var headers http.Header

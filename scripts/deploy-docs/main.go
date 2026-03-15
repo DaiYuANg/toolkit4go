@@ -131,9 +131,9 @@ func execHugo(a *goyek.A, ctx *docsContext, args string) bool {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: go run ./scripts/deploy-docs [task]")
-	fmt.Fprintln(w, "Tasks: sync, build, serve, deploy, help")
-	fmt.Fprintln(w, "Deploy env: DOCS_REMOTE=origin DOCS_BRANCH=gh-pages")
+	_, _ = fmt.Fprintln(w, "Usage: go run ./scripts/deploy-docs [task]")
+	_, _ = fmt.Fprintln(w, "Tasks: sync, build, serve, deploy, help")
+	_, _ = fmt.Fprintln(w, "Deploy env: DOCS_REMOTE=origin DOCS_BRANCH=gh-pages")
 }
 
 func execOrFail(a *goyek.A, dir string, name string, args ...string) {

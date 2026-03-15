@@ -10,6 +10,7 @@ import (
 	"github.com/DaiYuANg/arcgo/authx"
 	authhttp "github.com/DaiYuANg/arcgo/authx/http"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samber/lo"
 )
 
 type Option func(*config)
@@ -105,24 +106,23 @@ func requestInfoFromFiber(c *fiber.Ctx) authhttp.RequestInfo {
 	}
 
 	headers := make(http.Header)
-	c.Request().Header.VisitAll(func(key, value []byte) {
+	for key, value := range c.Request().Header.All() {
 		headers.Add(string(key), string(value))
-	})
+	}
 
 	var query url.Values
 	if len(c.Request().URI().QueryString()) > 0 {
 		query = make(url.Values)
-		c.Request().URI().QueryArgs().VisitAll(func(key, value []byte) {
+		for key, value := range c.Request().URI().QueryArgs().All() {
 			query.Add(string(key), string(value))
-		})
+		}
 	}
 
-	pathParams := map[string]string(nil)
+	var pathParams map[string]string
 	if route := c.Route(); route != nil && len(route.Params) > 0 {
-		pathParams = make(map[string]string, len(route.Params))
-		for _, key := range route.Params {
-			pathParams[key] = c.Params(key)
-		}
+		pathParams = lo.Associate(route.Params, func(key string) (string, string) {
+			return key, c.Params(key)
+		})
 	}
 
 	return authhttp.RequestInfo{

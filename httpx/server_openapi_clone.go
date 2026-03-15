@@ -73,27 +73,21 @@ func cloneSecurityRequirements(requirements []map[string][]string) []map[string]
 	if len(requirements) == 0 {
 		return nil
 	}
-	cloned := make([]map[string][]string, 0, len(requirements))
-	for _, req := range requirements {
+	return lo.Map(requirements, func(req map[string][]string, _ int) map[string][]string {
 		if req == nil {
-			cloned = append(cloned, nil)
-			continue
+			return nil
 		}
-		cloned = append(cloned, cloneStringSliceMap(req))
-	}
-	return cloned
+		return cloneStringSliceMap(req)
+	})
 }
 
 func cloneStringSliceMap(values map[string][]string) map[string][]string {
-	cloned := make(map[string][]string, len(values))
-	for key, scopes := range values {
+	return lo.MapValues(values, func(scopes []string, _ string) []string {
 		if scopes == nil {
-			cloned[key] = []string{}
-			continue
+			return []string{}
 		}
-		cloned[key] = append([]string(nil), scopes...)
-	}
-	return cloned
+		return append([]string(nil), scopes...)
+	})
 }
 
 func findTag(tags []*huma.Tag, name string) int {

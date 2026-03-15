@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// testCtxKey is a private type for context keys in tests,
+// avoiding the SA1029 lint warning about using built-in string as key.
+type testCtxKey string
+
+const ctxKeyV testCtxKey = "v"
+
 type panicRetryPolicy struct{}
 
 func (p panicRetryPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
@@ -27,7 +33,7 @@ func TestInvokeWithPoliciesOrder(t *testing.T) {
 	p1 := PolicyFuncs{
 		BeforeFunc: func(ctx context.Context, operation Operation) (context.Context, error) {
 			calls = append(calls, "before1")
-			return context.WithValue(ctx, "v", "ok"), nil
+			return context.WithValue(ctx, ctxKeyV, "ok"), nil
 		},
 		AfterFunc: func(ctx context.Context, operation Operation, err error) error {
 			calls = append(calls, "after1")
@@ -37,7 +43,7 @@ func TestInvokeWithPoliciesOrder(t *testing.T) {
 	p2 := PolicyFuncs{
 		BeforeFunc: func(ctx context.Context, operation Operation) (context.Context, error) {
 			calls = append(calls, "before2")
-			if got, _ := ctx.Value("v").(string); got != "ok" {
+			if got, _ := ctx.Value(ctxKeyV).(string); got != "ok" {
 				t.Fatalf("expected ctx value propagated, got %q", got)
 			}
 			return ctx, nil

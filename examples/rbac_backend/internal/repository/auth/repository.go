@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strings"
 
 	"github.com/DaiYuANg/arcgo/examples/rbac_backend/internal/entity"
 	repocore "github.com/DaiYuANg/arcgo/examples/rbac_backend/internal/repository/core"
@@ -12,13 +11,22 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// Repository provides authentication-related data access.
 type Repository interface {
-	Login(ctx context.Context, username string, password string) (entity.Principal, error)
+	// GetUserByUsername fetches a user record by username only.
+	// Password verification (bcrypt) is the caller's responsibility.
+	GetUserByUsername(ctx context.Context, username string) (entity.UserModel, error)
+
+	// GetUserRoles returns the role codes assigned to a user.
+	GetUserRoles(ctx context.Context, userID int64) ([]string, error)
 }
 
+// AuthorizationRepository provides RBAC permission checks.
 type AuthorizationRepository interface {
 	Can(ctx context.Context, userID int64, action string, resource string) (bool, error)
 }
+
+// ---- authentication repository ----
 
 type bunRepository struct {
 	db *bun.DB
@@ -28,29 +36,23 @@ func NewRepository(store *repocore.Store) Repository {
 	return &bunRepository{db: store.DB()}
 }
 
-func (r *bunRepository) Login(ctx context.Context, username string, password string) (entity.Principal, error) {
+func (r *bunRepository) GetUserByUsername(ctx context.Context, username string) (entity.UserModel, error) {
 	var user entity.UserModel
 	err := r.db.NewSelect().
 		Model(&user).
-		Where("username = ?", strings.TrimSpace(username)).
-		Where("password = ?", password).
+		Where("username = ?", username).
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return entity.Principal{}, errors.New("invalid username or password")
+			return entity.UserModel{}, sql.ErrNoRows
 		}
-		return entity.Principal{}, err
+		return entity.UserModel{}, err
 	}
-
-	roles, err := r.userRoles(ctx, user.ID)
-	if err != nil {
-		return entity.Principal{}, err
-	}
-	return entity.Principal{UserID: user.ID, Username: user.Username, Roles: roles}, nil
+	return user, nil
 }
 
-func (r *bunRepository) userRoles(ctx context.Context, userID int64) ([]string, error) {
+func (r *bunRepository) GetUserRoles(ctx context.Context, userID int64) ([]string, error) {
 	rows := make([]entity.RoleModel, 0)
 	err := r.db.NewSelect().
 		Model(&rows).
@@ -65,6 +67,8 @@ func (r *bunRepository) userRoles(ctx context.Context, userID int64) ([]string, 
 		return item.Code
 	}), nil
 }
+
+// ---- authorization repository ----
 
 type bunAuthorizationRepository struct {
 	db *bun.DB

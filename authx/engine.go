@@ -3,6 +3,8 @@ package authx
 import (
 	"context"
 	"sync"
+
+	"github.com/samber/lo"
 )
 
 // Engine separates authentication (Check) and authorization (Can).
@@ -46,10 +48,7 @@ func (engine *Engine) AddHook(hook Hook) {
 		return
 	}
 	engine.mu.Lock()
-	next := make([]Hook, len(engine.hooks)+1)
-	copy(next, engine.hooks)
-	next[len(engine.hooks)] = hook
-	engine.hooks = next
+	engine.hooks = lo.Concat(engine.hooks, []Hook{hook})
 	engine.mu.Unlock()
 }
 

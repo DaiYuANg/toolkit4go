@@ -26,11 +26,25 @@ type bearerCredential struct {
 
 var actionMapping = collectionmapping.NewMapFrom(map[string]string{
 	http.MethodGet:    "query",
+	http.MethodHead:   "query",
 	http.MethodPost:   "create",
 	http.MethodDelete: "delete",
 	http.MethodPut:    "update",
 	http.MethodPatch:  "update",
 })
+
+// resourcePrefixMapping pairs a URL path substring with its RBAC resource name.
+// To support a new resource, append a new entry here — no other code needs to change.
+type resourcePrefixMapping struct {
+	pathFragment string
+	resource     string
+}
+
+var resourcePrefixMappings = []resourcePrefixMapping{
+	{pathFragment: "/books", resource: "book"},
+	{pathFragment: "/users", resource: "user"},
+	{pathFragment: "/roles", resource: "role"},
+}
 
 func NewAuthxEngineOptions(
 	authz *authsvc.AuthorizationService,
@@ -120,6 +134,11 @@ func NewAuthMiddleware(cfg config.AppConfig, guard *authhttp.Guard) fiber.Handle
 	publicPrefixes := collectionlist.NewList(docsPrefix, "/schemas/")
 
 	return func(c *fiber.Ctx) error {
+		// Always pass through CORS preflight requests — they carry no credentials.
+		if c.Method() == http.MethodOptions {
+			return c.Next()
+		}
+
 		path := c.Path()
 		if publicPaths.Contains(path) {
 			return c.Next()
@@ -190,14 +209,10 @@ func resolveResource(req authhttp.RequestInfo) (string, error) {
 	if pattern == "" {
 		pattern = strings.TrimSpace(req.Path)
 	}
-	if strings.Contains(pattern, "/books") {
-		return "book", nil
-	}
-	if strings.Contains(pattern, "/users") {
-		return "user", nil
-	}
-	if strings.Contains(pattern, "/roles") {
-		return "role", nil
+	for _, m := range resourcePrefixMappings {
+		if strings.Contains(pattern, m.pathFragment) {
+			return m.resource, nil
+		}
 	}
 	return "", fmt.Errorf("unsupported route pattern for resource mapping: %s", pattern)
 }
