@@ -26,134 +26,103 @@ func NewIndexer[T any](kv kvx.KV, keyPrefix string) *Indexer[T] {
 
 // IndexEntity adds an entity to secondary indexes.
 func (i *Indexer[T]) IndexEntity(ctx context.Context, entity *T, metadata *mapping.EntityMetadata, entityKey string) error {
-	v := reflect.ValueOf(entity)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
+	v := reflect.Indirect(reflect.ValueOf(entity))
 	for _, fieldName := range metadata.IndexFields {
-		fieldTag := metadata.Fields[fieldName]
+		fieldTag, ok := metadata.Fields[fieldName]
+		if !ok {
+			continue
+		}
 		fieldVal := v.FieldByName(fieldName)
 		if !fieldVal.IsValid() {
 			continue
 		}
-
 		fieldValue := formatIndexValue(fieldVal)
 		if fieldValue == "" {
 			continue
 		}
-
-		indexKey := i.buildIndexKey(fieldTag.Name, fieldValue)
-
-		// Add entity ID to the index set
-		entityID := extractIDFromKey(entityKey)
-		if err := i.addToIndex(ctx, indexKey, entityID); err != nil {
+		indexKey := i.buildIndexKey(fieldTag.IndexNameOrDefault(), fieldValue)
+		if err := i.addToIndex(ctx, indexKey, extractIDFromKey(entityKey)); err != nil {
 			return fmt.Errorf("failed to index field %s: %w", fieldName, err)
 		}
 	}
-
 	return nil
 }
 
 // RemoveEntityFromIndexes removes an entity from all secondary indexes.
 func (i *Indexer[T]) RemoveEntityFromIndexes(ctx context.Context, entity *T, metadata *mapping.EntityMetadata) error {
-	v := reflect.ValueOf(entity)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
+	v := reflect.Indirect(reflect.ValueOf(entity))
+	entityKey, err := i.keyBuilder.Build(entity, metadata)
+	if err != nil {
+		return err
 	}
+	entityID := extractIDFromKey(entityKey)
 
 	for _, fieldName := range metadata.IndexFields {
-		fieldTag := metadata.Fields[fieldName]
+		fieldTag, ok := metadata.Fields[fieldName]
+		if !ok {
+			continue
+		}
 		fieldVal := v.FieldByName(fieldName)
 		if !fieldVal.IsValid() {
 			continue
 		}
-
 		fieldValue := formatIndexValue(fieldVal)
 		if fieldValue == "" {
 			continue
 		}
-
-		indexKey := i.buildIndexKey(fieldTag.Name, fieldValue)
-
-		// Get entity ID
-		entityKey, _ := i.keyBuilder.Build(entity, metadata)
-		entityID := extractIDFromKey(entityKey)
-
+		indexKey := i.buildIndexKey(fieldTag.IndexNameOrDefault(), fieldValue)
 		if err := i.removeFromIndex(ctx, indexKey, entityID); err != nil {
 			return fmt.Errorf("failed to remove index for field %s: %w", fieldName, err)
 		}
 	}
-
 	return nil
 }
 
 // UpdateFieldIndex updates the index when a field value changes.
 func (i *Indexer[T]) UpdateFieldIndex(ctx context.Context, entity *T, metadata *mapping.EntityMetadata, fieldName string, entityKey string) error {
-	fieldTag, exists := metadata.Fields[fieldName]
+	resolvedField, fieldTag, exists := metadata.ResolveField(fieldName)
 	if !exists || !fieldTag.Index {
 		return nil
 	}
-
-	v := reflect.ValueOf(entity)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	fieldVal := v.FieldByName(fieldName)
+	v := reflect.Indirect(reflect.ValueOf(entity))
+	fieldVal := v.FieldByName(resolvedField)
 	if !fieldVal.IsValid() {
 		return nil
 	}
-
 	fieldValue := formatIndexValue(fieldVal)
 	if fieldValue == "" {
 		return nil
 	}
-
-	indexKey := i.buildIndexKey(fieldTag.Name, fieldValue)
-	entityID := extractIDFromKey(entityKey)
-
-	return i.addToIndex(ctx, indexKey, entityID)
+	indexKey := i.buildIndexKey(fieldTag.IndexNameOrDefault(), fieldValue)
+	return i.addToIndex(ctx, indexKey, extractIDFromKey(entityKey))
 }
 
 // GetEntityIDsByField returns entity IDs that have the specified field value.
 func (i *Indexer[T]) GetEntityIDsByField(ctx context.Context, fieldName string, fieldValue string) ([]string, error) {
-	indexKey := i.buildIndexKey(fieldName, fieldValue)
-	return i.getIndexMembers(ctx, indexKey)
+	return i.getIndexMembers(ctx, i.buildIndexKey(fieldName, fieldValue))
 }
 
-// buildIndexKey builds the key for a secondary index.
 func (i *Indexer[T]) buildIndexKey(fieldName, fieldValue string) string {
-	prefix := i.keyBuilder.BuildWithID("")
+	prefix := strings.TrimSuffix(i.keyBuilder.BuildWithID(""), ":")
 	if prefix == "" {
 		return fmt.Sprintf("idx:%s:%s", fieldName, fieldValue)
 	}
-	// Remove trailing colon if present
-	prefix = strings.TrimSuffix(prefix, ":")
 	return fmt.Sprintf("%s:idx:%s:%s", prefix, fieldName, fieldValue)
 }
 
-// addToIndex adds an entity ID to an index.
 func (i *Indexer[T]) addToIndex(ctx context.Context, indexKey string, entityID string) error {
-	// Use a set to store entity IDs for uniqueness
-	// We use a simple approach with hash field
 	return i.kv.Set(ctx, fmt.Sprintf("%s:%s", indexKey, entityID), []byte("1"), 0)
 }
 
-// removeFromIndex removes an entity ID from an index.
 func (i *Indexer[T]) removeFromIndex(ctx context.Context, indexKey string, entityID string) error {
 	return i.kv.Delete(ctx, fmt.Sprintf("%s:%s", indexKey, entityID))
 }
 
-// getIndexMembers retrieves all entity IDs from an index.
 func (i *Indexer[T]) getIndexMembers(ctx context.Context, indexKey string) ([]string, error) {
-	pattern := indexKey + ":*"
-	keys, err := i.kv.Keys(ctx, pattern)
+	keys, err := i.kv.Keys(ctx, indexKey+":*")
 	if err != nil {
 		return nil, err
 	}
-
-	// Extract entity IDs from keys
 	results := make([]string, 0, len(keys))
 	prefixLen := len(indexKey) + 1
 	for _, key := range keys {
@@ -161,11 +130,9 @@ func (i *Indexer[T]) getIndexMembers(ctx context.Context, indexKey string) ([]st
 			results = append(results, key[prefixLen:])
 		}
 	}
-
 	return results, nil
 }
 
-// formatIndexValue formats a reflect.Value for indexing.
 func formatIndexValue(v reflect.Value) string {
 	switch v.Kind() {
 	case reflect.String:
@@ -184,9 +151,7 @@ func formatIndexValue(v reflect.Value) string {
 	}
 }
 
-// extractIDFromKey extracts the ID from an entity key.
 func extractIDFromKey(key string) string {
-	// Find the last colon
 	for i := len(key) - 1; i >= 0; i-- {
 		if key[i] == ':' {
 			return key[i+1:]

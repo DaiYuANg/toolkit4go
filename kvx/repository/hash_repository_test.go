@@ -71,6 +71,9 @@ func (m *mockHash) HDel(ctx context.Context, key string, fields ...string) error
 		for _, field := range fields {
 			delete(hash, field)
 		}
+		if len(hash) == 0 {
+			delete(m.data, key)
+		}
 	}
 	return nil
 }

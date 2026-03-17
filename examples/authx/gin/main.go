@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/DaiYuANg/archgo/authx"
-	"github.com/DaiYuANg/archgo/authx/http/examples/shared"
 	authgin "github.com/DaiYuANg/archgo/authx/http/gin"
+	"github.com/DaiYuANg/archgo/examples/authx/shared"
 	"github.com/DaiYuANg/archgo/logx"
 	"github.com/gin-gonic/gin"
 )

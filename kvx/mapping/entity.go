@@ -1,17 +1,40 @@
 package mapping
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/samber/lo"
 )
 
 // FieldTag represents metadata for a struct field.
 type FieldTag struct {
+	FieldName string // Go struct field name
 	Name      string // field name in storage
 	Ignored   bool   // whether to ignore this field
 	Index     bool   // whether this field is indexed
 	IndexName string // custom index name
+}
+
+// IndexNameOrDefault returns the effective index field name.
+func (f FieldTag) IndexNameOrDefault() string {
+	if f.IndexName != "" {
+		return f.IndexName
+	}
+	if f.Name != "" {
+		return f.Name
+	}
+	return f.FieldName
+}
+
+// StorageName returns the effective stored field name.
+func (f FieldTag) StorageName() string {
+	if f.Name != "" {
+		return f.Name
+	}
+	return f.FieldName
 }
 
 // EntityMetadata holds metadata for an entity type.
@@ -25,6 +48,69 @@ type EntityMetadata struct {
 	ExpirationField string
 }
 
+// StorageNames returns all storage field names.
+func (m *EntityMetadata) StorageNames() []string {
+	fieldNames := orderedFieldNames(m)
+	return lo.Map(fieldNames, func(fieldName string, _ int) string {
+		return m.Fields[fieldName].StorageName()
+	})
+}
+
+// IndexedNames returns all effective indexed field names.
+func (m *EntityMetadata) IndexedNames() []string {
+	return lo.Uniq(lo.Map(m.IndexFields, func(fieldName string, _ int) string {
+		field, ok := m.Fields[fieldName]
+		if !ok {
+			return fieldName
+		}
+		return field.IndexNameOrDefault()
+	}))
+}
+
+// ResolveField resolves a struct field, storage field, or index alias into a struct field name and metadata.
+func (m *EntityMetadata) ResolveField(name string) (string, FieldTag, bool) {
+	if field, ok := m.Fields[name]; ok {
+		return name, field, true
+	}
+
+	for fieldName, field := range m.Fields {
+		if field.StorageName() == name || field.IndexNameOrDefault() == name {
+			return fieldName, field, true
+		}
+	}
+
+	return "", FieldTag{}, false
+}
+
+// KeyFieldTag returns metadata for the key field when it is exported through Fields.
+func (m *EntityMetadata) KeyFieldTag() (FieldTag, bool) {
+	field, ok := m.Fields[m.KeyField]
+	return field, ok
+}
+
+// SetEntityID fills the key field value from a raw ID string.
+func (m *EntityMetadata) SetEntityID(entity any, id string) error {
+	if m.KeyField == "" || id == "" {
+		return nil
+	}
+
+	v := reflect.ValueOf(entity)
+	if v.Kind() != reflect.Ptr || v.IsNil() {
+		return ErrNonPointerValue
+	}
+	v = v.Elem()
+
+	field := v.FieldByName(m.KeyField)
+	if !field.IsValid() || !field.CanSet() {
+		return nil
+	}
+
+	return setFieldStringValue(field, id)
+}
+
+// Schema is the stable object description used by repositories and indexers.
+type Schema = EntityMetadata
+
 // TagParser parses struct tags into metadata.
 type TagParser struct {
 	cache sync.Map // map[reflect.Type]*EntityMetadata
@@ -37,23 +123,6 @@ func NewTagParser() *TagParser {
 
 // Parse parses metadata from a struct type.
 func (p *TagParser) Parse(t reflect.Type) (*EntityMetadata, error) {
-	// Check cache first
-	if cached, ok := p.cache.Load(t); ok {
-		return cached.(*EntityMetadata), nil
-	}
-
-	return p.ParseType(reflect.Zero(t).Interface())
-}
-
-// ParseType parses metadata from an entity instance.
-func (p *TagParser) ParseType(entity interface{}) (*EntityMetadata, error) {
-	t := reflect.TypeOf(entity)
-
-	// Check cache first
-	if cached, ok := p.cache.Load(t); ok {
-		return cached.(*EntityMetadata), nil
-	}
-
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -61,6 +130,24 @@ func (p *TagParser) ParseType(entity interface{}) (*EntityMetadata, error) {
 		return nil, ErrNonStructType
 	}
 
+	if cached, ok := p.cache.Load(t); ok {
+		return cached.(*EntityMetadata), nil
+	}
+
+	metadata, err := p.parseStruct(t)
+	if err != nil {
+		return nil, err
+	}
+	p.cache.Store(t, metadata)
+	return metadata, nil
+}
+
+// ParseType parses metadata from an entity instance.
+func (p *TagParser) ParseType(entity interface{}) (*EntityMetadata, error) {
+	return p.Parse(reflect.TypeOf(entity))
+}
+
+func (p *TagParser) parseStruct(t reflect.Type) (*EntityMetadata, error) {
 	metadata := &EntityMetadata{
 		Type:        t,
 		Fields:      make(map[string]FieldTag),
@@ -78,31 +165,33 @@ func (p *TagParser) ParseType(entity interface{}) (*EntityMetadata, error) {
 			continue
 		}
 
-		fieldTag := p.parseFieldTag(tag)
-
+		fieldTag := p.parseFieldTag(field.Name, tag)
 		if fieldTag.Ignored {
 			continue
 		}
 
-		// Check for key field
 		if fieldTag.Name == "id" || fieldTag.Name == "key" {
 			metadata.KeyField = field.Name
+			metadata.Fields[field.Name] = fieldTag
 			continue
 		}
 
 		metadata.Fields[field.Name] = fieldTag
-
 		if fieldTag.Index {
 			metadata.IndexFields = append(metadata.IndexFields, field.Name)
 		}
 	}
 
-	p.cache.Store(t, metadata)
+	if metadata.KeyField == "" {
+		return nil, ErrNoKeyFieldDefined
+	}
+
+	metadata.IndexFields = lo.Uniq(metadata.IndexFields)
 	return metadata, nil
 }
 
-func (p *TagParser) parseFieldTag(tag string) FieldTag {
-	result := FieldTag{}
+func (p *TagParser) parseFieldTag(fieldName, tag string) FieldTag {
+	result := FieldTag{FieldName: fieldName}
 	parts := strings.Split(tag, ",")
 
 	if len(parts) > 0 {
@@ -110,7 +199,7 @@ func (p *TagParser) parseFieldTag(tag string) FieldTag {
 		switch name {
 		case "-":
 			result.Ignored = true
-		case "id", "key":
+		case "", "id", "key":
 			result.Name = name
 		default:
 			result.Name = name
@@ -119,14 +208,15 @@ func (p *TagParser) parseFieldTag(tag string) FieldTag {
 
 	for _, part := range parts[1:] {
 		part = strings.TrimSpace(part)
-		if part == "omitempty" {
+		switch {
+		case part == "omitempty":
 			continue
-		} else if part == "index" {
+		case part == "index":
 			result.Index = true
-		} else if strings.HasPrefix(part, "index=") {
+		case strings.HasPrefix(part, "index="):
 			result.Index = true
 			result.IndexName = strings.TrimPrefix(part, "index=")
-		} else if part == "ignore" {
+		case part == "ignore":
 			result.Ignored = true
 		}
 	}
@@ -136,15 +226,57 @@ func (p *TagParser) parseFieldTag(tag string) FieldTag {
 
 // GetCached returns cached metadata for a type if available.
 func (p *TagParser) GetCached(t reflect.Type) *EntityMetadata {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
 	if cached, ok := p.cache.Load(t); ok {
 		return cached.(*EntityMetadata)
 	}
 	return nil
 }
 
+func orderedFieldNames(m *EntityMetadata) []string {
+	fields := make([]string, 0, len(m.Fields))
+	for fieldName, field := range m.Fields {
+		if field.Ignored || fieldName == m.KeyField {
+			continue
+		}
+		fields = append(fields, fieldName)
+	}
+	return fields
+}
+
+func setFieldStringValue(field reflect.Value, value string) error {
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(value)
+		return nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		var parsed int64
+		_, err := fmt.Sscan(value, &parsed)
+		if err != nil {
+			return err
+		}
+		field.SetInt(parsed)
+		return nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		var parsed uint64
+		_, err := fmt.Sscan(value, &parsed)
+		if err != nil {
+			return err
+		}
+		field.SetUint(parsed)
+		return nil
+	default:
+		return nil
+	}
+}
+
 // Errors
 var (
-	ErrNonStructType = &parseError{"non-struct type"}
+	ErrNonStructType     = &parseError{"non-struct type"}
+	ErrNonPointerValue   = &parseError{"non-pointer value"}
+	ErrNoKeyFieldDefined = &parseError{"no key field defined"}
 )
 
 type parseError struct {

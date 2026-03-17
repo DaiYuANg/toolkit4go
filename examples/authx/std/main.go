@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/DaiYuANg/archgo/authx"
-	"github.com/DaiYuANg/archgo/authx/http/examples/shared"
 	authstd "github.com/DaiYuANg/archgo/authx/http/std"
+	"github.com/DaiYuANg/archgo/examples/authx/shared"
 	"github.com/DaiYuANg/archgo/logx"
 	"github.com/go-chi/chi/v5"
 )

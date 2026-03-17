@@ -10,8 +10,8 @@ import (
 
 	"github.com/DaiYuANg/archgo/authx"
 	authhttp "github.com/DaiYuANg/archgo/authx/http"
-	"github.com/DaiYuANg/archgo/authx/http/examples/shared"
 	authstd "github.com/DaiYuANg/archgo/authx/http/std"
+	"github.com/DaiYuANg/archgo/examples/authx/shared"
 	"github.com/DaiYuANg/archgo/logx"
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"

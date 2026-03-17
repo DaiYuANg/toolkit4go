@@ -1,5 +1,3 @@
-//go:build !no_echo
-
 package main
 
 import (
@@ -8,7 +6,7 @@ import (
 
 	"github.com/DaiYuANg/archgo/authx"
 	authecho "github.com/DaiYuANg/archgo/authx/http/echo"
-	"github.com/DaiYuANg/archgo/authx/http/examples/shared"
+	"github.com/DaiYuANg/archgo/examples/authx/shared"
 	"github.com/DaiYuANg/archgo/logx"
 	"github.com/labstack/echo/v4"
 )

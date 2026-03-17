@@ -3,23 +3,23 @@ package dix
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	do "github.com/samber/do/v2"
 )
 
 // Profile represents an application profile (environment).
 type Profile string
 
 const (
-	// ProfileDefault is the default profile.
 	ProfileDefault Profile = "default"
-	// ProfileDev is for development environment.
-	ProfileDev Profile = "dev"
-	// ProfileTest is for testing environment.
-	ProfileTest Profile = "test"
-	// ProfileProd is for production environment.
-	ProfileProd Profile = "prod"
+	ProfileDev     Profile = "dev"
+	ProfileTest    Profile = "test"
+	ProfileProd    Profile = "prod"
 )
 
 // AppMeta contains application metadata.
@@ -33,35 +33,26 @@ type AppMeta struct {
 type AppState int32
 
 const (
-	// AppStateCreated indicates the app has been created but not built.
 	AppStateCreated AppState = iota
-	// AppStateBuilt indicates the app has been built and is ready to start.
 	AppStateBuilt
-	// AppStateStarted indicates the app is running.
 	AppStateStarted
-	// AppStateStopped indicates the app has been stopped.
 	AppStateStopped
 )
 
+type debugSettings struct {
+	scopeTree                bool
+	namedServiceDependencies []string
+}
+
 // App is the main application container.
-// It orchestrates module loading, dependency injection, and lifecycle management.
-//
-// App provides a simple, typed-first approach to dependency injection
-// without the complexity of traditional DI frameworks.
-//
-// Example:
-//
-//	app := NewApp("myapp",
-//	    DatabaseModule,
-//	    HTTPModule,
-//	)
-//	app.Run()
 type App struct {
 	meta      AppMeta
 	profile   Profile
 	modules   []Module
 	container *Container
 	lifecycle *lifecycleImpl
+	logger    *slog.Logger
+	debug     debugSettings
 	state     AppState
 	built     bool
 }
@@ -69,144 +60,179 @@ type App struct {
 // AppOption configures an App.
 type AppOption func(*App)
 
-// WithProfile sets the application profile.
-func WithProfile(profile Profile) AppOption {
-	return func(a *App) {
-		a.profile = profile
-	}
+const DefaultAppName = "dix application"
+
+// NewDefault creates an application with the default framework name.
+func NewDefault(opts ...AppOption) *App {
+	return New(DefaultAppName, opts...)
 }
 
-// NewApp creates a new application with the given name and modules.
-//
-// The app is created but not built. Call Build(), Start(), or Run()
-// to initialize the application.
-//
-// Example:
-//
-//	app := NewApp("myapp",
-//	    WithProviders(ProvideConfig, ProvideDatabase),
-//	    WithSetup(func(c Container, lc Lifecycle) error {
-//	        lc.OnStart(func(db *Database) error {
-//	            return db.Connect()
-//	        })
-//	        return nil
-//	    }),
-//	)
-func NewApp(name string, modules ...Module) *App {
-	return &App{
-		meta: AppMeta{
-			Name: name,
-		},
+// New is the preferred constructor in v0.4.
+// Everything goes through a single varargs configuration surface.
+func New(name string, opts ...AppOption) *App {
+	logger := defaultLogger()
+	app := &App{
+		meta:      AppMeta{Name: name},
 		profile:   ProfileDefault,
-		modules:   modules,
+		modules:   make([]Module, 0),
 		container: newContainer(),
 		lifecycle: newLifecycle(),
+		logger:    logger,
 		state:     AppStateCreated,
-		built:     false,
 	}
-}
-
-// NewAppWithOptions creates a new application with additional options.
-func NewAppWithOptions(name string, opts []AppOption, modules ...Module) *App {
-	app := NewApp(name, modules...)
 	for _, opt := range opts {
-		opt(app)
+		if opt != nil {
+			opt(app)
+		}
 	}
+	app.syncInfrastructure()
 	return app
 }
 
-// Name returns the application name.
-func (a *App) Name() string {
-	return a.meta.Name
+// NewApp keeps backward compatibility with the v0.3 style.
+func NewApp(name string, modules ...Module) *App {
+	return New(name, WithModules(modules...))
 }
 
-// Profile returns the current application profile.
-func (a *App) Profile() Profile {
-	return a.profile
+// NewAppWithOptions keeps backward compatibility with the v0.3 style.
+// Deprecated: prefer New(name, WithModules(...), WithProfile(...), ...).
+func NewAppWithOptions(name string, opts []AppOption, modules ...Module) *App {
+	merged := make([]AppOption, 0, len(opts)+1)
+	merged = append(merged, WithModules(modules...))
+	merged = append(merged, opts...)
+	return New(name, merged...)
 }
 
-// Container returns the underlying container for direct access.
-// This is primarily useful for testing.
-func (a *App) Container() *Container {
-	return a.container
+func WithProfile(profile Profile) AppOption {
+	return func(a *App) { a.profile = profile }
 }
 
-// Run builds, starts, waits for shutdown signal, and then stops the application.
-// This is the main entry point for running the application.
-//
-// Run performs the following steps:
-// 1. Build: Loads all modules and registers providers
-// 2. Start: Executes all OnStart hooks in order
-// 3. Wait: Blocks until a shutdown signal is received
-// 4. Stop: Executes all OnStop hooks in reverse order
-//
-// Example:
-//
-//	if err := app.Run(); err != nil {
-//	    log.Fatal(err)
-//	}
+// WithVersion sets application version metadata.
+func WithVersion(version string) AppOption {
+	return func(a *App) { a.meta.Version = version }
+}
+
+// WithDescription sets application description metadata.
+func WithAppDescription(description string) AppOption {
+	return func(a *App) { a.meta.Description = description }
+}
+
+// WithLogger sets the framework logger.
+func WithLogger(logger *slog.Logger) AppOption {
+	return func(a *App) {
+		if logger != nil {
+			a.logger = logger
+		}
+	}
+}
+
+// WithModules appends application modules.
+func WithModules(modules ...Module) AppOption {
+	return func(a *App) {
+		a.modules = append(a.modules, modules...)
+	}
+}
+
+// WithModule appends a single application module.
+func WithModule(module Module) AppOption {
+	return WithModules(module)
+}
+
+// WithDebugScopeTree logs do's scope tree after build.
+func WithDebugScopeTree(enabled bool) AppOption {
+	return func(a *App) { a.debug.scopeTree = enabled }
+}
+
+// WithDebugNamedServiceDependencies logs dependency trees for named services after build.
+func WithDebugNamedServiceDependencies(names ...string) AppOption {
+	return func(a *App) {
+		a.debug.namedServiceDependencies = append(a.debug.namedServiceDependencies, names...)
+	}
+}
+
+func defaultLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
+}
+
+func (a *App) syncInfrastructure() {
+	a.container.logger = a.logger
+	a.lifecycle.logger = a.logger
+}
+
+func (a *App) Name() string          { return a.meta.Name }
+func (a *App) Profile() Profile      { return a.profile }
+func (a *App) Container() *Container { return a.container }
+func (a *App) Logger() *slog.Logger  { return a.logger }
+func (a *App) State() AppState       { return a.state }
+func (a *App) Raw() do.Injector      { return a.container.Raw() }
+func (a *App) Meta() AppMeta         { return a.meta }
+
 func (a *App) Run() error {
-	// Build
 	if err := a.Build(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
-
-	// Start
 	ctx := context.Background()
 	if err := a.Start(ctx); err != nil {
 		return fmt.Errorf("start failed: %w", err)
 	}
-
-	// Wait for shutdown signal
 	a.waitForShutdown()
-
-	// Stop
 	if err := a.Stop(ctx); err != nil {
 		return fmt.Errorf("stop failed: %w", err)
 	}
-
 	return nil
 }
 
-// Build initializes the application by loading all modules and registering providers.
-// After Build() is called, the container is ready to resolve dependencies.
-//
-// Build performs the following steps:
-// 1. Flatten all modules (including imports)
-// 2. Filter modules by profile
-// 3. Register all providers in the container
-// 4. Execute module Setup functions
-// 5. Execute all Invokes
-//
-// Build is idempotent - calling it multiple times has no effect after the first call.
 func (a *App) Build() error {
 	if a.built {
+		a.logger.Debug("build skipped", "app", a.Name(), "reason", "already built")
 		return nil
 	}
+	a.syncInfrastructure()
+	a.logger.Info("building app", "app", a.Name(), "profile", a.profile)
 
-	// Flatten modules and filter by profile
-	flatModules := flattenModules(a.modules, a.profile)
+	ProvideValueT[*slog.Logger](a.container, a.logger)
+	ProvideValueT[AppMeta](a.container, a.meta)
+	ProvideValueT[Profile](a.container, a.profile)
 
-	// Register all providers
+	flatModules, err := flattenModules(a.modules, a.profile)
+	if err != nil {
+		a.logger.Error("module flatten failed", "app", a.Name(), "error", err)
+		return fmt.Errorf("module flatten failed: %w", err)
+	}
+
 	for _, mod := range flatModules {
+		a.logger.Debug("registering module", "module", mod.Name)
 		for _, provider := range mod.Providers {
 			provider(a.container)
 		}
 	}
 
-	// Execute Setup functions
 	for _, mod := range flatModules {
 		if mod.Setup != nil {
+			a.logger.Debug("running module setup", "module", mod.Name)
 			if err := mod.Setup(a.container, a.lifecycle); err != nil {
+				a.logger.Error("module setup failed", "module", mod.Name, "error", err)
 				return fmt.Errorf("setup failed for module %s: %w", mod.Name, err)
+			}
+		}
+		if mod.DoSetup != nil {
+			a.logger.Debug("running do setup", "module", mod.Name)
+			if err := mod.DoSetup(a.container.Raw()); err != nil {
+				a.logger.Error("do setup failed", "module", mod.Name, "error", err)
+				return fmt.Errorf("do setup failed for module %s: %w", mod.Name, err)
 			}
 		}
 	}
 
-	// Execute Invokes
+	if err := a.Validate(); err != nil {
+		a.logger.Error("validation failed", "app", a.Name(), "error", err)
+		return err
+	}
+
 	for _, mod := range flatModules {
 		for _, invoke := range mod.Invokes {
 			if err := invoke(a.container); err != nil {
+				a.logger.Error("invoke failed", "module", mod.Name, "error", err)
 				return fmt.Errorf("invoke failed in module %s: %w", mod.Name, err)
 			}
 		}
@@ -214,56 +240,74 @@ func (a *App) Build() error {
 
 	a.built = true
 	a.state = AppStateBuilt
+	a.logger.Info("app built", "app", a.Name(), "modules", len(flatModules))
+	a.logDebugInformation()
 	return nil
 }
 
-// Start starts the application by executing all OnStart hooks.
-// Hooks are executed in the order they were registered.
-//
-// Start requires Build() to be called first.
 func (a *App) Start(ctx context.Context) error {
 	if !a.built {
 		return fmt.Errorf("app must be built before starting, call Build() first")
 	}
-
+	a.logger.Info("starting app", "app", a.Name())
 	if err := a.lifecycle.executeStartHooks(ctx, a.container); err != nil {
+		a.logger.Error("app start failed", "app", a.Name(), "error", err)
 		return err
 	}
-
 	a.state = AppStateStarted
+	a.logger.Info("app started", "app", a.Name())
 	return nil
 }
 
-// Stop stops the application by executing all OnStop hooks.
-// Hooks are executed in reverse order of registration.
-//
-// Stop requires Start() to have been called.
 func (a *App) Stop(ctx context.Context) error {
 	if a.state != AppStateStarted {
 		return fmt.Errorf("app must be started before stopping")
 	}
-
+	a.logger.Info("stopping app", "app", a.Name())
 	if err := a.lifecycle.executeStopHooks(ctx, a.container); err != nil {
+		a.logger.Error("stop hooks failed", "app", a.Name(), "error", err)
 		return err
 	}
-
-	// Shutdown the container
 	if err := a.container.Shutdown(ctx); err != nil {
+		a.logger.Error("container shutdown failed", "app", a.Name(), "error", err)
 		return fmt.Errorf("container shutdown failed: %w", err)
 	}
-
 	a.state = AppStateStopped
+	a.logger.Info("app stopped", "app", a.Name())
 	return nil
 }
 
-// waitForShutdown blocks until a shutdown signal is received.
 func (a *App) waitForShutdown() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
 }
 
-// State returns the current application state.
-func (a *App) State() AppState {
-	return a.state
+func (a *App) logDebugInformation() {
+	if a.debug.scopeTree {
+		injector := do.ExplainInjector(a.container.Raw())
+		a.logger.Info("do scope tree", "app", a.Name(), "tree", injector.String())
+	}
+	for _, name := range a.debug.namedServiceDependencies {
+		if desc, found := do.ExplainNamedService(a.container.Raw(), name); found {
+			a.logger.Info("do named service dependencies", "app", a.Name(), "name", name, "dependencies", desc.String())
+		} else {
+			a.logger.Warn("do named service not found", "app", a.Name(), "name", name)
+		}
+	}
+}
+
+// LivenessHandler returns an HTTP handler for liveness checks.
+func (a *App) LivenessHandler() http.HandlerFunc {
+	return a.healthHandler(HealthKindLiveness)
+}
+
+// ReadinessHandler returns an HTTP handler for readiness checks.
+func (a *App) ReadinessHandler() http.HandlerFunc {
+	return a.healthHandler(HealthKindReadiness)
+}
+
+// HealthHandler returns an HTTP handler for all checks.
+func (a *App) HealthHandler() http.HandlerFunc {
+	return a.healthHandler(HealthKindGeneral)
 }

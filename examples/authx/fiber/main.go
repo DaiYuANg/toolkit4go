@@ -1,5 +1,3 @@
-//go:build !no_fiber
-
 package main
 
 import (
@@ -7,8 +5,8 @@ import (
 	"os"
 
 	"github.com/DaiYuANg/archgo/authx"
-	"github.com/DaiYuANg/archgo/authx/http/examples/shared"
 	authfiber "github.com/DaiYuANg/archgo/authx/http/fiber"
+	"github.com/DaiYuANg/archgo/examples/authx/shared"
 	"github.com/DaiYuANg/archgo/logx"
 	"github.com/gofiber/fiber/v2"
 )

@@ -2,41 +2,46 @@ package dix
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 
 	do "github.com/samber/do/v2"
+	mo "github.com/samber/mo"
 )
 
 // Container wraps samber/do.Injector.
+// Most code should stay on the typed dix helpers.
+// Raw() exists as an explicit escape hatch for advanced integrations.
 type Container struct {
-	injector do.Injector
+	injector     do.Injector
+	healthChecks []healthCheckEntry
+	logger       *slog.Logger
 }
 
 func newContainer() *Container {
 	return &Container{
-		injector: do.New(),
+		injector:     do.New(),
+		healthChecks: make([]healthCheckEntry, 0),
+		logger:       slog.Default(),
 	}
 }
 
-// Injector returns the underlying do.Injector.
-func (c *Container) Injector() do.Injector {
-	return c.injector
-}
+// Raw returns the underlying do injector for advanced integrations.
+func (c *Container) Raw() do.Injector { return c.injector }
 
-// Shutdown shuts down the container.
+// Injector returns the underlying do injector.
+// Deprecated: prefer Raw() to make advanced usage explicit at call sites.
+func (c *Container) Injector() do.Injector { return c.injector }
+
 func (c *Container) Shutdown(ctx context.Context) error {
 	c.injector.Shutdown()
 	return nil
 }
 
-// ProvideT registers a typed provider with no dependencies.
 func ProvideT[T any](c *Container, fn func() T) {
-	do.Provide(c.injector, func(i do.Injector) (T, error) {
-		return fn(), nil
-	})
+	do.Provide(c.injector, func(i do.Injector) (T, error) { return fn(), nil })
 }
-
-// Provide1T registers a typed provider with 1 dependency.
 func Provide1T[T, D1 any](c *Container, fn func(D1) T) {
 	do.Provide(c.injector, func(i do.Injector) (T, error) {
 		d1, err := do.Invoke[D1](i)
@@ -47,8 +52,6 @@ func Provide1T[T, D1 any](c *Container, fn func(D1) T) {
 		return fn(d1), nil
 	})
 }
-
-// Provide2T registers a typed provider with 2 dependencies.
 func Provide2T[T, D1, D2 any](c *Container, fn func(D1, D2) T) {
 	do.Provide(c.injector, func(i do.Injector) (T, error) {
 		d1, err := do.Invoke[D1](i)
@@ -64,8 +67,6 @@ func Provide2T[T, D1, D2 any](c *Container, fn func(D1, D2) T) {
 		return fn(d1, d2), nil
 	})
 }
-
-// Provide3T registers a typed provider with 3 dependencies.
 func Provide3T[T, D1, D2, D3 any](c *Container, fn func(D1, D2, D3) T) {
 	do.Provide(c.injector, func(i do.Injector) (T, error) {
 		d1, err := do.Invoke[D1](i)
@@ -86,18 +87,120 @@ func Provide3T[T, D1, D2, D3 any](c *Container, fn func(D1, D2, D3) T) {
 		return fn(d1, d2, d3), nil
 	})
 }
-
-// ProvideValueT provides a pre-created value.
-func ProvideValueT[T any](c *Container, value T) {
-	do.ProvideValue(c.injector, value)
+func Provide4T[T, D1, D2, D3, D4 any](c *Container, fn func(D1, D2, D3, D4) T) {
+	do.Provide(c.injector, func(i do.Injector) (T, error) {
+		d1, err := do.Invoke[D1](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d2, err := do.Invoke[D2](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d3, err := do.Invoke[D3](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d4, err := do.Invoke[D4](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		return fn(d1, d2, d3, d4), nil
+	})
+}
+func Provide5T[T, D1, D2, D3, D4, D5 any](c *Container, fn func(D1, D2, D3, D4, D5) T) {
+	do.Provide(c.injector, func(i do.Injector) (T, error) {
+		d1, err := do.Invoke[D1](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d2, err := do.Invoke[D2](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d3, err := do.Invoke[D3](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d4, err := do.Invoke[D4](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d5, err := do.Invoke[D5](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		return fn(d1, d2, d3, d4, d5), nil
+	})
+}
+func Provide6T[T, D1, D2, D3, D4, D5, D6 any](c *Container, fn func(D1, D2, D3, D4, D5, D6) T) {
+	do.Provide(c.injector, func(i do.Injector) (T, error) {
+		d1, err := do.Invoke[D1](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d2, err := do.Invoke[D2](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d3, err := do.Invoke[D3](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d4, err := do.Invoke[D4](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d5, err := do.Invoke[D5](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		d6, err := do.Invoke[D6](i)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		return fn(d1, d2, d3, d4, d5, d6), nil
+	})
 }
 
-// ResolveAs resolves a dependency with full type safety.
-func ResolveAs[T any](c *Container) (T, error) {
-	return do.Invoke[T](c.injector)
+func ProvideValueT[T any](c *Container, value T) { do.ProvideValue(c.injector, value) }
+func ResolveAs[T any](c *Container) (T, error)   { return do.Invoke[T](c.injector) }
+
+func ResolveOptionalAs[T any](c *Container) (value T, ok bool) {
+	option := ResolveOptionAs[T](c)
+	return option.Get()
 }
 
-// MustResolveAs resolves a dependency and panics on error.
+// ResolveOptionAs resolves an optional dependency as mo.Option.
+func ResolveOptionAs[T any](c *Container) mo.Option[T] {
+	value, err := ResolveAs[T](c)
+	if err != nil {
+		return mo.None[T]()
+	}
+	return mo.Some(value)
+}
+func ResolveOrElse[T any](c *Container, fallback T) T {
+	value, ok := ResolveOptionalAs[T](c)
+	if !ok {
+		return fallback
+	}
+	return value
+}
 func MustResolveAs[T any](c *Container) T {
 	result, err := ResolveAs[T](c)
 	if err != nil {
@@ -106,7 +209,7 @@ func MustResolveAs[T any](c *Container) T {
 	return result
 }
 
-// Backward compatibility types
+// Backward compatibility types.
 type Definition struct {
 	Name       string
 	Kind       DefinitionKind
@@ -134,12 +237,12 @@ func (c *Container) Register(def Definition) error {
 		}
 		return nil
 	case DefinitionProvider:
-		return nil
+		return errors.New("provider definition registration is not implemented; use typed ProviderN helpers instead")
 	default:
 		return fmt.Errorf("unknown definition kind: %v", def.Kind)
 	}
 }
 
 func (c *Container) Resolve(target any) error {
-	return fmt.Errorf("use ResolveAs[T]() for type-safe resolution")
+	return errors.New("Resolve(target) is not supported; use ResolveAs[T]() for type-safe resolution")
 }

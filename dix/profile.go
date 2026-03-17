@@ -2,6 +2,8 @@ package dix
 
 import (
 	"os"
+
+	"github.com/samber/lo"
 )
 
 // ProfileManager provides utilities for working with application profiles.
@@ -21,12 +23,10 @@ func ProfileFromEnv(envVar string, defaultProfile Profile) Profile {
 	}
 
 	profile := Profile(value)
-	switch profile {
-	case ProfileDefault, ProfileDev, ProfileTest, ProfileProd:
+	if lo.Contains([]Profile{ProfileDefault, ProfileDev, ProfileTest, ProfileProd}, profile) {
 		return profile
-	default:
-		return defaultProfile
 	}
+	return defaultProfile
 }
 
 // IsProfile checks if the current profile matches the given profile.
@@ -54,13 +54,13 @@ func (pm ProfileManager) IsProd(profile Profile) bool {
 // Example:
 //
 //	var DevOnlyModule = dix.NewModule("dev-tools",
-//	    dix.WithProviders(ProvideDebugHandler),
-//	    dix.WithProfiles(dix.ProfileDev),
+//	    dix.WithModuleProviders(ProvideDebugHandler),
+//	    dix.WithModuleProfiles(dix.ProfileDev),
 //	)
 //
 //	var ProdOnlyModule = dix.NewModule("monitoring",
-//	    dix.WithProviders(ProvideMetrics),
-//	    dix.WithExcludeProfiles(dix.ProfileDev, dix.ProfileTest),
+//	    dix.WithModuleProviders(ProvideMetrics),
+//	    dix.WithModuleExcludeProfiles(dix.ProfileDev, dix.ProfileTest),
 //	)
 
 // ProfileFilter provides methods for filtering modules by profile.
@@ -80,7 +80,11 @@ func (pf *ProfileFilter) IsActive(mod Module) bool {
 
 // FilterModules returns only the modules that are active for the current profile.
 func (pf *ProfileFilter) FilterModules(modules []Module) []Module {
-	return flattenModules(modules, pf.profile)
+	filtered, err := flattenModules(modules, pf.profile)
+	if err != nil {
+		return nil
+	}
+	return filtered
 }
 
 // Global profile manager instance
