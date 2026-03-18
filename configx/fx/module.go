@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/fx"
 
-	"github.com/DaiYuANg/archgo/configx"
+	"github.com/DaiYuANg/arcgo/configx"
 )
 
 // ── plain Config module ───────────────────────────────────────────────────────

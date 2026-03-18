@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/httpx/adapter/fiber
+module github.com/DaiYuANg/arcgo/httpx/adapter/fiber
 
 go 1.26
 

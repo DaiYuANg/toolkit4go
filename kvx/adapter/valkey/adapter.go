@@ -3,7 +3,7 @@ package valkey
 import (
 	"context"
 	"fmt"
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/valkey-io/valkey-go"
 	"time"
 )

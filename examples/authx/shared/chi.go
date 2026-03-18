@@ -3,7 +3,7 @@ package shared
 import (
 	"net/http"
 
-	authhttp "github.com/DaiYuANg/archgo/authx/http"
+	authhttp "github.com/DaiYuANg/arcgo/authx/http"
 	"github.com/go-chi/chi/v5"
 )
 

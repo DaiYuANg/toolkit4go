@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/docs
+module github.com/DaiYuANg/arcgo/docs
 
 go 1.25.0
 

@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/examples/logx
+module github.com/DaiYuANg/arcgo/examples/logx
 
 go 1.26
 

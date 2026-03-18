@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/DaiYuANg/archgo/eventx"
-	eventxfx "github.com/DaiYuANg/archgo/eventx/fxx"
-	"github.com/DaiYuANg/archgo/logx"
-	logxfx "github.com/DaiYuANg/archgo/logx/fxx"
+	"github.com/DaiYuANg/arcgo/eventx"
+	eventxfx "github.com/DaiYuANg/arcgo/eventx/fxx"
+	"github.com/DaiYuANg/arcgo/logx"
+	logxfx "github.com/DaiYuANg/arcgo/logx/fxx"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 )

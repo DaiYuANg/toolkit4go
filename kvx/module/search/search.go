@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 )
 
 // Search provides high-level search operations.
@@ -73,7 +73,7 @@ func (i *Index) Search(ctx context.Context, query string, opts *SearchOptions) (
 	}
 
 	return &SearchResult{
-		Keys: keys,
+		Keys:  keys,
 		Total: int64(len(keys)),
 	}, nil
 }

@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/kvx/adapter/redis
+module github.com/DaiYuANg/arcgo/kvx/adapter/redis
 
 go 1.26.1
 

@@ -3,7 +3,7 @@ package fx
 import (
 	"go.uber.org/fx"
 
-	"github.com/DaiYuANg/archgo/eventx"
+	"github.com/DaiYuANg/arcgo/eventx"
 )
 
 // EventParams defines parameters for eventx module.

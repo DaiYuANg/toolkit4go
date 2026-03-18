@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 )
 
 // JSON provides high-level JSON document operations.

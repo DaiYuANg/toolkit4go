@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/collectionx
+module github.com/DaiYuANg/arcgo/collectionx
 
 go 1.26.1
 

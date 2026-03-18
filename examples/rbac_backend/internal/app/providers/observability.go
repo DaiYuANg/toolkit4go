@@ -3,8 +3,8 @@ package providers
 import (
 	"log/slog"
 
-	"github.com/DaiYuANg/archgo/observabilityx"
-	promobs "github.com/DaiYuANg/archgo/observabilityx/prometheus"
+	"github.com/DaiYuANg/arcgo/observabilityx"
+	promobs "github.com/DaiYuANg/arcgo/observabilityx/prometheus"
 )
 
 func NewPrometheusAdapter(logger *slog.Logger) *promobs.Adapter {

@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/kvx/adapter/valkey
+module github.com/DaiYuANg/arcgo/kvx/adapter/valkey
 
 go 1.26.1
 

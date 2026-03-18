@@ -1,7 +1,7 @@
 package tree
 
 import (
-	collectionmapping "github.com/DaiYuANg/archgo/collectionx/mapping"
+	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/samber/lo"
 )
 

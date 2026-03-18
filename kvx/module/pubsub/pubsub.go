@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 )
 
 // PubSub provides high-level pub/sub operations.

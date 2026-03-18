@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/authx/http/gin
+module github.com/DaiYuANg/arcgo/authx/http/gin
 
 go 1.26
 

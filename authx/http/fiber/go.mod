@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/authx/http/fiber
+module github.com/DaiYuANg/arcgo/authx/http/fiber
 
 go 1.26
 

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DaiYuANg/archgo/configx"
+	"github.com/DaiYuANg/arcgo/configx"
 )
 
 type AppConfig struct {

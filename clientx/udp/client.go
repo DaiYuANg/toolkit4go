@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/DaiYuANg/archgo/clientx"
-	clientcodec "github.com/DaiYuANg/archgo/clientx/codec"
+	"github.com/DaiYuANg/arcgo/clientx"
+	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
 )
 
 type DefaultClient struct {

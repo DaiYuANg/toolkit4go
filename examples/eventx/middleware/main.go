@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DaiYuANg/archgo/eventx"
+	"github.com/DaiYuANg/arcgo/eventx"
 )
 
 // UserEvent 用户事件基类

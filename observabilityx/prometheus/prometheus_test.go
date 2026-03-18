@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DaiYuANg/archgo/observabilityx"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 )

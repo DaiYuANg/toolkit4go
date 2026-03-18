@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 )
 
 var (

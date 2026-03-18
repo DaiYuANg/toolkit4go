@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	collectionmapping "github.com/DaiYuANg/archgo/collectionx/mapping"
-	"github.com/DaiYuANg/archgo/observabilityx"
+	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	defaultTracerName = "github.com/DaiYuANg/archgo"
-	defaultMeterName  = "github.com/DaiYuANg/archgo"
+	defaultTracerName = "github.com/DaiYuANg/arcgo"
+	defaultMeterName  = "github.com/DaiYuANg/arcgo"
 )
 
 // Option configures OTel observability integration.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DaiYuANg/archgo/kvx/mapping"
+	"github.com/DaiYuANg/arcgo/kvx/mapping"
 )
 
 type IndexerTestEntity struct {

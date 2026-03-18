@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/DaiYuANg/archgo/observabilityx"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 )
 
 func (b *Bus) observabilitySafe() observabilityx.Observability {

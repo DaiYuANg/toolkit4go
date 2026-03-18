@@ -1,3 +1,3 @@
-module github.com/DaiYuANg/archgo/pkg/randomport
+module github.com/DaiYuANg/arcgo/pkg/randomport
 
 go 1.26.1

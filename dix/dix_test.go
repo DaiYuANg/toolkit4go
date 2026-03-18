@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DaiYuANg/archgo/dix"
+	"github.com/DaiYuANg/arcgo/dix"
 	do "github.com/samber/do/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

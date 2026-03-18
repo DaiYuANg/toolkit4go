@@ -3,7 +3,7 @@ package shared
 import (
 	"log/slog"
 
-	"github.com/DaiYuANg/archgo/logx"
+	"github.com/DaiYuANg/arcgo/logx"
 )
 
 // NewLogger builds a common example logger and returns a cleanup function.

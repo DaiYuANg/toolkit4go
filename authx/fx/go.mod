@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/authx/fx
+module github.com/DaiYuANg/arcgo/authx/fx
 
 go 1.26
 

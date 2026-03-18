@@ -2,7 +2,7 @@ package valkey
 
 import (
 	"context"
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/valkey-io/valkey-go"
 	"strconv"
 )

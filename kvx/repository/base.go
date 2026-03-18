@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/DaiYuANg/archgo/kvx/mapping"
+	"github.com/DaiYuANg/arcgo/kvx/mapping"
 )
 
 type repositoryBase[T any] struct {

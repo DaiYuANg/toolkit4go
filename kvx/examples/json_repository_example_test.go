@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DaiYuANg/archgo/kvx"
-	"github.com/DaiYuANg/archgo/kvx/repository"
+	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx/repository"
 )
 
 type exampleJSONBackend struct {

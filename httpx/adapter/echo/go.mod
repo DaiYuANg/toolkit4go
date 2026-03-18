@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/httpx/adapter/echo
+module github.com/DaiYuANg/arcgo/httpx/adapter/echo
 
 go 1.26
 

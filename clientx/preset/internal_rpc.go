@@ -3,8 +3,8 @@ package preset
 import (
 	"time"
 
-	"github.com/DaiYuANg/archgo/clientx"
-	clienttcp "github.com/DaiYuANg/archgo/clientx/tcp"
+	"github.com/DaiYuANg/arcgo/clientx"
+	clienttcp "github.com/DaiYuANg/arcgo/clientx/tcp"
 )
 
 type internalRPCPreset struct {

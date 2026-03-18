@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DaiYuANg/archgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx"
 	"github.com/danielgtaylor/huma/v2"
 )
 

@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/fx"
 
-	"github.com/DaiYuANg/archgo/logx"
+	"github.com/DaiYuANg/arcgo/logx"
 )
 
 // LogParams defines parameters for logx module.

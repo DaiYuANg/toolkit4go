@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/DaiYuANg/archgo/kvx"
-	"github.com/DaiYuANg/archgo/kvx/mapping"
+	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx/mapping"
 )
 
 // JSONRepository provides repository operations for JSON-based entities.

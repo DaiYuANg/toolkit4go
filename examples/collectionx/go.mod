@@ -1,3 +1,3 @@
-module github.com/DaiYuANg/archgo/examples/collectionx
+module github.com/DaiYuANg/arcgo/examples/collectionx
 
 go 1.26

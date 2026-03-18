@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/DaiYuANg/archgo/collectionx"
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"

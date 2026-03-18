@@ -1,9 +1,8 @@
-module github.com/DaiYuANg/archgo/httpx
+module github.com/DaiYuANg/arcgo/httpx
 
 go 1.26.1
 
 require (
-	github.com/DaiYuANg/archgo/collectionx v0.0.0-20260315074219-9fd585543cb8
 	github.com/danielgtaylor/huma/v2 v2.37.2
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-playground/validator/v10 v10.30.1

@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/httpx/adapter/gin
+module github.com/DaiYuANg/arcgo/httpx/adapter/gin
 
 go 1.26
 

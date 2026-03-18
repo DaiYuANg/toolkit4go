@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/httpx/adapter/std
+module github.com/DaiYuANg/arcgo/httpx/adapter/std
 
 go 1.26
 

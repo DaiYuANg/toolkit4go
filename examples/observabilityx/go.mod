@@ -1,3 +1,3 @@
-module github.com/DaiYuANg/archgo/examples/observabilityx
+module github.com/DaiYuANg/arcgo/examples/observabilityx
 
 go 1.26

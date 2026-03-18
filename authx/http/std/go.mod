@@ -1,3 +1,3 @@
-module github.com/DaiYuANg/archgo/authx/http/std
+module github.com/DaiYuANg/arcgo/authx/http/std
 
 go 1.26

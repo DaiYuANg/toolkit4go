@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/DaiYuANg/archgo/collectionx"
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 var (

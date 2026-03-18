@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DaiYuANg/archgo/collectionx"
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/lo"
 )
 

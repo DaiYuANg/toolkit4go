@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/examples/rbac_backend
+module github.com/DaiYuANg/arcgo/examples/rbac_backend
 
 go 1.26.1
 

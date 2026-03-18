@@ -1,6 +1,6 @@
 package sqltmplx
 
-import "github.com/DaiYuANg/archgo/sqltmplx/validate"
+import "github.com/DaiYuANg/arcgo/sqltmplx/validate"
 
 type Option func(*config)
 

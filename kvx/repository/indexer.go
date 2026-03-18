@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/DaiYuANg/archgo/kvx"
-	"github.com/DaiYuANg/archgo/kvx/mapping"
+	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx/mapping"
 )
 
 // Indexer manages secondary indexes for entities.

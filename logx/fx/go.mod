@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/logx/fx
+module github.com/DaiYuANg/arcgo/logx/fx
 
 go 1.26
 

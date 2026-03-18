@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DaiYuANg/archgo/observabilityx"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/samber/lo"
 )
 

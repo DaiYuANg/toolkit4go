@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/sqltmplx
+module github.com/DaiYuANg/arcgo/sqltmplx
 
 go 1.26.1
 

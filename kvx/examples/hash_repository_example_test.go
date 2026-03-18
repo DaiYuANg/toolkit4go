@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DaiYuANg/archgo/kvx"
-	"github.com/DaiYuANg/archgo/kvx/mapping"
-	"github.com/DaiYuANg/archgo/kvx/repository"
+	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx/mapping"
+	"github.com/DaiYuANg/arcgo/kvx/repository"
 )
 
 type ExampleUser struct {

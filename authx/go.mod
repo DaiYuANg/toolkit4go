@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/authx
+module github.com/DaiYuANg/arcgo/authx
 
 go 1.26.1
 

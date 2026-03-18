@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DaiYuANg/archgo/eventx"
+	"github.com/DaiYuANg/arcgo/eventx"
 )
 
 // OrderCreatedEvent 表示订单创建事件

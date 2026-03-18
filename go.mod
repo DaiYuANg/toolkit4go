@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/scripts
+module github.com/DaiYuANg/arcgo/scripts
 
 go 1.26.1
 

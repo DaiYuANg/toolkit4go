@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DaiYuANg/archgo/authx"
-	authhttp "github.com/DaiYuANg/archgo/authx/http"
+	"github.com/DaiYuANg/arcgo/authx"
+	authhttp "github.com/DaiYuANg/arcgo/authx/http"
 )
 
 type BearerCredential struct {

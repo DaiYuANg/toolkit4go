@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DaiYuANg/archgo/dix"
-	"github.com/DaiYuANg/archgo/logx"
+	"github.com/DaiYuANg/arcgo/dix"
+	"github.com/DaiYuANg/arcgo/logx"
 )
 
 type Config struct {

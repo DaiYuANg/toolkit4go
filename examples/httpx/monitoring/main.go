@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/DaiYuANg/archgo/httpx"
-	"github.com/DaiYuANg/archgo/httpx/adapter"
-	"github.com/DaiYuANg/archgo/httpx/adapter/std"
-	"github.com/DaiYuANg/archgo/httpx/middleware"
-	"github.com/DaiYuANg/archgo/logx"
-	"github.com/DaiYuANg/archgo/pkg/randomport"
+	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
+	"github.com/DaiYuANg/arcgo/httpx/middleware"
+	"github.com/DaiYuANg/arcgo/logx"
+	"github.com/DaiYuANg/arcgo/pkg/randomport"
 	"github.com/danielgtaylor/huma/v2"
 )
 

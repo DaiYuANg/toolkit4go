@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/httpx/fx
+module github.com/DaiYuANg/arcgo/httpx/fx
 
 go 1.26
 

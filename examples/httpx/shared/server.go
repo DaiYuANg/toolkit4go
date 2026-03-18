@@ -3,8 +3,8 @@ package shared
 import (
 	"log/slog"
 
-	"github.com/DaiYuANg/archgo/httpx"
-	"github.com/DaiYuANg/archgo/httpx/adapter"
+	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
 )
 
 func NewRuntime(a adapter.Adapter, logger *slog.Logger) httpx.ServerRuntime {

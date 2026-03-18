@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/DaiYuANg/archgo/authx"
-	authecho "github.com/DaiYuANg/archgo/authx/http/echo"
-	"github.com/DaiYuANg/archgo/examples/authx/shared"
-	"github.com/DaiYuANg/archgo/logx"
+	"github.com/DaiYuANg/arcgo/authx"
+	authecho "github.com/DaiYuANg/arcgo/authx/http/echo"
+	"github.com/DaiYuANg/arcgo/examples/authx/shared"
+	"github.com/DaiYuANg/arcgo/logx"
 	"github.com/labstack/echo/v4"
 )
 

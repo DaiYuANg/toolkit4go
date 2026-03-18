@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/authx/http/echo
+module github.com/DaiYuANg/arcgo/authx/http/echo
 
 go 1.26
 

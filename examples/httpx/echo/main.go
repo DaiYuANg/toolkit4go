@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/DaiYuANg/archgo/httpx/adapter"
-	"github.com/DaiYuANg/archgo/httpx/adapter/echo"
-	"github.com/DaiYuANg/archgo/httpx/examples/shared"
-	"github.com/DaiYuANg/archgo/pkg/randomport"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	"github.com/DaiYuANg/arcgo/httpx/adapter/echo"
+	"github.com/DaiYuANg/arcgo/httpx/examples/shared"
+	"github.com/DaiYuANg/arcgo/pkg/randomport"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 )
 

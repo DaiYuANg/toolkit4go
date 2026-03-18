@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	collectionmapping "github.com/DaiYuANg/archgo/collectionx/mapping"
+	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 )
 
 type User struct {

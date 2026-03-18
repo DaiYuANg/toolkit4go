@@ -2,7 +2,7 @@ package redis
 
 import (
 	"context"
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 )
 
 // ============== Search Interface ==============

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/DaiYuANg/archgo/kvx"
-	"github.com/DaiYuANg/archgo/kvx/mapping"
+	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx/mapping"
 )
 
 // HashRepository provides repository operations for hash-based entities.

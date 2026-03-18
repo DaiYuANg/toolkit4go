@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/examples/eventx
+module github.com/DaiYuANg/arcgo/examples/eventx
 
 go 1.26
 

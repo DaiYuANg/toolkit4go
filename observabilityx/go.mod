@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/observabilityx
+module github.com/DaiYuANg/arcgo/observabilityx
 
 go 1.26.1
 

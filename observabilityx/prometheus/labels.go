@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/DaiYuANg/archgo/observabilityx"
+	"github.com/DaiYuANg/arcgo/observabilityx"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/samber/lo"
 )

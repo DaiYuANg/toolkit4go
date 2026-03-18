@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DaiYuANg/archgo/clientx/preset"
-	clienttcp "github.com/DaiYuANg/archgo/clientx/tcp"
+	"github.com/DaiYuANg/arcgo/clientx/preset"
+	clienttcp "github.com/DaiYuANg/arcgo/clientx/tcp"
 )
 
 func main() {

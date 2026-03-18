@@ -95,7 +95,7 @@ menu:
     - identifier: github
       name: GitHub
       nameEn: GitHub
-      url: https://github.com/DaiYuANg/archgo
+      url: https://github.com/DaiYuANg/arcgo
       weight: 11
     - identifier: theme-toggle
       name: Theme

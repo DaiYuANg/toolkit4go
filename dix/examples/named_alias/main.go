@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DaiYuANg/archgo/dix"
+	"github.com/DaiYuANg/arcgo/dix"
 )
 
 type Greeter interface {

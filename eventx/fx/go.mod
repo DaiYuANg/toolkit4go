@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/eventx/fx
+module github.com/DaiYuANg/arcgo/eventx/fx
 
 go 1.26
 

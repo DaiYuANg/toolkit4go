@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/pkg/fx
+module github.com/DaiYuANg/arcgo/pkg/fx
 
 go 1.26
 

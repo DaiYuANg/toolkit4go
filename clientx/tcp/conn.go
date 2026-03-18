@@ -4,7 +4,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/DaiYuANg/archgo/clientx"
+	"github.com/DaiYuANg/arcgo/clientx"
 )
 
 type timeoutConn struct {

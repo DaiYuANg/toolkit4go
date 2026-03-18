@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/configx/fx
+module github.com/DaiYuANg/arcgo/configx/fx
 
 go 1.26
 

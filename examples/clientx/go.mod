@@ -1,3 +1,3 @@
-module github.com/DaiYuANg/archgo/examples/clientx
+module github.com/DaiYuANg/arcgo/examples/clientx
 
 go 1.26

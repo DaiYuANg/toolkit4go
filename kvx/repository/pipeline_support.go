@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DaiYuANg/archgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx"
 )
 
 type pipelineProvider interface {

@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/DaiYuANg/archgo/authx"
-	authfiber "github.com/DaiYuANg/archgo/authx/http/fiber"
-	"github.com/DaiYuANg/archgo/examples/authx/shared"
-	"github.com/DaiYuANg/archgo/logx"
+	"github.com/DaiYuANg/arcgo/authx"
+	authfiber "github.com/DaiYuANg/arcgo/authx/http/fiber"
+	"github.com/DaiYuANg/arcgo/examples/authx/shared"
+	"github.com/DaiYuANg/arcgo/logx"
 	"github.com/gofiber/fiber/v2"
 )
 

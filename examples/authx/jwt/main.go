@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/DaiYuANg/archgo/authx"
-	authhttp "github.com/DaiYuANg/archgo/authx/http"
-	authstd "github.com/DaiYuANg/archgo/authx/http/std"
-	"github.com/DaiYuANg/archgo/examples/authx/shared"
-	"github.com/DaiYuANg/archgo/logx"
+	"github.com/DaiYuANg/arcgo/authx"
+	authhttp "github.com/DaiYuANg/arcgo/authx/http"
+	authstd "github.com/DaiYuANg/arcgo/authx/http/std"
+	"github.com/DaiYuANg/arcgo/examples/authx/shared"
+	"github.com/DaiYuANg/arcgo/logx"
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
 )

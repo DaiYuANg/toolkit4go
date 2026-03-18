@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/DaiYuANg/archgo/sqltmplx/dialect"
+	"github.com/DaiYuANg/arcgo/sqltmplx/dialect"
 	"github.com/samber/lo"
 )
 
@@ -55,7 +55,7 @@ func envMap(params any) map[string]any {
 			f := t.Field(i)
 			val := v.Field(i).Interface()
 			return map[string]any{
-				f.Name:                 val,
+				f.Name:                  val,
 				strings.ToLower(f.Name): val,
 			}
 		})...)

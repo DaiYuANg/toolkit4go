@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/DaiYuANg/archgo/httpx"
-	"github.com/DaiYuANg/archgo/httpx/adapter"
-	"github.com/DaiYuANg/archgo/httpx/adapter/std"
-	"github.com/DaiYuANg/archgo/httpx/examples/shared"
-	"github.com/DaiYuANg/archgo/pkg/randomport"
+	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
+	"github.com/DaiYuANg/arcgo/httpx/examples/shared"
+	"github.com/DaiYuANg/arcgo/pkg/randomport"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DaiYuANg/archgo/dix"
+	"github.com/DaiYuANg/arcgo/dix"
 	do "github.com/samber/do/v2"
 )
 

@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/configx
+module github.com/DaiYuANg/arcgo/configx
 
 go 1.26.1
 

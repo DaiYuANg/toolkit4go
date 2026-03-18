@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DaiYuANg/archgo/eventx"
+	"github.com/DaiYuANg/arcgo/eventx"
 )
 
 // StockEvent 库存事件

@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/DaiYuANg/archgo/authx"
-	authgin "github.com/DaiYuANg/archgo/authx/http/gin"
-	"github.com/DaiYuANg/archgo/examples/authx/shared"
-	"github.com/DaiYuANg/archgo/logx"
+	"github.com/DaiYuANg/arcgo/authx"
+	authgin "github.com/DaiYuANg/arcgo/authx/http/gin"
+	"github.com/DaiYuANg/arcgo/examples/authx/shared"
+	"github.com/DaiYuANg/arcgo/logx"
 	"github.com/gin-gonic/gin"
 )
 

@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/examples/httpx
+module github.com/DaiYuANg/arcgo/examples/httpx
 
 go 1.26
 

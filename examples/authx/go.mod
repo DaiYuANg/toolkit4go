@@ -1,4 +1,4 @@
-module github.com/DaiYuANg/archgo/examples/authx
+module github.com/DaiYuANg/arcgo/examples/authx
 
 go 1.26
 
