@@ -1,0 +1,168 @@
+package dbx
+
+import (
+	"context"
+	"database/sql/driver"
+	"log/slog"
+	"sync"
+	"testing"
+
+	"github.com/DaiYuANg/arcgo/dbx/internal/testsql"
+)
+
+type memoryHandler struct {
+	mu      sync.Mutex
+	records []memoryRecord
+}
+
+type memoryRecord struct {
+	level   slog.Level
+	message string
+	attrs   map[string]any
+}
+
+func (h *memoryHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *memoryHandler) Handle(_ context.Context, record slog.Record) error {
+	entry := memoryRecord{
+		level:   record.Level,
+		message: record.Message,
+		attrs:   make(map[string]any, record.NumAttrs()),
+	}
+	record.Attrs(func(attr slog.Attr) bool {
+		entry.attrs[attr.Key] = attr.Value.Any()
+		return true
+	})
+
+	h.mu.Lock()
+	h.records = append(h.records, entry)
+	h.mu.Unlock()
+	return nil
+}
+
+func (h *memoryHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *memoryHandler) WithGroup(string) slog.Handler      { return h }
+
+func TestDBDebugLoggingAndHooks(t *testing.T) {
+	sqlDB, _, cleanup, err := testsql.Open(testsql.Plan{
+		Execs: []testsql.ExecPlan{
+			{
+				SQL:          `INSERT INTO "users" ("username", "email_address", "status", "role_id") VALUES (?, ?, ?, ?)`,
+				Args:         []driver.Value{"alice", "alice@example.com", int64(1), int64(9)},
+				RowsAffected: 1,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("testsql.Open returned error: %v", err)
+	}
+	defer cleanup()
+
+	handler := &memoryHandler{records: make([]memoryRecord, 0, 4)}
+	logger := slog.New(handler)
+	beforeCount := 0
+	afterCount := 0
+
+	db := NewWithOptions(
+		sqlDB,
+		testSQLiteDialect{},
+		WithLogger(logger),
+		WithDebug(true),
+		WithHooks(HookFuncs{
+			BeforeFunc: func(ctx context.Context, event *HookEvent) (context.Context, error) {
+				beforeCount++
+				if event.Operation != OperationExec {
+					t.Fatalf("unexpected hook operation: %s", event.Operation)
+				}
+				return ctx, nil
+			},
+			AfterFunc: func(_ context.Context, event *HookEvent) {
+				afterCount++
+				if event.Err != nil {
+					t.Fatalf("unexpected hook error: %v", event.Err)
+				}
+			},
+		}),
+	)
+
+	users := MustSchema("users", UserSchema{})
+	mapper := MustMapper[User](users)
+	entity := &User{Username: "alice", Email: "alice@example.com", Status: 1, RoleID: 9}
+	assignments, err := mapper.InsertAssignments(users, entity)
+	if err != nil {
+		t.Fatalf("InsertAssignments returned error: %v", err)
+	}
+
+	if _, err := Exec(context.Background(), db, InsertInto(users).Values(assignments...)); err != nil {
+		t.Fatalf("Exec returned error: %v", err)
+	}
+
+	if beforeCount != 1 || afterCount != 1 {
+		t.Fatalf("unexpected hook counts: before=%d after=%d", beforeCount, afterCount)
+	}
+	if len(handler.records) == 0 {
+		t.Fatal("expected debug log record")
+	}
+	record := handler.records[0]
+	if record.level != slog.LevelDebug {
+		t.Fatalf("unexpected log level: %v", record.level)
+	}
+	if record.attrs["operation"] != OperationExec {
+		t.Fatalf("unexpected log attrs: %#v", record.attrs)
+	}
+	if record.attrs["sql"] == "" {
+		t.Fatalf("expected sql log attr, got %#v", record.attrs)
+	}
+}
+
+func TestSchemaOperationsEmitObserverEvents(t *testing.T) {
+	handler := &memoryHandler{records: make([]memoryRecord, 0, 8)}
+	logger := slog.New(handler)
+	beforeOps := make([]Operation, 0, 2)
+	afterOps := make([]Operation, 0, 2)
+
+	users := MustSchema("users", UserSchema{})
+	schemaDialect := newFakeSchemaDialect()
+	spec := buildTableSpec(users.schemaRef())
+	schemaDialect.tables["users"] = TableState{
+		Exists:      true,
+		Name:        "users",
+		Columns:     []ColumnState{toColumnState(users.Columns()[0]), toColumnState(users.Columns()[1]), toColumnState(users.Columns()[2]), toColumnState(users.Columns()[3]), toColumnState(users.Columns()[4])},
+		Indexes:     toIndexStates(spec.Indexes),
+		PrimaryKey:  &PrimaryKeyState{Name: spec.PrimaryKey.Name, Columns: append([]string(nil), spec.PrimaryKey.Columns...)},
+		ForeignKeys: toForeignKeyStates(spec.ForeignKeys),
+	}
+
+	db := NewWithOptions(
+		nil,
+		schemaDialect,
+		WithLogger(logger),
+		WithDebug(true),
+		WithHooks(HookFuncs{
+			BeforeFunc: func(ctx context.Context, event *HookEvent) (context.Context, error) {
+				beforeOps = append(beforeOps, event.Operation)
+				return ctx, nil
+			},
+			AfterFunc: func(_ context.Context, event *HookEvent) {
+				afterOps = append(afterOps, event.Operation)
+			},
+		}),
+	)
+
+	if _, err := db.ValidateSchemas(context.Background(), users); err != nil {
+		t.Fatalf("ValidateSchemas returned error: %v", err)
+	}
+	if _, err := db.AutoMigrate(context.Background(), users); err != nil {
+		t.Fatalf("AutoMigrate returned error: %v", err)
+	}
+
+	if len(beforeOps) != 2 || beforeOps[0] != OperationValidate || beforeOps[1] != OperationAutoMigrate {
+		t.Fatalf("unexpected before ops: %#v", beforeOps)
+	}
+	if len(afterOps) != 2 || afterOps[0] != OperationValidate || afterOps[1] != OperationAutoMigrate {
+		t.Fatalf("unexpected after ops: %#v", afterOps)
+	}
+	if len(handler.records) < 2 {
+		t.Fatalf("expected schema operation logs, got %d", len(handler.records))
+	}
+}

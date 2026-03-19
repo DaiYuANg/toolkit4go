@@ -1,0 +1,150 @@
+package dbx
+
+import (
+	"context"
+	"database/sql"
+	"log/slog"
+
+	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/DaiYuANg/arcgo/dbx/migrate"
+)
+
+type DB struct {
+	raw     *sql.DB
+	dialect dialect.Dialect
+	observe runtimeObserver
+}
+
+func New(raw *sql.DB, d dialect.Dialect) *DB {
+	return NewWithOptions(raw, d)
+}
+
+func NewWithOptions(raw *sql.DB, d dialect.Dialect, opts ...Option) *DB {
+	config := applyOptions(opts...)
+	return &DB{
+		raw:     raw,
+		dialect: d,
+		observe: newRuntimeObserver(config),
+	}
+}
+
+func (db *DB) SQLDB() *sql.DB {
+	return db.raw
+}
+
+func (db *DB) Dialect() dialect.Dialect {
+	return db.dialect
+}
+
+func (db *DB) WithSQLDB(raw *sql.DB) *DB {
+	return &DB{raw: raw, dialect: db.dialect, observe: db.observe}
+}
+
+func (db *DB) Logger() *slog.Logger {
+	return db.observe.logger
+}
+
+func (db *DB) Hooks() []Hook {
+	return append([]Hook(nil), db.observe.hooks...)
+}
+
+func (db *DB) Debug() bool {
+	return db.observe.debug
+}
+
+func (db *DB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if db.raw == nil {
+		return nil, ErrNilSQLDB
+	}
+	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationQuery, SQL: query, Args: args})
+	if err != nil {
+		return nil, err
+	}
+	rows, queryErr := db.raw.QueryContext(ctx, query, args...)
+	event.Err = queryErr
+	db.observe.after(ctx, event)
+	return rows, queryErr
+}
+
+func (db *DB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if db.raw == nil {
+		return nil, ErrNilSQLDB
+	}
+	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationExec, SQL: query, Args: args})
+	if err != nil {
+		return nil, err
+	}
+	result, execErr := db.raw.ExecContext(ctx, query, args...)
+	if execErr == nil && result != nil {
+		if rowsAffected, rowsErr := result.RowsAffected(); rowsErr == nil {
+			event.RowsAffected = rowsAffected
+			event.HasRowsAffected = true
+		}
+	}
+	event.Err = execErr
+	db.observe.after(ctx, event)
+	return result, execErr
+}
+
+func (db *DB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	if db == nil || db.raw == nil {
+		return nil
+	}
+	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationQueryRow, SQL: query, Args: args})
+	if err != nil {
+		return nil
+	}
+	row := db.raw.QueryRowContext(ctx, query, args...)
+	db.observe.after(ctx, event)
+	return row
+}
+
+func (db *DB) Bound(sql string, args ...any) BoundQuery {
+	return BoundQuery{SQL: sql, Args: append([]any(nil), args...)}
+}
+
+func (db *DB) QueryBoundContext(ctx context.Context, bound BoundQuery) (*sql.Rows, error) {
+	return db.QueryContext(ctx, bound.SQL, bound.Args...)
+}
+
+func (db *DB) ExecBoundContext(ctx context.Context, bound BoundQuery) (sql.Result, error) {
+	return db.ExecContext(ctx, bound.SQL, bound.Args...)
+}
+
+func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if db.raw == nil {
+		return nil, ErrNilSQLDB
+	}
+	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationBeginTx})
+	if err != nil {
+		return nil, err
+	}
+	tx, err := db.raw.BeginTx(ctx, opts)
+	if err != nil {
+		event.Err = err
+		db.observe.after(ctx, event)
+		return nil, err
+	}
+	db.observe.after(ctx, event)
+	return &Tx{raw: tx, dialect: db.dialect, observe: db.observe}, nil
+}
+
+func (db *DB) WithTx(tx *sql.Tx) *Tx {
+	if tx == nil {
+		return nil
+	}
+	return &Tx{raw: tx, dialect: db.dialect, observe: db.observe}
+}
+
+func (db *DB) Migrator(opts migrate.RunnerOptions) *migrate.Runner {
+	return migrate.NewRunner(db.raw, db.dialect, opts)
+}

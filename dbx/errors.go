@@ -1,0 +1,15 @@
+package dbx
+
+import "errors"
+
+var (
+	ErrNilDB              = errors.New("dbx: db is nil")
+	ErrNilSQLDB           = errors.New("dbx: sql.DB is nil")
+	ErrNilDialect         = errors.New("dbx: dialect is nil")
+	ErrNilEntity          = errors.New("dbx: entity is nil")
+	ErrNoPrimaryKey       = errors.New("dbx: schema does not define a primary key")
+	ErrPrimaryKeyUnmapped = errors.New("dbx: primary key column is not mapped to entity")
+	ErrUnmappedColumn     = errors.New("dbx: result column is not mapped to entity")
+	ErrUnsupportedEntity  = errors.New("dbx: entity type must be a struct")
+	ErrUnsupportedSchema  = errors.New("dbx: schema type is unsupported")
+)
