@@ -21,8 +21,7 @@ func TestServer_GenericGetWithDefaultHuma(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "pong")
@@ -41,9 +40,7 @@ func TestServer_GenericPostDecodeBody(t *testing.T) {
 	body := []byte(`{"name":"arcgo"}`)
 	req := httptest.NewRequest(http.MethodPost, "/echo", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "arcgo")
@@ -61,9 +58,7 @@ func TestServer_GenericPostInvalidJSON(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/echo", bytes.NewReader([]byte(`{"name":`)))
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "unexpected end of JSON input")
@@ -81,8 +76,7 @@ func TestServer_WithValidation_InvalidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/validated", bytes.NewReader([]byte(`{"name":"ab"}`)))
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "request validation failed")
@@ -100,8 +94,7 @@ func TestServer_WithValidation_ValidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/validated", bytes.NewReader([]byte(`{"name":"arcgo"}`)))
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "\"name\":\"arcgo\"")
@@ -120,9 +113,7 @@ func TestServer_CustomRequestBinder(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/custom-bind?user_id=123", nil)
 	req.Header.Set("X-Token", "token-abc")
-	w := httptest.NewRecorder()
-
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"id":123`)
@@ -140,9 +131,7 @@ func TestServer_CustomRequestBinderError(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/custom-bind?user_id=not-an-int", nil)
-	w := httptest.NewRecorder()
-
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	assert.Contains(t, w.Body.String(), "user_id")
@@ -160,8 +149,7 @@ func TestServer_GroupWithBasePath(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.True(t, server.HasRoute(http.MethodGet, "/api/v1/health"))

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/DaiYuANg/arcgo/examples/httpx/shared"
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
@@ -22,21 +21,12 @@ func main() {
 	defer closeLogger()
 
 	userService := shared.NewMockUserService()
-	fiberAdapter := fiber.NewWithOptions(nil, fiber.Options{
-		Huma: adapter.HumaOptions{
-			Title:       "ArcGo Fiber API",
-			Version:     "1.0.0",
-			Description: "Typed Fiber API example",
-			DocsPath:    "/docs",
-			OpenAPIPath: "/openapi.json",
-		},
-		Logger: logger,
-		App: fiber.AppOptions{
-			ReadTimeout:     15 * time.Second,
-			WriteTimeout:    15 * time.Second,
-			IdleTimeout:     60 * time.Second,
-			ShutdownTimeout: 5 * time.Second,
-		},
+	fiberAdapter := fiber.New(nil, adapter.HumaOptions{
+		Title:       "ArcGo Fiber API",
+		Version:     "1.0.0",
+		Description: "Typed Fiber API example",
+		DocsPath:    "/docs",
+		OpenAPIPath: "/openapi.json",
 	})
 	fiberAdapter.Router().Use(fiberrecover.New(), fiberlogger.New())
 
@@ -52,7 +42,7 @@ func main() {
 		slog.String("docs", fmt.Sprintf("http://localhost%s/docs", addr)),
 	)
 
-	if err := server.ListenAndServe(addr); err != nil {
+	if err := server.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

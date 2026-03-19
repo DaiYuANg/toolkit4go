@@ -27,8 +27,7 @@ func TestServer_StrongTypedQueryAndHeaderBinding(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/params?id=42&flag=true", nil)
 	req.Header.Set("X-Trace-ID", "trace-001")
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"id":42`)
@@ -49,8 +48,7 @@ func TestServer_WithMiddleware(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/items", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "ok")
@@ -67,8 +65,7 @@ func TestServer_DefaultHumaEnabled(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/huma", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "from huma")
@@ -88,8 +85,7 @@ func TestServer_WithValidation_WorksWithHuma(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/validate-huma", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "request validation failed")
@@ -113,8 +109,7 @@ func TestServer_WithCustomValidator(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/custom-validate", bytes.NewReader([]byte(`{"name":"bad"}`)))
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "request validation failed")
@@ -144,7 +139,6 @@ func TestServer_GetRoutesAndFilters(t *testing.T) {
 
 	var resp map[string]any
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 }

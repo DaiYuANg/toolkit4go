@@ -52,7 +52,7 @@ func main() {
 	}
 	defer closeLogger()
 
-	adapter := std.New(adapter.HumaOptions{
+	stdAdapter := std.New(nil, adapter.HumaOptions{
 		Title:       "httpx quickstart",
 		Version:     "1.0.0",
 		Description: "Typed HTTP quickstart example",
@@ -61,7 +61,7 @@ func main() {
 	})
 
 	server := httpx.New(
-		httpx.WithAdapter(adapter),
+		httpx.WithAdapter(stdAdapter),
 		httpx.WithBasePath("/api"),
 		httpx.WithValidation(),
 		httpx.WithPrintRoutes(true),
@@ -99,7 +99,7 @@ func main() {
 		slog.String("docs", fmt.Sprintf("http://localhost%s/docs", addr)),
 	)
 
-	if err := server.ListenAndServe(addr); err != nil {
+	if err := server.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

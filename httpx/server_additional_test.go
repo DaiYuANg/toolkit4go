@@ -3,12 +3,12 @@ package httpx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,12 +16,6 @@ import (
 type fakeFiberAdapterNoApp struct{}
 
 func (f *fakeFiberAdapterNoApp) Name() string { return "fiber" }
-
-func (f *fakeFiberAdapterNoApp) Handle(method, path string, handler adapter.HandlerFunc) {}
-
-func (f *fakeFiberAdapterNoApp) Group(prefix string) adapter.Adapter { return f }
-
-func (f *fakeFiberAdapterNoApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {}
 
 func (f *fakeFiberAdapterNoApp) HumaAPI() huma.API { return nil }
 
@@ -31,13 +25,26 @@ type fakeAdapterWithoutHuma struct{}
 
 func (f *fakeAdapterWithoutHuma) Name() string { return "fake" }
 
-func (f *fakeAdapterWithoutHuma) Handle(method, path string, handler adapter.HandlerFunc) {}
-
-func (f *fakeAdapterWithoutHuma) Group(prefix string) adapter.Adapter { return f }
-
-func (f *fakeAdapterWithoutHuma) ServeHTTP(w http.ResponseWriter, r *http.Request) {}
-
 func (f *fakeAdapterWithoutHuma) HumaAPI() huma.API { return nil }
+
+type fakeLifecycleAdapter struct {
+	listenAddr string
+	shutdown   bool
+}
+
+func (f *fakeLifecycleAdapter) Name() string { return "lifecycle" }
+
+func (f *fakeLifecycleAdapter) HumaAPI() huma.API { return nil }
+
+func (f *fakeLifecycleAdapter) Listen(addr string) error {
+	f.listenAddr = addr
+	return nil
+}
+
+func (f *fakeLifecycleAdapter) Shutdown() error {
+	f.shutdown = true
+	return nil
+}
 
 func TestServer_GenericHandlerReturnsHTTPXError(t *testing.T) {
 	server := newServer()
@@ -47,8 +54,7 @@ func TestServer_GenericHandlerReturnsHTTPXError(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/forbidden", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	assert.Contains(t, w.Body.String(), "no permission")
@@ -62,8 +68,7 @@ func TestServer_GenericHandlerPanic(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, strings.ToLower(w.Body.String()), "panic in handler")
@@ -77,8 +82,7 @@ func TestServer_GenericHandlerNilOutputReturnsNoContent(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/empty", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -102,4 +106,38 @@ func TestServer_ListenAndServe_FiberWithoutApp(t *testing.T) {
 	err := server.ListenAndServe(":0")
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, ErrAdapterNotFound))
+}
+
+func TestServer_ListenPort_UsesPortShortcut(t *testing.T) {
+	lifecycle := &fakeLifecycleAdapter{}
+	server := newServer(WithAdapter(lifecycle))
+
+	err := server.ListenPort(8080)
+	assert.NoError(t, err)
+	assert.Equal(t, ":8080", lifecycle.listenAddr)
+}
+
+func TestServer_ListenPort_InvalidPort(t *testing.T) {
+	server := newServer()
+
+	err := server.ListenPort(-1)
+	assert.EqualError(t, err, fmt.Sprintf("httpx: invalid port %d", -1))
+}
+
+func TestServer_Listen_DelegatesToAdapter(t *testing.T) {
+	lifecycle := &fakeLifecycleAdapter{}
+	server := newServer(WithAdapter(lifecycle))
+
+	err := server.Listen(":9090")
+	assert.NoError(t, err)
+	assert.Equal(t, ":9090", lifecycle.listenAddr)
+}
+
+func TestServer_Shutdown_DelegatesToAdapter(t *testing.T) {
+	lifecycle := &fakeLifecycleAdapter{}
+	server := newServer(WithAdapter(lifecycle))
+
+	err := server.Shutdown()
+	assert.NoError(t, err)
+	assert.True(t, lifecycle.shutdown)
 }

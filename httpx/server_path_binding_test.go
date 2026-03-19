@@ -32,8 +32,7 @@ func TestServer_StrongTypedPathBindingOnStdAdapter(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/users/123", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"id":123`)
@@ -59,8 +58,7 @@ func TestServer_StrongTypedPathBindingOnGinAdapter(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/users/88", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"id":88`)
@@ -86,8 +84,7 @@ func TestServer_StrongTypedPathBindingOnEchoAdapter(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/users/77", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"id":77`)
@@ -113,8 +110,8 @@ func TestServer_StrongTypedPathBindingOnFiberAdapter(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/users/66", nil)
-	w := httptest.NewRecorder()
-	server.ServeHTTP(w, req)
+	w := serveRequest(t, server, req)
 
-	assert.Equal(t, http.StatusNotImplemented, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"id":66`)
 }

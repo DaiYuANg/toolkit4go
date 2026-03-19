@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	adapterstd "github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,17 +23,17 @@ func TestServer_WithOpenAPIInfo_UpdatesDocument(t *testing.T) {
 	}
 }
 
-func TestServer_WithOpenAPIDocs_DisablesDefaultDocsRoutes(t *testing.T) {
-	server := newServer(WithOpenAPIDocs(false))
+func TestServer_AdapterDocsDisabled_HidesDefaultDocsRoutes(t *testing.T) {
+	server := newServer(WithAdapter(adapterstd.New(nil, adapter.HumaOptions{
+		DisableDocsRoutes: true,
+	})))
 
 	docsReq := httptest.NewRequest(http.MethodGet, "/docs", nil)
-	docsRec := httptest.NewRecorder()
-	server.ServeHTTP(docsRec, docsReq)
+	docsRec := serveRequest(t, server, docsReq)
 	assert.Equal(t, http.StatusNotFound, docsRec.Code)
 
 	openAPIReq := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
-	openAPIRec := httptest.NewRecorder()
-	server.ServeHTTP(openAPIRec, openAPIReq)
+	openAPIRec := serveRequest(t, server, openAPIReq)
 	assert.Equal(t, http.StatusNotFound, openAPIRec.Code)
 }
 
@@ -67,8 +69,7 @@ func TestGroup_HumaMiddlewareAndModifier(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "v1", rec.Header().Get("X-Group"))
@@ -79,34 +80,24 @@ func TestGroup_HumaMiddlewareAndModifier(t *testing.T) {
 	}
 }
 
-func TestServer_WithDocs_CustomPaths(t *testing.T) {
-	server := newServer(WithDocs(DocsOptions{
-		Enabled:     true,
-		DocsPath:    "/reference",
-		OpenAPIPath: "/spec",
-		SchemasPath: "/contracts",
-		Renderer:    DocsRendererScalar,
-	}))
+func TestServer_AdapterDocs_CustomPaths(t *testing.T) {
+	server := newServer(WithAdapter(adapterstd.New(nil, adapter.HumaOptions{
+		DocsPath:     "/reference",
+		OpenAPIPath:  "/spec",
+		SchemasPath:  "/contracts",
+		DocsRenderer: DocsRendererScalar,
+	})))
 
 	docsReq := httptest.NewRequest(http.MethodGet, "/reference", nil)
-	docsRec := httptest.NewRecorder()
-	server.ServeHTTP(docsRec, docsReq)
+	docsRec := serveRequest(t, server, docsReq)
 	assert.Equal(t, http.StatusOK, docsRec.Code)
 
 	oldDocsReq := httptest.NewRequest(http.MethodGet, "/docs", nil)
-	oldDocsRec := httptest.NewRecorder()
-	server.ServeHTTP(oldDocsRec, oldDocsReq)
+	oldDocsRec := serveRequest(t, server, oldDocsReq)
 	assert.Equal(t, http.StatusNotFound, oldDocsRec.Code)
 
 	specReq := httptest.NewRequest(http.MethodGet, "/spec.json", nil)
-	specRec := httptest.NewRecorder()
-	server.ServeHTTP(specRec, specReq)
+	specRec := serveRequest(t, server, specReq)
 	assert.Equal(t, http.StatusOK, specRec.Code)
 	assert.Contains(t, specRec.Body.String(), "\"openapi\"")
-
-	docs := server.Docs()
-	assert.Equal(t, "/reference", docs.DocsPath)
-	assert.Equal(t, "/spec", docs.OpenAPIPath)
-	assert.Equal(t, "/contracts", docs.SchemasPath)
-	assert.Equal(t, DocsRendererScalar, docs.Renderer)
 }

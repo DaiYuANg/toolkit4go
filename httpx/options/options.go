@@ -16,20 +16,15 @@ import (
 
 // ServerOptions collects higher-level server construction settings.
 type ServerOptions struct {
-	Adapter            adapter.Adapter
+	Adapter            adapter.Host
 	Logger             *slog.Logger
 	BasePath           string
 	PrintRoutes        bool
 	EnableValidation   bool
 	Validator          *validator.Validate
-	OpenAPIDocsEnabled bool
 	HumaTitle          string
 	HumaVersion        string
 	HumaDescription    string
-	DocsPath           string
-	OpenAPIPath        string
-	SchemasPath        string
-	DocsRenderer       string
 	EnablePanicRecover bool
 	EnableAccessLog    bool
 }
@@ -39,14 +34,9 @@ func DefaultServerOptions() *ServerOptions {
 	return &ServerOptions{
 		Logger:             slog.Default(),
 		PrintRoutes:        false,
-		OpenAPIDocsEnabled: true,
 		HumaTitle:          "My API",
 		HumaVersion:        "1.0.0",
 		HumaDescription:    "API Documentation",
-		DocsPath:           "/docs",
-		OpenAPIPath:        "/openapi",
-		SchemasPath:        "/schemas",
-		DocsRenderer:       httpx.DocsRendererStoplightElements,
 		EnablePanicRecover: true,
 		EnableAccessLog:    false,
 	}
@@ -67,7 +57,7 @@ func Compose(opts ...ServerOption) ServerOption {
 }
 
 // WithAdapter configures related behavior.
-func WithAdapter(adapter adapter.Adapter) ServerOption {
+func WithAdapter(adapter adapter.Host) ServerOption {
 	return func(o *ServerOptions) {
 		o.Adapter = adapter
 	}
@@ -105,13 +95,6 @@ func WithValidation(enabled bool) ServerOption {
 func WithValidator(v *validator.Validate) ServerOption {
 	return func(o *ServerOptions) {
 		o.Validator = v
-	}
-}
-
-// WithOpenAPIDocs configures related behavior.
-func WithOpenAPIDocs(enabled bool) ServerOption {
-	return func(o *ServerOptions) {
-		o.OpenAPIDocsEnabled = enabled
 	}
 }
 
@@ -155,14 +138,6 @@ func (o *ServerOptions) Build() []httpx.ServerOption {
 	})...)
 
 	opts = append(opts, httpx.WithOpenAPIInfo(o.HumaTitle, o.HumaVersion, o.HumaDescription))
-	opts = append(opts, httpx.WithOpenAPIDocs(o.OpenAPIDocsEnabled))
-	opts = append(opts, httpx.WithDocs(httpx.DocsOptions{
-		Enabled:     o.OpenAPIDocsEnabled,
-		DocsPath:    o.DocsPath,
-		OpenAPIPath: o.OpenAPIPath,
-		SchemasPath: o.SchemasPath,
-		Renderer:    o.DocsRenderer,
-	}))
 	opts = append(opts, httpx.WithPanicRecover(o.EnablePanicRecover))
 	opts = append(opts, httpx.WithAccessLog(o.EnableAccessLog))
 

@@ -25,8 +25,7 @@ func TestServer_GetSSE_StreamsMessages(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/events", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Header().Get("Content-Type"), "text/event-stream")
@@ -55,8 +54,7 @@ func TestServer_GroupGetSSE_WithBasePath(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/events", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Header().Get("Content-Type"), "text/event-stream")
@@ -126,8 +124,7 @@ func TestServer_RouteSSEWithPolicies_WrapAndOperation(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/events/policy", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"message":"from-policy"`)
@@ -150,8 +147,7 @@ func TestServer_GroupRouteSSEWithPolicies_WithBasePath(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v2/events/policy", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.True(t, server.HasRoute(http.MethodGet, "/api/v2/events/policy"))

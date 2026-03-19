@@ -54,7 +54,6 @@ func TestServer_ConcurrentModifiersAndRouteRegistration(t *testing.T) {
 	assert.Equal(t, total, server.RouteCount())
 
 	req := httptest.NewRequest(http.MethodGet, "/concurrent/0", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 }

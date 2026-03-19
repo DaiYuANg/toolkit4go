@@ -34,8 +34,7 @@ func TestServer_ConditionalRead_NotModified304(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/resources/read", nil)
 	req.Header.Set("If-None-Match", `"v1"`)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusNotModified, rec.Code)
 
@@ -61,8 +60,7 @@ func TestServer_ConditionalWrite_PreconditionFailed412(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/resources/write", nil)
 	req.Header.Set("If-Match", `"old-version"`)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusPreconditionFailed, rec.Code)
 	assert.Contains(t, rec.Body.String(), "precondition failed")

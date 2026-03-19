@@ -3,14 +3,11 @@ package httpx
 import (
 	"bytes"
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	adapterstd "github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,8 +20,7 @@ func TestServer_WithPanicRecover_Enabled(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.Contains(t, rec.Body.String(), "panic in handler: boom")
@@ -39,10 +35,9 @@ func TestServer_WithPanicRecover_Disabled(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
-	rec := httptest.NewRecorder()
 
 	assert.Panics(t, func() {
-		server.ServeHTTP(rec, req)
+		_ = serveRequest(t, server, req)
 	})
 }
 
@@ -66,8 +61,7 @@ func TestServer_WithAccessLog_LogsRequests(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/users/42", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	output := logs.String()
@@ -96,25 +90,4 @@ func TestServer_WithPrintRoutes_LogsOnRegistration(t *testing.T) {
 	output := logs.String()
 	assert.Contains(t, output, "Registered routes")
 	assert.Contains(t, output, "GET /routes")
-}
-
-func TestServer_WithLogger_PropagatesToAdapter(t *testing.T) {
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logs, nil))
-	stdAdapter := adapterstd.New()
-	server := newServer(
-		WithLogger(logger),
-		WithAdapter(stdAdapter),
-	)
-
-	stdAdapter.Handle(http.MethodGet, "/native", func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return errors.New("native boom")
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/native", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, logs.String(), "native boom")
 }

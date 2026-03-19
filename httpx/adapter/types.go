@@ -3,44 +3,19 @@ package adapter
 
 import (
 	"context"
-	"log/slog"
-	"net/http"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/samber/lo"
 )
 
-// HandlerFunc is the adapter-level handler signature used by native adapters.
-type HandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request) error
-
-// MiddlewareFunc is the adapter-level middleware signature.
-type MiddlewareFunc func(next HandlerFunc) HandlerFunc
-
-type routeParamsCtxKey struct{}
-
-// Adapter is the runtime abstraction implemented by framework adapters.
-type Adapter interface {
-	// Name returns the adapter name, such as `std`, `gin`, or `echo`.
+// Host is the minimal runtime surface required by httpx core.
+type Host interface {
+	// Name returns the host name, such as `std`, `gin`, `echo`, or `fiber`.
 	Name() string
-
-	// Handle registers a native handler on the underlying runtime.
-	Handle(method, path string, handler HandlerFunc)
-
-	// Group returns a child adapter scoped to the given prefix.
-	Group(prefix string) Adapter
-
-	// ServeHTTP serves requests for adapters that support `net/http`.
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	// HumaAPI exposes the underlying Huma API.
 	HumaAPI() huma.API
-}
-
-// RouterAdapter exposes the underlying router/engine/app with strong typing.
-type RouterAdapter[R any] interface {
-	Adapter
-	Router() R
 }
 
 // ListenableAdapter is implemented by adapters that can listen directly.
@@ -53,9 +28,9 @@ type ContextListenableAdapter interface {
 	ListenContext(ctx context.Context, addr string) error
 }
 
-// LoggerConfigurer is implemented by adapters that accept an injected slog logger.
-type LoggerConfigurer interface {
-	SetLogger(*slog.Logger)
+// ShutdownAdapter is implemented by adapters that can stop an active listener.
+type ShutdownAdapter interface {
+	Shutdown() error
 }
 
 // HumaOptions configures Huma-backed metadata and docs exposure for an adapter.
@@ -179,25 +154,4 @@ func ensureLeadingSlash(path string) string {
 		return path
 	}
 	return "/" + path
-}
-
-// WithRouteParams stores adapter-extracted path parameters on the context.
-func WithRouteParams(ctx context.Context, params map[string]string) context.Context {
-	if len(params) == 0 {
-		return ctx
-	}
-	return context.WithValue(ctx, routeParamsCtxKey{}, params)
-}
-
-// RouteParam retrieves a path parameter previously stored on the context.
-func RouteParam(ctx context.Context, name string) string {
-	if ctx == nil || name == "" {
-		return ""
-	}
-
-	params, ok := ctx.Value(routeParamsCtxKey{}).(map[string]string)
-	if !ok {
-		return ""
-	}
-	return params[name]
 }

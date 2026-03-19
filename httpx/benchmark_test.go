@@ -51,7 +51,7 @@ func BenchmarkServerRegisterGet(b *testing.B) {
 	}
 }
 
-func BenchmarkServerServeHTTPGet(b *testing.B) {
+func BenchmarkServerServeGet(b *testing.B) {
 	server := benchmarkServerWithPingRoute(b)
 
 	b.ReportAllocs()
@@ -59,8 +59,7 @@ func BenchmarkServerServeHTTPGet(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/ping", nil)
-		w := httptest.NewRecorder()
-		server.ServeHTTP(w, req)
+		w := serveRequest(b, server, req)
 		if w.Code != http.StatusOK {
 			b.Fatalf("unexpected status code: %d", w.Code)
 		}

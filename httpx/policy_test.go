@@ -35,8 +35,7 @@ func TestServer_RouteWithPolicies_ConditionalRead(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/policy/read", nil)
 	req.Header.Set("If-None-Match", `"etag-v1"`)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusNotModified, rec.Code)
 	assert.True(t, server.HasRoute(http.MethodGet, "/policy/read"))
@@ -58,8 +57,7 @@ func TestServer_RouteWithPolicies_ConditionalWrite(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/policy/write", nil)
 	req.Header.Set("If-Match", `"old"`)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusPreconditionFailed, rec.Code)
 	assert.Contains(t, server.OpenAPI().Paths["/policy/write"].Put.Responses, "412")
@@ -76,8 +74,7 @@ func TestServer_RouteWithPolicies_HTMLResponse(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/policy/html", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "<h1>hello</h1>")
@@ -96,8 +93,7 @@ func TestServer_RouteWithPolicies_ImageResponse(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/policy/image", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
+	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "img", rec.Body.String())

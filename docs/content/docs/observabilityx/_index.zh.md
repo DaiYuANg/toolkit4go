@@ -59,18 +59,14 @@ _ = configx.Load(&cfg,
 ```go
 promObs := promobs.New()
 
-metricsServer := httpx.NewServer(
-    httpx.WithAdapter(std.New()),
-    httpx.WithOpenAPIDocs(false),
-)
-metricsServer.Adapter().Handle(httpx.MethodGet, "/metrics", func(
-    ctx context.Context,
-    w http.ResponseWriter,
-    r *http.Request,
-) error {
-    promObs.Handler().ServeHTTP(w, r)
-    return nil
+stdAdapter := std.New(nil, adapter.HumaOptions{
+    DisableDocsRoutes: true,
 })
+
+metricsServer := httpx.New(
+    httpx.WithAdapter(stdAdapter),
+)
+stdAdapter.Router().Handle("/metrics", promObs.Handler())
 ```
 
 ## 示例

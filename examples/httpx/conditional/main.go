@@ -92,14 +92,12 @@ func main() {
 	}
 	defer closeLogger()
 
-	a := std.NewWithOptions(std.Options{
-		Huma: adapter.HumaOptions{
-			Title:       "httpx conditional requests example",
-			Version:     "1.0.0",
-			Description: "If-Match / If-None-Match demo",
-			DocsPath:    "/docs",
-			OpenAPIPath: "/openapi.json",
-		},
+	a := std.New(nil, adapter.HumaOptions{
+		Title:       "httpx conditional requests example",
+		Version:     "1.0.0",
+		Description: "If-Match / If-None-Match demo",
+		DocsPath:    "/docs",
+		OpenAPIPath: "/openapi.json",
 	})
 	s := httpx.New(httpx.WithAdapter(a))
 	st := newStore()
@@ -143,7 +141,7 @@ func main() {
 		slog.String("guarded_put", fmt.Sprintf("curl -i -X PUT -H 'Content-Type: application/json' -H 'If-Match: \"v1\"' -d '{\"content\":\"updated\"}' http://localhost%s/documents/1", addr)),
 	)
 
-	if err := s.ListenAndServe(addr); err != nil {
+	if err := s.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

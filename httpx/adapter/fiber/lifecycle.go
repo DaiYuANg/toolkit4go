@@ -18,7 +18,7 @@ func (a *Adapter) Listen(addr string) error {
 
 // Shutdown stops the fiber server.
 func (a *Adapter) Shutdown() error {
-	if err := a.app.Shutdown(); err != nil {
+	if err := a.app.Shutdown(); err != nil && !isExpectedFiberClose(err) {
 		return fmt.Errorf("httpx/fiber: shutdown: %w", err)
 	}
 	return nil
@@ -26,6 +26,10 @@ func (a *Adapter) Shutdown() error {
 
 // ListenContext starts related services.
 func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- a.Listen(addr)
@@ -38,7 +42,7 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		}
 		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, err)
 	case <-ctx.Done():
-		shutdownErr := a.shutdown()
+		shutdownErr := a.Shutdown()
 		listenErr := <-errCh
 		if shutdownErr != nil {
 			return fmt.Errorf("httpx/fiber: shutdown on %q: %w", addr, shutdownErr)
@@ -48,16 +52,6 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		}
 		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, listenErr)
 	}
-}
-
-func (a *Adapter) shutdown() error {
-	if a.opts.ShutdownTimeout > 0 {
-		if err := a.app.ShutdownWithTimeout(a.opts.ShutdownTimeout); err != nil {
-			return fmt.Errorf("httpx/fiber: shutdown: %w", err)
-		}
-		return nil
-	}
-	return a.Shutdown()
 }
 
 func isExpectedFiberClose(err error) bool {

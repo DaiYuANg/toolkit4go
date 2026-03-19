@@ -3,75 +3,60 @@
 package fiber
 
 import (
-	"bytes"
-	"context"
-	"errors"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	fiberframework "github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNewWithOptions_AppOptionsMerge(t *testing.T) {
-	a := NewWithOptions(nil, Options{
-		App: AppOptions{
-			ReadTimeout:     2 * time.Second,
-			ShutdownTimeout: 9 * time.Second,
-		},
-	})
+func TestNew_UsesProvidedApp(t *testing.T) {
+	external := fiberframework.New()
+	a := New(external)
 
-	cfg := a.Router().Config()
-	assert.Equal(t, 2*time.Second, cfg.ReadTimeout)
-	assert.Equal(t, 15*time.Second, cfg.WriteTimeout)
-	assert.Equal(t, 60*time.Second, cfg.IdleTimeout)
-	assert.Equal(t, 9*time.Second, a.opts.ShutdownTimeout)
+	assert.Same(t, external, a.Router())
 }
 
-func TestNewWithOptions_ExternalAppKeepsOwnTimeouts(t *testing.T) {
-	external := fiberframework.New(fiberframework.Config{
-		ReadTimeout:  1 * time.Second,
-		WriteTimeout: 2 * time.Second,
-		IdleTimeout:  3 * time.Second,
+func TestNew_AppliesDocsPaths(t *testing.T) {
+	a := New(nil, adapter.HumaOptions{
+		DocsPath:    "/reference",
+		OpenAPIPath: "/spec",
 	})
 
-	a := NewWithOptions(external, Options{
-		App: AppOptions{
-			ReadTimeout:  9 * time.Second,
-			WriteTimeout: 9 * time.Second,
-			IdleTimeout:  9 * time.Second,
-		},
-	})
+	docsResp := mustTest(t, a, httptest.NewRequest(http.MethodGet, "/reference", nil))
+	assert.Equal(t, http.StatusOK, docsResp.StatusCode)
 
-	cfg := a.Router().Config()
-	assert.Equal(t, 1*time.Second, cfg.ReadTimeout)
-	assert.Equal(t, 2*time.Second, cfg.WriteTimeout)
-	assert.Equal(t, 3*time.Second, cfg.IdleTimeout)
+	oldDocsResp := mustTest(t, a, httptest.NewRequest(http.MethodGet, "/docs", nil))
+	assert.Equal(t, http.StatusNotFound, oldDocsResp.StatusCode)
+
+	specResp := mustTest(t, a, httptest.NewRequest(http.MethodGet, "/spec.json", nil))
+	assert.Equal(t, http.StatusOK, specResp.StatusCode)
 }
 
-func TestNewWithOptions_LoggerUsedByNativeHandler(t *testing.T) {
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logs, nil))
+func TestNew_DisablesDocsRoutes(t *testing.T) {
+	a := New(nil, adapter.HumaOptions{DisableDocsRoutes: true})
 
-	a := NewWithOptions(nil, Options{
-		Logger: logger,
-	})
-	a.Handle(http.MethodGet, "/err", func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return errors.New("native boom")
-	})
+	docsResp := mustTest(t, a, httptest.NewRequest(http.MethodGet, "/docs", nil))
+	assert.Equal(t, http.StatusNotFound, docsResp.StatusCode)
 
-	req := httptest.NewRequest(http.MethodGet, "/err", nil)
+	specResp := mustTest(t, a, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
+	assert.Equal(t, http.StatusNotFound, specResp.StatusCode)
+}
+
+func mustTest(t *testing.T, a *Adapter, req *http.Request) *http.Response {
+	t.Helper()
+
 	resp, err := a.Router().Test(req, -1)
-	assert.NoError(t, err)
-	if resp != nil {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}
-
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-	assert.Contains(t, logs.String(), "native boom")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if resp != nil && resp.Body != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+	})
+	return resp
 }

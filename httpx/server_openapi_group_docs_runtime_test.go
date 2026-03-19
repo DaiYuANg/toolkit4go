@@ -2,60 +2,11 @@ package httpx
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	adapterstd "github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestServer_ConfigureDocs_RebindsRoutesAtRuntime(t *testing.T) {
-	server := newServer()
-
-	server.ConfigureDocs(func(d *DocsOptions) {
-		d.DocsPath = "/reference"
-		d.OpenAPIPath = "/spec"
-		d.SchemasPath = "/contracts"
-		d.Renderer = DocsRendererSwaggerUI
-	})
-
-	oldDocsReq := httptest.NewRequest(http.MethodGet, "/docs", nil)
-	oldDocsRec := httptest.NewRecorder()
-	server.ServeHTTP(oldDocsRec, oldDocsReq)
-	assert.Equal(t, http.StatusNotFound, oldDocsRec.Code)
-
-	newDocsReq := httptest.NewRequest(http.MethodGet, "/reference", nil)
-	newDocsRec := httptest.NewRecorder()
-	server.ServeHTTP(newDocsRec, newDocsReq)
-	assert.Equal(t, http.StatusOK, newDocsRec.Code)
-	assert.Contains(t, newDocsRec.Body.String(), "swagger-ui")
-
-	oldSpecReq := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
-	oldSpecRec := httptest.NewRecorder()
-	server.ServeHTTP(oldSpecRec, oldSpecReq)
-	assert.Equal(t, http.StatusNotFound, oldSpecRec.Code)
-
-	newSpecReq := httptest.NewRequest(http.MethodGet, "/spec.json", nil)
-	newSpecRec := httptest.NewRecorder()
-	server.ServeHTTP(newSpecRec, newSpecReq)
-	assert.Equal(t, http.StatusOK, newSpecRec.Code)
-}
-
-func TestServer_ConfigureDocs_WithExternalAdapter(t *testing.T) {
-	stdAdapter := adapterstd.New()
-	server := newServer(WithAdapter(stdAdapter))
-
-	server.ConfigureDocs(func(d *DocsOptions) {
-		d.Enabled = false
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/docs", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-}
 
 func TestGroup_DefaultParametersSummaryAndDescription(t *testing.T) {
 	server := newServer()

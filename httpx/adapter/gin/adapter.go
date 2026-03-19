@@ -6,9 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
-	"time"
+	"sync"
 
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/danielgtaylor/huma/v2"
@@ -16,61 +15,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type lifecycleState struct {
+	mu     sync.Mutex
+	server *http.Server
+}
+
 // Adapter implements the gin runtime bridge for httpx.
 type Adapter struct {
-	engine *gin.Engine
-	group  *gin.RouterGroup
-	logger *slog.Logger
-	huma   huma.API
-	docs   *adapter.DocsController
-	server ServerOptions
+	engine    *gin.Engine
+	huma      huma.API
+	lifecycle *lifecycleState
 }
 
 // New constructs a gin adapter backed by a gin engine and Huma API.
 func New(engine *gin.Engine, opts ...adapter.HumaOptions) *Adapter {
-	options := DefaultOptions()
-	options.Huma = adapter.MergeHumaOptions(opts...)
-	return NewWithOptions(engine, options)
-}
-
-// ServerOptions configures the gin adapter's underlying http.Server.
-type ServerOptions struct {
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	IdleTimeout     time.Duration
-	ShutdownTimeout time.Duration
-	MaxHeaderBytes  int
-}
-
-// DefaultServerOptions returns the default gin adapter server config.
-func DefaultServerOptions() ServerOptions {
-	return ServerOptions{
-		ReadTimeout:     15 * time.Second,
-		WriteTimeout:    15 * time.Second,
-		IdleTimeout:     60 * time.Second,
-		ShutdownTimeout: 5 * time.Second,
-		MaxHeaderBytes:  1 << 20,
-	}
-}
-
-// Options configures gin adapter construction.
-type Options struct {
-	Huma   adapter.HumaOptions
-	Logger *slog.Logger
-	Server ServerOptions
-}
-
-// DefaultOptions returns the default gin adapter config.
-func DefaultOptions() Options {
-	return Options{
-		Huma:   adapter.DefaultHumaOptions(),
-		Logger: slog.Default(),
-		Server: DefaultServerOptions(),
-	}
-}
-
-// NewWithOptions constructs a gin adapter from explicit construction-time options.
-func NewWithOptions(engine *gin.Engine, opts Options) *Adapter {
 	var eng *gin.Engine
 	if engine != nil {
 		eng = engine
@@ -78,73 +36,21 @@ func NewWithOptions(engine *gin.Engine, opts Options) *Adapter {
 		eng = gin.New()
 	}
 
-	humaOpts := adapter.MergeHumaOptions(opts.Huma)
+	humaOpts := adapter.MergeHumaOptions(opts...)
 	cfg := huma.DefaultConfig(humaOpts.Title, humaOpts.Version)
 	adapter.ApplyHumaConfig(&cfg, humaOpts)
-
-	docsCfg := cfg
-	docsCfg.DocsPath = ""
-	docsCfg.OpenAPIPath = ""
-	docsCfg.SchemasPath = ""
-	api := humagin.New(eng, docsCfg)
-	docs := adapter.NewDocsController(api, humaOpts)
-	eng.Use(func(c *gin.Context) {
-		if docs.ServeHTTP(c.Writer, c.Request) {
-			c.Abort()
-			return
-		}
-		c.Next()
-	})
+	api := humagin.New(eng, cfg)
 
 	return &Adapter{
-		engine: eng,
-		group:  &eng.RouterGroup,
-		logger: defaultLogger(opts.Logger),
-		huma:   api,
-		docs:   docs,
-		server: mergeServerOptions(opts.Server),
+		engine:    eng,
+		huma:      api,
+		lifecycle: &lifecycleState{},
 	}
-}
-
-// WithLogger replaces the adapter logger.
-func (a *Adapter) WithLogger(logger *slog.Logger) *Adapter {
-	a.SetLogger(logger)
-	return a
-}
-
-// SetLogger replaces the adapter logger.
-func (a *Adapter) SetLogger(logger *slog.Logger) {
-	if a == nil || logger == nil {
-		return
-	}
-	a.logger = logger
 }
 
 // Name returns the adapter name.
 func (a *Adapter) Name() string {
 	return "gin"
-}
-
-// Handle registers a native handler on the gin router group.
-func (a *Adapter) Handle(method, path string, handler adapter.HandlerFunc) {
-	a.group.Handle(method, path, a.wrapHandler(handler))
-}
-
-// Group returns a child adapter scoped to a gin router group.
-func (a *Adapter) Group(prefix string) adapter.Adapter {
-	return &Adapter{
-		engine: a.engine,
-		group:  a.group.Group(prefix),
-		logger: a.logger,
-		huma:   a.huma,
-		docs:   a.docs,
-		server: a.server,
-	}
-}
-
-// ServeHTTP delegates request handling to the gin engine.
-func (a *Adapter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	a.engine.ServeHTTP(w, r)
 }
 
 // Router exposes the underlying gin engine.
@@ -154,8 +60,24 @@ func (a *Adapter) Router() *gin.Engine {
 
 // Listen starts related services.
 func (a *Adapter) Listen(addr string) error {
-	if err := a.httpServer(addr).ListenAndServe(); err != nil {
+	server := a.httpServer(addr)
+	release := a.trackServer(server)
+	defer release()
+
+	if err := server.ListenAndServe(); err != nil {
 		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
+	}
+	return nil
+}
+
+// Shutdown stops the active gin server.
+func (a *Adapter) Shutdown() error {
+	server := a.activeServer()
+	if server == nil {
+		return nil
+	}
+	if err := server.Shutdown(context.Background()); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("httpx/gin: shutdown: %w", err)
 	}
 	return nil
 }
@@ -167,6 +89,8 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 	}
 
 	server := a.httpServer(addr)
+	release := a.trackServer(server)
+	defer release()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -180,9 +104,7 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		}
 		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), a.server.ShutdownTimeout)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
+		if err := a.Shutdown(); err != nil {
 			return fmt.Errorf("httpx/gin: shutdown on %q: %w", addr, err)
 		}
 		err := <-errCh
@@ -193,75 +115,42 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 	}
 }
 
-// wrapHandler wraps related logic.
-func (a *Adapter) wrapHandler(handler adapter.HandlerFunc) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		params := make(map[string]string, len(c.Params))
-		for _, p := range c.Params {
-			params[p.Key] = p.Value
-		}
-
-		req := c.Request.WithContext(adapter.WithRouteParams(c.Request.Context(), params))
-
-		if err := handler(req.Context(), c.Writer, req); err != nil {
-			a.logger.Error("Handler error",
-				slog.String("method", req.Method),
-				slog.String("path", req.URL.Path),
-				slog.String("error", err.Error()),
-			)
-			_ = c.Error(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
-	}
-}
-
 // HumaAPI exposes the underlying Huma API.
 func (a *Adapter) HumaAPI() huma.API {
 	return a.huma
 }
 
-// ConfigureHumaOptions updates adapter-managed docs/openapi routing.
-func (a *Adapter) ConfigureHumaOptions(opts adapter.HumaOptions) {
-	if a == nil || a.docs == nil {
-		return
-	}
-	a.docs.Configure(opts)
-}
-
 func (a *Adapter) httpServer(addr string) *http.Server {
 	return &http.Server{
-		Addr:           addr,
-		Handler:        a.engine.Handler(),
-		ReadTimeout:    a.server.ReadTimeout,
-		WriteTimeout:   a.server.WriteTimeout,
-		IdleTimeout:    a.server.IdleTimeout,
-		MaxHeaderBytes: a.server.MaxHeaderBytes,
+		Addr:    addr,
+		Handler: a.engine.Handler(),
 	}
 }
 
-func defaultLogger(logger *slog.Logger) *slog.Logger {
-	if logger != nil {
-		return logger
+func (a *Adapter) trackServer(server *http.Server) func() {
+	if a == nil || a.lifecycle == nil {
+		return func() {}
 	}
-	return slog.Default()
+
+	a.lifecycle.mu.Lock()
+	a.lifecycle.server = server
+	a.lifecycle.mu.Unlock()
+
+	return func() {
+		a.lifecycle.mu.Lock()
+		if a.lifecycle.server == server {
+			a.lifecycle.server = nil
+		}
+		a.lifecycle.mu.Unlock()
+	}
 }
 
-func mergeServerOptions(opts ServerOptions) ServerOptions {
-	defaults := DefaultServerOptions()
-	if opts.ReadTimeout > 0 {
-		defaults.ReadTimeout = opts.ReadTimeout
+func (a *Adapter) activeServer() *http.Server {
+	if a == nil || a.lifecycle == nil {
+		return nil
 	}
-	if opts.WriteTimeout > 0 {
-		defaults.WriteTimeout = opts.WriteTimeout
-	}
-	if opts.IdleTimeout > 0 {
-		defaults.IdleTimeout = opts.IdleTimeout
-	}
-	if opts.ShutdownTimeout > 0 {
-		defaults.ShutdownTimeout = opts.ShutdownTimeout
-	}
-	if opts.MaxHeaderBytes > 0 {
-		defaults.MaxHeaderBytes = opts.MaxHeaderBytes
-	}
-	return defaults
+
+	a.lifecycle.mu.Lock()
+	defer a.lifecycle.mu.Unlock()
+	return a.lifecycle.server
 }

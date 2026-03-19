@@ -58,10 +58,10 @@ type HealthOutput struct {
 }
 
 func main() {
-    a := std.New()
+    a := std.New(nil)
     a.Router().Use(middleware.Logger, middleware.Recoverer)
 
-    s := httpx.NewServer(
+    s := httpx.New(
         httpx.WithAdapter(a),
         httpx.WithBasePath("/api"),
         httpx.WithOpenAPIInfo("My API", "1.0.0", "Service API"),
@@ -73,7 +73,7 @@ func main() {
         return out, nil
     })
 
-    _ = s.ListenAndServe(":8080")
+    _ = s.ListenPort(8080)
 }
 ```
 
@@ -81,12 +81,15 @@ func main() {
 
 ### Server
 
-- `NewServer(...)`
+- `New(...)`
 - `WithAdapter(...)`
 - `WithBasePath(...)`
 - `WithValidation()` / `WithValidator(...)`
 - `WithPanicRecover(...)`
 - `WithAccessLog(...)`
+- `Listen(addr)`
+- `ListenPort(port)`
+- `Shutdown()`
 - `HumaAPI()`
 - `OpenAPI()`
 - `ConfigureOpenAPI(...)`
@@ -95,27 +98,20 @@ func main() {
 
 ### 文档 / OpenAPI
 
-构建时文档配置：
+文档路由在 adapter 构造时配置：
 
 ```go
-s := httpx.NewServer(
-    httpx.WithDocs(httpx.DocsOptions{
-        Enabled:     true,
-        DocsPath:    "/reference",
-        OpenAPIPath: "/spec",
-        SchemasPath: "/schemas",
-        Renderer:    httpx.DocsRendererScalar,
-    }),
-)
-```
-
-运行时文档配置：
-
-```go
-s.ConfigureDocs(func(d *httpx.DocsOptions) {
-    d.DocsPath = "/docs/internal"
-    d.OpenAPIPath = "/openapi/internal"
+a := std.New(nil, adapter.HumaOptions{
+    DocsPath:     "/reference",
+    OpenAPIPath:  "/spec",
+    SchemasPath:  "/schemas",
+    DocsRenderer: httpx.DocsRendererScalar,
 })
+
+s := httpx.New(
+    httpx.WithAdapter(a),
+    httpx.WithOpenAPIInfo("Arc API", "1.0.0", "Service API"),
+)
 ```
 
 OpenAPI 打补丁：
@@ -128,8 +124,9 @@ s.ConfigureOpenAPI(func(doc *huma.OpenAPI) {
 
 说明：
 
-- `WithOpenAPIInfo(...)` 和 `WithOpenAPIDocs(...)` 仍然有效。
-- `ConfigureDocs(...)` 现在也更新适配器管理的文档路由。
+- `WithOpenAPIInfo(...)` 仍然用于修补 OpenAPI 元数据。
+- 文档路由暴露属于 adapter 职责，在构造时确定。
+- 如需关闭文档路由，传入 `adapter.HumaOptions{DisableDocsRoutes: true}`。
 - 支持的内置渲染器：
   - `httpx.DocsRendererStoplightElements`
   - `httpx.DocsRendererScalar`
@@ -138,7 +135,7 @@ s.ConfigureOpenAPI(func(doc *huma.OpenAPI) {
 ### Security / Components / 全局参数
 
 ```go
-s := httpx.NewServer(
+s := httpx.New(
     httpx.WithSecurity(httpx.SecurityOptions{
         Schemes: map[string]*huma.SecurityScheme{
             "bearerAuth": {
@@ -276,14 +273,6 @@ _ = httpx.RouteWithPolicies(server, httpx.MethodGet, "/resources/{id}", func(ctx
 - `OperationConditionalRead()`
 - `OperationConditionalWrite()`
 
-### Adapter Bridge Hook
-
-```go
-httpx.UseAdapter[adapter.LoggerConfigurer](server, func(cfg adapter.LoggerConfigurer) {
-    cfg.SetLogger(logger)
-})
-```
-
 ### Graceful Shutdown Hooks（humacli）
 
 ```go
@@ -339,54 +328,40 @@ type CreateUserInput struct {
 
 ## 日志
 
-`httpx` 日志记录器行为有意在层之间划分：
+`httpx` 的日志职责现在按层明确分开：
 
-- `httpx.WithLogger(...)` 配置 `httpx.Server` 日志记录器
-- 适配器日志记录器配置 `adapter/std`、`adapter/gin`、`adapter/echo` 和 `adapter/fiber` 发出的桥接层错误
-- 框架原生日志记录器和日志记录中间件保持为框架关注点
+- `httpx.WithLogger(...)` 配置 `httpx` 内部的路由注册、访问日志和类型化处理器日志
+- 框架原生日志和中间件仍然属于框架自身
+- 薄 adapter 不再暴露单独的 bridge logger API
 
 在实践中这意味着：
 
-- 使用 `httpx.WithLogger(...)` 用于 `httpx` 路由/访问日志/路由注册输出
-- 当你希望适配器桥接错误使用相同日志记录器时，显式配置适配器日志记录器
-- 继续在适配器路由器或引擎上配置 `chi` / `gin` / `echo` / `fiber` 日志记录中间件
-
-`httpx` 目前不承诺完全替换框架原生日志记录器。
+- 使用 `httpx.WithLogger(...)` 处理 `httpx` 层日志
+- 继续在 adapter 的 router/engine/app 上配置 `chi` / `gin` / `echo` / `fiber` 的日志中间件
 
 ## 适配器构建
 
-监听器和桥接层配置属于适配器，而不是 `httpx.ServerOptions`。
+adapter 现在只是官方 Huma integration 的薄包装。
 
-对于基于 `net/http` 的适配器（如 `std`、`gin` 和 `echo`），使用构建时适配器选项：
+它主要负责：
+
+- 接收或创建原生 router/app
+- 应用 `adapter.HumaOptions` 来暴露 docs/OpenAPI 路由
+- 让 `httpx.Server` 提供便捷的 `Listen(...)`、`ListenPort(...)` 和 `Shutdown()`
 
 ```go
-stdAdapter := std.NewWithOptions(std.Options{
-    Logger: slogLogger,
-    Server: std.ServerOptions{
-        ReadTimeout:     15 * time.Second,
-        WriteTimeout:    15 * time.Second,
-        IdleTimeout:     60 * time.Second,
-        ShutdownTimeout: 5 * time.Second,
-        MaxHeaderBytes:  1 << 20,
-    },
+stdAdapter := std.New(nil, adapter.HumaOptions{
+    DocsPath:     "/reference",
+    OpenAPIPath:  "/spec",
+    DocsRenderer: httpx.DocsRendererSwaggerUI,
+})
+
+ginAdapter := gin.New(existingEngine, adapter.HumaOptions{
+    DisableDocsRoutes: true,
 })
 ```
 
-对于 `fiber`，超时设置属于适配器创建应用时使用的应用配置：
-
-```go
-fiberAdapter := fiber.NewWithOptions(nil, fiber.Options{
-    Logger: slogLogger,
-    App: fiber.AppOptions{
-        ReadTimeout:     15 * time.Second,
-        WriteTimeout:    15 * time.Second,
-        IdleTimeout:     60 * time.Second,
-        ShutdownTimeout: 5 * time.Second,
-    },
-})
-```
-
-如果你传递已创建的框架对象，该框架对象的自己的配置保持权威。
+如果你需要框架级 server 调优，请直接围绕原生 `Router()` / `App()` 启动框架。`httpx` 不再统一超时等监听器参数。
 
 ## Introspection API
 
@@ -404,22 +379,28 @@ fiberAdapter := fiber.NewWithOptions(nil, fiber.Options{
 opts := options.DefaultServerOptions()
 opts.BasePath = "/api"
 opts.HumaTitle = "Arc API"
-opts.DocsPath = "/reference"
-opts.DocsRenderer = httpx.DocsRendererSwaggerUI
+opts.HumaVersion = "1.0.0"
+opts.HumaDescription = "Service API"
 opts.EnablePanicRecover = true
 opts.EnableAccessLog = true
 
-s := httpx.NewServer(append(opts.Build(), httpx.WithAdapter(a))...)
-```
+a := std.New(nil, adapter.HumaOptions{
+    DocsPath:     "/reference",
+    DocsRenderer: httpx.DocsRendererSwaggerUI,
+})
 
-单独使用适配器构建选项进行监听器超时和适配器日志记录器配置。
+s := httpx.New(append(opts.Build(), httpx.WithAdapter(a))...)
+```
 
 ## 测试模式
 
 ```go
+a := std.New(nil)
+s := httpx.New(httpx.WithAdapter(a))
+
 req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 rec := httptest.NewRecorder()
-s.ServeHTTP(rec, req)
+a.Router().ServeHTTP(rec, req)
 
 if rec.Code != http.StatusOK {
     t.Fatal(rec.Code)
@@ -434,7 +415,7 @@ if rec.Code != http.StatusOK {
 
 ### 我仍然可以访问原始 Huma API 吗？
 
-可以。使用 `HumaAPI()`、`OpenAPI()` 和 `HumaGroup()`。
+可以。使用 `HumaAPI()`、`OpenAPI()`，或者 `Group(...).HumaGroup()`。
 
 ### `httpx` 也应该包装适配器中间件吗？
 
@@ -442,15 +423,15 @@ if rec.Code != http.StatusOK {
 
 ## 示例
 
-- Quickstart: `go run ./httpx/examples/quickstart`
+- Quickstart: `go run ./examples/httpx/quickstart`
   - 最小类型化路由 + 验证 + 基础路径
-- Auth: `go run ./httpx/examples/auth`
+- Auth: `go run ./examples/httpx/auth`
   - 安全方案、全局头和类型化认证头绑定
-  - 查看 [`httpx/examples/auth/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/httpx/examples/auth)
-- Organization: `go run ./httpx/examples/organization`
+  - 查看 [`examples/httpx/auth/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/examples/httpx/auth)
+- Organization: `go run ./examples/httpx/organization`
   - 文档路径、安全、全局头和组默认值
-  - 查看 [`httpx/examples/organization/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/httpx/examples/organization)
-- SSE: `go run ./httpx/examples/sse`
+  - 查看 [`examples/httpx/organization/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/examples/httpx/organization)
+- SSE: `go run ./examples/httpx/sse`
   - 基于 `text/event-stream` 的类型化事件流
-- Conditional Requests: `go run ./httpx/examples/conditional`
+- Conditional Requests: `go run ./examples/httpx/conditional`
   - 基于 ETag 和 Last-Modified 的前置条件校验

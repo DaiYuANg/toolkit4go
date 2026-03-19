@@ -9,14 +9,9 @@ import (
 )
 
 // WithAdapter configures related behavior.
-func WithAdapter(a adapter.Adapter) ServerOption {
+func WithAdapter(a adapter.Host) ServerOption {
 	return func(s *Server) {
 		s.adapter = a
-		if s.logger != nil {
-			withAdapterCapability(a, func(loggerAdapter adapter.LoggerConfigurer) {
-				loggerAdapter.SetLogger(s.logger)
-			})
-		}
 	}
 }
 
@@ -30,11 +25,8 @@ func WithBasePath(path string) ServerOption {
 // WithLogger configures related behavior.
 func WithLogger(logger *slog.Logger) ServerOption {
 	return func(s *Server) {
-		s.logger = logger
 		if logger != nil {
-			UseAdapter(s, func(loggerAdapter adapter.LoggerConfigurer) {
-				loggerAdapter.SetLogger(logger)
-			})
+			s.logger = logger
 		}
 	}
 }
@@ -63,10 +55,6 @@ func WithAccessLog(enabled bool) ServerOption {
 // WithOpenAPIInfo sets top-level OpenAPI info fields for the server.
 func WithOpenAPIInfo(title, version, description string) ServerOption {
 	return func(s *Server) {
-		s.humaOptions.Title = title
-		s.humaOptions.Version = version
-		s.humaOptions.Description = description
-
 		patch := func(doc *huma.OpenAPI) {
 			if doc == nil {
 				return
@@ -86,54 +74,6 @@ func WithOpenAPIInfo(title, version, description string) ServerOption {
 		}
 
 		s.openAPIPatches.Add(patch)
-	}
-}
-
-// WithHumaOptions applies low-level Huma-related configuration in one option.
-func WithHumaOptions(opts HumaOptions) ServerOption {
-	return func(s *Server) {
-		if opts.Title != "" {
-			s.humaOptions.Title = opts.Title
-		}
-		if opts.Version != "" {
-			s.humaOptions.Version = opts.Version
-		}
-		if opts.Description != "" {
-			s.humaOptions.Description = opts.Description
-		}
-		if opts.DocsPath != "" {
-			s.humaOptions.DocsPath = opts.DocsPath
-		}
-		if opts.OpenAPIPath != "" {
-			s.humaOptions.OpenAPIPath = opts.OpenAPIPath
-		}
-		if opts.SchemasPath != "" {
-			s.humaOptions.SchemasPath = opts.SchemasPath
-		}
-		if opts.DocsRenderer != "" {
-			s.humaOptions.DocsRenderer = opts.DocsRenderer
-		}
-		if opts.DisableDocsRoutes {
-			s.humaOptions.DisableDocsRoutes = true
-		}
-
-		if opts.Title != "" || opts.Version != "" || opts.Description != "" {
-			WithOpenAPIInfo(opts.Title, opts.Version, opts.Description)(s)
-		}
-	}
-}
-
-// WithDocs configures docs UI, OpenAPI, and schema routes.
-func WithDocs(opts DocsOptions) ServerOption {
-	return func(s *Server) {
-		applyDocsOptionsToHumaOptions(&s.humaOptions, opts)
-	}
-}
-
-// WithOpenAPIDocs enables or disables the built-in docs/OpenAPI/schema routes.
-func WithOpenAPIDocs(enabled bool) ServerOption {
-	return func(s *Server) {
-		s.humaOptions.DisableDocsRoutes = !enabled
 	}
 }
 
@@ -201,7 +141,7 @@ func WithValidation() ServerOption {
 	}
 }
 
-// WithValidator closes related resources.
+// WithValidator configures the request validator.
 func WithValidator(v *validator.Validate) ServerOption {
 	return func(s *Server) {
 		s.validator = v

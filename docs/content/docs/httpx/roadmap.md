@@ -9,73 +9,44 @@ weight: 90
 
 ## Positioning
 
-`httpx` is a unified HTTP service organization layer on top of Huma, not a heavy framework.
+`httpx` is a thin service-organization layer around Huma.
 
-- Provide consistent server/group/endpoint APIs
-- Preserve direct escape hatches to advanced Huma capabilities
-- Support both adapter-native ecosystem and Huma semantic layer
+- Keep typed route, group, and OpenAPI ergonomics in `httpx`
+- Keep native router/app ownership in adapters
+- Avoid re-wrapping framework request/response models
 
 ## Current State
 
-- Core API surface is largely formed (OpenAPI/docs/security/group capabilities are in place)
-- One major architecture convergence pass is complete (configuration ownership pushed back to adapters)
-- Main gaps: formal adapter middleware API, adapter build-option docs and consistency
+- `ServerRuntime` is centered on `huma.API`, not `http.Handler`
+- `std` / `gin` / `echo` / `fiber` adapters are thin wrappers over the official Huma integrations
+- Docs and OpenAPI route exposure are adapter-owned through `adapter.HumaOptions`
+- `Listen(addr)`, `ListenPort(port)`, `ListenAndServeContext(ctx, addr)`, and `Shutdown()` are the unified runtime helpers
+- Examples, tests, and docs now follow the thin-adapter model
 
-## Priority Suggestions
+## Execution Record (2026-03-19)
 
-### P0 (Now)
-
-- Complete adapter build-time `Options` convergence (logger/timeout/shutdown)
-- Add tests and examples around adapter build options
-- Document clear boundaries among `httpx` logs, adapter-bridge logs, and framework-native logs
-
-## P0 Execution Record (2026-03-11)
-
-- Upgraded Huma from `v2.36.0` to `v2.37.2`
+- Removed the `http.Handler` contract from `ServerRuntime`
+- Removed adapter-native `Handle` / `Group` / `ServeHTTP` bridge behavior
+- Removed the Fiber request-copy bridge path used to fake `net/http` compatibility
+- Removed `WithDocs`, `WithOpenAPIDocs`, `ConfigureDocs`, `server.Adapter()`, and `UseAdapter(...)`
+- Removed adapter build-time logger/timeout option layers; native host configuration stays with the framework
+- Rewrote tests, examples, and docs around direct router/app access
 - Regression checks passed:
   - `go test ./httpx/...`
-  - `go test ./...`
-- Added adapter build-time `Options` tests for `std` / `gin` / `echo` / `fiber`:
-  - logger injection and native error logging path
-  - timeout/shutdown default + override merge behavior
-- Updated examples to demonstrate build-time `Options` usage:
-  - `httpx/examples/std`
-  - `httpx/examples/gin`
-  - `httpx/examples/echo`
-  - `httpx/examples/fiber`
-- Compatibility checklist (verified):
-  - Typed route registration (`huma.Register`) remains compatible
-  - Group capabilities (middleware/modifier/transformer) remain compatible
-  - OpenAPI/docs path config and runtime `ConfigureDocs(...)` rebinding remain compatible
-  - Security / Components / Global parameter OpenAPI patch behavior remains compatible
-  - Huma docs-controller behavior remains compatible across `std` / `gin` / `echo` / `fiber` adapters
-- Follow-up items:
-  - `fiber` adapter still does not support `net/http` `ServeHTTP` (currently returns `501`)
-  - `httpx/fx` is still a thin wrapper and lacks lifecycle integration tests
+  - `go test ./examples/httpx/... ./examples/observabilityx/... ./examples/eventx/... ./configx/examples/...`
+  - `go test ./...` in `httpx/adapter/std`
+  - `go test ./...` in `httpx/adapter/gin`
+  - `go test ./...` in `httpx/adapter/echo`
+  - `go test ./...` in `httpx/adapter/fiber`
 
-### P1 (Next)
+## Next
 
-- Land `UseAdapterMiddleware(...)` (or equivalent formal entrypoint)
-- Continue group/endpoint defaults convergence (reduce scattered helpers)
-- Document docs-renderer + OpenAPI patching combinations
-
-### P2 (Later)
-
-- Add benchmark/regression guardrails for performance-sensitive paths
-- Provide template-like organization examples (auth/org/observability)
+- Add more organization examples around auth, monitoring, and multi-host setups
+- Add benchmark and regression guardrails for typed-route hot paths
+- Improve `httpx/fx` lifecycle coverage
 
 ## Non-Goals
 
-- No replacement of Huma
-- No forced unification of adapter-native middleware and Huma middleware internals
-- No heavy runtime/framework lifecycle system
-
-## Adjustment Note
-
-Compared to the historical roadmap, prioritize "API convergence + config consistency" before adding many new helpers.
-Otherwise semantic drift may reappear.
-
-## Migration Source
-
-- Historical package file (removed): `httpx/ROADMAP.md`
-- This page is now the canonical maintained version in docs
+- No heavy framework abstraction above native routers/apps
+- No fake cross-framework middleware API
+- No reintroduction of a universal request/response bridge

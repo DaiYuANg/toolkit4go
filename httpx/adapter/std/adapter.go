@@ -4,78 +4,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
+	"sync"
 
-	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 )
 
+type lifecycleState struct {
+	mu     sync.Mutex
+	server *http.Server
+}
+
 // Adapter implements the std/chi runtime bridge for httpx.
 type Adapter struct {
-	router *chi.Mux
-	prefix string
-	logger *slog.Logger
-	huma   huma.API
-	docs   *adapter.DocsController
-	server ServerOptions
-}
-
-// New constructs a std adapter backed by a chi router and Huma API.
-func New(opts ...adapter.HumaOptions) *Adapter {
-	options := DefaultOptions()
-	options.Huma = adapter.MergeHumaOptions(opts...)
-	return NewWithOptions(options)
-}
-
-// WithLogger replaces the adapter logger.
-func (a *Adapter) WithLogger(logger *slog.Logger) *Adapter {
-	a.SetLogger(logger)
-	return a
-}
-
-// SetLogger replaces the adapter logger.
-func (a *Adapter) SetLogger(logger *slog.Logger) {
-	if a == nil || logger == nil {
-		return
-	}
-	a.logger = logger
+	router    *chi.Mux
+	huma      huma.API
+	lifecycle *lifecycleState
 }
 
 // Name returns the adapter name.
 func (a *Adapter) Name() string {
 	return "std"
-}
-
-// Handle registers a native handler on the chi router.
-func (a *Adapter) Handle(method, path string, handler adapter.HandlerFunc) {
-	fullPath := joinPath(a.prefix, path)
-	a.router.Method(method, fullPath, a.wrapHandler(handler))
-}
-
-// Group returns a prefixed child adapter that shares the same router and Huma API.
-func (a *Adapter) Group(prefix string) adapter.Adapter {
-	nextPrefix := a.prefix
-	if prefix != "" && prefix != "/" {
-		nextPrefix = joinPath(a.prefix, prefix)
-	}
-	return &Adapter{
-		router: a.router,
-		prefix: nextPrefix,
-		logger: a.logger,
-		huma:   a.huma,
-		docs:   a.docs,
-		server: a.server,
-	}
-}
-
-// ServeHTTP serves docs routes first, then falls through to the chi router.
-func (a *Adapter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if a.docs != nil && a.docs.ServeHTTP(w, r) {
-		return
-	}
-	a.router.ServeHTTP(w, r)
 }
 
 // Router exposes the underlying chi router.
@@ -85,8 +35,24 @@ func (a *Adapter) Router() *chi.Mux {
 
 // Listen starts related services.
 func (a *Adapter) Listen(addr string) error {
-	if err := a.httpServer(addr).ListenAndServe(); err != nil {
+	server := a.httpServer(addr)
+	release := a.trackServer(server)
+	defer release()
+
+	if err := server.ListenAndServe(); err != nil {
 		return fmt.Errorf("httpx/std: listen on %q: %w", addr, err)
+	}
+	return nil
+}
+
+// Shutdown stops the active std server.
+func (a *Adapter) Shutdown() error {
+	server := a.activeServer()
+	if server == nil {
+		return nil
+	}
+	if err := server.Shutdown(context.Background()); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("httpx/std: shutdown: %w", err)
 	}
 	return nil
 }
@@ -98,6 +64,8 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 	}
 
 	server := a.httpServer(addr)
+	release := a.trackServer(server)
+	defer release()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -111,9 +79,7 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		}
 		return fmt.Errorf("httpx/std: listen on %q: %w", addr, err)
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), a.server.ShutdownTimeout)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
+		if err := a.Shutdown(); err != nil {
 			return fmt.Errorf("httpx/std: shutdown on %q: %w", addr, err)
 		}
 		err := <-errCh
@@ -124,40 +90,42 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 	}
 }
 
-// wrapHandler converts adapter-native handlers into `http.HandlerFunc`.
-func (a *Adapter) wrapHandler(handler adapter.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := handler(r.Context(), w, r); err != nil {
-			a.logger.Error("Handler error",
-				slog.String("method", r.Method),
-				slog.String("path", r.URL.Path),
-				slog.String("error", err.Error()),
-			)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}
-}
-
 // HumaAPI exposes the underlying Huma API.
 func (a *Adapter) HumaAPI() huma.API {
 	return a.huma
 }
 
-// ConfigureHumaOptions updates adapter-managed docs/openapi routing.
-func (a *Adapter) ConfigureHumaOptions(opts adapter.HumaOptions) {
-	if a == nil || a.docs == nil {
-		return
-	}
-	a.docs.Configure(opts)
-}
-
 func (a *Adapter) httpServer(addr string) *http.Server {
 	return &http.Server{
-		Addr:           addr,
-		Handler:        a,
-		ReadTimeout:    a.server.ReadTimeout,
-		WriteTimeout:   a.server.WriteTimeout,
-		IdleTimeout:    a.server.IdleTimeout,
-		MaxHeaderBytes: a.server.MaxHeaderBytes,
+		Addr:    addr,
+		Handler: a.router,
 	}
+}
+
+func (a *Adapter) trackServer(server *http.Server) func() {
+	if a == nil || a.lifecycle == nil {
+		return func() {}
+	}
+
+	a.lifecycle.mu.Lock()
+	a.lifecycle.server = server
+	a.lifecycle.mu.Unlock()
+
+	return func() {
+		a.lifecycle.mu.Lock()
+		if a.lifecycle.server == server {
+			a.lifecycle.server = nil
+		}
+		a.lifecycle.mu.Unlock()
+	}
+}
+
+func (a *Adapter) activeServer() *http.Server {
+	if a == nil || a.lifecycle == nil {
+		return nil
+	}
+
+	a.lifecycle.mu.Lock()
+	defer a.lifecycle.mu.Unlock()
+	return a.lifecycle.server
 }

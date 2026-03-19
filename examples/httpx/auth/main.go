@@ -8,6 +8,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/examples/httpx/shared"
 	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/DaiYuANg/arcgo/pkg/randomport"
 	"github.com/danielgtaylor/huma/v2"
@@ -40,16 +41,16 @@ func main() {
 	}
 	defer closeLogger()
 
+	stdAdapter := std.New(nil, adapter.HumaOptions{
+		DocsPath:     "/docs",
+		OpenAPIPath:  "/openapi.json",
+		DocsRenderer: httpx.DocsRendererScalar,
+	})
+
 	server := httpx.New(
-		httpx.WithAdapter(std.New()),
+		httpx.WithAdapter(stdAdapter),
 		httpx.WithBasePath("/api"),
 		httpx.WithOpenAPIInfo("httpx auth example", "1.0.0", "Authentication, security schemes, and custom headers"),
-		httpx.WithDocs(httpx.DocsOptions{
-			Enabled:     true,
-			DocsPath:    "/docs",
-			OpenAPIPath: "/openapi.json",
-			Renderer:    httpx.DocsRendererScalar,
-		}),
 		httpx.WithSecurity(httpx.SecurityOptions{
 			Schemes: map[string]*huma.SecurityScheme{
 				"BearerAuth": {
@@ -123,7 +124,7 @@ func main() {
 		slog.String("curl", fmt.Sprintf("curl http://localhost%s/api/secure/profile -H \"Authorization: Bearer demo\" -H \"X-Request-Id: req-1\"", addr)),
 	)
 
-	if err := server.ListenAndServe(addr); err != nil {
+	if err := server.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

@@ -1,48 +1,54 @@
 package echo
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	echoframework "github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewWithOptions_ServerOptionsMerge(t *testing.T) {
-	a := NewWithOptions(nil, Options{
-		Server: ServerOptions{
-			IdleTimeout:     45 * time.Second,
-			ShutdownTimeout: 9 * time.Second,
-		},
-	})
+func TestNew_UsesProvidedEngine(t *testing.T) {
+	engine := echoframework.New()
+	a := New(engine)
 
-	assert.Equal(t, 15*time.Second, a.server.ReadTimeout)
-	assert.Equal(t, 15*time.Second, a.server.WriteTimeout)
-	assert.Equal(t, 45*time.Second, a.server.IdleTimeout)
-	assert.Equal(t, 9*time.Second, a.server.ShutdownTimeout)
-	assert.Equal(t, 1<<20, a.server.MaxHeaderBytes)
+	assert.Same(t, engine, a.Router())
 }
 
-func TestNewWithOptions_LoggerUsedByNativeHandler(t *testing.T) {
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logs, nil))
-
-	a := NewWithOptions(nil, Options{
-		Logger: logger,
-	})
-	a.Handle(http.MethodGet, "/err", func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return errors.New("native boom")
+func TestNew_AppliesDocsPaths(t *testing.T) {
+	a := New(nil, adapter.HumaOptions{
+		DocsPath:    "/reference",
+		OpenAPIPath: "/spec",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/err", nil)
-	rec := httptest.NewRecorder()
-	a.ServeHTTP(rec, req)
+	docsReq := httptest.NewRequest(http.MethodGet, "/reference", nil)
+	docsRec := httptest.NewRecorder()
+	a.Router().ServeHTTP(docsRec, docsReq)
+	assert.Equal(t, http.StatusOK, docsRec.Code)
 
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, logs.String(), "native boom")
+	oldDocsReq := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	oldDocsRec := httptest.NewRecorder()
+	a.Router().ServeHTTP(oldDocsRec, oldDocsReq)
+	assert.Equal(t, http.StatusNotFound, oldDocsRec.Code)
+
+	specReq := httptest.NewRequest(http.MethodGet, "/spec.json", nil)
+	specRec := httptest.NewRecorder()
+	a.Router().ServeHTTP(specRec, specReq)
+	assert.Equal(t, http.StatusOK, specRec.Code)
+}
+
+func TestNew_DisablesDocsRoutes(t *testing.T) {
+	a := New(nil, adapter.HumaOptions{DisableDocsRoutes: true})
+
+	docsReq := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	docsRec := httptest.NewRecorder()
+	a.Router().ServeHTTP(docsRec, docsReq)
+	assert.Equal(t, http.StatusNotFound, docsRec.Code)
+
+	specReq := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	specRec := httptest.NewRecorder()
+	a.Router().ServeHTTP(specRec, specReq)
+	assert.Equal(t, http.StatusNotFound, specRec.Code)
 }

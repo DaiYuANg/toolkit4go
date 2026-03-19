@@ -18,7 +18,7 @@ import (
 // Server is the central httpx runtime object used to register routes and expose
 // Huma/OpenAPI capabilities.
 type Server struct {
-	adapter            adapter.Adapter
+	adapter            adapter.Host
 	basePath           string
 	routes             *list.ConcurrentList[RouteInfo]
 	routeKeys          *set.ConcurrentSet[string]
@@ -30,7 +30,6 @@ type Server struct {
 	validator          *validator.Validate
 	panicRecover       bool
 	accessLog          bool
-	humaOptions        adapter.HumaOptions
 	openAPIPatches     *list.ConcurrentList[func(*huma.OpenAPI)]
 	humaMiddlewares    *list.ConcurrentList[func(huma.Context, func(huma.Context))]
 	operationModifiers *list.ConcurrentList[func(*huma.Operation)]
@@ -61,7 +60,7 @@ func newServer(opts ...ServerOption) *Server {
 	})
 
 	if s.adapter == nil {
-		s.adapter = std.New(s.humaOptions)
+		s.adapter = std.New(nil)
 	}
 
 	s.applyPendingHumaConfig()

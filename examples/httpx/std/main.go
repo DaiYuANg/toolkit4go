@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/DaiYuANg/arcgo/examples/httpx/shared"
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
@@ -21,22 +20,12 @@ func main() {
 	defer closeLogger()
 
 	userService := shared.NewMockUserService()
-	stdAdapter := std.NewWithOptions(std.Options{
-		Huma: adapter.HumaOptions{
-			Title:       "ArcGo Std API",
-			Version:     "1.0.0",
-			Description: "Typed std API example",
-			DocsPath:    "/docs",
-			OpenAPIPath: "/openapi.json",
-		},
-		Logger: logger,
-		Server: std.ServerOptions{
-			ReadTimeout:     15 * time.Second,
-			WriteTimeout:    15 * time.Second,
-			IdleTimeout:     60 * time.Second,
-			ShutdownTimeout: 5 * time.Second,
-			MaxHeaderBytes:  1 << 20,
-		},
+	stdAdapter := std.New(nil, adapter.HumaOptions{
+		Title:       "ArcGo Std API",
+		Version:     "1.0.0",
+		Description: "Typed std API example",
+		DocsPath:    "/docs",
+		OpenAPIPath: "/openapi.json",
 	})
 	stdAdapter.Router().Use(middleware.Logger, middleware.Recoverer, middleware.RequestID)
 
@@ -52,7 +41,7 @@ func main() {
 		slog.String("docs", fmt.Sprintf("http://localhost%s/docs", addr)),
 	)
 
-	if err := server.ListenAndServe(addr); err != nil {
+	if err := server.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

@@ -35,14 +35,12 @@ func main() {
 	}
 	defer closeLogger()
 
-	a := std.NewWithOptions(std.Options{
-		Huma: adapter.HumaOptions{
-			Title:       "httpx SSE example",
-			Version:     "1.0.0",
-			Description: "SSE streaming with typed events",
-			DocsPath:    "/docs",
-			OpenAPIPath: "/openapi.json",
-		},
+	a := std.New(nil, adapter.HumaOptions{
+		Title:       "httpx SSE example",
+		Version:     "1.0.0",
+		Description: "SSE streaming with typed events",
+		DocsPath:    "/docs",
+		OpenAPIPath: "/openapi.json",
 	})
 
 	s := httpx.New(httpx.WithAdapter(a))
@@ -87,7 +85,7 @@ func main() {
 		slog.String("curl", fmt.Sprintf("curl -N http://localhost%s/events?count=5", addr)),
 	)
 
-	if err := s.ListenAndServe(addr); err != nil {
+	if err := s.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

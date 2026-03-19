@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/danielgtaylor/huma/v2"
 	humaconditional "github.com/danielgtaylor/huma/v2/conditional"
 	humasse "github.com/danielgtaylor/huma/v2/sse"
@@ -59,75 +58,6 @@ type SSEHandler[I any] func(ctx context.Context, input *I, send SSESender)
 
 // OperationOption mutates a Huma operation before registration.
 type OperationOption func(*huma.Operation)
-
-// HumaOptions configures Huma-backed OpenAPI and docs behavior.
-type HumaOptions struct {
-	// Title sets the OpenAPI info title.
-	Title string
-	// Version sets the OpenAPI info version.
-	Version string
-	// Description sets the OpenAPI info description.
-	Description string
-	// DocsPath sets the docs UI route.
-	DocsPath string
-	// OpenAPIPath sets the OpenAPI spec route prefix, without extension.
-	OpenAPIPath string
-	// SchemasPath sets the JSON schema route prefix.
-	SchemasPath string
-	// DocsRenderer selects the built-in docs renderer.
-	DocsRenderer string
-	// DisableDocsRoutes disables docs, OpenAPI, and schema routes.
-	DisableDocsRoutes bool
-	// Transformers modifies response bodies before serialization.
-	Transformers []huma.Transformer
-}
-
-// DefaultHumaOptions provides default behavior.
-func DefaultHumaOptions() HumaOptions {
-	return HumaOptions{
-		Title:       "My API",
-		Version:     "1.0.0",
-		Description: "API Documentation",
-		DocsPath:    "/docs",
-		OpenAPIPath: "/openapi",
-		SchemasPath: "/schemas",
-	}
-}
-
-// ToAdapterHumaOptions converts package-level Huma options to adapter options.
-func ToAdapterHumaOptions(opts HumaOptions) adapter.HumaOptions {
-	return adapter.HumaOptions{
-		Title:             opts.Title,
-		Version:           opts.Version,
-		Description:       opts.Description,
-		DocsPath:          opts.DocsPath,
-		OpenAPIPath:       opts.OpenAPIPath,
-		SchemasPath:       opts.SchemasPath,
-		DocsRenderer:      opts.DocsRenderer,
-		DisableDocsRoutes: opts.DisableDocsRoutes,
-		Transformers:      opts.Transformers,
-	}
-}
-
-// DocsOptions configures docs UI and OpenAPI/schema route exposure.
-type DocsOptions struct {
-	Enabled     bool
-	DocsPath    string
-	OpenAPIPath string
-	SchemasPath string
-	Renderer    string
-}
-
-// DefaultDocsOptions returns the default docs configuration used by httpx.
-func DefaultDocsOptions() DocsOptions {
-	return DocsOptions{
-		Enabled:     true,
-		DocsPath:    "/docs",
-		OpenAPIPath: "/openapi",
-		SchemasPath: "/schemas",
-		Renderer:    DocsRendererStoplightElements,
-	}
-}
 
 // SecurityOptions configures OpenAPI security schemes and default requirements.
 type SecurityOptions struct {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 
 	"github.com/DaiYuANg/arcgo/httpx"
@@ -30,13 +29,13 @@ func main() {
 	defer func() { _ = logx.Close(logger) }()
 	slogLogger := logger
 
-	stdAdapter := std.New(adapter.HumaOptions{
+	stdAdapter := std.New(nil, adapter.HumaOptions{
 		Title:       "ArcGo Monitoring API",
 		Version:     "1.0.0",
 		Description: "Monitoring API",
 		DocsPath:    "/docs",
 		OpenAPIPath: "/openapi.json",
-	}).WithLogger(slogLogger)
+	})
 
 	server := httpx.New(
 		httpx.WithAdapter(stdAdapter),
@@ -44,23 +43,14 @@ func main() {
 		httpx.WithPrintRoutes(true),
 	)
 
+	stdAdapter.Router().Use(middleware.PrometheusMiddleware, middleware.OpenTelemetryMiddleware)
+	stdAdapter.Router().Handle("/metrics", middleware.MetricsHandler())
+
 	httpx.MustGet(server, "/health", func(ctx context.Context, input *struct{}) (*HealthOutput, error) {
 		out := &HealthOutput{}
 		out.Body.Status = "ok"
 		return out, nil
 	}, huma.OperationTags("monitoring"))
-
-	server.Adapter().Handle(httpx.MethodGet, "/metrics", func(
-		ctx context.Context,
-		w http.ResponseWriter,
-		r *http.Request,
-	) error {
-		_ = ctx
-		middleware.MetricsHandler().ServeHTTP(w, r)
-		return nil
-	})
-
-	_ = middleware.PrometheusMiddleware(middleware.OpenTelemetryMiddleware(server.Handler()))
 
 	port := randomport.MustFind()
 	addr := fmt.Sprintf(":%d", port)
@@ -73,7 +63,7 @@ func main() {
 		slog.String("docs", fmt.Sprintf("http://localhost%s/docs", addr)),
 	)
 
-	if err := server.ListenAndServe(addr); err != nil {
+	if err := server.ListenPort(port); err != nil {
 		slogLogger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

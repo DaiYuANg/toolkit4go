@@ -41,13 +41,13 @@ func main() {
 	defer func() { _ = logx.Close(logger) }()
 
 	slogLogger := logger
-	stdAdapter := std.New(adapter.HumaOptions{
+	stdAdapter := std.New(nil, adapter.HumaOptions{
 		Title:       "ArcGo API",
 		Version:     "1.0.0",
 		Description: "Typed API built with httpx",
 		DocsPath:    "/docs",
 		OpenAPIPath: "/openapi.json",
-	}).WithLogger(slogLogger)
+	})
 	stdAdapter.Router().Use(middleware.Logger, middleware.Recoverer, middleware.RequestID)
 
 	server := httpx.New(
@@ -84,7 +84,7 @@ func main() {
 		slog.String("docs", fmt.Sprintf("http://localhost%s/docs", addr)),
 	)
 
-	if err := server.ListenAndServe(addr); err != nil {
+	if err := server.ListenPort(port); err != nil {
 		slogLogger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

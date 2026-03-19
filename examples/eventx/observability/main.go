@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/DaiYuANg/arcgo/eventx"
 	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/DaiYuANg/arcgo/observabilityx"
 	otelobs "github.com/DaiYuANg/arcgo/observabilityx/otel"
@@ -49,19 +49,11 @@ func main() {
 		panic(err)
 	}
 
+	stdAdapter := std.New(nil, adapter.HumaOptions{DisableDocsRoutes: true})
 	metricsServer := httpx.New(
-		httpx.WithAdapter(std.New()),
-		httpx.WithOpenAPIDocs(false),
+		httpx.WithAdapter(stdAdapter),
 	)
-	metricsServer.Adapter().Handle(httpx.MethodGet, "/metrics", func(
-		ctx context.Context,
-		w http.ResponseWriter,
-		r *http.Request,
-	) error {
-		_ = ctx
-		prom.Handler().ServeHTTP(w, r)
-		return nil
-	})
+	stdAdapter.Router().Handle("/metrics", prom.Handler())
 
 	fmt.Println("httpx metrics route registered: GET /metrics")
 	_ = metricsServer

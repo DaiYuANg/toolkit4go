@@ -58,10 +58,10 @@ type HealthOutput struct {
 }
 
 func main() {
-    a := std.New()
+    a := std.New(nil)
     a.Router().Use(middleware.Logger, middleware.Recoverer)
 
-    s := httpx.NewServer(
+    s := httpx.New(
         httpx.WithAdapter(a),
         httpx.WithBasePath("/api"),
         httpx.WithOpenAPIInfo("My API", "1.0.0", "Service API"),
@@ -73,7 +73,7 @@ func main() {
         return out, nil
     })
 
-    _ = s.ListenAndServe(":8080")
+    _ = s.ListenPort(8080)
 }
 ```
 
@@ -81,12 +81,15 @@ func main() {
 
 ### Server
 
-- `NewServer(...)`
+- `New(...)`
 - `WithAdapter(...)`
 - `WithBasePath(...)`
 - `WithValidation()` / `WithValidator(...)`
 - `WithPanicRecover(...)`
 - `WithAccessLog(...)`
+- `Listen(addr)`
+- `ListenPort(port)`
+- `Shutdown()`
 - `HumaAPI()`
 - `OpenAPI()`
 - `ConfigureOpenAPI(...)`
@@ -95,27 +98,20 @@ func main() {
 
 ### Documentation / OpenAPI
 
-Build-time documentation configuration:
+Documentation routes are configured on the adapter at construction time:
 
 ```go
-s := httpx.NewServer(
-    httpx.WithDocs(httpx.DocsOptions{
-        Enabled:     true,
-        DocsPath:    "/reference",
-        OpenAPIPath: "/spec",
-        SchemasPath: "/schemas",
-        Renderer:    httpx.DocsRendererScalar,
-    }),
-)
-```
-
-Runtime documentation configuration:
-
-```go
-s.ConfigureDocs(func(d *httpx.DocsOptions) {
-    d.DocsPath = "/docs/internal"
-    d.OpenAPIPath = "/openapi/internal"
+a := std.New(nil, adapter.HumaOptions{
+    DocsPath:     "/reference",
+    OpenAPIPath:  "/spec",
+    SchemasPath:  "/schemas",
+    DocsRenderer: httpx.DocsRendererScalar,
 })
+
+s := httpx.New(
+    httpx.WithAdapter(a),
+    httpx.WithOpenAPIInfo("Arc API", "1.0.0", "Service API"),
+)
 ```
 
 OpenAPI patching:
@@ -128,8 +124,9 @@ s.ConfigureOpenAPI(func(doc *huma.OpenAPI) {
 
 Notes:
 
-- `WithOpenAPIInfo(...)` and `WithOpenAPIDocs(...)` still work.
-- `ConfigureDocs(...)` now also updates adapter-managed doc routes.
+- `WithOpenAPIInfo(...)` still patches OpenAPI metadata.
+- Documentation route exposure is adapter-owned and set when constructing the adapter.
+- To disable docs routes, pass `adapter.HumaOptions{DisableDocsRoutes: true}`.
 - Supported built-in renderers:
   - `httpx.DocsRendererStoplightElements`
   - `httpx.DocsRendererScalar`
@@ -138,7 +135,7 @@ Notes:
 ### Security / Components / Global Parameters
 
 ```go
-s := httpx.NewServer(
+s := httpx.New(
     httpx.WithSecurity(httpx.SecurityOptions{
         Schemes: map[string]*huma.SecurityScheme{
             "bearerAuth": {
@@ -276,14 +273,6 @@ Available conditional helpers:
 - `OperationConditionalRead()`
 - `OperationConditionalWrite()`
 
-### Adapter Bridge Hook
-
-```go
-httpx.UseAdapter[adapter.LoggerConfigurer](server, func(cfg adapter.LoggerConfigurer) {
-    cfg.SetLogger(logger)
-})
-```
-
 ### Graceful Shutdown Hooks (humacli)
 
 ```go
@@ -339,54 +328,40 @@ Runtime listener setup (like read/write/idle timeouts and max header bytes) is a
 
 ## Logging
 
-`httpx` logger behavior is intentionally divided between layers:
+`httpx` logging is intentionally divided between layers:
 
-- `httpx.WithLogger(...)` configures the `httpx.Server` logger
-- Adapter logger configuration controls bridging layer errors emitted by `adapter/std`, `adapter/gin`, `adapter/echo`, and `adapter/fiber`
-- Framework-native loggers and logging middleware remain framework concerns
+- `httpx.WithLogger(...)` configures route registration, access log, and typed-handler logging in `httpx`
+- Framework-native loggers and middleware remain framework concerns
+- Thin adapters do not expose a separate bridge-logger API
 
 In practice this means:
 
-- Use `httpx.WithLogger(...)` for `httpx` routing/access log/route registration output
-- Explicitly configure adapter logger when you want adapter bridge errors to use the same logger
-- Continue configuring `chi` / `gin` / `echo` / `fiber` logging middleware on the adapter router or engine
-
-`httpx` currently doesn't commit to fully replacing framework-native loggers.
+- Use `httpx.WithLogger(...)` for `httpx`-level logs
+- Continue configuring `chi` / `gin` / `echo` / `fiber` logging middleware on the adapter router or engine/app
 
 ## Adapter Build
 
-Listener and bridging layer configuration belongs to the adapter, not `httpx.ServerOptions`.
+Adapters are thin wrappers around the official Huma integrations.
 
-For `net/http`-based adapters (like `std`, `gin`, and `echo`), use build-time adapter options:
+They are responsible for:
+
+- accepting or creating the native router/app
+- applying `adapter.HumaOptions` for docs/OpenAPI route exposure
+- letting `httpx.Server` provide convenience `Listen(...)`, `ListenPort(...)`, and `Shutdown()`
 
 ```go
-stdAdapter := std.NewWithOptions(std.Options{
-    Logger: slogLogger,
-    Server: std.ServerOptions{
-        ReadTimeout:     15 * time.Second,
-        WriteTimeout:    15 * time.Second,
-        IdleTimeout:     60 * time.Second,
-        ShutdownTimeout: 5 * time.Second,
-        MaxHeaderBytes:  1 << 20,
-    },
+stdAdapter := std.New(nil, adapter.HumaOptions{
+    DocsPath:     "/reference",
+    OpenAPIPath:  "/spec",
+    DocsRenderer: httpx.DocsRendererSwaggerUI,
+})
+
+ginAdapter := gin.New(existingEngine, adapter.HumaOptions{
+    DisableDocsRoutes: true,
 })
 ```
 
-For `fiber`, timeout settings belong to the app configuration when the adapter creates the app:
-
-```go
-fiberAdapter := fiber.NewWithOptions(nil, fiber.Options{
-    Logger: slogLogger,
-    App: fiber.AppOptions{
-        ReadTimeout:     15 * time.Second,
-        WriteTimeout:    15 * time.Second,
-        IdleTimeout:     60 * time.Second,
-        ShutdownTimeout: 5 * time.Second,
-    },
-})
-```
-
-If you pass already-created framework objects, that framework object's own configuration remains authoritative.
+If you need framework-specific server tuning, run the framework directly with the native `Router()` / `App()`. `httpx` no longer standardizes timeout knobs.
 
 ## Introspection API
 
@@ -404,22 +379,28 @@ You can build server options via `httpx/options`:
 opts := options.DefaultServerOptions()
 opts.BasePath = "/api"
 opts.HumaTitle = "Arc API"
-opts.DocsPath = "/reference"
-opts.DocsRenderer = httpx.DocsRendererSwaggerUI
+opts.HumaVersion = "1.0.0"
+opts.HumaDescription = "Service API"
 opts.EnablePanicRecover = true
 opts.EnableAccessLog = true
 
-s := httpx.NewServer(append(opts.Build(), httpx.WithAdapter(a))...)
-```
+a := std.New(nil, adapter.HumaOptions{
+    DocsPath:     "/reference",
+    DocsRenderer: httpx.DocsRendererSwaggerUI,
+})
 
-Use adapter build options alone for listener timeout and adapter logger configuration.
+s := httpx.New(append(opts.Build(), httpx.WithAdapter(a))...)
+```
 
 ## Test Mode
 
 ```go
+a := std.New(nil)
+s := httpx.New(httpx.WithAdapter(a))
+
 req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 rec := httptest.NewRecorder()
-s.ServeHTTP(rec, req)
+a.Router().ServeHTTP(rec, req)
 
 if rec.Code != http.StatusOK {
     t.Fatal(rec.Code)
@@ -434,7 +415,7 @@ Yes, for typed route handlers in this package.
 
 ### Can I still access the raw Huma API?
 
-Yes. Use `HumaAPI()`, `OpenAPI()`, and `HumaGroup()`.
+Yes. Use `HumaAPI()`, `OpenAPI()`, or `Group(...).HumaGroup()`.
 
 ### Should `httpx` also wrap adapter middleware?
 
@@ -442,15 +423,15 @@ No. Keep adapter-native middleware on the adapter itself, and use `httpx` for Hu
 
 ## Examples
 
-- Quickstart: `go run ./httpx/examples/quickstart`
+- Quickstart: `go run ./examples/httpx/quickstart`
   - Minimal typed routing + validation + base path
-- Auth: `go run ./httpx/examples/auth`
+- Auth: `go run ./examples/httpx/auth`
   - Security schemes, global headers, and typed auth header binding
-  - See [`httpx/examples/auth/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/httpx/examples/auth)
-- Organization: `go run ./httpx/examples/organization`
+  - See [`examples/httpx/auth/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/examples/httpx/auth)
+- Organization: `go run ./examples/httpx/organization`
   - Documentation paths, security, global headers, and group defaults
-  - See [`httpx/examples/organization/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/httpx/examples/organization)
-- SSE: `go run ./httpx/examples/sse`
+  - See [`examples/httpx/organization/README.md`](https://github.com/DaiYuANg/arcgo/tree/main/examples/httpx/organization)
+- SSE: `go run ./examples/httpx/sse`
   - Typed event streaming over `text/event-stream`
-- Conditional Requests: `go run ./httpx/examples/conditional`
+- Conditional Requests: `go run ./examples/httpx/conditional`
   - ETag and Last-Modified based precondition checks

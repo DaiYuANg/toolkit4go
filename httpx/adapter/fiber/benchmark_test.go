@@ -2,21 +2,32 @@ package fiber
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/danielgtaylor/huma/v2"
 )
+
+type benchmarkOutput struct {
+	Body struct {
+		Message string `json:"message"`
+	}
+}
 
 func benchmarkAdapterWithRoute(b *testing.B) *Adapter {
 	b.Helper()
 
 	a := New(nil)
-	a.Handle(http.MethodGet, "/ping", func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		_ = ctx
-		_ = r
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("pong"))
-		return nil
+	huma.Register(a.HumaAPI(), huma.Operation{
+		OperationID: "ping",
+		Method:      http.MethodGet,
+		Path:        "/ping",
+	}, func(ctx context.Context, input *struct{}) (*benchmarkOutput, error) {
+		out := &benchmarkOutput{}
+		out.Body.Message = "pong"
+		return out, nil
 	})
 	return a
 }
@@ -33,6 +44,7 @@ func BenchmarkAdapterTestRequest(b *testing.B) {
 		if err != nil {
 			b.Fatalf("fiber test request failed: %v", err)
 		}
+		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			b.Fatalf("unexpected status code: %d", resp.StatusCode)

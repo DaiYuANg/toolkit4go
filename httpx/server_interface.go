@@ -3,22 +3,19 @@ package httpx
 import (
 	"context"
 	"log/slog"
-	"net/http"
 
-	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-playground/validator/v10"
 )
 
 // ServerRuntime defines the public runtime contract exposed by httpx.
 type ServerRuntime interface {
-	http.Handler
-	Handler() http.Handler
-	ServeHTTP(http.ResponseWriter, *http.Request)
+	Listen(addr string) error
+	ListenPort(port int) error
 	ListenAndServe(addr string) error
 	ListenAndServeContext(ctx context.Context, addr string) error
+	Shutdown() error
 
-	Adapter() adapter.Adapter
 	Logger() *slog.Logger
 	PanicRecoverEnabled() bool
 	AccessLogEnabled() bool
@@ -26,8 +23,6 @@ type ServerRuntime interface {
 	HumaAPI() huma.API
 	OpenAPI() *huma.OpenAPI
 
-	Docs() DocsOptions
-	ConfigureDocs(fn func(*DocsOptions))
 	ConfigureOpenAPI(fn func(*huma.OpenAPI))
 	PatchOpenAPI(fn func(*huma.OpenAPI))
 	UseOpenAPIPatch(fn func(*huma.OpenAPI))

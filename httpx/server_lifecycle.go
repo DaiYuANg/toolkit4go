@@ -5,122 +5,114 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"time"
 
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
-	"github.com/samber/mo"
 )
 
-// Handler returns the server as an `http.Handler`.
-func (s *Server) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.accessLog {
-			s.adapter.ServeHTTP(w, r)
-			return
-		}
-
-		start := time.Now()
-		recorder := newAccessLogResponseWriter(w)
-		s.adapter.ServeHTTP(recorder, r)
-		s.logRequest(r, recorder.Status(), time.Since(start))
-	})
+// ListenPort starts related services on the provided port.
+func (s *Server) ListenPort(port int) error {
+	if port < 0 || port > 65535 {
+		return fmt.Errorf("httpx: invalid port %d", port)
+	}
+	return s.Listen(fmt.Sprintf(":%d", port))
 }
 
-// ServeHTTP delegates request handling to the underlying adapter.
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.Handler().ServeHTTP(w, r)
+// Shutdown stops related services through the underlying adapter.
+func (s *Server) Shutdown() error {
+	if s == nil || s.adapter == nil {
+		return fmt.Errorf("%w: adapter does not support shutdown", ErrAdapterNotFound)
+	}
+
+	var shutdownErr error
+	if useHostCapability(s, func(shutdownable adapter.ShutdownAdapter) {
+		shutdownErr = shutdownable.Shutdown()
+	}) {
+		return shutdownErr
+	}
+
+	return fmt.Errorf("%w: adapter %q does not support shutdown", ErrAdapterNotFound, s.adapter.Name())
 }
 
-// ListenAndServe starts related services.
-func (s *Server) ListenAndServe(addr string) error {
+// Listen starts related services.
+func (s *Server) Listen(addr string) error {
 	s.freezeConfiguration()
 
-	routeCount := s.RouteCount()
+	name := "unknown"
+	if s != nil && s.adapter != nil {
+		name = s.adapter.Name()
+	}
+
 	s.logger.Info("Starting server",
 		slog.String("address", addr),
-		slog.String("adapter", s.adapter.Name()),
-		slog.Int("routes", routeCount),
+		slog.String("adapter", name),
+		slog.Int("routes", s.RouteCount()),
 	)
 
 	var listenErr error
-	if UseAdapter(s, func(listenable adapter.ListenableAdapter) {
+	if useHostCapability(s, func(listenable adapter.ListenableAdapter) {
 		listenErr = listenable.Listen(addr)
 	}) {
 		if listenErr != nil {
-			return fmt.Errorf("httpx: adapter %q listen on %q: %w", s.adapter.Name(), addr, listenErr)
+			return fmt.Errorf("httpx: adapter %q listen on %q: %w", name, addr, listenErr)
 		}
 		return nil
 	}
 
-	if err := http.ListenAndServe(addr, s.Handler()); err != nil {
-		return fmt.Errorf("httpx: listen on %q: %w", addr, err)
-	}
-	return nil
+	return fmt.Errorf("%w: adapter %q does not support direct listening", ErrAdapterNotFound, name)
+}
+
+// ListenAndServe starts related services.
+func (s *Server) ListenAndServe(addr string) error {
+	return s.Listen(addr)
 }
 
 // ListenAndServeContext starts related services.
 func (s *Server) ListenAndServeContext(ctx context.Context, addr string) error {
 	s.freezeConfiguration()
 
+	name := "unknown"
+	if s != nil && s.adapter != nil {
+		name = s.adapter.Name()
+	}
+
 	var listenErr error
-	if UseAdapter(s, func(listenable adapter.ContextListenableAdapter) {
+	if useHostCapability(s, func(listenable adapter.ContextListenableAdapter) {
 		listenErr = listenable.ListenContext(ctx, addr)
 	}) {
 		return listenErr
 	}
 
-	server := &http.Server{
-		Addr:    addr,
-		Handler: s.Handler(),
+	var listenable adapter.ListenableAdapter
+	var shutdownable adapter.ShutdownAdapter
+	if !useHostCapability(s, func(host adapter.ListenableAdapter) {
+		listenable = host
+	}) || !useHostCapability(s, func(host adapter.ShutdownAdapter) {
+		shutdownable = host
+	}) {
+		return fmt.Errorf("%w: adapter %q does not support context listening", ErrAdapterNotFound, name)
 	}
 
-	s.logger.Info("Starting server with context", slog.String("address", addr))
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	s.logger.Info("Starting server with context",
+		slog.String("address", addr),
+		slog.String("adapter", name),
+	)
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.ListenAndServe()
+		errCh <- listenable.Listen(addr)
 	}()
 
 	select {
 	case err := <-errCh:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return fmt.Errorf("httpx: listen on %q: %w", addr, err)
+		return err
 	case <-ctx.Done():
-		s.logger.Info("Shutting down server")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
+		if err := shutdownable.Shutdown(); err != nil && !errors.Is(err, ErrAdapterNotFound) {
 			return fmt.Errorf("httpx: shutdown server on %q: %w", addr, err)
 		}
-		err := <-errCh
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return fmt.Errorf("httpx: listen on %q: %w", addr, err)
+		return <-errCh
 	}
-}
-
-func (s *Server) logRequest(r *http.Request, status int, duration time.Duration) {
-	if s == nil || s.logger == nil || r == nil {
-		return
-	}
-
-	attrs := []any{
-		slog.String("method", r.Method),
-		slog.String("path", r.URL.Path),
-		slog.Int("status", status),
-		slog.Duration("duration", duration),
-	}
-
-	mo.TupleToOption(s.matchRoute(r.Method, r.URL.Path)).ForEach(func(route RouteInfo) {
-		attrs = append(attrs,
-			slog.String("route", route.Path),
-			slog.String("handler", route.HandlerName),
-		)
-	})
-
-	s.logger.Info("httpx request", attrs...)
 }

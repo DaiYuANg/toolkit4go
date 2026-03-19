@@ -7,7 +7,7 @@ import (
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
 )
 
-func NewRuntime(a adapter.Adapter, logger *slog.Logger) httpx.ServerRuntime {
+func NewRuntime(a adapter.Host, logger *slog.Logger) httpx.ServerRuntime {
 	return httpx.New(
 		httpx.WithAdapter(a),
 		httpx.WithLogger(logger),

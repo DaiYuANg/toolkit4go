@@ -1,26 +1,6 @@
 package httpx
 
-import (
-	"github.com/DaiYuANg/arcgo/httpx/adapter"
-	"github.com/danielgtaylor/huma/v2"
-)
-
-// ConfigureDocs mutates the tracked docs config.
-func (s *Server) ConfigureDocs(fn func(*DocsOptions)) {
-	if s == nil || fn == nil {
-		return
-	}
-	if !s.allowConfigMutation("ConfigureDocs") {
-		return
-	}
-
-	docs := s.Docs()
-	fn(&docs)
-	applyDocsOptionsToHumaOptions(&s.humaOptions, docs)
-	UseAdapter(s, func(configurable adapter.HumaOptionsConfigurer) {
-		configurable.ConfigureHumaOptions(s.humaOptions)
-	})
-}
+import "github.com/danielgtaylor/huma/v2"
 
 // ConfigureOpenAPI mutates the underlying Huma OpenAPI document.
 func (s *Server) ConfigureOpenAPI(fn func(*huma.OpenAPI)) {

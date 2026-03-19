@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/DaiYuANg/arcgo/httpx/options"
 	"github.com/DaiYuANg/arcgo/logx"
@@ -33,25 +34,16 @@ func main() {
 	serverOpts.BasePath = "/api"
 	serverOpts.PrintRoutes = true
 	serverOpts.EnableValidation = true
-	serverOpts.OpenAPIDocsEnabled = true
 	serverOpts.HumaTitle = "ArcGo API"
 	serverOpts.HumaVersion = "1.0.0"
 	serverOpts.HumaDescription = "API Documentation"
-	serverOpts.DocsPath = "/docs"
-	serverOpts.OpenAPIPath = "/openapi.json"
 	serverOpts.EnablePanicRecover = true
 	serverOpts.EnableAccessLog = true
 
-	// httpx server logs and adapter bridge logs are configured separately.
-	stdAdapter := std.NewWithOptions(std.Options{
-		Logger: slogLogger,
-		Server: std.ServerOptions{
-			ReadTimeout:     15 * time.Second,
-			WriteTimeout:    15 * time.Second,
-			IdleTimeout:     60 * time.Second,
-			ShutdownTimeout: 5 * time.Second,
-			MaxHeaderBytes:  1 << 20,
-		},
+	// OpenAPI info belongs to httpx; docs route exposure belongs to the host adapter.
+	stdAdapter := std.New(nil, adapter.HumaOptions{
+		DocsPath:    "/docs",
+		OpenAPIPath: "/openapi.json",
 	})
 	stdAdapter.Router().Use(middleware.Logger, middleware.Recoverer, middleware.RequestID)
 
@@ -84,7 +76,7 @@ func main() {
 		slog.Any("routes", server.GetRoutes()),
 	)
 
-	if err := server.ListenAndServe(addr); err != nil {
+	if err := server.ListenPort(port); err != nil {
 		slogLogger.Error("server exited with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

@@ -3,15 +3,9 @@ package httpx
 import (
 	"log/slog"
 
-	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-playground/validator/v10"
 )
-
-// Adapter returns the underlying runtime adapter.
-func (s *Server) Adapter() adapter.Adapter {
-	return s.adapter
-}
 
 // Logger returns the server logger.
 func (s *Server) Logger() *slog.Logger {
@@ -48,27 +42,4 @@ func (s *Server) OpenAPI() *huma.OpenAPI {
 		return nil
 	}
 	return api.OpenAPI()
-}
-
-// Docs returns the server's tracked docs configuration.
-func (s *Server) Docs() DocsOptions {
-	if s == nil {
-		return DefaultDocsOptions()
-	}
-
-	docs := DefaultDocsOptions()
-	docs.Enabled = !s.humaOptions.DisableDocsRoutes
-	if s.humaOptions.DocsPath != "" {
-		docs.DocsPath = s.humaOptions.DocsPath
-	}
-	if s.humaOptions.OpenAPIPath != "" {
-		docs.OpenAPIPath = s.humaOptions.OpenAPIPath
-	}
-	if s.humaOptions.SchemasPath != "" {
-		docs.SchemasPath = s.humaOptions.SchemasPath
-	}
-	if s.humaOptions.DocsRenderer != "" {
-		docs.Renderer = s.humaOptions.DocsRenderer
-	}
-	return docs
 }

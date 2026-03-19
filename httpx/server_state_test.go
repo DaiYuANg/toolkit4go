@@ -2,8 +2,6 @@ package httpx
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -63,25 +61,6 @@ func TestServer_FrozenConfig_DoesNotAcceptOperationModifier(t *testing.T) {
 	require.NotNil(t, path)
 	require.NotNil(t, path.Get)
 	assert.NotContains(t, path.Get.Tags, "blocked")
-}
-
-func TestServer_FrozenConfig_DoesNotReconfigureDocs(t *testing.T) {
-	server := newServer()
-	server.freezeConfiguration()
-
-	server.ConfigureDocs(func(d *DocsOptions) {
-		d.DocsPath = "/reference"
-		d.OpenAPIPath = "/spec"
-	})
-
-	docs := server.Docs()
-	assert.Equal(t, "/docs", docs.DocsPath)
-	assert.Equal(t, "/openapi", docs.OpenAPIPath)
-
-	req := httptest.NewRequest(http.MethodGet, "/reference", nil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestServer_UseOpenAPIPatch_RespectsFreeze(t *testing.T) {
