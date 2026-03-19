@@ -215,5 +215,8 @@ func (l *List[T]) Range(fn func(index int, item T) bool) {
 
 // Clone returns a shallow copy.
 func (l *List[T]) Clone() *List[T] {
-	return NewList(l.Values()...)
+	if l == nil || len(l.items) == 0 {
+		return &List[T]{}
+	}
+	return &List[T]{items: slices.Clone(l.items)}
 }
