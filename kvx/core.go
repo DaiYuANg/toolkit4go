@@ -141,10 +141,10 @@ type StreamEntry struct {
 
 // PendingInfo represents pending entries summary.
 type PendingInfo struct {
-	Count       int64
-	StartID     string
-	EndID       string
-	Consumers   map[string]int64 // consumer name -> pending count
+	Count     int64
+	StartID   string
+	EndID     string
+	Consumers map[string]int64 // consumer name -> pending count
 }
 
 // PendingEntry represents a single pending entry.
@@ -223,7 +223,7 @@ type Search interface {
 // Pipeline represents pipeline (batch) operations.
 type Pipeline interface {
 	// Enqueue adds a command to the pipeline.
-	Enqueue(command string, args ...[]byte)
+	Enqueue(command string, args ...[]byte) error
 	// Exec executes all queued commands.
 	Exec(ctx context.Context) ([][]byte, error)
 	// Close closes the pipeline.

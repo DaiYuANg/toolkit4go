@@ -38,7 +38,7 @@ func (s *Server) Listen(addr string) error {
 	s.freezeConfiguration()
 
 	name := "unknown"
-	if s != nil && s.adapter != nil {
+	if s.adapter != nil {
 		name = s.adapter.Name()
 	}
 

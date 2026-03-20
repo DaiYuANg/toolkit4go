@@ -18,7 +18,7 @@ func NewConcurrentDeque[T any](items ...T) *ConcurrentDeque[T] {
 
 // PushFront inserts items at front in argument order.
 func (d *ConcurrentDeque[T]) PushFront(items ...T) {
-	if d == nil || len(items) == 0 {
+	if len(items) == 0 {
 		return
 	}
 	d.mu.Lock()
@@ -29,7 +29,7 @@ func (d *ConcurrentDeque[T]) PushFront(items ...T) {
 
 // PushBack appends items at back.
 func (d *ConcurrentDeque[T]) PushBack(items ...T) {
-	if d == nil || len(items) == 0 {
+	if len(items) == 0 {
 		return
 	}
 	d.mu.Lock()
@@ -41,9 +41,6 @@ func (d *ConcurrentDeque[T]) PushBack(items ...T) {
 // PopFront removes and returns front item.
 func (d *ConcurrentDeque[T]) PopFront() (T, bool) {
 	var zero T
-	if d == nil {
-		return zero, false
-	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.deque == nil {
@@ -55,9 +52,6 @@ func (d *ConcurrentDeque[T]) PopFront() (T, bool) {
 // PopBack removes and returns back item.
 func (d *ConcurrentDeque[T]) PopBack() (T, bool) {
 	var zero T
-	if d == nil {
-		return zero, false
-	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.deque == nil {
@@ -69,9 +63,6 @@ func (d *ConcurrentDeque[T]) PopBack() (T, bool) {
 // Front returns front item without removing it.
 func (d *ConcurrentDeque[T]) Front() (T, bool) {
 	var zero T
-	if d == nil {
-		return zero, false
-	}
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	if d.deque == nil {
@@ -83,9 +74,6 @@ func (d *ConcurrentDeque[T]) Front() (T, bool) {
 // Back returns back item without removing it.
 func (d *ConcurrentDeque[T]) Back() (T, bool) {
 	var zero T
-	if d == nil {
-		return zero, false
-	}
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	if d.deque == nil {
@@ -97,9 +85,6 @@ func (d *ConcurrentDeque[T]) Back() (T, bool) {
 // Get returns item at logical index from front.
 func (d *ConcurrentDeque[T]) Get(index int) (T, bool) {
 	var zero T
-	if d == nil {
-		return zero, false
-	}
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	if d.deque == nil {
@@ -110,9 +95,6 @@ func (d *ConcurrentDeque[T]) Get(index int) (T, bool) {
 
 // Len returns item count.
 func (d *ConcurrentDeque[T]) Len() int {
-	if d == nil {
-		return 0
-	}
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	if d.deque == nil {
@@ -128,9 +110,6 @@ func (d *ConcurrentDeque[T]) IsEmpty() bool {
 
 // Clear removes all items.
 func (d *ConcurrentDeque[T]) Clear() {
-	if d == nil {
-		return
-	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.deque == nil {
@@ -141,9 +120,6 @@ func (d *ConcurrentDeque[T]) Clear() {
 
 // Values returns items from front to back.
 func (d *ConcurrentDeque[T]) Values() []T {
-	if d == nil {
-		return nil
-	}
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	if d.deque == nil {
@@ -154,7 +130,7 @@ func (d *ConcurrentDeque[T]) Values() []T {
 
 // Range iterates a stable snapshot from front to back until fn returns false.
 func (d *ConcurrentDeque[T]) Range(fn func(index int, item T) bool) {
-	if d == nil || fn == nil {
+	if fn == nil {
 		return
 	}
 	for index, item := range d.Values() {

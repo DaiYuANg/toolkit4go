@@ -39,7 +39,7 @@ func main() {
 	}
 
 	userMapper := dbx.MustMapper[shared.User](catalog.Users)
-	activeUsers, err := dbx.QueryAll(
+	activeUsers, err := dbx.QueryAll[shared.User](
 		ctx,
 		core,
 		dbx.Select(catalog.Users.AllColumns()...).
@@ -58,7 +58,7 @@ func main() {
 	}
 
 	summaryMapper := dbx.MustMapper[shared.UserSummary](catalog.Users)
-	summaries, err := dbx.QueryAll(
+	summaries, err := dbx.QueryAll[shared.UserSummary](
 		ctx,
 		core,
 		dbx.MustSelectMapped(catalog.Users, summaryMapper).OrderBy(catalog.Users.ID.Asc()),
@@ -85,7 +85,7 @@ func main() {
 		panic(err)
 	}
 
-	updated, err := dbx.QueryAll(
+	updated, err := dbx.QueryAll[shared.User](
 		ctx,
 		core,
 		dbx.Select(catalog.Users.AllColumns()...).

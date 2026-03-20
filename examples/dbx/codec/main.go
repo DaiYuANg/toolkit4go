@@ -127,7 +127,7 @@ func main() {
 		}
 	}
 
-	items, err := dbx.QueryAll(
+	items, err := dbx.QueryAll[Account](
 		ctx,
 		core,
 		dbx.Select(accounts.AllColumns()...).From(accounts).OrderBy(accounts.ID.Asc()),

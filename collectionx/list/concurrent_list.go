@@ -33,7 +33,7 @@ func NewConcurrentListWithCapacity[T any](capacity int, items ...T) *ConcurrentL
 
 // Add appends one or more items.
 func (l *ConcurrentList[T]) Add(items ...T) {
-	if l == nil || len(items) == 0 {
+	if len(items) == 0 {
 		return
 	}
 	l.mu.Lock()
@@ -44,9 +44,6 @@ func (l *ConcurrentList[T]) Add(items ...T) {
 
 // Merge appends all items from a normal list.
 func (l *ConcurrentList[T]) Merge(other *List[T]) *ConcurrentList[T] {
-	if l == nil {
-		return nil
-	}
 	if other == nil {
 		return l
 	}
@@ -56,9 +53,6 @@ func (l *ConcurrentList[T]) Merge(other *List[T]) *ConcurrentList[T] {
 
 // MergeConcurrent appends all items from another concurrent list snapshot.
 func (l *ConcurrentList[T]) MergeConcurrent(other *ConcurrentList[T]) *ConcurrentList[T] {
-	if l == nil {
-		return nil
-	}
 	if other == nil {
 		return l
 	}
@@ -68,9 +62,6 @@ func (l *ConcurrentList[T]) MergeConcurrent(other *ConcurrentList[T]) *Concurren
 
 // MergeSlice appends all items from a slice.
 func (l *ConcurrentList[T]) MergeSlice(items []T) *ConcurrentList[T] {
-	if l == nil {
-		return nil
-	}
 	l.Add(items...)
 	return l
 }
@@ -82,9 +73,6 @@ func (l *ConcurrentList[T]) AddAt(index int, item T) bool {
 
 // AddAllAt inserts items at index while preserving order.
 func (l *ConcurrentList[T]) AddAllAt(index int, items ...T) bool {
-	if l == nil {
-		return false
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.ensureInitLocked()
@@ -94,9 +82,6 @@ func (l *ConcurrentList[T]) AddAllAt(index int, items ...T) bool {
 // Get returns item at index.
 func (l *ConcurrentList[T]) Get(index int) (T, bool) {
 	var zero T
-	if l == nil {
-		return zero, false
-	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if l.core == nil {
@@ -116,9 +101,6 @@ func (l *ConcurrentList[T]) GetOption(index int) mo.Option[T] {
 
 // Set replaces item at index.
 func (l *ConcurrentList[T]) Set(index int, item T) bool {
-	if l == nil {
-		return false
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.core == nil {
@@ -130,7 +112,7 @@ func (l *ConcurrentList[T]) Set(index int, item T) bool {
 // SetAll applies mapper to each item and replaces all items in-place.
 // Returns updated item count.
 func (l *ConcurrentList[T]) SetAll(mapper func(item T) T) int {
-	if l == nil || mapper == nil {
+	if mapper == nil {
 		return 0
 	}
 	l.mu.Lock()
@@ -144,7 +126,7 @@ func (l *ConcurrentList[T]) SetAll(mapper func(item T) T) int {
 // SetAllIndexed applies mapper(index, item) to each item and replaces all items in-place.
 // Returns updated item count.
 func (l *ConcurrentList[T]) SetAllIndexed(mapper func(index int, item T) T) int {
-	if l == nil || mapper == nil {
+	if mapper == nil {
 		return 0
 	}
 	l.mu.Lock()
@@ -158,9 +140,6 @@ func (l *ConcurrentList[T]) SetAllIndexed(mapper func(index int, item T) T) int 
 // RemoveAt removes and returns item at index.
 func (l *ConcurrentList[T]) RemoveAt(index int) (T, bool) {
 	var zero T
-	if l == nil {
-		return zero, false
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.core == nil {
@@ -180,7 +159,7 @@ func (l *ConcurrentList[T]) RemoveAtOption(index int) mo.Option[T] {
 
 // RemoveIf removes all items matched by predicate and returns removed count.
 func (l *ConcurrentList[T]) RemoveIf(predicate func(item T) bool) int {
-	if l == nil || predicate == nil {
+	if predicate == nil {
 		return 0
 	}
 	l.mu.Lock()
@@ -193,9 +172,6 @@ func (l *ConcurrentList[T]) RemoveIf(predicate func(item T) bool) int {
 
 // Len returns item count.
 func (l *ConcurrentList[T]) Len() int {
-	if l == nil {
-		return 0
-	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if l.core == nil {
@@ -211,9 +187,6 @@ func (l *ConcurrentList[T]) IsEmpty() bool {
 
 // Clear removes all items.
 func (l *ConcurrentList[T]) Clear() {
-	if l == nil {
-		return
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.core == nil {
@@ -224,9 +197,6 @@ func (l *ConcurrentList[T]) Clear() {
 
 // Values returns a snapshot of items.
 func (l *ConcurrentList[T]) Values() []T {
-	if l == nil {
-		return nil
-	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if l.core == nil {
@@ -237,7 +207,7 @@ func (l *ConcurrentList[T]) Values() []T {
 
 // Range iterates a stable snapshot from left to right until fn returns false.
 func (l *ConcurrentList[T]) Range(fn func(index int, item T) bool) {
-	if l == nil || fn == nil {
+	if fn == nil {
 		return
 	}
 	for index, item := range l.Values() {
@@ -249,9 +219,6 @@ func (l *ConcurrentList[T]) Range(fn func(index int, item T) bool) {
 
 // Snapshot returns an immutable-style copy in a normal List.
 func (l *ConcurrentList[T]) Snapshot() *List[T] {
-	if l == nil {
-		return NewList[T]()
-	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if l.core == nil {

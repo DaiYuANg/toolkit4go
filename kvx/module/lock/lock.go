@@ -178,22 +178,22 @@ func generateIdentifier() string {
 	return hex.EncodeToString(b)
 }
 
-// LockManager manages multiple locks.
-type LockManager struct {
+// Manager manages multiple locks.
+type Manager struct {
 	client kvx.Lock
 	locks  *collectionmapping.ConcurrentMap[string, *Lock]
 }
 
-// NewLockManager creates a new LockManager.
-func NewLockManager(client kvx.Lock) *LockManager {
-	return &LockManager{
+// NewManager creates a new Manager.
+func NewManager(client kvx.Lock) *Manager {
+	return &Manager{
 		client: client,
 		locks:  collectionmapping.NewConcurrentMap[string, *Lock](),
 	}
 }
 
 // Acquire acquires a lock with the given key.
-func (m *LockManager) Acquire(ctx context.Context, key string, opts *Options) (*Lock, error) {
+func (m *Manager) Acquire(ctx context.Context, key string, opts *Options) (*Lock, error) {
 	lock := New(m.client, key, opts)
 	if err := lock.Acquire(ctx); err != nil {
 		return nil, err
@@ -203,7 +203,7 @@ func (m *LockManager) Acquire(ctx context.Context, key string, opts *Options) (*
 }
 
 // TryAcquire tries to acquire a lock with timeout.
-func (m *LockManager) TryAcquire(ctx context.Context, key string, timeout time.Duration, opts *Options) (*Lock, error) {
+func (m *Manager) TryAcquire(ctx context.Context, key string, timeout time.Duration, opts *Options) (*Lock, error) {
 	lock := New(m.client, key, opts)
 	if err := lock.TryAcquire(ctx, timeout); err != nil {
 		return nil, err
@@ -213,7 +213,7 @@ func (m *LockManager) TryAcquire(ctx context.Context, key string, timeout time.D
 }
 
 // Release releases a lock by key.
-func (m *LockManager) Release(ctx context.Context, key string) error {
+func (m *Manager) Release(ctx context.Context, key string) error {
 	if lock, ok := m.locks.LoadAndDelete(key); ok {
 		return lock.Release(ctx)
 	}
@@ -221,7 +221,7 @@ func (m *LockManager) Release(ctx context.Context, key string) error {
 }
 
 // ReleaseAll releases all managed locks.
-func (m *LockManager) ReleaseAll(ctx context.Context) error {
+func (m *Manager) ReleaseAll(ctx context.Context) error {
 	errs := make([]error, 0)
 	for _, key := range m.locks.Keys() {
 		lock, ok := m.locks.LoadAndDelete(key)
@@ -236,7 +236,7 @@ func (m *LockManager) ReleaseAll(ctx context.Context) error {
 }
 
 // IsHeld checks if a lock is held.
-func (m *LockManager) IsHeld(ctx context.Context, key string) (bool, error) {
+func (m *Manager) IsHeld(ctx context.Context, key string) (bool, error) {
 	if lock, ok := m.locks.Get(key); ok {
 		return lock.IsHeld(ctx)
 	}

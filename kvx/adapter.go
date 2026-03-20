@@ -7,8 +7,11 @@ import (
 
 // Common errors that adapters should convert to.
 var (
-	ErrNil = errors.New("kvx: nil") // Key not found error
+	ErrNil         = errors.New("kvx: nil") // Key not found error
+	ErrTooManyArgs = errors.New("too many redis pipeline args")
 )
+
+const MaxPipelineArgs = 1024
 
 // IsNil checks if the error is a "not found" error.
 func IsNil(err error) bool {

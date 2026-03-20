@@ -12,11 +12,10 @@ import (
 )
 
 func NewLogger() *slog.Logger {
-	development, err := logx.NewDevelopment()
-	if err != nil {
-		return nil
-	}
-	return development
+	return logx.MustNew(
+		logx.WithConsole(true),
+		logx.WithLevel(slog.LevelDebug),
+	)
 }
 
 func OpenSQLite(name string, opts ...dbx.Option) (*dbx.DB, func() error, error) {

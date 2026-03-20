@@ -89,8 +89,14 @@ func (r *JSONRepository[T]) SaveBatchWithExpiration(ctx context.Context, entitie
 			if err != nil {
 				return err
 			}
-			pipe.Enqueue("JSON.SET", []byte(key), []byte("$"), data)
-			enqueueExpire(pipe, key, expiration)
+			err = pipe.Enqueue("JSON.SET", []byte(key), []byte("$"), data)
+			if err != nil {
+				return err
+			}
+			err = enqueueExpire(pipe, key, expiration)
+			if err != nil {
+				return err
+			}
 			if len(metadata.IndexFields) > 0 {
 				if err := r.base.indexer.IndexEntity(ctx, entity, metadata, key); err != nil {
 					return err

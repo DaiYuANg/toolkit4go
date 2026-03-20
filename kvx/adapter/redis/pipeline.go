@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
+
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/redis/go-redis/v9"
 )
@@ -21,14 +22,20 @@ type redisPipeline struct {
 }
 
 // Enqueue adds a command to the pipeline.
-func (p *redisPipeline) Enqueue(command string, args ...[]byte) {
-	// Convert args to interface{}
+// Enqueue adds a command to the pipeline.
+func (p *redisPipeline) Enqueue(command string, args ...[]byte) error {
+	if len(args) > kvx.MaxPipelineArgs {
+		return kvx.ErrTooManyArgs
+	}
+
 	ifaceArgs := make([]interface{}, len(args)+1)
 	ifaceArgs[0] = command
 	for i, v := range args {
 		ifaceArgs[i+1] = v
 	}
+
 	p.pipe.Do(context.Background(), ifaceArgs...)
+	return nil
 }
 
 // Exec executes all queued commands.

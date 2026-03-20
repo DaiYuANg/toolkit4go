@@ -52,7 +52,7 @@ func main() {
 		panic(err)
 	}
 
-	aggregateRows, err := dbx.QueryAll(
+	aggregateRows, err := dbx.QueryAll[statusSummary](
 		ctx,
 		core,
 		dbx.Select(
@@ -77,7 +77,7 @@ func main() {
 		From(catalog.Roles).
 		Where(catalog.Roles.Name.Eq("admin"))
 
-	adminUsers, err := dbx.QueryAll(
+	adminUsers, err := dbx.QueryAll[userNameRow](
 		ctx,
 		core,
 		dbx.Select(catalog.Users.Username).
@@ -103,7 +103,7 @@ func main() {
 
 	archiveMapper := dbx.MustMapper[userArchive](archive)
 
-	insertedFromSelect, err := dbx.QueryAll(
+	insertedFromSelect, err := dbx.QueryAll[userArchive](
 		ctx,
 		core,
 		dbx.InsertInto(archive).
@@ -125,7 +125,7 @@ func main() {
 		fmt.Printf("- id=%d username=%s status=%d\n", row.ID, row.Username, row.Status)
 	}
 
-	batchInserted, err := dbx.QueryAll(
+	batchInserted, err := dbx.QueryAll[userArchive](
 		ctx,
 		core,
 		dbx.InsertInto(archive).
@@ -148,7 +148,7 @@ func main() {
 		fmt.Printf("- id=%d username=%s status=%d\n", row.ID, row.Username, row.Status)
 	}
 
-	upserted, err := dbx.QueryAll(
+	upserted, err := dbx.QueryAll[userArchive](
 		ctx,
 		core,
 		dbx.InsertInto(archive).

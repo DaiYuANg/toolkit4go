@@ -106,8 +106,14 @@ func (r *HashRepository[T]) SaveBatchWithExpiration(ctx context.Context, entitie
 			if err != nil {
 				return err
 			}
-			pipe.Enqueue("HSET", append([][]byte{[]byte(key)}, encodeHashData(hashData)...)...)
-			enqueueExpire(pipe, key, expiration)
+			err = pipe.Enqueue("HSET", append([][]byte{[]byte(key)}, encodeHashData(hashData)...)...)
+			if err != nil {
+				return err
+			}
+			err = enqueueExpire(pipe, key, expiration)
+			if err != nil {
+				return err
+			}
 			if len(metadata.IndexFields) > 0 {
 				if err := r.base.indexer.IndexEntity(ctx, entity, metadata, key); err != nil {
 					return err

@@ -36,7 +36,7 @@ func main() {
 
 	registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 
-	activeUsers, err := dbx.SQLList(
+	activeUsers, err := dbx.SQLList[shared.UserSummary](
 		ctx,
 		core.SQL(),
 		registry.MustStatement("sql/user/find_active.sql"),
@@ -89,7 +89,7 @@ func main() {
 		panic(err)
 	}
 
-	updated, err := dbx.SQLGet(
+	updated, err := dbx.SQLGet[shared.User](
 		ctx,
 		core.SQL(),
 		registry.MustStatement("sql/user/find_by_username.sql"),

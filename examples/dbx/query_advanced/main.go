@@ -52,7 +52,7 @@ func main() {
 		From(activeUsers).
 		OrderBy(activeID.Asc())
 
-	activeRows, err := dbx.QueryAll(ctx, core, activeQuery, dbx.MustStructMapper[activeUserRow]())
+	activeRows, err := dbx.QueryAll[activeUserRow](ctx, core, activeQuery, dbx.MustStructMapper[activeUserRow]())
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +72,7 @@ func main() {
 		From(catalog.Users).
 		OrderBy(catalog.Users.ID.Asc())
 
-	labeledRows, err := dbx.QueryAll(ctx, core, labeledQuery, dbx.MustStructMapper[labeledUserRow]())
+	labeledRows, err := dbx.QueryAll[labeledUserRow](ctx, core, labeledQuery, dbx.MustStructMapper[labeledUserRow]())
 	if err != nil {
 		panic(err)
 	}
@@ -91,7 +91,7 @@ func main() {
 		).
 		OrderBy(label.Asc())
 
-	unionRows, err := dbx.QueryAll(ctx, core, unionQuery, dbx.MustStructMapper[unionLabelRow]())
+	unionRows, err := dbx.QueryAll[unionLabelRow](ctx, core, unionQuery, dbx.MustStructMapper[unionLabelRow]())
 	if err != nil {
 		panic(err)
 	}

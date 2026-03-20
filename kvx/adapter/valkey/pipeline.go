@@ -2,6 +2,7 @@ package valkey
 
 import (
 	"context"
+
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/valkey-io/valkey-go"
 )
@@ -21,13 +22,19 @@ type valkeyPipeline struct {
 }
 
 // Enqueue adds a command to the pipeline.
-func (p *valkeyPipeline) Enqueue(command string, args ...[]byte) {
+func (p *valkeyPipeline) Enqueue(command string, args ...[]byte) error {
+	if len(args) > kvx.MaxPipelineArgs {
+		return kvx.ErrTooManyArgs
+	}
+
 	argStrs := make([]string, len(args))
 	for i, v := range args {
 		argStrs[i] = valkey.BinaryString(v)
 	}
+
 	cmd := p.client.B().Arbitrary(command).Args(argStrs...).Build()
 	p.cmds = append(p.cmds, cmd)
+	return nil
 }
 
 // Exec executes all queued commands.

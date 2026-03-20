@@ -105,7 +105,7 @@ func main() {
 	fmt.Println("relation loaders:")
 	userMapper := dbx.MustMapper[shared.User](catalog.Users)
 	roleMapper := dbx.MustMapper[shared.Role](catalog.Roles)
-	usersToLoad, err := dbx.QueryAll(
+	usersToLoad, err := dbx.QueryAll[shared.User](
 		ctx,
 		core,
 		dbx.Select(catalog.Users.AllColumns()...).From(catalog.Users).OrderBy(catalog.Users.ID.Asc()),

@@ -18,7 +18,7 @@ func NewDeque[T any](items ...T) *Deque[T] {
 // PushFront inserts items at front in argument order.
 // Example: PushFront(1,2) -> front sequence becomes [1,2,...].
 func (d *Deque[T]) PushFront(items ...T) {
-	if d == nil || len(items) == 0 {
+	if len(items) == 0 {
 		return
 	}
 	// Keep argument order near front.
@@ -29,7 +29,7 @@ func (d *Deque[T]) PushFront(items ...T) {
 
 // PushBack appends items at back.
 func (d *Deque[T]) PushBack(items ...T) {
-	if d == nil || len(items) == 0 {
+	if len(items) == 0 {
 		return
 	}
 	for _, item := range items {
@@ -40,7 +40,7 @@ func (d *Deque[T]) PushBack(items ...T) {
 // PopFront removes and returns front item.
 func (d *Deque[T]) PopFront() (T, bool) {
 	var zero T
-	if d == nil || d.size == 0 {
+	if d.size == 0 {
 		return zero, false
 	}
 	value := d.buf[d.head]
@@ -56,7 +56,7 @@ func (d *Deque[T]) PopFront() (T, bool) {
 // PopBack removes and returns back item.
 func (d *Deque[T]) PopBack() (T, bool) {
 	var zero T
-	if d == nil || d.size == 0 {
+	if d.size == 0 {
 		return zero, false
 	}
 	idx := d.physicalIndex(d.size - 1)
@@ -72,7 +72,7 @@ func (d *Deque[T]) PopBack() (T, bool) {
 // Front returns front item without removing it.
 func (d *Deque[T]) Front() (T, bool) {
 	var zero T
-	if d == nil || d.size == 0 {
+	if d.size == 0 {
 		return zero, false
 	}
 	return d.buf[d.head], true
@@ -81,7 +81,7 @@ func (d *Deque[T]) Front() (T, bool) {
 // Back returns back item without removing it.
 func (d *Deque[T]) Back() (T, bool) {
 	var zero T
-	if d == nil || d.size == 0 {
+	if d.size == 0 {
 		return zero, false
 	}
 	return d.buf[d.physicalIndex(d.size-1)], true
@@ -90,7 +90,7 @@ func (d *Deque[T]) Back() (T, bool) {
 // Get returns item at logical index from front.
 func (d *Deque[T]) Get(index int) (T, bool) {
 	var zero T
-	if d == nil || index < 0 || index >= d.size {
+	if index < 0 || index >= d.size {
 		return zero, false
 	}
 	return d.buf[d.physicalIndex(index)], true
@@ -98,9 +98,6 @@ func (d *Deque[T]) Get(index int) (T, bool) {
 
 // Len returns item count.
 func (d *Deque[T]) Len() int {
-	if d == nil {
-		return 0
-	}
 	return d.size
 }
 
@@ -111,9 +108,6 @@ func (d *Deque[T]) IsEmpty() bool {
 
 // Clear removes all items.
 func (d *Deque[T]) Clear() {
-	if d == nil {
-		return
-	}
 	var zero T
 	for i := 0; i < d.size; i++ {
 		d.buf[d.physicalIndex(i)] = zero
@@ -124,7 +118,7 @@ func (d *Deque[T]) Clear() {
 
 // Values returns items from front to back.
 func (d *Deque[T]) Values() []T {
-	if d == nil || d.size == 0 {
+	if d.size == 0 {
 		return nil
 	}
 	out := make([]T, d.size)
@@ -136,7 +130,7 @@ func (d *Deque[T]) Values() []T {
 
 // Range iterates items from front to back until fn returns false.
 func (d *Deque[T]) Range(fn func(index int, item T) bool) {
-	if d == nil || fn == nil {
+	if fn == nil {
 		return
 	}
 	for i := 0; i < d.size; i++ {
