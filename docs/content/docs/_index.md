@@ -27,9 +27,9 @@ go get github.com/DaiYuANg/arcgo/{package}
 | [eventx](./eventx) | Event Bus | In-process strongly typed event bus |
 | [httpx](./httpx) | HTTP Routing | Multi-framework unified strongly typed HTTP routing |
 | [kvx](./kvx) | Redis / Valkey Access | Strongly typed Redis / Valkey object access and repository layer |
-| [sqltmplx](./sqltmplx) | SQL Templates | SQL-first conditional template renderer with optional parser-backed validation |
 | [logx](./logx) | Logging | Structured logging with slog interoperability |
 | [observabilityx](./observabilityx) | Observability | Optional observability abstraction (OTel/Prometheus) |
+| [dbx](./dbx) | ORM & Migrations | Schema-first / generic-first ORM core on `database/sql`（包含 `dbx/sqltmplx`） |
 
 ## Roadmap
 
@@ -54,7 +54,7 @@ go get github.com/DaiYuANg/arcgo/{package}
 - Need in-process typed pub/sub: Start with `eventx`
 - Need unified typed HTTP handlers across frameworks: Start with `httpx`
 - Need strongly typed Redis / Valkey repositories and access helpers: Start with `kvx`
-- Need SQL-first dynamic query templating with optional parser-backed validation: Start with `sqltmplx`
+- Need SQL-first dynamic query templating with optional parser-backed validation: Start with `dbx`（includes `dbx/sqltmplx`）
 - Need structured logging with rotation: Start with `logx`
 - Need optional telemetry abstraction (OTel/Prometheus): Start with `observabilityx`
 

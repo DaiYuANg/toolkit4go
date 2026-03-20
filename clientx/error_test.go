@@ -81,7 +81,7 @@ func TestWrapErrorStillImplementsNetError(t *testing.T) {
 func TestWrapErrorIdempotent(t *testing.T) {
 	once := WrapError(ProtocolHTTP, "get", "http://127.0.0.1:1", context.DeadlineExceeded)
 	twice := WrapError(ProtocolHTTP, "get", "http://127.0.0.1:1", once)
-	if once != twice {
+	if !errors.Is(twice, once) {
 		t.Fatal("expected wrapped error to stay unchanged on second wrap")
 	}
 }

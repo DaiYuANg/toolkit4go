@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/samber/mo"
 	scanlib "github.com/stephenafamo/scan"
@@ -180,7 +181,7 @@ func sqlScalar[T any](ctx context.Context, executor *SQLExecutor, statement SQLS
 
 	value, err := scanlib.OneFromRows[T](ctx, scanlib.SingleColumnMapper[T], rows)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			var zero T
 			return zero, false, nil
 		}

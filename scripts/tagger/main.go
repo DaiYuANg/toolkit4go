@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -142,7 +143,7 @@ func runTagger(a *goyek.A, mode bumpMode, push bool) {
 			config.RefSpec("refs/tags/" + newTag + ":refs/tags/" + newTag),
 		},
 	})
-	if err != nil && err != git.NoErrAlreadyUpToDate {
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		a.Fatal(err)
 	}
 

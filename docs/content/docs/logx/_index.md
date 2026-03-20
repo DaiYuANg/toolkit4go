@@ -109,7 +109,6 @@ logx.WithFieldT(logger, "tenant", "acme").
 ## Operational Notes
 
 - Always call `Close()` when file output is enabled.
-- `Sync()` is a no-op for `zerolog` (already synchronous write path).
 - Only use `WithGlobalLogger()` when you intend to share a single logger instance across the process.
 
 ## Testing Tips
@@ -127,10 +126,9 @@ Both are supported:
 - Use `logx` methods for direct `zerolog` style.
 - Use `NewSlog` if your application standardizes on the `slog` API surface.
 
-### Do I need `Sync()` before process exit?
+### Do I need `Close()` before process exit?
 
-`Sync()` is currently a no-op for this implementation.
-`Close()` is the critical lifecycle call when file output is enabled.
+`Close()` is the critical lifecycle call when file output is enabled. If you're only logging to console, `Close()` is not required (but calling it is still safe).
 
 ### Can I set a global logger?
 

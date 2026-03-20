@@ -109,7 +109,6 @@ logx.WithFieldT(logger, "tenant", "acme").
 ## 操作说明
 
 - 启用文件输出时始终调用 `Close()`。
-- `Sync()` 对于 `zerolog` 是无操作的（已经是同步写入路径）。
 - 仅在希望进程共享一个日志记录器实例时使用 `WithGlobalLogger()`。
 
 ## 测试技巧
@@ -127,10 +126,9 @@ logx.WithFieldT(logger, "tenant", "acme").
 - 使用 `logx` 方法获得直接 `zerolog` 风格。
 - 如果你的应用标准化在 `slog` API 表面，使用 `NewSlog`。
 
-### 进程退出前需要 `Sync()` 吗？
+### 进程退出前需要 `Close()` 吗？
 
-`Sync()` 对于此实现目前是无操作的。
-当启用文件输出时，`Close()` 是重要的生命周期调用。
+启用文件输出时，`Close()` 是关键生命周期调用。如果你只输出到控制台，`Close()` 不是必需的（但调用它仍然是安全的）。
 
 ### 我可以设置全局日志记录器吗？
 

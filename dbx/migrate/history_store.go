@@ -92,7 +92,7 @@ func (s *historyStore) GetMigration(ctx context.Context, db goosedatabase.DBTxCo
 		success   bool
 	)
 	if err := db.QueryRowContext(ctx, query, record.Version, string(record.Kind), record.Description).Scan(&appliedAt, &success); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, goosedatabase.ErrVersionNotFound
 		}
 		return nil, err

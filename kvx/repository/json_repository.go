@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/kvx"
@@ -116,7 +117,7 @@ func (r *JSONRepository[T]) FindByIDs(ctx context.Context, ids []string) (map[st
 	for _, id := range ids {
 		entity, err := r.FindByID(ctx, id)
 		if err != nil {
-			if err == ErrNotFound {
+			if errors.Is(err, ErrNotFound) {
 				continue
 			}
 			return nil, err
@@ -147,7 +148,7 @@ func (r *JSONRepository[T]) Delete(ctx context.Context, id string) error {
 	key := r.base.keyFromID(id)
 	entity, err := r.findByKey(ctx, key)
 	if err != nil {
-		if err == ErrNotFound {
+		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
 		return err
@@ -233,7 +234,7 @@ func (r *JSONRepository[T]) FindAll(ctx context.Context) ([]*T, error) {
 	for _, key := range keys {
 		entity, err := r.findByKey(ctx, key)
 		if err != nil {
-			if err == ErrNotFound {
+			if errors.Is(err, ErrNotFound) {
 				continue
 			}
 			return nil, err
@@ -278,7 +279,7 @@ func (r *JSONRepository[T]) findManyByIDs(ctx context.Context, ids []string) ([]
 	for _, id := range ids {
 		entity, err := r.FindByID(ctx, id)
 		if err != nil {
-			if err == ErrNotFound {
+			if errors.Is(err, ErrNotFound) {
 				continue
 			}
 			return nil, err

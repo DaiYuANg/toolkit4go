@@ -87,7 +87,7 @@ func (j *JSON) Delete(ctx context.Context, key string, paths ...string) error {
 func (j *JSON) Exists(ctx context.Context, key string) (bool, error) {
 	data, err := j.client.JSONGet(ctx, key, "$")
 	if err != nil {
-		if err == kvx.ErrNil {
+		if errors.Is(err, kvx.ErrNil) {
 			return false, nil
 		}
 		return false, err

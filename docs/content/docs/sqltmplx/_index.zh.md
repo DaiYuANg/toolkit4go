@@ -8,6 +8,7 @@ weight: 12
 ## sqltmplx
 
 `sqltmplx` 是一个面向 Go 的 SQL 优先条件模板渲染器。
+它作为 `dbx/sqltmplx` 子包提供（隶属于 `dbx`），因此通常建议从 `dbx` 开始阅读与使用。
 它把控制逻辑放在 SQL 注释里，保留可执行的 sample literal，并在运行时渲染真正的 bind 变量和参数列表。
 
 ## 包结构

@@ -14,8 +14,12 @@ English | [Chinese](./README_ZH.md)
 | `authx` | Opinionated security layer on Authboss + Casbin |
 | `collectionx` | Generic collections and concurrent-safe structures |
 | `configx` | Layered config loading and validation |
+| `dbx` | Schema-first, generic-first ORM core on top of `database/sql` |
+| `dix` | Strongly typed modular app framework built on top of `do` |
 | `eventx` | In-memory typed event bus |
+| `clientx` | Protocol-oriented client packages with shared conventions (HTTP/TCP/UDP) |
 | `httpx` | Typed HTTP routing across adapters |
+| `kvx` | Redis/Valkey unified typed access framework |
 | `logx` | Structured logging with zerolog + slog bridge |
 | `observabilityx` | Optional observability facade with OTel/Prometheus adapters |
 
@@ -24,16 +28,23 @@ English | [Chinese](./README_ZH.md)
 - You need container/data helpers: start with `collectionx`.
 - You need opinionated auth/authz abstraction on Authboss + Casbin: start with `authx`.
 - You need config from `.env` + file + env vars: start with `configx`.
+- You need an ORM with schema modeling, query DSL, and migrations: start with `dbx` (it also provides pure SQL templates via `dbx/sqltmplx`).
+- You need a strongly typed modular application framework: start with `dix`.
 - You need process-local pub/sub with typed payloads: start with `eventx`.
+- You need protocol-oriented clients with shared retry/TLS/hooks conventions: start with `clientx`.
 - You need unified typed HTTP handlers across frameworks: start with `httpx`.
+- You need Redis/Valkey typed object mapping + repository-style access: start with `kvx`.
 - You need structured logs and rotation: start with `logx`.
 - You need optional telemetry abstraction (OTel/Prometheus): start with `observabilityx`.
 
 ## Typical Stack Combinations
 
 - API service baseline: `httpx + configx + logx`
+- Modular app baseline: `dix + configx + logx`
 - Domain-events in a monolith: `eventx + logx`
 - Data-heavy utility/internal libs: `collectionx + configx`
+- Data layer (ORM + pure SQL helpers): `dbx` (includes `dbx/sqltmplx`)
+- Redis/Valkey data access: `kvx + configx + logx`
 
 ## Build & QA
 
@@ -90,3 +101,4 @@ The `pre-commit` hook runs:
 
 - Code comments are English-only.
 - All documentation is available at the Hugo documentation site.
+- Release policy: Before the Go "generic method" proposal is released/adopted, this library will not be formally published. After the proposal lands, expect potentially wide breaking updates. At this stage, we do not recommend using it in production.

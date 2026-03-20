@@ -339,7 +339,7 @@ func (s *Semaphore) Acquire(ctx context.Context, ttl time.Duration) error {
 	// Full implementation would use Lua script for atomicity
 	// Get current count
 	data, err := s.client.Get(ctx, s.key)
-	if err != nil && err != kvx.ErrNil {
+	if err != nil && !errors.Is(err, kvx.ErrNil) {
 		return err
 	}
 

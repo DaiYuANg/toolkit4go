@@ -253,5 +253,5 @@ func (c *Container) Register(def Definition) error {
 }
 
 func (c *Container) Resolve(target any) error {
-	return errors.New("Resolve(target) is not supported; use ResolveAs[T]() for type-safe resolution")
+	return errors.New("resolve(target) is not supported; use ResolveAs[T]() for type-safe resolution")
 }

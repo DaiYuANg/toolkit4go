@@ -8,6 +8,7 @@ weight: 12
 ## sqltmplx
 
 `sqltmplx` is a SQL-first conditional template renderer for Go.
+It is provided as the `dbx/sqltmplx` subpackage (part of `dbx`), so you typically start from `dbx`.
 It keeps control flow inside SQL comments, preserves sample literals for tooling, and renders bind variables plus arguments at runtime.
 
 ## Package Layout

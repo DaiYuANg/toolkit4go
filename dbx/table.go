@@ -255,8 +255,7 @@ func bindSchema[S any](name, alias string, schema S) (S, error) {
 			fieldValue.Set(reflect.ValueOf(candidate.bindConstraint(binding)))
 			indexes.MergeSlice(binding.indexes)
 			if binding.primaryKey != nil {
-				copyPrimaryKey := clonePrimaryKeyMeta(*binding.primaryKey)
-				primaryKey = &copyPrimaryKey
+				primaryKey = new(clonePrimaryKeyMeta(*binding.primaryKey))
 			}
 			if binding.check != nil {
 				checks.Add(*binding.check)

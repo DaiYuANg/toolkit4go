@@ -75,10 +75,10 @@ menu:
       nameEn: Dix
       pageRef: /docs/dix
       weight: 7
-    - identifier: sqltmplx
-      name: SQLtmplX
-      nameEn: SQLtmplX
-      pageRef: /docs/sqltmplx
+    - identifier: dbx
+      name: DBX
+      nameEn: DBX
+      pageRef: /docs/dbx
       weight: 8
     - identifier: eventx
       name: EventX

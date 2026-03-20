@@ -410,8 +410,7 @@ func atlasReportFromChanges(changes []atlasschema.Change, compiled *atlasCompile
 			diff.MissingForeignKeys = append([]ForeignKeyMeta(nil), compiledTable.spec.ForeignKeys...)
 			diff.MissingChecks = append([]CheckMeta(nil), compiledTable.spec.Checks...)
 			if compiledTable.spec.PrimaryKey != nil {
-				expected := clonePrimaryKeyMeta(*compiledTable.spec.PrimaryKey)
-				diff.PrimaryKeyDiff = &PrimaryKeyDiff{Expected: &expected, Issues: []string{"table does not exist"}}
+				diff.PrimaryKeyDiff = &PrimaryKeyDiff{Expected: new(clonePrimaryKeyMeta(*compiledTable.spec.PrimaryKey)), Issues: []string{"table does not exist"}}
 			}
 		case *atlasschema.ModifyTable:
 			compiledTable, ok := compiled.tables.Get(c.T.Name)
@@ -501,8 +500,7 @@ func atlasApplyTableChangeToDiff(diff *TableDiff, compiled *atlasCompiledTable, 
 		}
 		var expected *PrimaryKeyMeta
 		if compiled.spec.PrimaryKey != nil {
-			copyPrimary := clonePrimaryKeyMeta(*compiled.spec.PrimaryKey)
-			expected = &copyPrimary
+			expected = new(clonePrimaryKeyMeta(*compiled.spec.PrimaryKey))
 		}
 		diff.PrimaryKeyDiff = &PrimaryKeyDiff{Expected: expected, Actual: actual, Issues: []string{"primary key migration required"}}
 	}

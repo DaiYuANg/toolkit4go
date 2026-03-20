@@ -9,8 +9,7 @@ import (
 func InsertAll[E any, S dbx.SchemaSource[E]](ctx context.Context, session dbx.Session, schema S, items ...E) error {
 	mapper := dbx.MustMapper[E](schema)
 	for _, item := range items {
-		entity := item
-		assignments, err := mapper.InsertAssignments(schema, &entity)
+		assignments, err := mapper.InsertAssignments(schema, new(item))
 		if err != nil {
 			return err
 		}

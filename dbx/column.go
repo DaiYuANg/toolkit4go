@@ -172,8 +172,7 @@ func (c Column[E, T]) bindColumn(binding columnBinding) any {
 		meta.DefaultValue = binding.meta.DefaultValue
 	}
 	if meta.References == nil && binding.meta.References != nil {
-		copyRef := *binding.meta.References
-		meta.References = &copyRef
+		meta.References = new(*binding.meta.References)
 	}
 	c.meta = meta
 	return c

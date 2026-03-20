@@ -7,7 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/dix"
 	dixadvanced "github.com/DaiYuANg/arcgo/dix/advanced"
-	do "github.com/samber/do/v2"
+	"github.com/samber/do/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

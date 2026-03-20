@@ -27,9 +27,9 @@ go get github.com/DaiYuANg/arcgo/{package}
 | [eventx](./eventx) | 事件总线 | 进程内强类型事件总线 |
 | [httpx](./httpx) | HTTP 路由 | 多框架统一强类型 HTTP 路由 |
 | [kvx](./kvx) | Redis / Valkey 访问 | 强类型 Redis / Valkey 对象访问与 repository 层 |
-| [sqltmplx](./sqltmplx) | SQL 模板 | SQL 优先的条件模板渲染与可选 parser 校验 |
 | [logx](./logx) | 日志记录 | 结构化日志与 slog 互通 |
 | [observabilityx](./observabilityx) | 可观测性 | 可选可观测性抽象（OTel/Prometheus） |
+| [dbx](./dbx) | ORM 与迁移 | 基于 `database/sql` 的 schema-first / generic-first ORM 核心（包含 `dbx/sqltmplx`） |
 
 ## 路线图
 
@@ -54,7 +54,7 @@ go get github.com/DaiYuANg/arcgo/{package}
 - 需要进程内带类型负载的 pub/sub：从 `eventx` 开始
 - 需要跨框架的统一类型化 HTTP 处理器：从 `httpx` 开始
 - 需要强类型 Redis / Valkey 仓储与访问辅助：从 `kvx` 开始
-- 需要 SQL 优先的动态查询模板和可选 parser 校验：从 `sqltmplx` 开始
+- 需要 SQL 优先的动态查询模板和可选 parser 校验：从 `dbx` 开始（包含 `dbx/sqltmplx`）
 - 需要结构化日志和轮转：从 `logx` 开始
 - 需要可选的遥测抽象（OTel/Prometheus）：从 `observabilityx` 开始
 

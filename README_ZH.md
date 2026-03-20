@@ -13,8 +13,12 @@
 | `authx` | 基于 Authboss + Casbin 的 Opinionated 安全抽象层 |
 | `collectionx` | 泛型集合与并发安全结构 |
 | `configx` | 分层配置加载与校验 |
+| `dbx` | 基于 `database/sql` 的 schema-first / generic-first ORM 核心 |
+| `dix` | 基于 `do` 的强类型模块化应用框架 |
 | `eventx` | 进程内强类型事件总线 |
+| `clientx` | 面向协议的客户端包集合（HTTP/TCP/UDP） |
 | `httpx` | 多框架统一强类型 HTTP 路由 |
+| `kvx` | Redis / Valkey 的统一强类型访问框架 |
 | `logx` | 结构化日志与 `slog` 互通 |
 | `observabilityx` | 可选可观测性抽象（OTel/Prometheus） |
 
@@ -23,16 +27,24 @@
 - 需要容器/数据工具：从 `collectionx` 开始
 - 需要基于 Authboss + Casbin 的认证/授权抽象：从 `authx` 开始
 - 需要从 `.env` + 文件 + 环境变量加载配置：从 `configx` 开始
+- 需要 ORM（schema 建模、查询 DSL、迁移/计划）：从 `dbx` 开始
+- 需要纯 SQL 模板（可选解析器校验）：从 `dbx/sqltmplx` 开始（作为 `dbx` 下的子包能力）
+- 需要强类型模块化应用框架：从 `dix` 开始
 - 需要进程内带类型的事件总线：从 `eventx` 开始
+- 需要协议化客户端（HTTP/TCP/UDP 的重试/TLS/hooks 等约定）：从 `clientx` 开始
 - 需要跨框架的统一 HTTP 路由：从 `httpx` 开始
+- 需要 Redis/Valkey 的强类型对象映射与 repository-style 访问：从 `kvx` 开始
 - 需要结构化日志和日志轮转：从 `logx` 开始
 - 需要可选的遥测抽象（OTel/Prometheus）：从 `observabilityx` 开始
 
 ## 常见组合
 
 - API 服务：`httpx + configx + logx`
+- 模块化应用：`dix + configx + logx`
 - 单体内事件驱动：`eventx + logx`
 - 数据结构/工具层：`collectionx + configx`
+- 数据层（ORM + 纯 SQL helper）：`dbx`（包含 `dbx/sqltmplx`）
+- Redis/Valkey 集成：`kvx + configx + logx`
 
 ## 常用命令
 
@@ -89,3 +101,4 @@ go tool task git:hooks:run
 
 - 代码注释统一为英文。
 - 所有文档统一在 Hugo 文档站点维护。
+- 发布声明：在 Go 的 "generic method" 提案正式发布/落地之前，本库不会进行正式发布；一旦该提案实现，可能会发生大范围破坏性更新。目前阶段不建议在生产环境中使用。

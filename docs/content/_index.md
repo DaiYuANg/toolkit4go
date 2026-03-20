@@ -127,7 +127,7 @@ Choose the package you need:
 - Need modular app composition and typed lifecycle management: Start with [dix](/docs/dix)
 - Need event bus: Start with [eventx](/docs/eventx)
 - Need HTTP routing: Start with [httpx](/docs/httpx)
-- Need SQL-first dynamic query templating and optional parser-backed validation: Start with [sqltmplx](/docs/sqltmplx)
+- Need SQL-first dynamic query templating and optional parser-backed validation: Start with [dbx](/docs/dbx)（includes [dbx/sqltmplx](/docs/sqltmplx)）
 - Need logging: Start with [logx](/docs/logx)
 - Need observability: Start with [observabilityx](/docs/observabilityx)
 
