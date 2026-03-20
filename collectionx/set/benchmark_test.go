@@ -129,3 +129,90 @@ func BenchmarkConcurrentSetAddParallel(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkSetAddBulk(b *testing.B) {
+	items := make([]int, benchSetKeySpace)
+	for i := 0; i < benchSetKeySpace; i++ {
+		items[i] = i
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s := NewSet[int]()
+		s.Add(items...)
+	}
+}
+
+func BenchmarkSetMerge(b *testing.B) {
+	other := NewSetWithCapacity[int](benchSetKeySpace)
+	for i := 0; i < benchSetKeySpace; i++ {
+		other.Add(i)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s := NewSet[int]()
+		s.Merge(other)
+	}
+}
+
+func BenchmarkSetUnion(b *testing.B) {
+	left := NewSetWithCapacity[int](benchSetKeySpace)
+	right := NewSetWithCapacity[int](benchSetKeySpace)
+	for i := 0; i < benchSetKeySpace; i++ {
+		left.Add(i)
+		right.Add(i + benchSetKeySpace/2)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = left.Union(right)
+	}
+}
+
+func BenchmarkSetIntersect(b *testing.B) {
+	left := NewSetWithCapacity[int](benchSetKeySpace)
+	right := NewSetWithCapacity[int](benchSetKeySpace)
+	for i := 0; i < benchSetKeySpace; i++ {
+		left.Add(i)
+		right.Add(i + benchSetKeySpace/2)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = left.Intersect(right)
+	}
+}
+
+func BenchmarkOrderedSetAddRemove(b *testing.B) {
+	s := NewOrderedSet[int]()
+	mask := benchSetKeySpace - 1
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		item := i & mask
+		s.Add(item)
+		s.Remove(item)
+	}
+}
+
+func BenchmarkMultiSetRemove(b *testing.B) {
+	s := NewMultiSetWithCapacity[int](benchSetKeySpace)
+	for i := 0; i < benchSetKeySpace; i++ {
+		s.AddN(i, 4)
+	}
+	mask := benchSetKeySpace - 1
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		item := i & mask
+		s.Remove(item)
+		s.AddN(item, 4)
+	}
+}

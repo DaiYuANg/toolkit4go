@@ -87,3 +87,67 @@ func BenchmarkRangeMapGet(b *testing.B) {
 		_, _ = m.Get(point)
 	}
 }
+
+func BenchmarkRangeSetRemove(b *testing.B) {
+	s := NewRangeSet[int]()
+	for i := 0; i < benchRangeSetSize; i++ {
+		start := i * 2
+		s.Add(start, start+1)
+	}
+	sizeMask := benchRangeSetSize - 1
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		slot := i & sizeMask
+		start := slot * 2
+		s.Remove(start, start+1)
+		s.Add(start, start+1)
+	}
+}
+
+func BenchmarkRangeSetRanges(b *testing.B) {
+	s := NewRangeSet[int]()
+	for i := 0; i < benchRangeSetSize; i++ {
+		start := i * 2
+		s.Add(start, start+1)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = s.Ranges()
+	}
+}
+
+func BenchmarkRangeMapEntries(b *testing.B) {
+	m := NewRangeMap[int, int]()
+	for i := 0; i < benchRangeSetSize; i++ {
+		start := i * 4
+		m.Put(start, start+3, i)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = m.Entries()
+	}
+}
+
+func BenchmarkRangeMapDeleteRange(b *testing.B) {
+	m := NewRangeMap[int, int]()
+	for i := 0; i < benchRangeSetSize; i++ {
+		start := i * 4
+		m.Put(start, start+3, i)
+	}
+	sizeMask := benchRangeSetSize - 1
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		slot := i & sizeMask
+		start := slot * 4
+		m.DeleteRange(start, start+3)
+		m.Put(start, start+3, slot)
+	}
+}

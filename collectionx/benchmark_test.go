@@ -102,3 +102,42 @@ func BenchmarkRootRangeSetContains(b *testing.B) {
 		_ = rs.Contains((i & 1023) * 4)
 	}
 }
+
+func BenchmarkRootMapToJSON(b *testing.B) {
+	m := NewMap[string, int]()
+	for i := 0; i < 1024; i++ {
+		m.Set("key-"+strconv.Itoa(i), i)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = m.ToJSON()
+	}
+}
+
+func BenchmarkRootSetToJSON(b *testing.B) {
+	s := NewSet[int]()
+	for i := 0; i < 1024; i++ {
+		s.Add(i)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = s.ToJSON()
+	}
+}
+
+func BenchmarkRootListToJSON(b *testing.B) {
+	l := NewList[int]()
+	for i := 0; i < 1024; i++ {
+		l.Add(i)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = l.ToJSON()
+	}
+}

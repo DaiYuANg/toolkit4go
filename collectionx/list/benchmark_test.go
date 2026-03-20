@@ -213,3 +213,77 @@ func BenchmarkConcurrentListSetParallel(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkListAddAt(b *testing.B) {
+	l := NewListWithCapacity[int](benchListKeySpace)
+	for i := 0; i < benchListKeySpace; i++ {
+		l.Add(i)
+	}
+	mid := benchListKeySpace / 2
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = l.AddAt(mid, i)
+		_, _ = l.RemoveAt(mid)
+	}
+}
+
+func BenchmarkListRemoveIf(b *testing.B) {
+	l := NewListWithCapacity[int](benchListKeySpace)
+	for i := 0; i < benchListKeySpace; i++ {
+		l.Add(i)
+	}
+	half := benchListKeySpace / 2
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.RemoveIf(func(x int) bool { return x%2 == 0 })
+		for j := 0; j < half; j++ {
+			l.Add(j * 2)
+		}
+	}
+}
+
+func BenchmarkDequePushFrontPopBack(b *testing.B) {
+	d := NewDeque[int]()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		d.PushFront(i)
+		_, _ = d.PopBack()
+	}
+}
+
+func BenchmarkListRange(b *testing.B) {
+	l := NewListWithCapacity[int](benchListKeySpace)
+	for i := 0; i < benchListKeySpace; i++ {
+		l.Add(i)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		l.Range(func(idx int, item int) bool {
+			_ = item
+			return true
+		})
+	}
+}
+
+func BenchmarkConcurrentListAddParallel(b *testing.B) {
+	l := NewConcurrentList[int]()
+	mask := benchListKeySpace - 1
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			l.Add(i & mask)
+			i++
+		}
+	})
+}
