@@ -172,6 +172,12 @@ func (s FileSource) List() ([]SQLMigration, error) {
 			continue
 		}
 
+		// Validate path before parsing to reject path traversal in any filename
+		fullPath, err := safeJoinPath(s.Dir, entry.Name())
+		if err != nil {
+			return nil, err
+		}
+
 		parsed, err := ParseVersionedFilename(entry.Name())
 		if err != nil {
 			continue
@@ -188,7 +194,7 @@ func (s FileSource) List() ([]SQLMigration, error) {
 			items.Set(key, migration)
 		}
 
-		fullPath := filepath.ToSlash(filepath.Join(s.Dir, entry.Name()))
+		fullPath = filepath.ToSlash(fullPath)
 		if parsed.Direction == DirectionUp {
 			migration.UpPath = fullPath
 		} else {
@@ -212,4 +218,18 @@ func (s FileSource) List() ([]SQLMigration, error) {
 		return itemsSlice[i].Description < itemsSlice[j].Description
 	})
 	return itemsSlice, nil
+}
+
+// safeJoinPath joins base and name, returning an error if the result escapes base (path traversal).
+func safeJoinPath(base, name string) (string, error) {
+	base = filepath.Clean(base)
+	path := filepath.Clean(filepath.Join(base, name))
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(rel, "..") {
+		return "", errors.New("path traversal not allowed: " + name)
+	}
+	return path, nil
 }

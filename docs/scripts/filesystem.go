@@ -4,7 +4,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+func safeJoinPath(base, name string) (string, error) {
+	base = filepath.Clean(base)
+	path := filepath.Clean(filepath.Join(base, name))
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("path traversal not allowed: %s", name)
+	}
+	return path, nil
+}
 
 // createVersionedDirs 创建版本文档目录
 func createVersionedDirs(contentDir string, versions []Version) error {
@@ -78,8 +92,14 @@ func copyDir(src, dst string) error {
 			continue
 		}
 
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
+		srcPath, err := safeJoinPath(src, entry.Name())
+		if err != nil {
+			return fmt.Errorf("invalid source path %s: %w", entry.Name(), err)
+		}
+		dstPath, err := safeJoinPath(dst, entry.Name())
+		if err != nil {
+			return fmt.Errorf("invalid destination path %s: %w", entry.Name(), err)
+		}
 
 		if entry.IsDir() {
 			if err := os.MkdirAll(dstPath, 0o755); err != nil {

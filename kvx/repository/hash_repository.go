@@ -336,7 +336,11 @@ func (r *HashRepository[T]) findManyByIDs(ctx context.Context, ids []string) ([]
 }
 
 func encodeHashData(data map[string][]byte) [][]byte {
-	result := make([][]byte, 0, len(data)*2)
+	capacity := len(data) * 2
+	if capacity < 0 || capacity/2 != len(data) { // overflow check
+		capacity = len(data)
+	}
+	result := make([][]byte, 0, capacity)
 	for k, v := range data {
 		result = append(result, []byte(k), v)
 	}

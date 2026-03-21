@@ -14,6 +14,19 @@ import (
 	goyekcmd "github.com/goyek/x/cmd"
 )
 
+func safeJoinPath(base, name string) (string, error) {
+	base = filepath.Clean(base)
+	path := filepath.Clean(filepath.Join(base, name))
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("path traversal not allowed: %s", name)
+	}
+	return path, nil
+}
+
 type docsContext struct {
 	rootDir      string
 	docsDir      string
@@ -189,8 +202,14 @@ func copyDirContents(srcDir, dstDir string) error {
 		return err
 	}
 	for _, entry := range entries {
-		srcPath := filepath.Join(srcDir, entry.Name())
-		dstPath := filepath.Join(dstDir, entry.Name())
+		srcPath, err := safeJoinPath(srcDir, entry.Name())
+		if err != nil {
+			return err
+		}
+		dstPath, err := safeJoinPath(dstDir, entry.Name())
+		if err != nil {
+			return err
+		}
 		if entry.IsDir() {
 			if err = copyDir(srcPath, dstPath); err != nil {
 				return err
