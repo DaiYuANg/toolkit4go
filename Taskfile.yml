@@ -34,9 +34,9 @@ tasks:
       - go tool govulncheck ./...
 
   test:
-    desc: Run all Go tests
+    desc: Run all Go tests (every module in go.work)
     cmds:
-      - go test ./...
+      - go run ./scripts/workspace-test/main.go
 
   check:
     desc: Run fmt, lint and test

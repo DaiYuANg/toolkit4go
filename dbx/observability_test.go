@@ -201,8 +201,12 @@ func TestHookEventMetadataAndDuration(t *testing.T) {
 	if afterEvent.Metadata["request_id"] != "req-456" {
 		t.Fatalf("unexpected request_id: %v", afterEvent.Metadata["request_id"])
 	}
-	if !afterEvent.StartedAt.Before(time.Now()) || afterEvent.StartedAt.IsZero() {
-		t.Fatalf("expected StartedAt to be set: %v", afterEvent.StartedAt)
+	if afterEvent.StartedAt.IsZero() {
+		t.Fatal("expected StartedAt to be set")
+	}
+	// StartedAt can equal time.Now() within the same wall-clock tick; require not in the future.
+	if afterEvent.StartedAt.After(time.Now()) {
+		t.Fatalf("expected StartedAt <= now: %v", afterEvent.StartedAt)
 	}
 	if afterEvent.Duration <= 0 {
 		t.Fatalf("expected Duration > 0: %v", afterEvent.Duration)

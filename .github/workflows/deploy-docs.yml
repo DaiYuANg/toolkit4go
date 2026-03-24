@@ -43,11 +43,15 @@ jobs:
         run: go run ./scripts/deploy-docs build
         working-directory: .
 
+      - name: Ensure Jekyll is off for Pages
+        run: touch docs/public/.nojekyll
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/public
           force_orphan: true
+          enable_jekyll: false
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'

@@ -260,8 +260,9 @@ type pipelineCmd struct {
 	args [][]byte
 }
 
-func (m *mockPipeline) Enqueue(command string, args ...[]byte) {
+func (m *mockPipeline) Enqueue(command string, args ...[]byte) error {
 	m.commands = append(m.commands, pipelineCmd{name: command, args: args})
+	return nil
 }
 
 func (m *mockPipeline) Exec(ctx context.Context) ([][]byte, error) {
