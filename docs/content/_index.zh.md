@@ -26,14 +26,18 @@ go get github.com/DaiYuANg/arcgo/{package}
 ## 包概览
 
 {{< cards >}}
-  {{< card link="/docs/authx" title="authx" subtitle="多场景可扩展的认证与鉴权抽象" icon="lock-closed" >}}
-  {{< card link="/docs/collectionx" title="collectionx" subtitle="泛型集合与并发安全结构" icon="collection" >}}
-  {{< card link="/docs/configx" title="configx" subtitle="分层配置加载与校验" icon="cog" >}}
-  {{< card link="/docs/dix" title="dix" subtitle="基于 do 的强类型模块化应用框架" icon="cube" >}}
-  {{< card link="/docs/eventx" title="eventx" subtitle="进程内强类型事件总线" icon="lightning-bolt" >}}
-  {{< card link="/docs/httpx" title="httpx" subtitle="多框架统一强类型 HTTP 路由" icon="server" >}}
-  {{< card link="/docs/logx" title="logx" subtitle="结构化日志与 slog 互通" icon="document-text" >}}
-  {{< card link="/docs/observabilityx" title="observabilityx" subtitle="可选可观测性抽象（OTel/Prometheus）" icon="chart-bar" >}}
+  {{< card link="./docs/authx" title="authx" subtitle="多场景可扩展的认证与鉴权抽象" icon="lock-closed" >}}
+  {{< card link="./docs/clientx" title="clientx" subtitle="协议导向客户端（HTTP/TCP/UDP）与共享工程约束" icon="globe-alt" >}}
+  {{< card link="./docs/collectionx" title="collectionx" subtitle="泛型集合与并发安全结构" icon="collection" >}}
+  {{< card link="./docs/configx" title="configx" subtitle="分层配置加载与校验" icon="cog" >}}
+  {{< card link="./docs/dbx" title="dbx" subtitle="基于 database/sql 的 schema-first / generic-first ORM 核心" icon="database" >}}
+  {{< card link="./docs/dix" title="dix" subtitle="基于 do 的强类型模块化应用框架" icon="cube" >}}
+  {{< card link="./docs/eventx" title="eventx" subtitle="进程内强类型事件总线" icon="lightning-bolt" >}}
+  {{< card link="./docs/httpx" title="httpx" subtitle="多框架统一强类型 HTTP 路由" icon="server" >}}
+  {{< card link="./docs/kvx" title="kvx" subtitle="强类型 Redis/Valkey 访问与 repository 层" icon="chip" >}}
+  {{< card link="./docs/sqltmplx" title="sqltmplx" subtitle="SQL 优先条件模板渲染器（可选 parser 校验）" icon="database" >}}
+  {{< card link="./docs/logx" title="logx" subtitle="结构化日志与 slog 互通" icon="document-text" >}}
+  {{< card link="./docs/observabilityx" title="observabilityx" subtitle="可选可观测性抽象（OTel/Prometheus）" icon="chart-bar" >}}
 {{< /cards >}}
 
 ## 典型组合
@@ -119,14 +123,17 @@ httpx.Get(s, "/health", func(ctx context.Context, input *struct{}) (*HealthOutpu
 
 选择你需要的包开始：
 
-- 需要容器/数据辅助：从 [collectionx](/docs/collectionx) 开始
-- 需要认证/授权：从 [authx](/docs/authx) 开始
-- 需要配置管理：从 [configx](/docs/configx) 开始
-- 需要模块化应用组装和 typed 生命周期管理：从 [dix](/docs/dix) 开始
-- 需要事件总线：从 [eventx](/docs/eventx) 开始
-- 需要 HTTP 路由：从 [httpx](/docs/httpx) 开始
-- 需要日志记录：从 [logx](/docs/logx) 开始
-- 需要可观测性：从 [observabilityx](/docs/observabilityx) 开始
+- 需要容器/数据辅助：从 [collectionx](./docs/collectionx) 开始
+- 需要认证/授权：从 [authx](./docs/authx) 开始
+- 需要配置管理：从 [configx](./docs/configx) 开始
+- 需要模块化应用组装和 typed 生命周期管理：从 [dix](./docs/dix) 开始
+- 需要事件总线：从 [eventx](./docs/eventx) 开始
+- 需要协议导向客户端：从 [clientx](./docs/clientx) 开始
+- 需要 HTTP 路由：从 [httpx](./docs/httpx) 开始
+- 需要 Redis/Valkey 强类型访问：从 [kvx](./docs/kvx) 开始
+- 需要 SQL 优先动态模板：从 [dbx](./docs/dbx) 开始（包含 [sqltmplx](./docs/sqltmplx)）
+- 需要日志记录：从 [logx](./docs/logx) 开始
+- 需要可观测性：从 [observabilityx](./docs/observabilityx) 开始
 
 ## 链接
 

@@ -45,40 +45,40 @@ menu:
       weight: 1
       params:
         type: versions
-    - identifier: roadmap
-      name: Roadmap
-      nameEn: Roadmap
-      pageRef: /docs/roadmap
-      weight: 2
     - identifier: authx
       name: AuthX
       nameEn: AuthX
       pageRef: /docs/authx
-      weight: 3
+      weight: 2
     - identifier: clientx
       name: ClientX
       nameEn: ClientX
       pageRef: /docs/clientx
-      weight: 4
+      weight: 3
     - identifier: collectionx
       name: CollectionX
       nameEn: CollectionX
       pageRef: /docs/collectionx
-      weight: 5
+      weight: 4
     - identifier: configx
       name: ConfigX
       nameEn: ConfigX
       pageRef: /docs/configx
-      weight: 6
+      weight: 5
     - identifier: dix
       name: Dix
       nameEn: Dix
       pageRef: /docs/dix
-      weight: 7
+      weight: 6
     - identifier: dbx
       name: DBX
       nameEn: DBX
       pageRef: /docs/dbx
+      weight: 7
+    - identifier: sqltmplx
+      name: SQLtmplx
+      nameEn: SQLtmplx
+      pageRef: /docs/sqltmplx
       weight: 8
     - identifier: eventx
       name: EventX

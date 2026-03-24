@@ -29,20 +29,15 @@ go get github.com/DaiYuANg/arcgo/{package}
 | [kvx](./kvx) | Redis / Valkey Access | Strongly typed Redis / Valkey object access and repository layer |
 | [logx](./logx) | Logging | Structured logging with slog interoperability |
 | [observabilityx](./observabilityx) | Observability | Optional observability abstraction (OTel/Prometheus) |
-| [dbx](./dbx) | ORM & Migrations | Schema-first / generic-first ORM core on `database/sql`（包含 `dbx/sqltmplx`） |
+| [dbx](./dbx) | ORM & Migrations | Schema-first / generic-first ORM core on `database/sql` |
+| [sqltmplx](./sqltmplx) | SQL templates | SQL-first conditional templates (`dbx/sqltmplx`); with or without full `dbx` |
 
-## Roadmap
+## Documentation layout
 
-- Unified roadmap (all modules): [ArcGo roadmap](./roadmap)
-- Module-level roadmap details:
-- [authx roadmap](./authx/roadmap)
-- [clientx roadmap](./clientx/roadmap)
-- [collectionx roadmap](./collectionx/roadmap)
-- [configx roadmap](./configx/roadmap)
-- [eventx roadmap](./eventx/roadmap)
-- [httpx roadmap](./httpx/roadmap)
-- [logx roadmap](./logx/roadmap)
-- [observabilityx roadmap](./observabilityx/roadmap)
+- Open each package from the top navigation or the table above.
+- Documentation section standard: [Package Documentation Standard](./standards)
+- Runnable examples live under repository `examples/` and are only supporting sample code.
+- Some packages expose Chinese landing pages via `*_index.zh.md`.
 
 ## How to Choose
 

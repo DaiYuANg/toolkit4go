@@ -51,6 +51,19 @@ go run ./examples/dbx/id_generation
 | `pure_sql` | `sqltmplx` registry, `dbx.SQLList/SQLGet/SQLFind/SQLScalar`, statement-name logging, `tx.SQL().Exec(...)` | [examples/dbx/pure_sql](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/pure_sql) |
 | `id_generation` | typed ID strategy markers: `IDAuto`, `IDSnowflake`, `IDUUIDv7`, and `IDColumn` | [examples/dbx/id_generation](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/id_generation) |
 
+## Coverage (by topic)
+
+Taken together, the examples exercise:
+
+- schema as the single metadata source; aggregates, subqueries, batch insert, insert-select, upsert, `RETURNING`
+- advanced DSL: `WITH`, `UNION ALL`, `CASE WHEN`
+- mapper scans, field codecs, scoped custom codecs via `dbx.WithMapperCodecs(...)`
+- relation join helpers and `LoadBelongsTo` / `LoadManyToMany`
+- pure SQL via `sqltmplx` registry and `dbx.SQL*`
+- typed ID strategies via `IDColumn` markers
+- `PlanSchemaChanges`, `ValidateSchemas`, `AutoMigrate`, and the `dbx/migrate` runner
+- optional `slog` SQL debug logging and hooks
+
 ## Example: Codec and StructMapper
 
 ```go

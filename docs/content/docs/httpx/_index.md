@@ -9,10 +9,11 @@ weight: 5
 
 `httpx` is a lightweight HTTP service organization layer built on top of Huma.
 
-## Roadmap
+## Install / Import
 
-- Module roadmap: [httpx roadmap](./roadmap)
-- Global roadmap: [ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/httpx@latest
+```
 
 ## What You Get
 
@@ -468,3 +469,9 @@ No. Keep adapter-native middleware on the adapter itself, and use `httpx` for Hu
   - Typed event streaming over `text/event-stream`
 - Conditional Requests: `go run ./examples/httpx/conditional`
   - ETag and Last-Modified based precondition checks
+
+## Production Notes
+
+- Keep adapter-specific middleware at adapter boundaries and keep handler logic framework-agnostic.
+- Treat validation and conditional request policies as explicit API contracts.
+- Use route introspection in CI to detect endpoint drift and policy mismatches early.

@@ -15,10 +15,14 @@ weight: 8
 - 共享配置原语（`RetryConfig`、`TLSConfig`）
 - 保持协议 API 显式与可组合，并共享工程约束
 
-## 路线图
+## 安装 / 导入
 
-- 模块路线图：[clientx roadmap](./roadmap)
-- 全局路线图：[ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/clientx@latest
+go get github.com/DaiYuANg/arcgo/clientx/http@latest
+go get github.com/DaiYuANg/arcgo/clientx/tcp@latest
+go get github.com/DaiYuANg/arcgo/clientx/udp@latest
+```
 
 ## 当前实现快照
 
@@ -237,8 +241,27 @@ _ = tcpClient
 - 封装后仍保留 `Unwrap()` 语义（`errors.Is`/`errors.As` 仍可用）。
 - 超时错误封装后仍满足 `net.Error` 的超时判断语义。
 
+## 集成指南
+
+- 与 `configx`：统一配置重试、超时、TLS 预设，再注入到各协议客户端构造器。
+- 与 `dix`：以接口类型（`http.Client` / `tcp.Client` / `udp.Client`）提供依赖，降低实现替换成本。
+- 与 `observabilityx`：挂载 `NewObservabilityHook(...)`，统一采集 dial 与 I/O 生命周期指标/追踪。
+- 与 `logx`：默认避免高基数字段（目标地址等），按需开启地址标签。
+
+## 测试与生产建议
+
+- 测试中优先使用接口返回构造器与可替换依赖面。
+- 在构造阶段强制超时默认值，避免调用侧零散配置。
+- 重试与告警策略优先依据 `IsKind` 分类，而不是字符串匹配错误消息。
+
+## 示例
+
+- `go run ./examples/clientx/edge_http`
+- `go run ./examples/clientx/internal_rpc_tcp`
+- `go run ./examples/clientx/low_latency_udp`
+
 ## 说明
 
-- `clientx` 当前处于实验阶段，仍在快速迭代。
+- `clientx` 仍在演进；优先依赖导出的接口类型（`http.Client`、`tcp.Client`、`udp.Client`），而非具体实现类型。
 - 包间依赖允许；当前实现已复用共享配置与 `collectionx`。
 - 建议业务侧优先依赖 `http.Client` / `tcp.Client` / `udp.Client` 接口，而不是具体结构体。

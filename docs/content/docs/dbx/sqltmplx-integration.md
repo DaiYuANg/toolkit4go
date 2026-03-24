@@ -93,8 +93,8 @@ func main() {
 
 ## Related Docs
 
-- sqltmplx overview: [sqltmplx](/docs/sqltmplx/)
-- sqltmplx examples: [sqltmplx examples](/docs/sqltmplx/examples/)
+- sqltmplx overview: [sqltmplx](../sqltmplx/)
+- sqltmplx examples: [sqltmplx examples](../sqltmplx/examples/)
 - dbx pure SQL helpers: [dbx](./)
 
 ## Pitfalls

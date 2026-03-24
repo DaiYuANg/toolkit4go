@@ -9,10 +9,13 @@ weight: 7
 
 `observabilityx` provides an optional unified facade for logging/tracing/metrics.
 
-## Roadmap
+## Install / Import
 
-- Module roadmap: [observabilityx roadmap](./roadmap)
-- Global roadmap: [ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/observabilityx@latest
+go get github.com/DaiYuANg/arcgo/observabilityx/otel@latest
+go get github.com/DaiYuANg/arcgo/observabilityx/prometheus@latest
+```
 
 ## Why
 
@@ -72,3 +75,15 @@ stdAdapter.Router().Handle("/metrics", promObs.Handler())
 ## Examples
 
 - [multi](https://github.com/DaiYuANg/arcgo/tree/main/observabilityx/examples/multi): Compose OTel + Prometheus backends.
+
+## Integration Guide
+
+- With `authx`, `eventx`, and `configx`: inject a backend without coupling package APIs to telemetry implementations.
+- With `httpx`: export a stable `/metrics` endpoint through the Prometheus adapter.
+- With `logx`: correlate logs with span/trace context and metric dimensions.
+
+## Production Notes
+
+- Start with `Nop()` in local/dev and enable backends by environment.
+- Keep metric cardinality and attribute dimensions bounded.
+- Prefer explicit backend composition (`Multi`) over hidden global mutation.

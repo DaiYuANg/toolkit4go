@@ -11,6 +11,12 @@ weight: 12
 它作为 `dbx/sqltmplx` 子包提供（隶属于 `dbx`），因此通常建议从 `dbx` 开始阅读与使用。
 它把控制逻辑放在 SQL 注释里，保留可执行的 sample literal，并在运行时渲染真正的 bind 变量和参数列表。
 
+## 安装 / 导入
+
+```bash
+go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
+```
+
 ## 包结构
 
 - 核心渲染器：`github.com/DaiYuANg/arcgo/dbx/sqltmplx`
@@ -161,11 +167,17 @@ fmt.Println(bound2.Query)
 
 ## 相关 dbx 文档
 
-- dbx 快速开始：[/docs/dbx/getting-started/](/docs/dbx/getting-started/)
-- dbx schema 声明：[/docs/dbx/schema-design/](/docs/dbx/schema-design/)
-- dbx ID 策略：[/docs/dbx/id-generation/](/docs/dbx/id-generation/)
-- dbx 索引配置：[/docs/dbx/indexes/](/docs/dbx/indexes/)
-- dbx + sqltmplx 集成：[/docs/dbx/sqltmplx/](/docs/dbx/sqltmplx/)
+- dbx 快速开始：[dbx 快速开始](../dbx/getting-started/)
+- dbx schema 声明：[dbx schema 声明](../dbx/schema-design/)
+- dbx ID 策略：[dbx ID 策略](../dbx/id-generation/)
+- dbx 索引配置：[dbx 索引配置](../dbx/indexes/)
+- dbx + sqltmplx 集成：[sqltmplx 集成](../dbx/sqltmplx-integration/)
+
+## 错误与行为模型
+
+- 渲染/编译失败应视为查询契约错误，而不是运行期 SQL 执行失败。
+- validator 配置决定语法/语义护栏；未配置 validator 时仅执行渲染器行为。
+- 热路径应优先使用 Registry 语句复用，避免重复 parse/compile 开销。
 
 ## 测试与 Benchmark
 
@@ -175,6 +187,18 @@ go test ./dbx/sqltmplx -run ^$ -bench . -benchmem
 go test ./dbx/sqltmplx/render -run ^$ -bench . -benchmem
 go test ./dbx/sqltmplx/validate/mysqlparser -run ^$ -bench . -benchmem
 ```
+
+## 集成指南
+
+- 与 `dbx`：通过 `Registry` + `dbx.SQL*` API 组合使用，并在事务中使用 `session.SQL().Exec(...)`。
+- 与 `configx`：将 SQL 模板参数绑定到经校验的 typed 配置或输入模型。
+- 与 `logx` / `observabilityx`：输出 statement 名称与渲染/执行耗时用于诊断。
+
+## 生产注意事项
+
+- 尽量在启动阶段编译并缓存热路径语句。
+- 按方言与环境显式选择 validator 策略。
+- 将模板变更视为查询契约变更，在 CI 中审阅关键路径渲染 SQL。
 
 
 

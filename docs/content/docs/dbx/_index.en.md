@@ -77,9 +77,17 @@ These are implementation details. The exposed API is still `dbx`, `dbx/sqltmplx`
 - Generic repository abstraction: [Repository Mode](./repository)
 - Active record facade: [Active Record Mode](./active-record)
 - Dialect abstraction: [Dialect](./dialect)
-- dbx + pure SQL templates: [sqltmplx Integration](./sqltmplx)
+- dbx + pure SQL templates: [sqltmplx Integration](./sqltmplx-integration)
 - Runnable examples: [Examples](./examples)
 - Benchmark notes: [Benchmarks](./benchmarks)
+
+## Install / Import
+
+```bash
+go get github.com/DaiYuANg/arcgo/dbx@latest
+go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
+go get github.com/DaiYuANg/arcgo/dbx/migrate@latest
+```
 
 ## Schema First
 
@@ -318,6 +326,13 @@ core := dbx.NewWithOptions(
 )
 ```
 
+## Error and Behavior Model
+
+- `ErrNilDB`, `ErrNilEntity`, mapper binding errors, and schema validation errors stay explicit.
+- Repository mode uses typed error layers (`ErrNotFound`, `ErrConflict`, `ErrValidation`, `ErrVersionConflict`).
+- Option-style helpers (for example `SQLFind`, repository `*Option` methods) separate "not found" from execution failures.
+- Schema planning and auto-migrate follow conservative behavior; destructive evolution requires explicit operator control.
+
 ## Benchmarks
 
 `dbx` now includes benchmark coverage for its major pipelines.
@@ -364,3 +379,10 @@ go run ./examples/dbx/relations
 go run ./examples/dbx/migration
 go run ./examples/dbx/pure_sql
 ```
+
+## Integration Guide
+
+- With `configx`: externalize driver, DSN, dialect, and migration toggles.
+- With `dix`: initialize DB in infra modules and inject repositories/services per bounded context.
+- With `httpx`: keep query construction and transaction boundaries in service/repository layers.
+- With `logx` / `observabilityx`: attach SQL debug/hook signals with cardinality-safe metadata.

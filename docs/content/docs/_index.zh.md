@@ -29,20 +29,15 @@ go get github.com/DaiYuANg/arcgo/{package}
 | [kvx](./kvx) | Redis / Valkey 访问 | 强类型 Redis / Valkey 对象访问与 repository 层 |
 | [logx](./logx) | 日志记录 | 结构化日志与 slog 互通 |
 | [observabilityx](./observabilityx) | 可观测性 | 可选可观测性抽象（OTel/Prometheus） |
-| [dbx](./dbx) | ORM 与迁移 | 基于 `database/sql` 的 schema-first / generic-first ORM 核心（包含 `dbx/sqltmplx`） |
+| [dbx](./dbx) | ORM 与迁移 | 基于 `database/sql` 的 schema-first / generic-first ORM 核心 |
+| [sqltmplx](./sqltmplx) | SQL 模板 | 以 SQL 为主的条件模板（`dbx/sqltmplx`），可独立或与完整 `dbx` 联用 |
 
-## 路线图
+## 文档结构
 
-- 统一路线图（含全部模块）: [ArcGo roadmap](./roadmap)
-- 模块细化路线图：
-- [authx roadmap](./authx/roadmap)
-- [clientx roadmap](./clientx/roadmap)
-- [collectionx roadmap](./collectionx/roadmap)
-- [configx roadmap](./configx/roadmap)
-- [eventx roadmap](./eventx/roadmap)
-- [httpx roadmap](./httpx/roadmap)
-- [logx roadmap](./logx/roadmap)
-- [observabilityx roadmap](./observabilityx/roadmap)
+- 通过顶部导航或上表进入各子包文档。
+- 章节标准见：[文档章节标准](./standards)
+- 可运行示例位于仓库 `examples/` 目录，定位为支撑示例代码，不作为独立子包体系。
+- 部分子包提供中文入口页（`*_index.zh.md`）。
 
 ## 如何选择
 

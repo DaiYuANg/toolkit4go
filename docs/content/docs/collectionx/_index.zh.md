@@ -9,10 +9,11 @@ weight: 2
 
 `collectionx` 为 Go 提供强类型的集合数据结构，包括并发安全变体和非标准结构（如 `MultiMap`、`Table`、`Trie`、区间结构）。
 
-## 路线图
+## 安装 / 导入
 
-- 模块路线图：[collectionx roadmap](./roadmap)
-- 全局路线图：[ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/collectionx@latest
+```
 
 ## 为什么使用 collectionx
 
@@ -261,3 +262,15 @@ go test ./collectionx/prefix -run ^$ -bench Trie -benchmem
 - 将快照返回 API 视为实时视图并期望原地同步。
 - 每次请求构建巨大的临时集合而不是增量更新。
 - 仅用于点查找时使用 `RangeMap`；如果区间语义不必要，使用普通 map。
+
+## 集成指南
+
+- 与 `configx`：使用 typed map/list 工具整理加载后的配置结构再绑定服务。
+- 与 `clientx` / `kvx`：用集合工具进行索引/缓存整形，避免临时拼装容器代码。
+- 与 `dix`：将集合实例放入显式模块 provider，避免隐藏全局状态。
+
+## 生产注意事项
+
+- 优先选择满足约束的最简单结构，避免过度抽象。
+- 在 API 边界明确顺序语义（`OrderedMap` 与 hash-map 的差异）。
+- 即使使用并发安全结构，也要显式设计所有权与生命周期。

@@ -9,10 +9,11 @@ weight: 6
 
 `logx` is a structured logging package built on `zerolog` with option-based configuration and optional `slog` interoperability.
 
-## Roadmap
+## Install / Import
 
-- Module roadmap: [logx roadmap](./roadmap)
-- Global roadmap: [ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/logx@latest
+```
 
 ## Features
 
@@ -161,3 +162,16 @@ Check `WithFileRotation(maxSizeMB, maxAgeDays, maxBackups)` values and units.
 - Forgetting `Close()` when using file output.
 - Logging high-cardinality, unbounded fields without sampling control.
 - Using panic/fatal levels in recoverable business error paths.
+
+## Integration Guide
+
+- With `configx`: externalize log level, output mode, and rotation parameters.
+- With `dix`: initialize once at app startup and inject logger through providers.
+- With `httpx` and `clientx`: keep request/client metadata structured and bounded.
+- With `observabilityx`: align trace/span identifiers across logs and telemetry events.
+
+## Production Notes
+
+- Keep one long-lived logger per process (plus explicit scoped fields), not per request.
+- Treat file-output `Close()` as mandatory in shutdown paths.
+- Enforce cardinality controls and sampling for high-volume paths.

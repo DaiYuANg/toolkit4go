@@ -5,7 +5,7 @@ It is package-oriented, supports incremental adoption, and allows inter-package 
 
 English | [Chinese](./README_ZH.md)
 
-> **Documentation**: Browse the [Hugo documentation site](./docs/) for a unified documentation experience.
+> **Documentation**: [Published site](https://DaiYuANg.github.io/arcgo/docs/) · [Hugo sources](./docs/content/docs/) · local preview: `go run ./scripts/deploy-docs serve`
 
 ## Packages
 
@@ -15,6 +15,7 @@ English | [Chinese](./README_ZH.md)
 | `collectionx` | Generic collections and concurrent-safe structures |
 | `configx` | Layered config loading and validation |
 | `dbx` | Schema-first, generic-first ORM core on top of `database/sql` |
+| `dbx/sqltmplx` | SQL-first conditional templates (ships inside the `dbx` module) |
 | `dix` | Strongly typed modular app framework built on top of `do` |
 | `eventx` | In-memory typed event bus |
 | `clientx` | Protocol-oriented client packages with shared conventions (HTTP/TCP/UDP) |
@@ -105,9 +106,9 @@ go run ./scripts/deploy-docs deploy
 ## clientx Examples
 
 ```bash
-go run ./clientx/examples/edge_http
-go run ./clientx/examples/internal_rpc_tcp
-go run ./clientx/examples/low_latency_udp
+go run ./examples/clientx/edge_http
+go run ./examples/clientx/internal_rpc_tcp
+go run ./examples/clientx/low_latency_udp
 ```
 
 ## Git Pre-Commit Hook
@@ -130,7 +131,6 @@ The `pre-commit` hook runs:
 
 - `go tool task fmt`
 - `go tool task lint`
-```
 
 ## Notes
 

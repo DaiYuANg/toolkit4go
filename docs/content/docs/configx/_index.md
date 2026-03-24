@@ -9,10 +9,11 @@ weight: 3
 
 `configx` is a hierarchical configuration loader built on `koanf` and `validator`.
 
-## Roadmap
+## Install / Import
 
-- Module roadmap: [configx roadmap](./roadmap)
-- Global roadmap: [ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/configx@latest
+```
 
 ## Supported Features
 
@@ -149,6 +150,22 @@ With `WithEnvPrefix("APP")`:
 
 - `APP_DATABASE_HOST` -> `database.host`
 - `APP_SERVER_READ_TIMEOUT` -> `server.read.timeout`
+
+## Key API Surface
+
+- `Load(cfgPtr, opts...)`: load into existing config object
+- `LoadT[T](opts...)` / `LoadTErr[T](opts...)`: typed load flow
+- `WithDotenv`, `WithFiles`, `WithEnvPrefix`, `WithPriority`: source and order control
+- `WithDefaults`, `WithDefaultsTyped`: default-value strategies
+- `WithValidateLevel`, `WithValidator`: validation behavior
+- `WithObservability`: optional observability hook-in
+
+## Integration Guide
+
+- With `dix`: load config once at startup and provide typed config through module providers.
+- With `httpx`: drive bind address, TLS behavior, and middleware toggles from typed config.
+- With `dbx` / `kvx`: keep DSN and backend options centralized and environment-specific.
+- With `logx` / `observabilityx`: externalize runtime level and instrumentation toggles.
 
 ## Production Tips
 

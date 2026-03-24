@@ -4,7 +4,7 @@
 
 [English](./README.md) | Chinese
 
-> **文档**: 访问 [Hugo 文档站点](./docs/) 获得统一的文档体验。
+> **文档**: [在线站点](https://DaiYuANg.github.io/arcgo/docs/) · [Hugo 源码](./docs/content/docs/) · 本地预览：`go run ./scripts/deploy-docs serve`
 
 ## 包概览
 
@@ -14,6 +14,7 @@
 | `collectionx` | 泛型集合与并发安全结构 |
 | `configx` | 分层配置加载与校验 |
 | `dbx` | 基于 `database/sql` 的 schema-first / generic-first ORM 核心 |
+| `dbx/sqltmplx` | 以 SQL 为主的条件模板（随 `dbx` 模块发布） |
 | `dix` | 基于 `do` 的强类型模块化应用框架 |
 | `eventx` | 进程内强类型事件总线 |
 | `clientx` | 面向协议的客户端包集合（HTTP/TCP/UDP） |
@@ -105,9 +106,9 @@ go run ./scripts/deploy-docs deploy
 ## clientx 示例
 
 ```bash
-go run ./clientx/examples/edge_http
-go run ./clientx/examples/internal_rpc_tcp
-go run ./clientx/examples/low_latency_udp
+go run ./examples/clientx/edge_http
+go run ./examples/clientx/internal_rpc_tcp
+go run ./examples/clientx/low_latency_udp
 ```
 
 ## Git 提交前 Hook
@@ -130,7 +131,6 @@ go tool task git:hooks:run
 
 - `go tool task fmt`
 - `go tool task lint`
-```
 
 ## 说明
 

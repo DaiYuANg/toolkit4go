@@ -9,6 +9,17 @@ weight: 6
 
 `kvx` is a layered Redis / Valkey access package focused on strongly typed object access, repository-style persistence, and Redis-native capabilities.
 
+## Install / Import
+
+```bash
+go get github.com/DaiYuANg/arcgo/kvx@latest
+```
+
+## Documentation map
+
+- [Design overview (English)](./overview) — goals, layers, non-goals, and query model
+- [设计说明（中文，完整）](./overview.zh) — long-form design document migrated from `kvx/README.md`
+
 ## What You Get
 
 - Unified `Client` capability interfaces for `KV`, `Hash`, `JSON`, `PubSub`, `Stream`, `Search`, `Script`, and `Lock`
@@ -137,3 +148,22 @@ These adapters stay thin and primarily expose the `kvx` capability surface over 
 - The repository layer is currently the most mature part of `kvx`.
 - `FindAll` / `Count` now scan the full keyspace cursor path instead of only a single page.
 - Workspace sibling modules like `collectionx` resolve through `go.work`; no extra local dependency declaration is needed in `kvx/go.mod`.
+
+## Error and Behavior Model
+
+- Repository-style APIs should expose explicit not-found and model-validation branches.
+- Adapter layers should normalize backend/client errors rather than leaking driver-specific types.
+- Serialization/mapping failures should be treated as first-class data-contract errors.
+
+## Integration Guide
+
+- With `configx`: externalize backend endpoint/auth and per-feature toggles (JSON/Search/Stream).
+- With `dix`: wire adapters and repositories through infra modules for explicit lifecycle boundaries.
+- With `httpx`: keep Redis/Valkey access inside service/repository layer; handlers stay transport-focused.
+- With `logx` / `observabilityx`: emit command-path metrics and structured errors without high-cardinality labels.
+
+## Production Notes
+
+- Keep repository/model contracts explicit; avoid implicit key conventions in business logic.
+- Validate backend capability assumptions (JSON/Search/Stream) per environment before rollout.
+- Bound metric/log label cardinality when emitting key or endpoint-derived attributes.

@@ -9,10 +9,11 @@ weight: 2
 
 `collectionx` provides strongly typed collection data structures for Go, including concurrent variants and non-standard structures like `MultiMap`, `Table`, `Trie`, and interval structures.
 
-## Roadmap
+## Install / Import
 
-- Module roadmap: [collectionx roadmap](./roadmap)
-- Global roadmap: [ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/collectionx@latest
+```
 
 ## Why Use collectionx
 
@@ -261,3 +262,15 @@ Use `Delete`, `DeleteColumn`, `DeleteRow`, `DeleteValueIf`, or periodic resets b
 - Treating snapshot-returning APIs as live views and expecting in-place synchronization.
 - Building huge temporary collections per request instead of incremental updates.
 - Using `RangeMap` only for point lookups; use plain maps if interval semantics aren't necessary.
+
+## Integration Guide
+
+- With `configx`: use typed map/list helpers to normalize loaded config before binding to services.
+- With `clientx` / `kvx`: use collection utilities for index/cache shaping without ad-hoc container code.
+- With `dix`: keep collection instances in explicit module providers, not hidden package globals.
+
+## Production Notes
+
+- Pick the simplest structure that satisfies your invariants; avoid abstraction-by-default.
+- Document ordering guarantees at API boundaries (`OrderedMap` vs hash-backed maps).
+- For concurrent variants, design ownership and lifecycle explicitly even when internals are lock-safe.

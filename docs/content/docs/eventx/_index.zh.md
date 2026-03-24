@@ -9,10 +9,11 @@ weight: 4
 
 `eventx` 是一个用于 Go 服务的内存强类型事件总线。
 
-## 路线图
+## 安装 / 导入
 
-- 模块路线图：[eventx roadmap](./roadmap)
-- 全局路线图：[ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/eventx@latest
+```
 
 ## 核心能力
 
@@ -147,6 +148,13 @@ _, _ = eventx.Subscribe(
 - `bus.SubscriberCount()` 检查活动订阅。
 - `eventx.ErrBusClosed`、`eventx.ErrNilEvent`、`eventx.ErrNilBus`、`eventx.ErrNilHandler` 用于类型化错误分支。
 
+## 集成指南
+
+- 与 `dix`：按领域边界创建 bus，并通过应用 hook 管理生命周期。
+- 与 `observabilityx`：挂载可观测性中间件，采集吞吐、延迟与失败指标。
+- 与 `logx`：在失败路径输出结构化事件类型与处理器分类日志。
+- 与 `httpx`：在请求校验与服务层提交点之后发布领域事件。
+
 ## 测试技巧
 
 - 在单元测试中使用串行分发以获得确定性排序。
@@ -201,3 +209,9 @@ _, _ = eventx.Subscribe(
 ## 示例
 
 - [observability](https://github.com/DaiYuANg/arcgo/tree/main/eventx/examples/observability): 带有可选 OTel + Prometheus 可观测性的事件总线。
+
+## 生产注意事项
+
+- 提前定义所有权边界，避免一个全局 bus 承担所有无关领域流量。
+- 基于真实流量调优异步队列与 worker 参数，不要只依赖默认值。
+- 对关键异步事件必须定义明确的重试/背压策略。

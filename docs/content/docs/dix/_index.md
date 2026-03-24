@@ -11,11 +11,15 @@ weight: 6
 It provides an immutable app spec, typed providers and invokes, lifecycle hooks, validation,
 and a runtime model without forcing most users to deal with `do` directly.
 
+## Install / Import
+
+```bash
+go get github.com/DaiYuANg/arcgo/dix@latest
+```
+
 ## API Status
 
-- The public API is now in convergence.
-- Future iterations should prioritize additive capabilities, integrations, and documentation.
-- The default path is intended to remain stable and ergonomic for normal business applications.
+- The public API is converging toward a stable default path for typical applications.
 
 ## Core Model
 
@@ -185,6 +189,13 @@ This is the preferred shutdown API when the caller needs visibility into teardow
   - [examples/dix/override](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/override)
   - [examples/dix/inspect](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/inspect)
 
+## Integration Guide
+
+- With `configx`: load typed config first, then provide it as module-level dependencies.
+- With `logx`: initialize one process logger and inject into service modules.
+- With `httpx`: register server bootstrap in setup/hook stages; keep route registration in dedicated modules.
+- With `dbx` / `kvx`: keep repository and connection setup in isolated infra modules.
+
 ## Testing and Benchmarks
 
 ```bash
@@ -197,3 +208,9 @@ Practical benchmark reading:
 - typed resolve paths are cheap and suitable for hot paths
 - `ResolveAssignableAs` is slower than typed alias binding
 - inspection APIs are diagnostic paths and should not be treated as request hot paths
+
+## Production Notes
+
+- Keep module boundaries domain-driven; avoid large all-in-one modules.
+- Fail fast on validation/build errors before runtime start.
+- Use scoped runtime features only where request or tenant lifetime boundaries are explicit.

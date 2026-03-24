@@ -41,5 +41,5 @@ If Memory is much faster than IO, the path is typically I/O-bound. If numbers ar
 ## Related Docs
 
 - Core overview: [dbx](./)
-- SQL template engine: [sqltmplx](/docs/sqltmplx/)
+- SQL template engine: [sqltmplx](../sqltmplx/)
 - Runnable examples: [Examples](./examples)

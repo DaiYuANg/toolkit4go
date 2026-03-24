@@ -1,3 +1,11 @@
+---
+title: 'kvx 设计概述'
+linkTitle: 'overview'
+description: 'Redis / Valkey 统一访问框架设计说明（由仓库根目录 kvx/README.md 迁入）'
+weight: 5
+draft: false
+---
+
 Redis / Valkey 统一访问框架设计文档
 1. 项目概述
 

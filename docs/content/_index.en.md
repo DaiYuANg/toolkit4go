@@ -26,14 +26,18 @@ go get github.com/DaiYuANg/arcgo/{package}
 ## Package Overview
 
 {{< cards >}}
-  {{< card link="/docs/authx" title="authx" subtitle="Extensible authentication and authorization abstraction" icon="lock-closed" >}}
-  {{< card link="/docs/collectionx" title="collectionx" subtitle="Generic collections and concurrency-safe structures" icon="collection" >}}
-  {{< card link="/docs/configx" title="configx" subtitle="Hierarchical configuration loading and validation" icon="cog" >}}
-  {{< card link="/docs/dix" title="dix" subtitle="Strongly typed modular app framework built on do" icon="cube" >}}
-  {{< card link="/docs/eventx" title="eventx" subtitle="In-process strongly typed event bus" icon="lightning-bolt" >}}
-  {{< card link="/docs/httpx" title="httpx" subtitle="Multi-framework unified strongly typed HTTP routing" icon="server" >}}
-  {{< card link="/docs/logx" title="logx" subtitle="Structured logging with slog interoperability" icon="document-text" >}}
-  {{< card link="/docs/observabilityx" title="observabilityx" subtitle="Optional observability abstraction (OTel/Prometheus)" icon="chart-bar" >}}
+  {{< card link="./docs/authx" title="authx" subtitle="Extensible authentication and authorization abstraction" icon="lock-closed" >}}
+  {{< card link="./docs/clientx" title="clientx" subtitle="Protocol-oriented clients (HTTP/TCP/UDP) with shared conventions" icon="globe-alt" >}}
+  {{< card link="./docs/collectionx" title="collectionx" subtitle="Generic collections and concurrency-safe structures" icon="collection" >}}
+  {{< card link="./docs/configx" title="configx" subtitle="Hierarchical configuration loading and validation" icon="cog" >}}
+  {{< card link="./docs/dbx" title="dbx" subtitle="Schema-first / generic-first ORM core on database/sql" icon="database" >}}
+  {{< card link="./docs/dix" title="dix" subtitle="Strongly typed modular app framework built on do" icon="cube" >}}
+  {{< card link="./docs/eventx" title="eventx" subtitle="In-process strongly typed event bus" icon="lightning-bolt" >}}
+  {{< card link="./docs/httpx" title="httpx" subtitle="Multi-framework unified strongly typed HTTP routing" icon="server" >}}
+  {{< card link="./docs/kvx" title="kvx" subtitle="Typed Redis/Valkey access and repository layer" icon="chip" >}}
+  {{< card link="./docs/sqltmplx" title="sqltmplx" subtitle="SQL-first conditional template renderer with optional parser-backed validation" icon="database" >}}
+  {{< card link="./docs/logx" title="logx" subtitle="Structured logging with slog interoperability" icon="document-text" >}}
+  {{< card link="./docs/observabilityx" title="observabilityx" subtitle="Optional observability abstraction (OTel/Prometheus)" icon="chart-bar" >}}
 {{< /cards >}}
 
 ## Typical Combinations
@@ -119,14 +123,17 @@ httpx.Get(s, "/health", func(ctx context.Context, input *struct{}) (*HealthOutpu
 
 Choose the package you need:
 
-- Need container/data utilities: Start with [collectionx](/docs/collectionx)
-- Need authentication/authorization: Start with [authx](/docs/authx)
-- Need configuration management: Start with [configx](/docs/configx)
-- Need modular app composition and typed lifecycle management: Start with [dix](/docs/dix)
-- Need event bus: Start with [eventx](/docs/eventx)
-- Need HTTP routing: Start with [httpx](/docs/httpx)
-- Need logging: Start with [logx](/docs/logx)
-- Need observability: Start with [observabilityx](/docs/observabilityx)
+- Need container/data utilities: Start with [collectionx](./docs/collectionx)
+- Need authentication/authorization: Start with [authx](./docs/authx)
+- Need configuration management: Start with [configx](./docs/configx)
+- Need modular app composition and typed lifecycle management: Start with [dix](./docs/dix)
+- Need event bus: Start with [eventx](./docs/eventx)
+- Need protocol-oriented clients: Start with [clientx](./docs/clientx)
+- Need HTTP routing: Start with [httpx](./docs/httpx)
+- Need typed Redis/Valkey access: Start with [kvx](./docs/kvx)
+- Need SQL-first dynamic query templating: Start with [dbx](./docs/dbx) (includes [sqltmplx](./docs/sqltmplx))
+- Need logging: Start with [logx](./docs/logx)
+- Need observability: Start with [observabilityx](./docs/observabilityx)
 
 ## Links
 

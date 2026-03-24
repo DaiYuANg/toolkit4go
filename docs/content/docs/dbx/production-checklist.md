@@ -65,7 +65,7 @@ Use this checklist before production rollout.
 - [ID Generation](./id-generation)
 - [Indexes](./indexes)
 - [Migration Tutorial](./tutorial-migration)
-- [sqltmplx Integration](./sqltmplx)
+- [sqltmplx Integration](./sqltmplx-integration)
 
 ## Pitfalls
 

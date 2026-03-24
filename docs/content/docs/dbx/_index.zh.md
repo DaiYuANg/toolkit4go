@@ -77,9 +77,17 @@ weight: 7
 - 泛型仓储抽象：[Repository Mode](./repository)
 - Active Record 门面：[Active Record Mode](./active-record)
 - 方言抽象：[Dialect](./dialect)
-- dbx + 纯 SQL 模板：[sqltmplx Integration](./sqltmplx)
+- dbx + 纯 SQL 模板：[sqltmplx Integration](./sqltmplx-integration)
 - 可运行示例：[Examples](./examples)
 - 基准说明：[Benchmarks](./benchmarks)
+
+## 安装 / 导入
+
+```bash
+go get github.com/DaiYuANg/arcgo/dbx@latest
+go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
+go get github.com/DaiYuANg/arcgo/dbx/migrate@latest
+```
 
 ## Schema First
 
@@ -318,6 +326,13 @@ core := dbx.NewWithOptions(
 )
 ```
 
+## 错误与行为模型
+
+- `ErrNilDB`、`ErrNilEntity`、mapper 绑定错误和 schema 校验错误保持显式。
+- repository 模式提供分层 typed 错误（`ErrNotFound`、`ErrConflict`、`ErrValidation`、`ErrVersionConflict`）。
+- Option 风格 helper（如 `SQLFind`、repository `*Option`）将“未命中”与执行失败分离。
+- schema planning 与 auto-migrate 采取保守策略；破坏性演进需要显式操作确认。
+
 ## Benchmark
 
 `dbx` 现在已经补齐了主要链路的 benchmark。
@@ -364,3 +379,10 @@ go run ./examples/dbx/relations
 go run ./examples/dbx/migration
 go run ./examples/dbx/pure_sql
 ```
+
+## 集成指南
+
+- 与 `configx`：将 driver、DSN、dialect、migration 开关外置配置。
+- 与 `dix`：在基础设施模块初始化 DB，并按领域注入 repository/service。
+- 与 `httpx`：将查询构建与事务边界放在 service/repository 层，而非 handler。
+- 与 `logx` / `observabilityx`：输出 SQL debug/hook 信号时控制元数据基数。

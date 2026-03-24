@@ -9,10 +9,13 @@ weight: 7
 
 `observabilityx` 为日志/追踪/指标提供可选的统一门面。
 
-## 路线图
+## 安装 / 导入
 
-- 模块路线图：[observabilityx roadmap](./roadmap)
-- 全局路线图：[ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/observabilityx@latest
+go get github.com/DaiYuANg/arcgo/observabilityx/otel@latest
+go get github.com/DaiYuANg/arcgo/observabilityx/prometheus@latest
+```
 
 ## 为什么
 
@@ -72,3 +75,15 @@ stdAdapter.Router().Handle("/metrics", promObs.Handler())
 ## 示例
 
 - [multi](https://github.com/DaiYuANg/arcgo/tree/main/observabilityx/examples/multi): 组合 OTel + Prometheus 后端。
+
+## 集成指南
+
+- 与 `authx` / `eventx` / `configx`：注入后端实现而不让包 API 绑定具体遥测实现。
+- 与 `httpx`：通过 Prometheus 适配器暴露稳定 `/metrics` 端点。
+- 与 `logx`：关联日志中的 trace/span 上下文与指标维度。
+
+## 生产注意事项
+
+- 本地/开发先用 `Nop()`，按环境启用真实后端。
+- 严格控制指标基数与属性维度。
+- 优先使用显式后端组合（`Multi`），避免隐藏式全局变更。

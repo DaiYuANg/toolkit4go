@@ -9,10 +9,11 @@ weight: 4
 
 `eventx` is an in-memory strongly typed event bus for Go services.
 
-## Roadmap
+## Install / Import
 
-- Module roadmap: [eventx roadmap](./roadmap)
-- Global roadmap: [ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/eventx@latest
+```
 
 ## Core Capabilities
 
@@ -147,6 +148,13 @@ Execution order:
 - `bus.SubscriberCount()` to check active subscriptions.
 - `eventx.ErrBusClosed`, `eventx.ErrNilEvent`, `eventx.ErrNilBus`, `eventx.ErrNilHandler` for typed error branches.
 
+## Integration Guide
+
+- With `dix`: build one bus per bounded context and manage lifecycle with app hooks.
+- With `observabilityx`: attach observability middleware for event throughput, latency, and error metrics.
+- With `logx`: emit structured event type and handler category logs around failure paths.
+- With `httpx`: publish domain events from handlers after validation and service-layer commit points.
+
 ## Testing Tips
 
 - Use serial dispatch in unit tests for deterministic ordering.
@@ -201,3 +209,9 @@ Pass cancellable contexts in handlers and enforce timeouts.
 ## Examples
 
 - [observability](https://github.com/DaiYuANg/arcgo/tree/main/eventx/examples/observability): Event bus with optional OTel + Prometheus observability.
+
+## Production Notes
+
+- Define ownership boundaries up front; avoid one global bus for unrelated domains.
+- Tune async queue and worker counts from real traffic shape, not defaults alone.
+- Require explicit retry/backpressure policy for business-critical async events.

@@ -15,10 +15,14 @@ Current direction:
 - Shared config primitives (`RetryConfig`, `TLSConfig`)
 - Keep protocol APIs explicit and composable, while sharing engineering conventions
 
-## Roadmap
+## Install / Import
 
-- Module roadmap: [clientx roadmap](./roadmap)
-- Global roadmap: [ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/clientx@latest
+go get github.com/DaiYuANg/arcgo/clientx/http@latest
+go get github.com/DaiYuANg/arcgo/clientx/tcp@latest
+go get github.com/DaiYuANg/arcgo/clientx/udp@latest
+```
 
 ## Current Implementation Snapshot
 
@@ -237,8 +241,27 @@ _ = tcpClient
 - Wrapped errors keep `Unwrap()` behavior (`errors.Is`/`errors.As` still works).
 - Wrapped timeout errors still satisfy `net.Error` timeout checks.
 
+## Integration Guide
+
+- With `configx`: centralize retry timeout/TLS presets, then inject `Config` into transport constructors.
+- With `dix`: provide protocol clients as interfaces (`http.Client` / `tcp.Client` / `udp.Client`) to keep swapping costs low.
+- With `observabilityx`: attach `NewObservabilityHook(...)` to unify metrics/tracing around dial and I/O lifecycle events.
+- With `logx`: keep high-cardinality targets out of structured fields by default and only enable address labels intentionally.
+
+## Testing and Production Notes
+
+- Use interface-returning constructors and mockable surfaces in service tests.
+- Enforce timeout defaults at client construction time; avoid per-call ad-hoc timeout wiring.
+- Prefer category checks (`IsKind`) over string matching for retry/alert policy decisions.
+
+## Examples
+
+- `go run ./examples/clientx/edge_http`
+- `go run ./examples/clientx/internal_rpc_tcp`
+- `go run ./examples/clientx/low_latency_udp`
+
 ## Notes
 
-- `clientx` is currently experimental and under active iteration.
+- `clientx` is still evolving; prefer the exported interfaces (`http.Client`, `tcp.Client`, `udp.Client`) over concrete types.
 - Inter-package dependencies are allowed; current implementation already reuses shared config and `collectionx`.
 - Prefer programming against `http.Client` / `tcp.Client` / `udp.Client` instead of concrete structs.

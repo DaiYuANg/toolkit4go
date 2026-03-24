@@ -9,10 +9,11 @@ weight: 6
 
 `logx` 是基于 `zerolog` 构建的结构化日志包，具有基于选项的配置和可选的 `slog` 互操作性。
 
-## 路线图
+## 安装 / 导入
 
-- 模块路线图：[logx roadmap](./roadmap)
-- 全局路线图：[ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/logx@latest
+```
 
 ## 功能
 
@@ -161,3 +162,16 @@ logx.WithFieldT(logger, "tenant", "acme").
 - 使用文件输出时忘记 `Close()`。
 - 记录高基数、无界字段而没有采样控制。
 - 在可恢复业务错误路径中使用 panic/fatal 级别。
+
+## 集成指南
+
+- 与 `configx`：将日志级别、输出模式和轮转参数外置配置。
+- 与 `dix`：在应用启动阶段初始化一次 logger，并通过 provider 注入。
+- 与 `httpx` / `clientx`：保持请求与客户端元数据结构化且可控。
+- 与 `observabilityx`：对齐日志与追踪事件中的 trace/span 标识。
+
+## 生产注意事项
+
+- 每个进程保持一个长生命周期 logger（再叠加显式作用域字段），避免每请求创建。
+- 使用文件输出时将 `Close()` 视为关闭流程必做项。
+- 对高流量路径执行字段基数控制与采样策略。

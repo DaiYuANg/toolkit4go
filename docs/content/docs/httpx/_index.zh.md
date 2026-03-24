@@ -9,10 +9,11 @@ weight: 5
 
 `httpx` 是构建在 Huma 之上的轻量级 HTTP 服务组织层。
 
-## Roadmap
+## 安装 / 导入
 
-- 模块路线图见：[httpx roadmap](./roadmap)
-- 全局路线图见：[ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/httpx@latest
+```
 
 ## 你得到什么
 
@@ -468,3 +469,9 @@ if rec.Code != http.StatusOK {
   - 基于 `text/event-stream` 的类型化事件流
 - Conditional Requests: `go run ./examples/httpx/conditional`
   - 基于 ETag 和 Last-Modified 的前置条件校验
+
+## 生产注意事项
+
+- 将适配器相关中间件限制在适配器边界，处理器逻辑保持框架无关。
+- 将校验与条件请求策略视为显式 API 契约，而不是隐式默认值。
+- 在 CI 中使用路由自省能力，提前发现 endpoint 漂移与策略不一致。

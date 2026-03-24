@@ -9,10 +9,11 @@ weight: 3
 
 `configx` 是基于 `koanf` 和 `validator` 构建的分层配置加载器。
 
-## 路线图
+## 安装 / 导入
 
-- 模块路线图：[configx roadmap](./roadmap)
-- 全局路线图：[ArcGo roadmap](../roadmap)
+```bash
+go get github.com/DaiYuANg/arcgo/configx@latest
+```
 
 ## 支持的功能
 
@@ -149,6 +150,22 @@ err := configx.Load(&cfg,
 
 - `APP_DATABASE_HOST` -> `database.host`
 - `APP_SERVER_READ_TIMEOUT` -> `server.read.timeout`
+
+## 关键 API
+
+- `Load(cfgPtr, opts...)`：加载到已有配置对象
+- `LoadT[T](opts...)` / `LoadTErr[T](opts...)`：typed 加载流程
+- `WithDotenv`、`WithFiles`、`WithEnvPrefix`、`WithPriority`：源与优先级控制
+- `WithDefaults`、`WithDefaultsTyped`：默认值策略
+- `WithValidateLevel`、`WithValidator`：验证行为
+- `WithObservability`：可选可观测性挂载
+
+## 集成指南
+
+- 与 `dix`：启动时集中加载配置，并以 typed 依赖注入模块。
+- 与 `httpx`：由配置驱动监听地址、TLS 行为和中间件开关。
+- 与 `dbx` / `kvx`：统一管理 DSN 与后端连接选项，按环境覆盖。
+- 与 `logx` / `observabilityx`：外置日志级别和遥测开关。
 
 ## 生产环境技巧
 

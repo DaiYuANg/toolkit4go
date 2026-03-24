@@ -11,11 +11,15 @@ weight: 6
 它提供不可变 `App` 规格、typed provider/invoke、生命周期 hook、构建期校验，
 以及独立的运行时模型，同时默认路径不会强迫业务代码直接接触 `do`。
 
+## 安装 / 导入
+
+```bash
+go get github.com/DaiYuANg/arcgo/dix@latest
+```
+
 ## API 状态
 
-- 当前对外 API 已进入收口阶段。
-- 后续迭代应以增量能力、更多集成、以及文档和示例完善为主。
-- 默认路径面向正常业务应用，后续应尽量保持稳定和易用。
+- 对外 API 正在收敛为面向典型业务的稳定默认路径。
 
 ## 核心建模
 
@@ -185,6 +189,13 @@ _ = svc
   - [examples/dix/override](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/override)
   - [examples/dix/inspect](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/inspect)
 
+## 集成指南
+
+- 与 `configx`：先加载 typed 配置，再作为模块依赖注入。
+- 与 `logx`：进程启动时初始化一次 logger，并注入服务模块。
+- 与 `httpx`：在 setup/hook 阶段完成 server 引导，路由注册放在专用模块。
+- 与 `dbx` / `kvx`：将 repository 与连接初始化放在隔离的基础设施模块。
+
 ## 测试与 Benchmark
 
 ```bash
@@ -197,3 +208,9 @@ go test ./dix -run ^$ -bench . -benchmem
 - typed resolve 路径足够轻，可以进入热路径
 - `ResolveAssignableAs` 比 typed alias 绑定更慢
 - inspection API 是诊断路径，不应当按请求热路径去使用
+
+## 生产注意事项
+
+- 以领域边界组织模块，避免超级大模块。
+- 在 runtime 启动前对校验/构建错误快速失败。
+- 仅在请求或租户生命周期边界明确时使用 scoped runtime 能力。

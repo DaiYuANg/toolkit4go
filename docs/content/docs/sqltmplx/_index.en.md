@@ -11,6 +11,12 @@ weight: 12
 It is provided as the `dbx/sqltmplx` subpackage (a part of `dbx`), so `dbx` is typically the package you start with.
 It keeps control flow inside SQL comments, preserves sample literals for tooling, and renders bind variables plus arguments at runtime.
 
+## Install / Import
+
+```bash
+go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
+```
+
 ## Package Layout
 
 - Core renderer: `github.com/DaiYuANg/arcgo/dbx/sqltmplx`
@@ -161,11 +167,17 @@ fmt.Println(bound2.Query)
 
 ## Related dbx Docs
 
-- dbx getting started: [/docs/dbx/getting-started/](/docs/dbx/getting-started/)
-- dbx schema declaration: [/docs/dbx/schema-design/](/docs/dbx/schema-design/)
-- dbx ID strategy: [/docs/dbx/id-generation/](/docs/dbx/id-generation/)
-- dbx index configuration: [/docs/dbx/indexes/](/docs/dbx/indexes/)
-- dbx + sqltmplx integration: [/docs/dbx/sqltmplx/](/docs/dbx/sqltmplx/)
+- dbx getting started: [dbx getting started](../dbx/getting-started/)
+- dbx schema declaration: [dbx schema declaration](../dbx/schema-design/)
+- dbx ID strategy: [dbx ID strategy](../dbx/id-generation/)
+- dbx index configuration: [dbx index configuration](../dbx/indexes/)
+- dbx + sqltmplx integration: [sqltmplx integration](../dbx/sqltmplx-integration/)
+
+## Error and Behavior Model
+
+- Render/compile failures should be treated as query-contract errors, not runtime SQL failures.
+- Validator configuration controls syntax/semantic guardrails; missing validator means renderer-only behavior.
+- Registry-based statement reuse should be preferred on hot paths to avoid repeated parse/compile cost.
 
 ## Testing and Benchmarks
 
@@ -175,6 +187,18 @@ go test ./dbx/sqltmplx -run ^$ -bench . -benchmem
 go test ./dbx/sqltmplx/render -run ^$ -bench . -benchmem
 go test ./dbx/sqltmplx/validate/mysqlparser -run ^$ -bench . -benchmem
 ```
+
+## Integration Guide
+
+- With `dbx`: use `Registry` statements with `dbx.SQL*` APIs and transaction-scoped `session.SQL().Exec(...)`.
+- With `configx`: bind SQL template parameters from validated typed config where appropriate.
+- With `logx` / `observabilityx`: emit statement names and render/execute timing for query diagnostics.
+
+## Production Notes
+
+- Compile and cache hot-path statements during startup where possible.
+- Keep validator strategy explicit per dialect and environment.
+- Treat template changes as contract changes; review rendered SQL in CI for critical paths.
 
 
 
