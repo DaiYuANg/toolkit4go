@@ -139,7 +139,6 @@ func execHugo(a *goyek.A, ctx *docsContext, args string) bool {
 		a,
 		"go tool hugo "+strings.TrimSpace(args),
 		goyekcmd.Dir(ctx.docsDir),
-		goyekcmd.Env("HUGO_CACHEDIR", ctx.hugoCacheDir),
 	)
 }
 
