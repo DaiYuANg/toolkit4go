@@ -269,9 +269,7 @@ func (c *Consumer) Run(ctx context.Context) error {
 		}
 
 		if c.autoAck && len(idsToAck) > 0 {
-			if err := c.group.Ack(ctx, idsToAck); err != nil {
-				// Log error but continue
-			}
+			_ = c.group.Ack(ctx, idsToAck)
 		}
 	}
 }
@@ -414,9 +412,7 @@ func (c *Claimer) claimAndProcess(ctx context.Context) error {
 		}
 
 		if len(idsToAck) > 0 {
-			if err := c.group.Ack(ctx, idsToAck); err != nil {
-				// Log error
-			}
+			_ = c.group.Ack(ctx, idsToAck)
 		}
 	}
 

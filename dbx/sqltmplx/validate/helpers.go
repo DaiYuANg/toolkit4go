@@ -2,10 +2,6 @@ package validate
 
 import "strings"
 
-func normalizeWhitespace(sql string) string {
-	return strings.Join(strings.Fields(sql), " ")
-}
-
 func detectStatementType(sql string) string {
 	sql = strings.TrimSpace(sql)
 	if sql == "" {

@@ -28,7 +28,7 @@ func main() {
 			dix.NewModule("broken",
 				dix.WithModuleProviders(
 					dix.Provider1(func(dep MissingDependency) NeedsMissingDependency {
-						return NeedsMissingDependency{Name: dep.Name}
+						return NeedsMissingDependency(dep)
 					}),
 				),
 				dix.WithModuleInvokes(

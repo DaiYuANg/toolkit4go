@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
-	"github.com/samber/lo"
 )
 
 // StartHook is executed when the application starts.
@@ -66,7 +66,8 @@ func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) err
 }
 
 func (l *lifecycleImpl) executeStopHooks(ctx context.Context, _ *Container) error {
-	stopHooks := lo.Reverse(l.stopHooks.Values())
+	stopHooks := slices.Clone(l.stopHooks.Values())
+	slices.Reverse(stopHooks)
 	for i, hook := range stopHooks {
 		if err := hook(ctx); err != nil {
 			if l.logger != nil {

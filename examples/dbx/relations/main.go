@@ -56,7 +56,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer belongsToRows.Close()
+	defer func() { _ = belongsToRows.Close() }()
 
 	fmt.Println("users with role=admin:")
 	for belongsToRows.Next() {
@@ -88,7 +88,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer manyToManyRows.Close()
+	defer func() { _ = manyToManyRows.Close() }()
 
 	fmt.Println("alice roles:")
 	for manyToManyRows.Next() {

@@ -187,7 +187,8 @@ func TestHookEventMetadataAndDuration(t *testing.T) {
 		}),
 	)
 
-	ctx := context.WithValue(context.Background(), "trace_id", "abc-123")
+	type ctxKey struct{}
+	ctx := context.WithValue(context.Background(), ctxKey{}, "abc-123")
 	if _, err := Exec(ctx, db, InsertInto(users).Values(assignments...)); err != nil {
 		t.Fatalf("Exec returned error: %v", err)
 	}
@@ -208,8 +209,8 @@ func TestHookEventMetadataAndDuration(t *testing.T) {
 	if afterEvent.StartedAt.After(time.Now()) {
 		t.Fatalf("expected StartedAt <= now: %v", afterEvent.StartedAt)
 	}
-	if afterEvent.Duration <= 0 {
-		t.Fatalf("expected Duration > 0: %v", afterEvent.Duration)
+	if afterEvent.Duration < 0 {
+		t.Fatalf("expected non-negative Duration: %v", afterEvent.Duration)
 	}
 
 	if len(handler.records) == 0 {

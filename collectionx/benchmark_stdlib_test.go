@@ -32,7 +32,7 @@ func BenchmarkStdlibSetContains(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = s[i&mask]
+		_ = s[i&mask]
 	}
 }
 
@@ -56,6 +56,7 @@ func BenchmarkStdlibSliceAppend(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sl = append(sl, i)
+		_ = len(sl)
 	}
 }
 

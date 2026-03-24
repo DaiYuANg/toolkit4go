@@ -23,7 +23,7 @@ func (p *Parser) Validate(sqlText string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	stmt, err := db.Prepare(sqlText)
 	if stmt != nil {

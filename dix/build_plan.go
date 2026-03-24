@@ -85,10 +85,7 @@ func (p *buildPlan) Build() (*Runtime, error) {
 			}
 			return true
 		})
-		if setupErr != nil {
-			return false
-		}
-		return true
+		return setupErr == nil
 	})
 	if setupErr != nil {
 		return nil, setupErr

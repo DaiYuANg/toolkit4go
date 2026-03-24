@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	semver "github.com/Masterminds/semver/v3"
@@ -36,13 +35,6 @@ func buildVersion(tag string, current bool) Version {
 		Path:    path,
 		Current: current,
 	}
-}
-
-// 按语义版本号排序（可选工具函数）
-func sortVersions(tags []string) {
-	sort.Slice(tags, func(i, j int) bool {
-		return compareVersions(tags[i], tags[j]) > 0
-	})
 }
 
 // compareVersions 比较两个版本号

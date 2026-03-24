@@ -46,7 +46,7 @@ func (m *MultiMap[K, V]) PutAll(key K, values ...V) {
 	if cap(current) >= needed {
 		next = append(current, values...)
 	} else {
-		capacity := needed
+		var capacity int
 		if needed < 256 {
 			capacity = needed * 2
 		} else {

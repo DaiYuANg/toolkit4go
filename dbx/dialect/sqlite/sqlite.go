@@ -387,6 +387,7 @@ func parseCreateTableChecks(createSQL string) []dbx.CheckState {
 		start += index
 		depth := 0
 		end := -1
+	scanLoop:
 		for i := start; i < len(createSQL); i++ {
 			switch createSQL[i] {
 			case '(':
@@ -395,7 +396,7 @@ func parseCreateTableChecks(createSQL string) []dbx.CheckState {
 				depth--
 				if depth == 0 {
 					end = i
-					break
+					break scanLoop
 				}
 			}
 		}

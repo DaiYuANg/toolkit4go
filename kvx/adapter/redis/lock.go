@@ -3,15 +3,27 @@ package redis
 import (
 	"context"
 	"time"
+
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // ============== Lock Interface ==============
 
 // Acquire tries to acquire a lock.
 func (a *Adapter) Acquire(ctx context.Context, key string, ttl time.Duration) (bool, error) {
-	// Use SET NX for simple distributed lock
-	ok, err := a.client.SetNX(ctx, key, "1", ttl).Result()
-	return ok, err
+	cmd := a.client.SetArgs(ctx, key, "1", goredis.SetArgs{
+		Mode: "NX",
+		TTL:  ttl,
+	})
+	val, err := cmd.Result()
+	if err == goredis.Nil {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	_ = val
+	return true, nil
 }
 
 // Release releases a lock.

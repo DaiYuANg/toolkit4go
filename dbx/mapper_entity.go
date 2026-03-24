@@ -11,7 +11,7 @@ func (m Mapper[E]) InsertAssignments(schema SchemaResource, entity *E) ([]Assign
 		if !field.Insertable {
 			return false
 		}
-		return !(column.PrimaryKey && column.AutoIncrement)
+		return !column.PrimaryKey || !column.AutoIncrement
 	})
 }
 

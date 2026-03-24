@@ -36,7 +36,7 @@ func serveRequest(t testing.TB, server ServerRuntime, req *http.Request) *httpte
 	case *adapterfiber.Adapter:
 		resp, err := host.Router().Test(req, -1)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		rec := httptest.NewRecorder()
 		for key, values := range resp.Header {

@@ -1,12 +1,7 @@
 package httpx
 
 import (
-	"bufio"
-	"fmt"
-	"io"
 	"log/slog"
-	"net"
-	"net/http"
 	"strings"
 
 	"github.com/samber/lo"
@@ -126,68 +121,4 @@ func (s *Server) parameterizedRouteMatcher(method string) *routeMatcher {
 	matcher := newRouteMatcher()
 	actual, _ := s.routeMatchers.GetOrStore(method, matcher)
 	return actual
-}
-
-type accessLogResponseWriter struct {
-	http.ResponseWriter
-	status      int
-	wroteHeader bool
-}
-
-func newAccessLogResponseWriter(w http.ResponseWriter) *accessLogResponseWriter {
-	return &accessLogResponseWriter{ResponseWriter: w}
-}
-
-func (w *accessLogResponseWriter) WriteHeader(status int) {
-	if !w.wroteHeader {
-		w.status = status
-		w.wroteHeader = true
-	}
-	w.ResponseWriter.WriteHeader(status)
-}
-
-func (w *accessLogResponseWriter) Write(b []byte) (int, error) {
-	if !w.wroteHeader {
-		w.WriteHeader(http.StatusOK)
-	}
-	return w.ResponseWriter.Write(b)
-}
-
-func (w *accessLogResponseWriter) Status() int {
-	if w.status == 0 {
-		return http.StatusOK
-	}
-	return w.status
-}
-
-func (w *accessLogResponseWriter) Flush() {
-	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
-}
-
-func (w *accessLogResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	hijacker, ok := w.ResponseWriter.(http.Hijacker)
-	if !ok {
-		return nil, nil, fmt.Errorf("httpx: response writer does not support hijacking")
-	}
-	return hijacker.Hijack()
-}
-
-func (w *accessLogResponseWriter) Push(target string, opts *http.PushOptions) error {
-	if pusher, ok := w.ResponseWriter.(http.Pusher); ok {
-		return pusher.Push(target, opts)
-	}
-	return http.ErrNotSupported
-}
-
-func (w *accessLogResponseWriter) ReadFrom(r io.Reader) (int64, error) {
-	readerFrom, ok := w.ResponseWriter.(io.ReaderFrom)
-	if !ok {
-		return io.Copy(w.ResponseWriter, r)
-	}
-	if !w.wroteHeader {
-		w.WriteHeader(http.StatusOK)
-	}
-	return readerFrom.ReadFrom(r)
 }

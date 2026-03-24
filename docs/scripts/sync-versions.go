@@ -117,8 +117,3 @@ func exitWithError(err error) {
 	fmt.Printf("❌ 错误：%v\n", err)
 	os.Exit(1)
 }
-
-func exitWithMessage(message string) {
-	fmt.Println(message)
-	os.Exit(1)
-}

@@ -1,0 +1,8 @@
+version: "2"
+run:
+  timeout: 15m
+linters:
+  disable:
+    # Monorepo: unchecked defer Close and WIP symbols are common; enable incrementally per package.
+    - errcheck
+    - unused

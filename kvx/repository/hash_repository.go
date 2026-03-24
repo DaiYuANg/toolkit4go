@@ -92,7 +92,7 @@ func (r *HashRepository[T]) SaveBatchWithExpiration(ctx context.Context, entitie
 	}
 	if provider, ok := r.pipeline.Get(); ok {
 		pipe := provider.Pipeline()
-		defer pipe.Close()
+		defer func() { _ = pipe.Close() }()
 		for _, entity := range entities {
 			metadata, err := r.base.metadata(entity)
 			if err != nil {

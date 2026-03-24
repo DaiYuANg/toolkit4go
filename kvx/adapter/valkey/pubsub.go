@@ -3,9 +3,10 @@ package valkey
 import (
 	"context"
 	"errors"
-	"github.com/DaiYuANg/arcgo/kvx"
-	"github.com/valkey-io/valkey-go"
 	"sync"
+
+	"github.com/DaiYuANg/arcgo/kvx"
+	valkey "github.com/valkey-io/valkey-go"
 )
 
 // ============== PubSub Interface ==============
@@ -31,7 +32,7 @@ func (a *Adapter) Subscribe(ctx context.Context, channel string) (kvx.Subscripti
 			sub.ch <- []byte(msg.Message)
 		})
 		if err != nil && !errors.Is(err, context.Canceled) {
-			// Connection closed or error
+			_ = err
 		}
 	}()
 
@@ -54,7 +55,7 @@ func (a *Adapter) PSubscribe(ctx context.Context, pattern string) (kvx.Subscript
 			sub.ch <- []byte(msg.Message)
 		})
 		if err != nil && !errors.Is(err, context.Canceled) {
-			// Connection closed or error
+			_ = err
 		}
 	}()
 

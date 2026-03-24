@@ -174,7 +174,7 @@ func (l *Lock) stopAutoExtend() {
 // generateIdentifier generates a unique identifier for this lock instance.
 func generateIdentifier() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }
 
@@ -249,7 +249,7 @@ func WithLock(ctx context.Context, client kvx.Lock, key string, opts *Options, f
 	if err := lock.Acquire(ctx); err != nil {
 		return err
 	}
-	defer lock.Release(ctx)
+	defer func() { _ = lock.Release(ctx) }()
 
 	return fn()
 }
@@ -260,7 +260,7 @@ func WithTryLock(ctx context.Context, client kvx.Lock, key string, timeout time.
 	if err := lock.TryAcquire(ctx, timeout); err != nil {
 		return err
 	}
-	defer lock.Release(ctx)
+	defer func() { _ = lock.Release(ctx) }()
 
 	return fn()
 }
@@ -345,8 +345,7 @@ func (s *Semaphore) Acquire(ctx context.Context, ttl time.Duration) error {
 
 	count := 0
 	if data != nil {
-		// Parse count
-		fmt.Sscanf(string(data), "%d", &count)
+		_, _ = fmt.Sscanf(string(data), "%d", &count)
 	}
 
 	if count >= s.max {
@@ -369,7 +368,7 @@ func (s *Semaphore) Release(ctx context.Context) error {
 
 	count := 0
 	if data != nil {
-		fmt.Sscanf(string(data), "%d", &count)
+		_, _ = fmt.Sscanf(string(data), "%d", &count)
 	}
 
 	if count > 0 {

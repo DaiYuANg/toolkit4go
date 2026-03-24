@@ -500,7 +500,7 @@ func ExampleWithModuleHooks() {
 		),
 		dix.WithModuleHooks(
 			dix.OnStart(func(ctx context.Context, s *http.Server) error {
-				go s.ListenAndServe()
+				go func() { _ = s.ListenAndServe() }()
 				return nil
 			}),
 			dix.OnStop(func(ctx context.Context, s *http.Server) error {

@@ -24,19 +24,25 @@ tasks:
       - go fmt ./...
 
   lint:
-    desc: Run golangci-lint and staticcheck
+    desc: Run golangci-lint (includes staticcheck) and govulncheck per go.work module. For standalone staticcheck, run `go run ./scripts/workspace-modules/main.go staticcheck` (optional env STATICCHECK_CHECKS).
     env:
       GOLANGCI_LINT_CACHE: '{{.GOLANGCI_CACHE_DIR}}'
       STATICCHECK_CACHE: '{{.STATICCHECK_CACHE_DIR}}'
     cmds:
-      - go tool golangci-lint run ./...
-      - go tool staticcheck ./...
-      - go tool govulncheck ./...
+      - go run ./scripts/workspace-modules/main.go lint
+      - go run ./scripts/workspace-modules/main.go govulncheck
 
   test:
     desc: Run all Go tests (every module in go.work)
     cmds:
-      - go run ./scripts/workspace-test/main.go
+      - go run ./scripts/workspace-modules/main.go test
+
+  lint:staticcheck:
+    desc: Run honnef staticcheck only per module (optional; golangci-lint already runs staticcheck). Set STATICCHECK_CHECKS for -checks.
+    env:
+      STATICCHECK_CACHE: '{{.STATICCHECK_CACHE_DIR}}'
+    cmds:
+      - go run ./scripts/workspace-modules/main.go staticcheck
 
   check:
     desc: Run fmt, lint and test

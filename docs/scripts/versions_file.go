@@ -31,10 +31,10 @@ versions:
 
 	for i, version := range versions {
 		b.WriteString(versionSection(version.Current))
-		b.WriteString(fmt.Sprintf("  - name: \"%s\"\n", version.Name))
-		b.WriteString(fmt.Sprintf("    release: \"%s\"\n", version.Release))
-		b.WriteString(fmt.Sprintf("    path: \"%s\"\n", version.Path))
-		b.WriteString(fmt.Sprintf("    current: %t\n", version.Current))
+		_, _ = fmt.Fprintf(&b, "  - name: \"%s\"\n", version.Name)
+		_, _ = fmt.Fprintf(&b, "    release: \"%s\"\n", version.Release)
+		_, _ = fmt.Fprintf(&b, "    path: \"%s\"\n", version.Path)
+		_, _ = fmt.Fprintf(&b, "    current: %t\n", version.Current)
 
 		if i < len(versions)-1 {
 			b.WriteString("\n")

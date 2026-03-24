@@ -12,11 +12,11 @@ type pipelineProvider interface {
 	Pipeline() kvx.Pipeline
 }
 
-var ExpirationError = errors.New("expiration <= 0")
+var ErrExpiration = errors.New("expiration <= 0")
 
 func enqueueExpire(pipe kvx.Pipeline, key string, expiration time.Duration) error {
 	if expiration <= 0 {
-		return ExpirationError
+		return ErrExpiration
 	}
 
 	err := pipe.Enqueue("PEXPIRE", []byte(key), []byte(strconv.FormatInt(expiration.Milliseconds(), 10)))
