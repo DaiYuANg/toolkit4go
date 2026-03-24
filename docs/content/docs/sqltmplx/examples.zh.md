@@ -34,8 +34,8 @@ go run ./precompile
 
 ```go
 engine := sqltmplx.New(
-    postgres.Dialect{},
-    sqltmplx.WithValidator(validate.NewSQLParser(postgres.Dialect{})),
+    postgres.New(),
+    sqltmplx.WithValidator(validate.NewSQLParser(postgres.New())),
 )
 
 bound, err := engine.Render(tpl, Query{
@@ -51,7 +51,7 @@ if err != nil {
 ## 示例：动态 SET
 
 ```go
-engine := sqltmplx.New(sqlite.Dialect{})
+engine := sqltmplx.New(sqlite.New())
 
 bound, err := engine.Render(tpl, UpdateCommand{
     ID:     42,
@@ -66,7 +66,7 @@ if err != nil {
 ## 示例：模板复用
 
 ```go
-engine := sqltmplx.New(mysql.Dialect{})
+engine := sqltmplx.New(mysql.New())
 tpl, err := engine.Compile(queryText)
 if err != nil {
     panic(err)

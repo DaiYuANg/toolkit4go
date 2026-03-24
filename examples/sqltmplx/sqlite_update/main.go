@@ -14,7 +14,7 @@ type UpdateCommand struct {
 }
 
 func main() {
-	engine := sqltmplx.New(sqlite.Dialect{})
+	engine := sqltmplx.New(sqlite.New())
 
 	tpl := `
 UPDATE users

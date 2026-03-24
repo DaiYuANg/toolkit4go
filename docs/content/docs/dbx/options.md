@@ -17,7 +17,7 @@ Use `Open` when you want dbx to own the connection. No need to pass `*sql.DB`; d
 db, err := dbx.Open(
     dbx.WithDriver("sqlite"),
     dbx.WithDSN("file:app.db"),
-    dbx.WithDialect(sqlite.Dialect{}),
+    dbx.WithDialect(sqlite.New()),
     dbx.ApplyOptions(dbx.WithDebug(true)),
 )
 if err != nil {

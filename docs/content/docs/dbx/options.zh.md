@@ -17,7 +17,7 @@ Options 使用函数式 Option 模式，可组合（后者覆盖前者）。
 db, err := dbx.Open(
     dbx.WithDriver("sqlite"),
     dbx.WithDSN("file:app.db"),
-    dbx.WithDialect(sqlite.Dialect{}),
+    dbx.WithDialect(sqlite.New()),
     dbx.ApplyOptions(dbx.WithDebug(true)),
 )
 if err != nil {

@@ -17,7 +17,7 @@ func OpenSQLite(dsn string, opts ...dbx.Option) (*dbx.DB, error) {
 	db, err := dbx.Open(
 		dbx.WithDriver("sqlite"),
 		dbx.WithDSN(dsn),
-		dbx.WithDialect(sqlitedialect.Dialect{}),
+		dbx.WithDialect(sqlitedialect.New()),
 		dbx.ApplyOptions(opts...),
 	)
 	if err != nil {

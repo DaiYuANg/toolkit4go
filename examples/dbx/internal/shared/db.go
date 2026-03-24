@@ -26,7 +26,7 @@ func OpenSQLite(name string, opts ...dbx.Option) (*dbx.DB, func() error, error) 
 	db, err := dbx.Open(
 		dbx.WithDriver("sqlite"),
 		dbx.WithDSN(dsn),
-		dbx.WithDialect(sqlitedialect.Dialect{}),
+		dbx.WithDialect(sqlitedialect.New()),
 		dbx.ApplyOptions(opts...),
 	)
 	if err != nil {
@@ -53,7 +53,7 @@ func OpenSQLiteRaw(name string, opts ...dbx.Option) (*dbx.DB, func() error, erro
 		_ = raw.Close()
 		return nil, nil, err
 	}
-	db, err := dbx.NewWithOptions(raw, sqlitedialect.Dialect{}, opts...)
+	db, err := dbx.NewWithOptions(raw, sqlitedialect.New(), opts...)
 	if err != nil {
 		_ = raw.Close()
 		return nil, nil, err

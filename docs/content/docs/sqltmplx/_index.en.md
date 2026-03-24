@@ -60,8 +60,8 @@ type Query struct {
 
 func main() {
     engine := sqltmplx.New(
-        postgres.Dialect{},
-        sqltmplx.WithValidator(validate.NewSQLParser(postgres.Dialect{})),
+        postgres.New(),
+        sqltmplx.WithValidator(validate.NewSQLParser(postgres.New())),
     )
 
     tpl := `
@@ -137,7 +137,7 @@ for range batches {
 ## Compile Once, Render Many
 
 ```go
-engine := sqltmplx.New(mysql.Dialect{})
+engine := sqltmplx.New(mysql.New())
 tpl, err := engine.Compile(queryText)
 if err != nil {
     panic(err)
@@ -158,6 +158,14 @@ fmt.Println(bound2.Query)
   - [examples/sqltmplx/postgres](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/postgres)
   - [examples/sqltmplx/sqlite_update](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/sqlite_update)
   - [examples/sqltmplx/precompile](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/precompile)
+
+## Related dbx Docs
+
+- dbx getting started: [/docs/dbx/getting-started/](/docs/dbx/getting-started/)
+- dbx schema declaration: [/docs/dbx/schema-design/](/docs/dbx/schema-design/)
+- dbx ID strategy: [/docs/dbx/id-generation/](/docs/dbx/id-generation/)
+- dbx index configuration: [/docs/dbx/indexes/](/docs/dbx/indexes/)
+- dbx + sqltmplx integration: [/docs/dbx/sqltmplx/](/docs/dbx/sqltmplx/)
 
 ## Testing and Benchmarks
 

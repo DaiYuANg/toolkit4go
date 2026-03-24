@@ -58,6 +58,25 @@ These are implementation details. The exposed API is still `dbx`, `dbx/sqltmplx`
 - Migration runner package:
   - `github.com/DaiYuANg/arcgo/dbx/migrate`
 
+## Documentation Map
+
+- Start here: [Getting Started](./getting-started)
+- Schema declaration and modeling: [Schema Design](./schema-design)
+- End-to-end CRUD: [CRUD Tutorial](./tutorial-crud)
+- Relation loading walkthrough: [Relations Tutorial](./tutorial-relations)
+- Schema planning and migration: [Migration Tutorial](./tutorial-migration)
+- Pure SQL with templates: [Pure SQL Tutorial](./tutorial-pure-sql)
+- ID strategies and runtime generator configuration: [ID Generation](./id-generation)
+- Index declaration and migration behavior: [Indexes](./indexes)
+- Runtime options: [Options](./options)
+- Logging and hooks: [Observability](./observability)
+- Production rollout checklist: [Production Checklist](./production-checklist)
+- API quick lookup: [API Quick Reference](./api-reference)
+- Dialect abstraction: [Dialect](./dialect)
+- dbx + pure SQL templates: [sqltmplx Integration](./sqltmplx)
+- Runnable examples: [Examples](./examples)
+- Benchmark notes: [Benchmarks](./benchmarks)
+
 ## Open (connection managed by dbx)
 
 Use `Open` when you want dbx to own the connection—no need to pass `*sql.DB`:
@@ -66,7 +85,7 @@ Use `Open` when you want dbx to own the connection—no need to pass `*sql.DB`:
 db, err := dbx.Open(
     dbx.WithDriver("sqlite"),
     dbx.WithDSN("file:app.db"),
-    dbx.WithDialect(sqlite.Dialect{}),
+    dbx.WithDialect(sqlite.New()),
     dbx.ApplyOptions(dbx.WithDebug(true)),
 )
 if err != nil {
@@ -309,7 +328,7 @@ For typed primary-key strategy configuration, see [ID Generation](./id-generatio
 ```go
 core := dbx.NewWithOptions(
     sqlDB,
-    sqlite.Dialect{},
+    sqlite.New(),
     dbx.WithLogger(logger),
     dbx.WithDebug(true),
     dbx.WithHooks(dbx.HookFuncs{

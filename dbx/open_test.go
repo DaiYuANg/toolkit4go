@@ -14,7 +14,7 @@ func TestOpenValidation(t *testing.T) {
 	t.Run("missing driver", func(t *testing.T) {
 		_, err := dbx.Open(
 			dbx.WithDSN("file:test?mode=memory"),
-			dbx.WithDialect(sqlite.Dialect{}),
+			dbx.WithDialect(sqlite.New()),
 		)
 		if !errors.Is(err, dbx.ErrMissingDriver) {
 			t.Fatalf("expected ErrMissingDriver, got %v", err)
@@ -23,7 +23,7 @@ func TestOpenValidation(t *testing.T) {
 	t.Run("missing dsn", func(t *testing.T) {
 		_, err := dbx.Open(
 			dbx.WithDriver("sqlite"),
-			dbx.WithDialect(sqlite.Dialect{}),
+			dbx.WithDialect(sqlite.New()),
 		)
 		if !errors.Is(err, dbx.ErrMissingDSN) {
 			t.Fatalf("expected ErrMissingDSN, got %v", err)
@@ -44,7 +44,7 @@ func TestOpenSuccess(t *testing.T) {
 	db, err := dbx.Open(
 		dbx.WithDriver("sqlite"),
 		dbx.WithDSN("file:TestOpenSuccess?mode=memory&cache=shared"),
-		dbx.WithDialect(sqlite.Dialect{}),
+		dbx.WithDialect(sqlite.New()),
 		dbx.ApplyOptions(dbx.WithDebug(true)),
 	)
 	if err != nil {

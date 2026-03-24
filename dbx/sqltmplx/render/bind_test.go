@@ -12,7 +12,7 @@ type bindQuery struct {
 }
 
 func TestBindCommentPlaceholderWithStructTags(t *testing.T) {
-	st := newState(bindQuery{Name: "alice", IDs: []int{10, 20}}, postgres.Dialect{})
+	st := newState(bindQuery{Name: "alice", IDs: []int{10, 20}}, postgres.New())
 	out, err := bindText("name = /* name */'bob' AND id IN (/* ids */(1, 2))", st)
 	if err != nil {
 		t.Fatalf("bindText returned error: %v", err)

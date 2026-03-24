@@ -15,6 +15,8 @@ import (
 
 type Dialect struct{}
 
+func New() Dialect { return Dialect{} }
+
 func (Dialect) Name() string         { return "postgres" }
 func (Dialect) BindVar(n int) string { return "$" + fmt.Sprint(n) }
 func (Dialect) QuoteIdent(ident string) string {

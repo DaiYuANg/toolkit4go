@@ -10,6 +10,12 @@ weight: 9
 `dbx` supports typed ID generation strategies for primary keys.  
 Configure ID behavior directly in schema fields with `IDColumn[..., ..., Marker]`, not string tags.
 
+## When to Use
+
+- You need deterministic ID strategy per table/entity.
+- You want runtime control of generator behavior at DB scope.
+- You deploy multi-instance services and need explicit Snowflake node separation.
+
 ## Marker Types
 
 | Marker | ID type | Behavior |
@@ -38,6 +44,14 @@ type EventSchema struct {
 var Events = dbx.MustSchema("events", EventSchema{})
 ```
 
+## Minimal Project Layout
+
+```text
+.
+├── go.mod
+└── main.go
+```
+
 ## Defaults
 
 - `int64` primary key with `dbx:"id,pk"` defaults to `db_auto`.
@@ -54,3 +68,15 @@ var Events = dbx.MustSchema("events", EventSchema{})
 
 `idgen` and `uuidv` tag parameters are removed.  
 Use marker types on `IDColumn` for explicit ID strategy configuration.
+
+## Pitfalls
+
+- Configuring both `WithNodeID` and `WithIDGenerator` in one DB instance returns error.
+- Using out-of-range node ID results in `NodeIDOutOfRangeError`.
+- Declaring marker type in schema but expecting package-global generator behavior is no longer valid.
+
+## Verify
+
+```bash
+go test ./dbx/... -run ID
+```

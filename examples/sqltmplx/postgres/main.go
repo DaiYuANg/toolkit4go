@@ -17,8 +17,8 @@ type Query struct {
 
 func main() {
 	engine := sqltmplx.New(
-		postgres.Dialect{},
-		sqltmplx.WithValidator(validate.NewSQLParser(postgres.Dialect{})),
+		postgres.New(),
+		sqltmplx.WithValidator(validate.NewSQLParser(postgres.New())),
 	)
 
 	tpl := `

@@ -8,7 +8,7 @@ import (
 )
 
 func TestTemplateBindReturnsDBXBoundQuery(t *testing.T) {
-	engine := New(sqlite.Dialect{})
+	engine := New(sqlite.New())
 	template, err := engine.CompileNamed("user/find_active.sql", `
 select id, username
 from users
@@ -42,7 +42,7 @@ where status = /* status */1
 order by id
 `),
 		},
-	}, sqlite.Dialect{})
+	}, sqlite.New())
 
 	first, err := registry.Template("sql/user/find_active.sql")
 	if err != nil {

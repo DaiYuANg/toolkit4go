@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	engine := sqltmplx.New(mysql.Dialect{})
+	engine := sqltmplx.New(mysql.New())
 	tpl, err := engine.Compile(`
 SELECT id, order_no, status
 FROM orders

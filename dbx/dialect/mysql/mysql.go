@@ -15,6 +15,8 @@ import (
 
 type Dialect struct{}
 
+func New() Dialect { return Dialect{} }
+
 func (Dialect) Name() string         { return "mysql" }
 func (Dialect) BindVar(_ int) string { return "?" }
 func (Dialect) QuoteIdent(ident string) string {

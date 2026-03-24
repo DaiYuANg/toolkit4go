@@ -50,7 +50,7 @@ func BenchmarkBindTextStruct(b *testing.B) {
 	text := "tenant = /* tenant */'acme' AND id IN (/* filter.ids */(1, 2, 3))"
 
 	for b.Loop() {
-		st := newState(benchmarkLookupParams, postgres.Dialect{})
+		st := newState(benchmarkLookupParams, postgres.New())
 		if _, err := bindText(text, st); err != nil {
 			b.Fatal(err)
 		}

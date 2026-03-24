@@ -11,8 +11,8 @@ import (
 
 func main() {
 	engine := sqltmplx.New(
-		mysql.Dialect{},
-		sqltmplx.WithValidator(validate.NewSQLParser(mysql.Dialect{})),
+		mysql.New(),
+		sqltmplx.WithValidator(validate.NewSQLParser(mysql.New())),
 	)
 
 	tpl := `
