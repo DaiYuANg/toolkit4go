@@ -7,222 +7,53 @@ weight: 3
 
 ## configx
 
-`configx` 是基于 `koanf` 和 `validator` 构建的分层配置加载器。
+`configx` 是基于 `koanf` 与 `go-playground/validator` 构建的分层配置加载器。
 
-## 安装 / 导入
+它主要提供两种使用方式：
+
+- **强类型加载**：`LoadT[T]` / `LoadTErr[T]` 反序列化到结构体，并可选执行校验。
+- **动态配置**：`LoadConfig` 返回 `*configx.Config`，用于按路径读取（`GetString`、`Exists`、`All`、`Unmarshal`）。
+
+配置源按优先级合并：后加载的源会覆盖先加载的源。
+
+## 当前能力
+
+- `.env` 加载（`WithDotenv`、`WithIgnoreDotenvError`）
+- 文件加载（YAML/JSON/TOML）（`WithFiles`）
+- 环境变量（`WithEnvPrefix`、`WithEnvSeparator`）
+- 显式合并顺序（`WithPriority`）
+- 默认值（`WithDefaults`、`WithDefaultsTyped`、`WithTypedDefaults`）
+- 可选校验（`WithValidateLevel`、`WithValidator`）
+- 可选可观测性（`WithObservability`）
+- 热更新（`Watcher`：`NewWatcher` / `Watch`）
+
+## 文档导航
+
+- 强类型最小示例（含校验）：[快速开始](./getting-started)
+- 文件/环境变量/合并顺序：[配置源与优先级](./sources-and-priority)
+- 自定义校验器与动态访问：[校验与动态访问](./validation-and-dynamic)
+
+## Install / Import
 
 ```bash
 go get github.com/DaiYuANg/arcgo/configx@latest
 ```
 
-## 支持的功能
+## 核心 API（摘要）
 
-- `.env` 加载 (`WithDotenv`)
-- 配置文件加载 (`WithFiles`)
-- 环境变量加载 (`WithEnvPrefix`)
-- 自定义源优先级 (`WithPriority`)
-- 通过 map 或 typed 对象设置默认值 (`WithDefaults`, `WithDefaultsTyped`, `WithTypedDefaults`)
-- 可选验证 (`WithValidateLevel`, `WithValidator`)
-- 可选可观测性 (`WithObservability`)
-- 泛型和非泛型加载入口点
-
-## 加载流程
-
-`configx` 按优先级合并源。后面的源会覆盖前面的源。
-
-默认优先级：
-
-1. dotenv
-2. 文件
-3. 环境变量
-
-## 快速开始
-
-```go
-type AppConfig struct {
-    Name string `validate:"required"`
-    Port int    `validate:"required,min=1,max=65535"`
-}
-
-cfg, err := configx.LoadTErr[AppConfig](
-    configx.WithDotenv(),
-    configx.WithFiles("config.yaml"),
-    configx.WithEnvPrefix("APP"),
-    configx.WithValidateLevel(configx.ValidateLevelStruct),
-)
-if err != nil {
-    panic(err)
-}
-```
-
-## 常见场景
-
-### 1) 本地开发（`.env` 优先）
-
-```go
-err := configx.Load(&cfg,
-    configx.WithDotenv(".env", ".env.local"),
-    configx.WithIgnoreDotenvError(true),
-)
-```
-
-### 2) 文件 + 环境变量覆盖
-
-```go
-err := configx.Load(&cfg,
-    configx.WithFiles("config.yaml"),
-    configx.WithEnvPrefix("APP"),
-    configx.WithPriority(configx.SourceFile, configx.SourceEnv),
-)
-```
-
-### 3) 仅使用默认值引导
-
-```go
-err := configx.Load(&cfg,
-    configx.WithDefaults(map[string]any{
-        "name": "my-service",
-        "port": 8080,
-    }),
-)
-```
-
-### 4) 泛型加载 API（推荐）
-
-```go
-result := configx.LoadT[AppConfig](
-    configx.WithFiles("config.yaml"),
-)
-if result.IsError() {
-    panic(result.Error())
-}
-cfg := result.MustGet()
-```
-
-### 5) 显式 `Config` 对象使用（动态路径）
-
-```go
-c, err := configx.LoadConfig(
-    configx.WithFiles("config.yaml"),
-)
-if err != nil {
-    panic(err)
-}
-
-name := c.GetString("app.name")
-port := c.GetInt("app.port")
-exists := c.Exists("app.debug")
-all := c.All()
-_, _, _, _ = name, port, exists, all
-```
-
-### 6) 可选可观测性（OTel + Prometheus）
-
-```go
-otelObs := otelobs.New()
-promObs := promobs.New()
-obs := observabilityx.Multi(otelObs, promObs)
-
-err := configx.Load(&cfg,
-    configx.WithObservability(obs),
-    configx.WithFiles("config.yaml"),
-)
-```
-
-## 验证模式
-
-- `ValidateLevelNone`: 无验证
-- `ValidateLevelStruct`: 运行 struct 验证
-
-如果你需要自定义验证器/标签：
-
-```go
-v := validator.New(validator.WithRequiredStructEnabled())
-err := configx.Load(&cfg,
-    configx.WithValidator(v),
-    configx.WithValidateLevel(configx.ValidateLevelStruct),
-)
-```
-
-## 环境变量键映射
-
-使用 `WithEnvPrefix("APP")`：
-
-- `APP_DATABASE_HOST` -> `database.host`
-- `APP_SERVER_READ_TIMEOUT` -> `server.read.timeout`
-
-## 关键 API
-
-- `Load(cfgPtr, opts...)`：加载到已有配置对象
-- `LoadT[T](opts...)` / `LoadTErr[T](opts...)`：typed 加载流程
-- `WithDotenv`、`WithFiles`、`WithEnvPrefix`、`WithPriority`：源与优先级控制
-- `WithDefaults`、`WithDefaultsTyped`：默认值策略
-- `WithValidateLevel`、`WithValidator`：验证行为
-- `WithObservability`：可选可观测性挂载
+- `Load(out, opts...)`：加载到结构体指针
+- `LoadT[T](opts...)` / `LoadTErr[T](opts...)`：强类型加载
+- `LoadConfig(opts...)`：返回 `*Config` 以便按路径访问
+- `New(opts...)` / `NewT[T](opts...)`：构造可复用 Loader
+- `NewWatcher(opts...)` / `Watch(ctx, ...)`：热更新
 
 ## 集成指南
 
-- 与 `dix`：启动时集中加载配置，并以 typed 依赖注入模块。
-- 与 `httpx`：由配置驱动监听地址、TLS 行为和中间件开关。
-- 与 `dbx` / `kvx`：统一管理 DSN 与后端连接选项，按环境覆盖。
-- 与 `logx` / `observabilityx`：外置日志级别和遥测开关。
+- **dix**：启动时加载一次，通过模块 provider 注入强类型配置。
+- **httpx**：用配置驱动监听地址、TLS 与中间件开关。
+- **dbx / kvx**：集中管理 DSN 与后端选项，并按环境覆盖。
+- **logx / observabilityx**：外置日志级别与埋点开关。
 
-## 生产环境技巧
+## 示例（仓库）
 
-- 在生产构建中保持源优先级显式。
-- 对非关键值使用默认值以减少启动失败。
-- 对关键字段（端口、凭证、主机名）使用验证。
-- 除非明确要求，否则在生产环境中保持 `.env` 可选。
-
-## 测试模式
-
-- 在测试中使用 `WithDefaults` 获得确定性。
-- 除非测试隔离 `os.Environ`，否则避免在单元测试中使用真实的 env 依赖。
-- 在测试中使用 `LoadT[T]` 减少样板代码。
-
-## 常见问题
-
-### 哪个源应该有最高优先级？
-
-在大多数服务中，环境变量在生产环境中应该是最高优先级。
-常见顺序是：defaults -> file -> env。
-
-### 我应该使用 `LoadT[T]` 还是 `LoadConfig`？
-
-- 如果你想要强类型和校验优先，使用 `LoadT[T]` / `LoadTErr[T]`。
-- 仅在需要动态 getter（`GetString`、`Exists`、`All`）或路径式读取时使用 `LoadConfig`。
-
-## 故障排除
-
-### 环境变量值不生效
-
-首先检查这些：
-
-- `WithEnvPrefix` 匹配实际 env 键前缀。
-- `WithPriority` 将 `SourceEnv` 放在其他源之后。
-- Env 键映射到 dot-path 格式（`APP_DB_HOST` -> `db.host`）。
-
-### 验证没有运行
-
-验证默认是禁用的。
-设置 `WithValidateLevel(...)`，或 wire `WithValidator(...)` 加上验证级别。
-
-### `.env` 文件缺失导致启动崩溃
-
-在 `.env` 可选的环境中使用 `WithIgnoreDotenvError(true)`。
-
-### 默认值结构不匹配
-
-动态键请优先使用显式 map 默认值。
-如果是强类型配置，请把默认值保留在目标配置类型中，并通过 `LoadT[T]`/`LoadTErr[T]` 加载。
-
-## 反模式
-
-- 在生产环境中依赖隐式源优先级。
-- 采用 `configx` 后在业务代码中直接从进程 env 读取配置。
-- 对关键字段（端口、凭证、URL）禁用验证。
-- 在共享环境中混合多个服务的无关前缀。
-
-## 示例
-
-- [observability](https://github.com/DaiYuANg/arcgo/tree/main/configx/examples/observability): 使用可选的 OTel + Prometheus 工具加载配置。
+- [configx/examples/observability](https://github.com/DaiYuANg/arcgo/tree/main/configx/examples/observability)

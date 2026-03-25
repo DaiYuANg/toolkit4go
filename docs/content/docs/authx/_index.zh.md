@@ -7,17 +7,35 @@ weight: 1
 
 ## authx
 
-`authx` 是一个面向多场景（HTTP / gRPC / CLI）的 Go 认证与鉴权抽象库。
+`authx` 是面向 HTTP、gRPC、CLI 等场景的 Go **认证**与**鉴权**抽象层，核心职责分离为：
 
-核心原则：
+- **认证** — `Engine.Check(ctx, credential)` 解析身份。
+- **鉴权** — `Engine.Can(ctx, AuthorizationModel)` 基于主体与 action/resource 做策略判断。
 
-- 认证与鉴权分离：`Check` / `Can`
-- 不绑定认证方式：JWT / 密码 / 短信验证码等都可扩展
-- 核心层保持框架无关，适配层按场景集成
+`authx` **不绑定具体机制**：不内置密码哈希、JWT 解析、OTP 校验等。由业务定义凭证结构并实现 `AuthenticationProvider`；再接入自定义 `Authorizer`（RBAC/ABAC/Rego 等）。
 
-## 文档
+## 当前能力
 
-- 版本说明：[authx v0.3.0](./release-v0.3.0)
+- **`Engine`** — 编排 `Check` / `Can`，可选 `Hook`。
+- **`ProviderManager`** — 按凭证动态类型分发到泛型 `AuthenticationProvider[C]`。
+- **`authx/http`** — `Guard` 从 `RequestInfo` 解析凭证与鉴权模型，再调用引擎。
+- **HTTP 中间件** — `authx/http/std`、`gin`、`echo`、`fiber` 适配常见栈。
+- **Context 辅助** — `WithPrincipal`、`PrincipalFromContext`、泛型 `PrincipalFromContextAs`。
+
+## 包结构
+
+- 核心 API：`github.com/DaiYuANg/arcgo/authx`
+- HTTP Guard 与 `RequestInfo`：`github.com/DaiYuANg/arcgo/authx/http`
+- 标准库 `net/http`：`github.com/DaiYuANg/arcgo/authx/http/std`
+- Gin：`github.com/DaiYuANg/arcgo/authx/http/gin`
+- Echo：`github.com/DaiYuANg/arcgo/authx/http/echo`
+- Fiber：`github.com/DaiYuANg/arcgo/authx/http/fiber`
+
+## 文档导航
+
+- 核心最小示例（`Check` / `Can`）：[快速开始](./getting-started)
+- `Guard` + `net/http`：[HTTP 集成](./http-integration)
+- 版本说明（v0.3.0 重构）：[authx v0.3.0](./release-v0.3.0)
 
 ## 安装 / 导入
 
@@ -29,103 +47,52 @@ go get github.com/DaiYuANg/arcgo/authx/http/echo@latest
 go get github.com/DaiYuANg/arcgo/authx/http/fiber@latest
 ```
 
-## 核心 API
+## 核心 API（摘要）
 
-- `Engine`: 认证与鉴权编排入口
-- `ProviderManager`: 多 credential 类型 provider 管理器
-- `AuthenticationProvider[C]`: 认证提供者泛型抽象
-- `Authorizer`: 鉴权决策接口
-- `Check(ctx, credential)`: 认证
-- `Can(ctx, AuthorizationModel)`: 鉴权
-- `Hook`: Check/Can 前后切面扩展
+| 组件 | 作用 |
+| --- | --- |
+| `Engine` | 执行 `Check` / `Can`，可挂 `Hook` |
+| `ProviderManager` | 管理多个泛型 `AuthenticationProvider` |
+| `AuthenticationProvider[C]` | `Authenticate(ctx, C)` → `AuthenticationResult` |
+| `Authorizer` | `Authorize(ctx, AuthorizationModel)` → `Decision` |
+| `AuthenticationResult` | 携带 `Principal`（`any`）与可选 `Details` |
+| `AuthorizationModel` | `Principal`、`Action`、`Resource`、可选 `Context` |
+| `Decision` | `Allowed`、`Reason`、`PolicyID` |
 
-## 快速开始（Core）
+带完整 import 的可运行示例见 [快速开始](./getting-started)。
 
-```go
-engine := authx.NewEngine(
-    authx.WithAuthenticationManager(
-        authx.NewProviderManager(
-            authx.NewAuthenticationProviderFunc(func(
-                _ context.Context,
-                in UsernamePassword,
-            ) (authx.AuthenticationResult, error) {
-                // verify credential
-                return authx.AuthenticationResult{
-                    Principal: authx.Principal{ID: in.Username},
-                }, nil
-            }),
-        ),
-    ),
-    authx.WithAuthorizer(authx.AuthorizerFunc(func(
-        _ context.Context,
-        model authx.AuthorizationModel,
-    ) (authx.Decision, error) {
-        return authx.Decision{Allowed: true}, nil
-    })),
-)
+## HTTP 层（摘要）
 
-result, err := engine.Check(ctx, UsernamePassword{Username: "alice", Password: "secret"})
-if err != nil {
-    panic(err)
-}
+`authhttp.NewGuard` 组合：
 
-decision, err := engine.Can(ctx, authx.AuthorizationModel{
-    Principal: result.Principal,
-    Action:    "query",
-    Resource:  "order",
-})
-if err != nil {
-    panic(err)
-}
-_ = decision
-```
+- **`WithCredentialResolverFunc`** — `(ctx, RequestInfo) → (credential any, err)`
+- **`WithAuthorizationResolverFunc`** — `(ctx, RequestInfo, principal) → (AuthorizationModel, err)`
 
-## HTTP 集成
+`Guard.Require` 依次执行 **Check** 与 **Can**。`authx/http/std` 中间件在成功时将 `Principal` 写入 `context`。
 
-`authx/http` 提供统一 Guard 与框架中间件：
-
-- `authx/http/std`
-- `authx/http/gin`
-- `authx/http/echo`
-- `authx/http/fiber`
-
-统一扩展点：
-
-- `WithCredentialResolverFunc`
-- `WithAuthorizationResolverFunc`
-
-```go
-guard := authhttp.NewGuard(
-    engine,
-    authhttp.WithCredentialResolverFunc(resolveCredential),
-    authhttp.WithAuthorizationResolverFunc(resolveAuthorization),
-)
-
-router.Use(authstd.Require(guard))
-// 高性能路径：router.Use(authstd.RequireFast(guard))
-```
+完整 `net/http` 示例见 [HTTP 集成](./http-integration)。
 
 ## 错误与行为模型
 
-- `Check` 返回认证结果与错误；provider 级“凭证无效”应保持为显式领域错误。
-- `Can` 返回鉴权决策与错误；策略引擎失败不应被静默当作默认拒绝。
-- 中间件应将 auth/authz 失败稳定映射到 `401` / `403`，同时保留内部错误可观测性。
+- `Check` 返回认证结果与错误；凭证无效应通过显式错误表达，而非“静默失败”。
+- `Can` 返回决策与错误；策略引擎异常不应在不明示的情况下被当成默认拒绝。
+- HTTP 中间件通过 `authx/http` 将失败映射为稳定状态码（如 `401` / `403`）；详见包内 `StatusCodeFromError` 等说明。
 
 ## 集成指南
 
-- 与 `httpx`：在 server/group 路由层接入鉴权 middleware，策略评估仍放在服务边界。
-- 与 `dix`：通过模块 provider 提供 `Engine`、`ProviderManager`、`Authorizer`，再注入 HTTP 组装模块。
-- 与 `configx`：将密钥、provider 开关、策略源配置外置。
-- 与 `observabilityx` / `logx`：记录 check/can 耗时与失败分类，避免泄漏敏感凭证信息。
+- **httpx**：在路由组上挂载 guard；策略评估尽量放在服务层。
+- **dix**：在模块中提供 `Engine`、provider、`Authorizer` 并注入到 HTTP 组装。
+- **configx**：密钥、provider 开关、策略源外置。
+- **logx / observabilityx**：记录 check/can 耗时与失败分类，避免记录明文密钥。
 
-## 示例
+## 可运行示例（仓库）
 
-- `authx/http/examples/shared`
-- `authx/http/examples/jwt`
-- `authx/http/examples/std`
-- `authx/http/examples/gin`
-- `authx/http/examples/echo`
-- `authx/http/examples/fiber`
+- [examples/authx/jwt](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/jwt)
+- [examples/authx/std](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/std)（Chi + shared）
+- [examples/authx/gin](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/gin)
+- [examples/authx/echo](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/echo)
+- [examples/authx/fiber](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/fiber)
+- 共享辅助：[examples/authx/shared](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/shared)
 
 ## 测试与基准
 
@@ -144,6 +111,6 @@ go test ./authx/http/fiber -run ^$ -bench BenchmarkRequire -benchmem
 
 ## 生产注意事项
 
-- 保持不同接入层（HTTP/gRPC/CLI）下认证提供者行为一致，避免语义漂移。
-- 不要在代码中硬编码密钥，统一通过配置加载。
-- 将策略加载视为启动关键路径，策略状态非法时应快速失败。
+- 保持各接入层（HTTP/gRPC/CLI）下认证逻辑一致，避免语义漂移。
+- 不在代码中硬编码密钥，统一从配置加载。
+- 将策略加载视为启动关键路径，状态非法时应快速失败。

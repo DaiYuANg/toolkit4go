@@ -41,5 +41,5 @@ SQLite 基准通常有两类：
 ## 相关文档
 
 - 核心总览：[dbx](./)
-- SQL 模板引擎：[sqltmplx](../sqltmplx/)
+- SQL 模板：[sqltmplx 集成](./sqltmplx-integration)
 - 可运行示例：[Examples](./examples)

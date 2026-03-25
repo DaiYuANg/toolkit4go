@@ -7,7 +7,28 @@ weight: 2
 
 ## collectionx
 
-`collectionx` 为 Go 提供强类型的集合数据结构，包括并发安全变体和非标准结构（如 `MultiMap`、`Table`、`Trie`、区间结构）。
+`collectionx` 为 Go 提供强类型集合数据结构，包含并发安全变体以及 `MultiMap`、`Table`、`Trie`、区间类型等非标准但常用的结构。
+
+## 当前能力
+
+- **泛型优先** API，方法名清晰、语义可预期。
+- **按需并发**：在跨 goroutine 共享实例时使用 `Concurrent*` 变体。
+- **实用扩展结构**：有序映射、多重映射、二维 `Table`、前缀 `Trie`、区间映射、父子 `Tree` 等。
+
+## 包结构
+
+- `github.com/DaiYuANg/arcgo/collectionx/set` — `Set`、`ConcurrentSet`、`MultiSet`、`OrderedSet`
+- `github.com/DaiYuANg/arcgo/collectionx/mapping` — `Map`、`ConcurrentMap`、`BiMap`、`OrderedMap`、`MultiMap`、`Table`
+- `github.com/DaiYuANg/arcgo/collectionx/list` — `List`、`ConcurrentList`、`Deque`、`RingBuffer`、`PriorityQueue`
+- `github.com/DaiYuANg/arcgo/collectionx/interval` — `Range`、`RangeSet`、`RangeMap`
+- `github.com/DaiYuANg/arcgo/collectionx/prefix` — `Trie` / `PrefixMap`
+- `github.com/DaiYuANg/arcgo/collectionx/tree` — `Tree`、`ConcurrentTree`
+
+## 文档导航
+
+- 第一个可运行程序（`Set` + `OrderedMap`）：[快速开始](./getting-started)
+- 集合、有序结构、`MultiMap`、`Table`、JSON：[映射、集合与表](./mapping-recipes)
+- 列表、区间、Trie、树：[列表与结构化数据](./structured-data)
 
 ## 安装 / 导入
 
@@ -15,262 +36,86 @@ weight: 2
 go get github.com/DaiYuANg/arcgo/collectionx@latest
 ```
 
-## 为什么使用 collectionx
+按需 import **子包**（例如 `collectionx/set`、`collectionx/mapping`）。
 
-Go 标准容器是有意保持最小化。`collectionx` 专注于：
+## 为何使用 collectionx
 
-- 泛型、强类型 API
-- 可预测的语义和明确的方法名
-- 必要时可选的并发安全结构
-- 受 Java 生态系统启发的有用非标准结构
+标准库容器刻意保持精简。`collectionx` 强调泛型与强类型、在需要时明确顺序语义，并在各结构间保持一致的工程化约定。
 
-## 包布局
+## 并发安全类型
 
-- `collectionx/set`
-  - `Set`, `ConcurrentSet`, `MultiSet`, `OrderedSet`
-- `collectionx/mapping`
-  - `Map`, `ConcurrentMap`, `BiMap`, `OrderedMap`, `MultiMap`, `Table`
-- `collectionx/list`
-  - `List`, `ConcurrentList`, `Deque`, `RingBuffer`, `PriorityQueue`
-- `collectionx/interval`
-  - `Range`, `RangeSet`, `RangeMap`
-- `collectionx/prefix`
-  - `Trie` / `PrefixMap`
-- `collectionx/tree`
-  - `Tree`, `ConcurrentTree` (父子层级)
+仅在**同一实例被多 goroutine 共享**时使用并发变体，例如：
 
-## 0 到 1 可运行示例
+- `ConcurrentSet`、`ConcurrentMap`、`ConcurrentMultiMap`、`ConcurrentTable`、`ConcurrentList`、`ConcurrentTree`
 
-- 快速开始目录：[collectionx/examples/quickstart](https://github.com/DaiYuANg/arcgo/tree/main/collectionx/examples/quickstart)
-- 从仓库根目录运行：
-
-```bash
-go run ./collectionx/examples/quickstart
-```
-
-## 使用场景
-
-### 1) 使用 `Set` 快速去重
-
-```go
-s := set.NewSet[string]()
-s.Add("A", "A", "B")
-fmt.Println(s.Len()) // 2
-fmt.Println(s.Contains("B"))
-```
-
-### 2) 使用 `OrderedSet` / `OrderedMap` 保留插入顺序
-
-```go
-os := set.NewOrderedSet[int]()
-os.Add(3, 1, 3, 2)
-fmt.Println(os.Values()) // [3 1 2]
-
-om := mapping.NewOrderedMap[string, int]()
-om.Set("x", 1)
-om.Set("y", 2)
-om.Set("x", 9) // 更新不改变顺序
-fmt.Println(om.Keys())   // [x y]
-fmt.Println(om.Values()) // [9 2]
-```
-
-### 3) 一键多值使用 `MultiMap`
-
-```go
-mm := mapping.NewMultiMap[string, int]()
-mm.PutAll("tag", 1, 2, 3)
-fmt.Println(mm.Get("tag"))        // [1 2 3]
-owned := mm.GetCopy("tag")        // 如果需要修改结果，请改用 GetCopy
-fmt.Println(mm.ValueCount())       // 3
-removed := mm.DeleteValueIf("tag", func(v int) bool { return v%2 == 0 })
-fmt.Println(removed, mm.Get("tag")) // 1 [1 3]
-```
-
-### 4) 使用 `Table` 进行 2D 索引（Guava 风格）
-
-```go
-t := mapping.NewTable[string, string, int]()
-t.Put("r1", "c1", 10)
-t.Put("r1", "c2", 20)
-t.Put("r2", "c1", 30)
-
-v, ok := t.Get("r1", "c2")
-fmt.Println(v, ok) // 20 true
-fmt.Println(t.Row("r1"))
-fmt.Println(t.Column("c1"))
-```
-
-### 5) 使用 `Trie` 进行前缀查找
-
-```go
-tr := prefix.NewTrie[int]()
-tr.Put("user:1", 1)
-tr.Put("user:2", 2)
-tr.Put("order:9", 9)
-
-fmt.Println(tr.KeysWithPrefix("user:")) // [user:1 user:2]
-```
-
-### 6) 使用 `list` 包进行队列和缓冲
-
-```go
-dq := list.NewDeque[int]()
-dq.PushBack(1, 2)
-dq.PushFront(0)
-fmt.Println(dq.Values()) // [0 1 2]
-
-rb := list.NewRingBuffer[int](2)
-_ = rb.Push(1)
-_ = rb.Push(2)
-evicted := rb.Push(3) // 驱逐 1
-fmt.Println(evicted)
-```
-
-### 7) 区间操作
-
-```go
-rs := interval.NewRangeSet[int]()
-rs.Add(1, 5)
-rs.Add(5, 8) // 相邻区间会被合并
-fmt.Println(rs.Ranges())
-
-rm := interval.NewRangeMap[int, string]()
-rm.Put(0, 10, "A")
-rm.Put(3, 5, "B") // 重叠覆盖
-v, _ := rm.Get(4)
-fmt.Println(v) // B
-```
-
-### 8) 使用 `Tree` 进行父子层级
-
-```go
-org := tree.NewTree[int, string]()
-_ = org.AddRoot(1, "CEO")
-_ = org.AddChild(1, 2, "CTO")
-_ = org.AddChild(2, 3, "Platform Lead")
-
-parent, _ := org.Parent(3)
-fmt.Println(parent.ID())          // 2
-fmt.Println(len(org.Descendants(1))) // 2
-```
-
-## 并发安全类型：何时使用
-
-仅在跨 goroutine 共享访问时使用并发变体：
-
-- `ConcurrentSet`
-- `ConcurrentMap`
-- `ConcurrentMultiMap`
-- `ConcurrentTable`
-- `ConcurrentList`
-- `ConcurrentTree`
-
-对于单 goroutine 或外部同步的工作流，非并发类型通常更快。
+单 goroutine 或已有外部同步时，优先非并发类型以降低开销。
 
 ## API 风格说明
 
-- 大多数 `All/Values/Row/Column` 风格的方法返回副本/快照，以避免意外修改泄漏。
-- `GetOption` 方法使用 `mo.Option` 进行可空风格读取。
-- 许多结构支持零值行为，但仍建议使用构造函数以提高清晰度。
+- 多数 `Values` / `All` / `Row` / `Column` 类方法返回**快照**，避免误改内部状态。
+- 部分 `GetOption` 使用 `mo.Option` 表达可空读取。
+- 即使零值可用，仍建议使用构造函数以增强可读性。
 
-## JSON 和日志辅助
+## JSON 与日志
 
-大多数结构提供：
+多数结构提供 `ToJSON`、`MarshalJSON`（配合 `json.Marshal`）与 `String()`。示例见 [映射、集合与表](./mapping-recipes)。
 
-- `ToJSON() ([]byte, error)` 用于快速序列化
-- `MarshalJSON() ([]byte, error)` 以便 `json.Marshal(x)` 直接工作
-- `String() string` 用于日志友好输出
-
-示例：
-
-```go
-s := set.NewSet[string]("a", "b")
-raw, _ := s.ToJSON()
-fmt.Println(string(raw))  // ["a","b"]
-fmt.Println(s.String())   // ["a","b"]
-
-payload, _ := json.Marshal(s) // 通过 MarshalJSON 实现相同行为
-_ = payload
-```
-
-## 基准测试
+## Benchmark
 
 ```bash
 go test ./collectionx/... -run ^$ -bench . -benchmem
 ```
 
-你可以针对一个包：
+单包：
 
 ```bash
 go test ./collectionx/mapping -run ^$ -bench . -benchmem
 go test ./collectionx/prefix -run ^$ -bench Trie -benchmem
 ```
 
-## 实用技巧
+## 实践建议
 
-- 当你手动使用嵌套 map 时，优先使用 `Table`。
-- 当结果顺序很重要时（序列化、确定性测试），优先使用 `OrderedMap/OrderedSet`。
-- 对于大量前缀搜索，优先使用 `Trie` 而不是重复线性扫描。
-- 当计数频率是主要操作时，优先使用 `MultiSet`。
-- 当你的模型是自然的父子结构（组织图、类别、菜单树）时，优先使用 `Tree`。
+- 二维键优先用 `Table`，而不是手写嵌套 map。
+- 需要稳定迭代顺序（测试、API、序列化）时用 `OrderedMap` / `OrderedSet`。
+- 大量前缀查询用 `Trie`，避免对字符串键反复线性扫描。
+- 以频次为主用 `MultiSet`。
+- 自然父子关系用 `Tree`（组织架构、类目、菜单等）。
 
 ## 常见问题
 
-### 我应该总是使用并发变体吗？
+**是否应默认使用 `Concurrent*`？**  
+否。仅在没有外部同步且多 goroutine 共享同一实例时使用。
 
-不。仅在多个 goroutine 共享同一结构实例时使用并发变体。
-如果访问是单线程的或已经外部同步，非并发变体更简单更快。
+**返回的 slice 能否随意改？**  
+快照 API 返回副本；修改返回值通常不影响内部状态。
 
-### 返回的切片/map 可以安全修改吗？
+**为何 `OrderedMap` 更新 value 不改变键顺序？**  
+有意为之：更新只改值，与常见「插入顺序」语义一致。
 
-对于大多数快照风格的 API（`Values`、`All`、`Row`、`Column` 等），返回值是副本。
-修改返回的对象通常不会修改内部状态。
+**`RangeSet` 如何合并区间？**  
+半开区间 `[start, end)` 会规范化；相邻区间会合并（如 `[1,5)` + `[5,8)`）。
 
-### 为什么 `OrderedMap` 在更新时保持旧的插入顺序？
+## 疑难排查
 
-它有意表现得像其他生态系统中的插入顺序 map：更新改变值，不改变顺序。
-
-### `RangeSet` 如何处理相邻区间？
-
-对于半开区间，相邻区间会被标准化和合并（例如 `[1,5)` + `[5,8)`）。
-
-## 故障排除
-
-### `Publish` 风格代码需要确定性顺序但 map 支持的结构看起来随机
-
-`Map`、`Set` 和类似的 hash 支持结构不保证迭代顺序。
-如果需要确定性顺序，使用 `OrderedMap` / `OrderedSet`。
-
-### `Trie.KeysWithPrefix` 分配超出预期
-
-前缀收集返回新切片并遍历匹配的子树。
-对于热路径：
-
-- 尽可能缩小前缀。
-- 可能时使用 `RangePrefix` 回调风格。
-- 避免在每次请求时转换大型快照。
-
-### 长时间运行后 `MultiMap` 或 `Table` 内存增长
-
-常见原因是无界键增长和缺少清理路径。
-使用 `Delete`、`DeleteColumn`、`DeleteRow`、`DeleteValueIf` 或基于业务生命周期的定期重置。
+- **迭代顺序不确定** — 哈希 `Map`/`Set` 无序；需要顺序请用 `OrderedMap`/`OrderedSet`。
+- **`Trie.KeysWithPrefix` 分配** — 会构造新 slice；可缩小前缀、优先 `RangePrefix`，热路径避免每次拉全量快照。
+- **`MultiMap`/`Table` 内存膨胀** — 使用 `Delete`、`DeleteRow`、`DeleteColumn`、`DeleteValueIf` 或按业务周期清理。
 
 ## 反模式
 
-- 默认在所有地方使用 `Concurrent*` 结构。
-- 在测试或业务逻辑中依赖 hash-map 迭代顺序。
-- 将快照返回 API 视为实时视图并期望原地同步。
-- 每次请求构建巨大的临时集合而不是增量更新。
-- 仅用于点查找时使用 `RangeMap`；如果区间语义不必要，使用普通 map。
+- 默认处处 `Concurrent*`。
+- 在测试或业务中依赖哈希 map 的迭代顺序。
+- 把快照 API 当成可同步的「实时视图」。
+- 仅需点查时用 `RangeMap` 过度建模。
 
 ## 集成指南
 
-- 与 `configx`：使用 typed map/list 工具整理加载后的配置结构再绑定服务。
-- 与 `clientx` / `kvx`：用集合工具进行索引/缓存整形，避免临时拼装容器代码。
-- 与 `dix`：将集合实例放入显式模块 provider，避免隐藏全局状态。
+- **configx**：加载配置后先归一化为强类型 map/list，再绑定服务。
+- **clientx** / **kvx**：用集合工具整理缓存与索引，避免临时容器散落。
+- **dix**：由模块 provider 提供集合实例，避免包级全局可变状态。
 
-## 生产注意事项
+## 生产注意
 
-- 优先选择满足约束的最简单结构，避免过度抽象。
-- 在 API 边界明确顺序语义（`OrderedMap` 与 hash-map 的差异）。
-- 即使使用并发安全结构，也要显式设计所有权与生命周期。
+- 选满足不变量的最简结构。
+- 在 API 边界写清顺序语义（`OrderedMap` 与哈希 map）。
+- 对并发类型也要明确所有权与生命周期，即使内部带锁。

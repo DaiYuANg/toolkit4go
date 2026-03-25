@@ -15,6 +15,23 @@ weight: 12
 - You want statement reuse and parser validation during development.
 - You still want dbx runtime behavior (hooks/logging/tx) for SQL templates.
 
+## Install / Import
+
+```bash
+go get github.com/DaiYuANg/arcgo/dbx@latest
+go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
+```
+
+## Template features (quick reference)
+
+- `/*%if expr */ ... /*%end */`
+- `/*%where */ ... /*%end */`
+- `/*%set */ ... /*%end */`
+- Doma-style placeholders: `/* Name */'alice'`
+- Slice expansion: `/* IDs */(1, 2, 3)`
+- Expression helpers: `empty(x)`, `blank(x)`, `present(x)`
+- Struct binding by field name first, then `sqltmpl`, `db`, `json` aliases
+
 ## Minimal Project Layout
 
 ```text
@@ -93,9 +110,12 @@ func main() {
 
 ## Related Docs
 
-- sqltmplx overview: [sqltmplx](../sqltmplx/)
-- sqltmplx examples: [sqltmplx examples](../sqltmplx/examples/)
 - dbx pure SQL helpers: [dbx](./)
+- Runnable examples (repository):
+  - [examples/sqltmplx/basic](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/basic)
+  - [examples/sqltmplx/postgres](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/postgres)
+  - [examples/sqltmplx/sqlite_update](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/sqlite_update)
+  - [examples/sqltmplx/precompile](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/precompile)
 
 ## Pitfalls
 

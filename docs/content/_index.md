@@ -35,7 +35,6 @@ go get github.com/DaiYuANg/arcgo/{package}
   {{< card link="./docs/eventx" title="eventx" subtitle="In-process strongly typed event bus" icon="lightning-bolt" >}}
   {{< card link="./docs/httpx" title="httpx" subtitle="Multi-framework unified strongly typed HTTP routing" icon="server" >}}
   {{< card link="./docs/kvx" title="kvx" subtitle="Typed Redis/Valkey access and repository layer" icon="chip" >}}
-  {{< card link="./docs/sqltmplx" title="sqltmplx" subtitle="SQL-first conditional template renderer with optional parser-backed validation" icon="database" >}}
   {{< card link="./docs/logx" title="logx" subtitle="Structured logging with slog interoperability" icon="document-text" >}}
   {{< card link="./docs/observabilityx" title="observabilityx" subtitle="Optional observability abstraction (OTel/Prometheus)" icon="chart-bar" >}}
 {{< /cards >}}
@@ -131,7 +130,7 @@ Choose the package you need:
 - Need protocol-oriented clients: Start with [clientx](./docs/clientx)
 - Need HTTP routing: Start with [httpx](./docs/httpx)
 - Need typed Redis/Valkey access: Start with [kvx](./docs/kvx)
-- Need SQL-first dynamic query templating and optional parser-backed validation: Start with [dbx](./docs/dbx) (includes [sqltmplx](./docs/sqltmplx))
+- Need SQL-first dynamic query templating and optional parser-backed validation: Start with [dbx](./docs/dbx) (see [sqltmplx integration](./docs/dbx/sqltmplx-integration))
 - Need logging: Start with [logx](./docs/logx)
 - Need observability: Start with [observabilityx](./docs/observabilityx)
 

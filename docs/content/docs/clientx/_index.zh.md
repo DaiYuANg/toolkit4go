@@ -9,11 +9,30 @@ weight: 8
 
 `clientx` 是面向常见网络协议的协议导向客户端包集。
 
-当前方向：
-
 - 首批协议：`http`、`tcp`、`udp`
-- 共享配置原语（`RetryConfig`、`TLSConfig`）
-- 保持协议 API 显式与可组合，并共享工程约束
+- 共享能力：`RetryConfig`、`TLSConfig`、类型化错误（`*clientx.Error`），以及可选的 dial / I/O **hooks**
+- 构造函数返回接口（`http.Client`、`tcp.Client`、`udp.Client`），便于替换实现
+
+## 当前能力
+
+- **`clientx/http`** — 基于 resty 的封装，支持重试、TLS、header；`Execute` 走统一 policy。
+- **`clientx/tcp`** — 拨号与超时封装的连接，可选 TLS；支持 **codec + framer** 的 `DialCodec`。
+- **`clientx/udp`** — UDP dial/listen 基线与超时封装连接；支持 `DialCodec`。
+- **`clientx/codec`** — 可插拔 codec（`json` / `text` / `bytes`）与自定义注册；TCP 侧配合长度前缀 framer。
+
+## 包结构
+
+- 错误、hook、policy 共享：`github.com/DaiYuANg/arcgo/clientx`
+- HTTP：`github.com/DaiYuANg/arcgo/clientx/http`
+- TCP：`github.com/DaiYuANg/arcgo/clientx/tcp`
+- UDP：`github.com/DaiYuANg/arcgo/clientx/udp`
+- Codec / framer：`github.com/DaiYuANg/arcgo/clientx/codec`
+
+## 文档导航
+
+- 仅 HTTP 的快速路径：[快速开始](./getting-started)
+- TCP / UDP 拨号：[TCP 与 UDP](./tcp-and-udp)
+- 编解码与 hooks：[Codec 与 hooks](./codec-and-hooks)
 
 ## 安装 / 导入
 
@@ -24,244 +43,39 @@ go get github.com/DaiYuANg/arcgo/clientx/tcp@latest
 go get github.com/DaiYuANg/arcgo/clientx/udp@latest
 ```
 
-## 当前实现快照
-
-- `clientx/http`：基于 resty 的 HTTP client 封装（重试/TLS/header 选项）
-- `clientx/tcp`：带超时封装连接与可选 TLS 的拨号能力
-- `clientx/udp`：已提供 UDP dial/listen 基线能力与超时封装连接
-- `clientx`：已提供共享 typed error 模型（`Error`、`ErrorKind`、`WrapError`），用于 `http/tcp/udp` 传输错误路径
-- `clientx`：已提供轻量 hooks（`Hook`、`HookFuncs`），覆盖 dial 与 I/O 生命周期事件
-- 构造函数已返回接口（`http.Client`、`tcp.Client`、`udp.Client`），以保证内部实现可替换
-
-## 使用方式
-
-### HTTP 客户端（`clientx/http`）
-
-```go
-package main
-
-import (
-	"fmt"
-	"net/http"
-	"time"
-
-	"github.com/DaiYuANg/arcgo/clientx"
-	clienthttp "github.com/DaiYuANg/arcgo/clientx/http"
-)
-
-func main() {
-	c := clienthttp.New(clienthttp.Config{
-		BaseURL: "https://api.example.com",
-		Timeout: 2 * time.Second,
-		Retry: clientx.RetryConfig{
-			Enabled:    true,
-			MaxRetries: 2,
-			WaitMin:    100 * time.Millisecond,
-			WaitMax:    500 * time.Millisecond,
-		},
-	})
-
-	resp, err := c.Execute(nil, http.MethodGet, "/health")
-	if err != nil {
-		if clientx.IsKind(err, clientx.ErrorKindTimeout) {
-			fmt.Println("http timeout")
-		}
-		panic(err)
-	}
-	fmt.Println(resp.StatusCode())
-}
-```
-
-### TCP 客户端（`clientx/tcp`）
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/DaiYuANg/arcgo/clientx"
-	"github.com/DaiYuANg/arcgo/clientx/tcp"
-)
-
-func main() {
-	c := tcp.New(tcp.Config{
-		Address:      "127.0.0.1:9000",
-		DialTimeout:  time.Second,
-		ReadTimeout:  2 * time.Second,
-		WriteTimeout: 2 * time.Second,
-	})
-
-	conn, err := c.Dial(context.Background())
-	if err != nil {
-		if clientx.IsKind(err, clientx.ErrorKindConnRefused) {
-			fmt.Println("tcp conn refused")
-		}
-		panic(err)
-	}
-	defer conn.Close()
-}
-```
-
-### UDP 客户端（`clientx/udp`）
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/DaiYuANg/arcgo/clientx"
-	"github.com/DaiYuANg/arcgo/clientx/udp"
-)
-
-func main() {
-	c := udp.New(udp.Config{
-		Address:      "127.0.0.1:9001",
-		DialTimeout:  time.Second,
-		ReadTimeout:  500 * time.Millisecond,
-		WriteTimeout: 500 * time.Millisecond,
-	})
-
-	conn, err := c.Dial(context.Background())
-	if err != nil {
-		panic(err)
-	}
-	defer conn.Close()
-
-	_, err = conn.Write([]byte("ping"))
-	if err != nil && clientx.IsKind(err, clientx.ErrorKindTimeout) {
-		fmt.Println("udp write timeout")
-	}
-}
-```
-
-### Codec 层（仅 TCP/UDP）
-
-`clientx` 在 `tcp` 与 `udp` 上提供可选 codec 组合能力。  
-`http` 仍按 HTTP 语义处理（`Content-Type`、请求体、resty 行为），不强制引入 codec 层。
-
-内置 codec：
-
-- `codec.JSON`
-- `codec.Text`
-- `codec.Bytes`
-
-自定义 codec 示例：
-
-```go
-type ReverseCodec struct{}
-
-func (c ReverseCodec) Name() string { return "reverse" }
-func (c ReverseCodec) Marshal(v any) ([]byte, error)   { /* ... */ return nil, nil }
-func (c ReverseCodec) Unmarshal(data []byte, v any) error { /* ... */ return nil }
-```
-
-注册并按名称获取：
-
-```go
-_ = codec.Register(ReverseCodec{})
-c := codec.Must("reverse")
-_ = c
-```
-
-TCP + codec + framer：
-
-```go
-cc, err := tcpClient.DialCodec(ctx, codec.JSON, codec.NewLengthPrefixed(1024*1024))
-if err != nil {
-	panic(err)
-}
-defer cc.Close()
-
-_ = cc.WriteValue(map[string]string{"message": "ping"})
-var out map[string]string
-_ = cc.ReadValue(&out)
-```
-
-UDP + codec：
-
-```go
-uc, err := udpClient.DialCodec(ctx, codec.JSON)
-if err != nil {
-	panic(err)
-}
-defer uc.Close()
-
-_ = uc.WriteValue(map[string]string{"message": "ping"})
-var out map[string]string
-_ = uc.ReadValue(&out)
-```
-
-### Hooks（Dial/IO 生命周期）
-
-`clientx` 提供协议无关的 hooks：
-
-- `OnDial`：拨号/监听生命周期
-- `OnIO`：读写/请求生命周期
-
-```go
-h := clientx.HookFuncs{
-	OnDialFunc: func(e clientx.DialEvent) {
-		// protocol/op/addr/duration/err
-	},
-	OnIOFunc: func(e clientx.IOEvent) {
-		// protocol/op/bytes/duration/err
-	},
-}
-
-httpClient := clienthttp.New(cfg, clienthttp.WithHooks(h))
-tcpClient := tcp.New(cfg, tcp.WithHooks(h))
-udpClient := udp.New(cfg, udp.WithHooks(h))
-
-_, _, _ = httpClient, tcpClient, udpClient
-```
-
-observabilityx 适配器：
-
-```go
-obsHook := clientx.NewObservabilityHook(
-	obs,
-	clientx.WithHookMetricPrefix("clientx"),
-	clientx.WithHookAddressAttribute(false), // 默认 false，避免高基数 addr 标签
-)
-
-tcpClient := tcp.New(cfg, tcp.WithHooks(obsHook))
-_ = tcpClient
-```
-
-## 错误处理约定
+## 错误模型
 
 - 传输层错误统一封装为 `*clientx.Error`。
-- 使用 `clientx.KindOf(err)` 或 `clientx.IsKind(err, kind)` 进行类别判断。
-- 封装后仍保留 `Unwrap()` 语义（`errors.Is`/`errors.As` 仍可用）。
-- 超时错误封装后仍满足 `net.Error` 的超时判断语义。
+- 使用 `clientx.KindOf` / `clientx.IsKind` 做分类判断。
+- 包装错误保留 `Unwrap()`，可与 `errors.Is` / `errors.As` 配合。
+- 具备超时语义的错误在适用场景下仍可与 `net.Error` 超时检测兼容。
 
 ## 集成指南
 
-- 与 `configx`：统一配置重试、超时、TLS 预设，再注入到各协议客户端构造器。
-- 与 `dix`：以接口类型（`http.Client` / `tcp.Client` / `udp.Client`）提供依赖，降低实现替换成本。
-- 与 `observabilityx`：挂载 `NewObservabilityHook(...)`，统一采集 dial 与 I/O 生命周期指标/追踪。
-- 与 `logx`：默认避免高基数字段（目标地址等），按需开启地址标签。
+- **configx**：将重试、TLS、超时等预设集中配置，再注入各协议 `Config`。
+- **dix**：在模块中提供 `http.Client` / `tcp.Client` / `udp.Client` 接口实现并注入。
+- **observabilityx**：使用 `clientx.NewObservabilityHook`（详见包内测试）把指标/追踪挂到 hooks。
+- **logx**：默认避免在高基数字段中记录对端地址，除非明确需要。
 
-## 测试与生产建议
+## 可运行示例（仓库）
 
-- 测试中优先使用接口返回构造器与可替换依赖面。
-- 在构造阶段强制超时默认值，避免调用侧零散配置。
-- 重试与告警策略优先依据 `IsKind` 分类，而不是字符串匹配错误消息。
+- [examples/clientx/edge_http](https://github.com/DaiYuANg/arcgo/tree/main/examples/clientx/edge_http)
+- [examples/clientx/internal_rpc_tcp](https://github.com/DaiYuANg/arcgo/tree/main/examples/clientx/internal_rpc_tcp)
+- [examples/clientx/low_latency_udp](https://github.com/DaiYuANg/arcgo/tree/main/examples/clientx/low_latency_udp)
 
-## 示例
+```bash
+go run ./examples/clientx/edge_http
+go run ./examples/clientx/internal_rpc_tcp
+go run ./examples/clientx/low_latency_udp
+```
 
-- `go run ./examples/clientx/edge_http`
-- `go run ./examples/clientx/internal_rpc_tcp`
-- `go run ./examples/clientx/low_latency_udp`
+## 测试与生产注意
+
+- 测试侧优先依赖接口构造，边界处替换 fake/mock。
+- 超时在客户端构造阶段固化，避免调用路径上随意拼接。
+- 重试/告警策略优先用 `IsKind`，避免字符串包含判断。
 
 ## 说明
 
-- `clientx` 仍在演进；优先依赖导出的接口类型（`http.Client`、`tcp.Client`、`udp.Client`），而非具体实现类型。
-- 包间依赖允许；当前实现已复用共享配置与 `collectionx`。
-- 建议业务侧优先依赖 `http.Client` / `tcp.Client` / `udp.Client` 接口，而不是具体结构体。
+- `clientx` 仍在演进，请只依赖对外接口而非具体类型。
+- 包内可能复用 `collectionx` 等实现细节，除非文档说明否则勿当作对外契约。

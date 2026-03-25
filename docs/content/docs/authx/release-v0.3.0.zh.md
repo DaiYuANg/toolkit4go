@@ -2,7 +2,7 @@
 title: 'authx v0.3.0（重构版）'
 linkTitle: 'release v0.3.0'
 description: 'authx 新版核心建模与 HTTP 集成说明'
-weight: 2
+weight: 4
 ---
 
 ## 概览

@@ -7,210 +7,60 @@ weight: 6
 
 ## dix
 
-`dix` 是构建在 `do` 之上的强类型、模块化应用框架。
-它提供不可变 `App` 规格、typed provider/invoke、生命周期 hook、构建期校验，
-以及独立的运行时模型，同时默认路径不会强迫业务代码直接接触 `do`。
+`dix` 是构建在 `do` 之上的强类型、模块化应用框架。它提供不可变应用规格、typed provider/invoke、生命周期 hook、构建期校验，以及独立的运行时模型，同时默认路径不会强迫业务代码直接接触 `do`。
 
-## 安装 / 导入
+## 当前能力
+
+- **不可变规格**：`App` 与 `Module` 以声明式 spec 组装。
+- **强类型 DI**：`ProviderN` 注册强类型构造器；`InvokeN` 执行强类型预热初始化。
+- **生命周期**：`OnStart` / `OnStop` hook，配合 `Runtime.Start/Stop/StopWithReport`。
+- **校验**：`app.Validate()` 在 build 前对依赖图做保守校验。
+- **运行时**：容器访问、健康检查、诊断入口。
+- **高级能力**：named service、alias、transient、override、scope（见 `dix/advanced`）。
+
+## 包结构
+
+- 默认路径：`github.com/DaiYuANg/arcgo/dix`
+- 高级容器能力：`github.com/DaiYuANg/arcgo/dix/advanced`
+
+## 文档导航
+
+- 最小模块图：[快速开始](./getting-started)
+- 健康检查与 HTTP handler：[健康检查与生命周期](./health-and-lifecycle)
+- 可运行示例导航：[dix 示例](./examples)
+
+## Install / Import
 
 ```bash
 go get github.com/DaiYuANg/arcgo/dix@latest
 ```
 
-## API 状态
+## 核心 API（摘要）
 
-- 对外 API 正在收敛为面向典型业务的稳定默认路径。
-
-## 核心建模
-
-- `App`: 不可变应用规格
-- `Module`: 不可变模块描述
-- `ProviderN`: 强类型服务注册
-- `InvokeN`: 强类型预热初始化
-- `HookFunc`: 强类型启动和停止 hook
-- `Build()`: 将规格编译为运行时
-- `Runtime`: 生命周期、容器访问、健康检查、诊断入口
-
-## 默认路径
-
-大多数应用直接使用 `dix` 包即可：
-
-- `dix.New(...)`
-- `dix.NewModule(...)`
-- `dix.WithModuleProviders(...)`
-- `dix.WithModuleSetups(...)` / `dix.WithModuleSetup(...)`
-- `dix.WithModuleHooks(...)`
-- `app.Validate()`
-- `app.Build()`
-- `runtime.Start(ctx)` / `runtime.Stop(ctx)` / `runtime.StopWithReport(ctx)`
-
-这条默认路径保持了显式建模、泛型优先和较强校验，同时避免了原始容器操作。
-
-## 快速开始
-
-```go
-type Config struct {
-    Port int
-}
-
-type Server struct {
-    Logger *slog.Logger
-    Config Config
-}
-
-configModule := dix.NewModule("config",
-    dix.WithModuleProviders(
-        dix.Provider0(func() Config { return Config{Port: 8080} }),
-    ),
-)
-
-serverModule := dix.NewModule("server",
-    dix.WithModuleImports(configModule),
-    dix.WithModuleProviders(
-        dix.Provider2(func(logger *slog.Logger, cfg Config) *Server {
-            return &Server{Logger: logger, Config: cfg}
-        }),
-    ),
-    dix.WithModuleHooks(
-        dix.OnStart(func(ctx context.Context, srv *Server) error {
-            srv.Logger.Info("server starting", "port", srv.Config.Port)
-            return nil
-        }),
-        dix.OnStop(func(ctx context.Context, srv *Server) error {
-            srv.Logger.Info("server stopping", "port", srv.Config.Port)
-            return nil
-        }),
-    ),
-)
-
-logger, _ := logx.NewDevelopment()
-
-app := dix.New(
-    "demo",
-    dix.WithProfile(dix.ProfileDev),
-    dix.WithLogger(logger),
-    dix.WithModules(configModule, serverModule),
-)
-
-if err := app.Validate(); err != nil {
-    panic(err)
-}
-
-rt, err := app.Build()
-if err != nil {
-    panic(err)
-}
-
-if err := rt.Start(context.Background()); err != nil {
-    panic(err)
-}
-defer func() {
-    _, _ = rt.StopWithReport(context.Background())
-}()
-```
-
-## 校验模型
-
-`app.Validate()` 会对 typed graph 做静态校验，覆盖：
-
-- typed provider
-- typed invoke
-- lifecycle hook
-- 结构化 setup
-- advanced 路径中的 alias、override、named provider 等结构化绑定
-
-当你使用显式逃生口时，校验会变得更保守：
-
-- `dix.RawProvider(...)`
-- `dix.RawInvoke(...)`
-- `advanced.DoSetup(...)`
-
-这些 API 仍然保留，但它们会用更高灵活性换取更弱的静态保证。
-
-## 高级路径
-
-当你需要显式容器能力时，使用 `github.com/DaiYuANg/arcgo/dix/advanced`：
-
-- named service
-- alias 绑定
-- transient provider
-- override / transient override
-- runtime scope
-- inspection helper
-- 原生 `do` bridge setup
-
-常见高级 API：
-
-- `advanced.NamedProvider1(...)`
-- `advanced.BindAlias[...]()`
-- `advanced.TransientProvider0(...)`
-- `advanced.Override0(...)`
-- `advanced.OverrideTransient0(...)`
-- `advanced.Scope(...)`
-- `advanced.InspectRuntime(...)`
-- `advanced.ExplainNamedDependencies(...)`
-
-## Runtime Scope 示例
-
-```go
-requestScope := advanced.Scope(rt, "request-42", func(injector do.Injector) {
-    advanced.ProvideScopedValue(injector, RequestContext{RequestID: "req-42"})
-    advanced.ProvideScoped2(injector, func(cfg AppConfig, req RequestContext) ScopedService {
-        return ScopedService{Config: cfg, Request: req}
-    })
-})
-
-svc, err := advanced.ResolveScopedAs[ScopedService](requestScope)
-if err != nil {
-    panic(err)
-}
-_ = svc
-```
-
-## Stop Report
-
-需要停机诊断时，优先使用 `runtime.StopWithReport(ctx)`。
-它会聚合：
-
-- stop hook 错误
-- `do` 容器 shutdown 错误
-
-如果调用方需要对 teardown 失败做更细粒度处理，这个 API 比单纯的 `Stop(ctx)` 更合适。
-
-## 示例
-
-- 示例总览页：[dix examples](./examples)
-- 仓库中的可运行示例：
-  - [examples/dix/basic](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/basic)
-  - [examples/dix/build_runtime](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_runtime)
-  - [examples/dix/build_failure](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_failure)
-  - [examples/dix/runtime_scope](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/runtime_scope)
-  - [examples/dix/transient](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/transient)
-  - [examples/dix/override](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/override)
-  - [examples/dix/inspect](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/inspect)
+- `dix.New(name, ...)` / `dix.NewDefault(...)`
+- `dix.NewModule(name, ...)`
+- `dix.WithModuleProviders(...)`、`dix.ProviderN(...)`
+- `dix.WithModuleHooks(...)`、`dix.OnStart(...)`、`dix.OnStop(...)`
+- `dix.WithModuleSetup(...)` / `dix.WithModuleSetups(...)`
+- `app.Validate()`、`app.Build()`
+- `rt.Start(ctx)`、`rt.Stop(ctx)`、`rt.StopWithReport(ctx)`
 
 ## 集成指南
 
-- 与 `configx`：先加载 typed 配置，再作为模块依赖注入。
-- 与 `logx`：进程启动时初始化一次 logger，并注入服务模块。
-- 与 `httpx`：在 setup/hook 阶段完成 server 引导，路由注册放在专用模块。
-- 与 `dbx` / `kvx`：将 repository 与连接初始化放在隔离的基础设施模块。
+- **configx**：启动加载一次强类型配置，并作为模块依赖注入。
+- **logx**：初始化进程级 logger，并注入各服务模块。
+- **httpx**：在 setup/hook 阶段完成 HTTP bootstrap；路由注册保持在独立模块内。
+- **dbx / kvx**：把持久化初始化隔离到 infra 模块。
 
-## 测试与 Benchmark
+## 测试与基准
 
 ```bash
 go test ./dix/...
 go test ./dix -run ^$ -bench . -benchmem
 ```
 
-对 benchmark 的实际理解：
+## 生产注意
 
-- typed resolve 路径足够轻，可以进入热路径
-- `ResolveAssignableAs` 比 typed alias 绑定更慢
-- inspection API 是诊断路径，不应当按请求热路径去使用
-
-## 生产注意事项
-
-- 以领域边界组织模块，避免超级大模块。
-- 在 runtime 启动前对校验/构建错误快速失败。
-- 仅在请求或租户生命周期边界明确时使用 scoped runtime 能力。
+- 按领域边界拆分模块，避免把所有东西塞进一个大模块。
+- 在 runtime start 前对 validate/build 错误快速失败。
+- 需要更可观测的关闭诊断时优先使用 `StopWithReport`。

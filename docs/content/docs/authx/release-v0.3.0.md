@@ -2,7 +2,7 @@
 title: 'authx v0.3.0 (Refactor)'
 linkTitle: 'release v0.3.0'
 description: 'Overview of the new authx core model and HTTP integrations'
-weight: 2
+weight: 4
 ---
 
 ## Overview

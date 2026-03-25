@@ -7,17 +7,35 @@ weight: 1
 
 ## authx
 
-`authx` is a Go authentication and authorization abstraction for multi-scenario use (HTTP / gRPC / CLI).
+`authx` is a Go **authentication** and **authorization** abstraction for HTTP, gRPC, CLI, or any transport. The core splits concerns explicitly:
 
-Core principles:
+- **Authentication** — `Engine.Check(ctx, credential)` resolves identity.
+- **Authorization** — `Engine.Can(ctx, AuthorizationModel)` evaluates policy for a principal and action/resource.
 
-- Separation of authentication and authorization: `Check` / `Can`
-- Authentication-mechanism agnostic: JWT / password / OTP and more
-- Framework-agnostic core with scenario-specific integration layers
+`authx` is **mechanism-agnostic**: it does not embed password hashing, JWT parsing, or OTP validation. You define credential structs and register `AuthenticationProvider` implementations; you plug an `Authorizer` for RBAC/ABAC/Rego/etc.
 
-## Documentation
+## Current capabilities
 
-- Release notes: [authx v0.3.0](./release-v0.3.0)
+- **`Engine`** — orchestrates `Check` / `Can` with optional hooks.
+- **`ProviderManager`** — routes `Authenticate` to typed `AuthenticationProvider[C]` by credential dynamic type.
+- **`authx/http`** — `Guard` resolves credentials and authorization from `RequestInfo`, then calls the engine.
+- **HTTP middleware** — `authx/http/std`, `authx/http/gin`, `authx/http/echo`, `authx/http/fiber` integrate with common stacks.
+- **Context helpers** — `WithPrincipal`, `PrincipalFromContext`, typed `PrincipalFromContextAs`.
+
+## Package layout
+
+- Core API: `github.com/DaiYuANg/arcgo/authx`
+- HTTP guard and `RequestInfo`: `github.com/DaiYuANg/arcgo/authx/http`
+- `net/http` middleware: `github.com/DaiYuANg/arcgo/authx/http/std`
+- Gin: `github.com/DaiYuANg/arcgo/authx/http/gin`
+- Echo: `github.com/DaiYuANg/arcgo/authx/http/echo`
+- Fiber: `github.com/DaiYuANg/arcgo/authx/http/fiber`
+
+## Documentation map
+
+- Minimal core (`Check` / `Can`): [Getting Started](./getting-started)
+- `Guard` + `net/http`: [HTTP integration](./http-integration)
+- Release notes (v0.3.0 refactor): [authx v0.3.0](./release-v0.3.0)
 
 ## Install / Import
 
@@ -29,104 +47,54 @@ go get github.com/DaiYuANg/arcgo/authx/http/echo@latest
 go get github.com/DaiYuANg/arcgo/authx/http/fiber@latest
 ```
 
-## Core API
+## Core API (summary)
 
-- `Engine`: orchestrates authentication and authorization
-- `ProviderManager`: manages providers for multiple credential types
-- `AuthenticationProvider[C]`: generic provider abstraction
-- `Authorizer`: authorization decision interface
-- `Check(ctx, credential)`: authenticate
-- `Can(ctx, AuthorizationModel)`: authorize
-- `Hook`: before/after hooks for Check/Can
+| Piece | Role |
+| --- | --- |
+| `Engine` | Runs `Check` and `Can`, optional `Hook` |
+| `ProviderManager` | Holds multiple typed `AuthenticationProvider` |
+| `AuthenticationProvider[C]` | `Authenticate(ctx, C)` → `AuthenticationResult` |
+| `Authorizer` | `Authorize(ctx, AuthorizationModel)` → `Decision` |
+| `AuthenticationResult` | Carries `Principal` (`any`) plus optional `Details` |
+| `AuthorizationModel` | `Principal`, `Action`, `Resource`, optional `Context` |
+| `Decision` | `Allowed`, `Reason`, `PolicyID` |
 
-## Quick Start (Core)
+Runnable, import-complete examples are on [Getting Started](./getting-started).
 
-```go
-engine := authx.NewEngine(
-    authx.WithAuthenticationManager(
-        authx.NewProviderManager(
-            authx.NewAuthenticationProviderFunc(func(
-                _ context.Context,
-                in UsernamePassword,
-            ) (authx.AuthenticationResult, error) {
-                return authx.AuthenticationResult{
-                    Principal: authx.Principal{ID: in.Username},
-                }, nil
-            }),
-        ),
-    ),
-    authx.WithAuthorizer(authx.AuthorizerFunc(func(
-        _ context.Context,
-        model authx.AuthorizationModel,
-    ) (authx.Decision, error) {
-        return authx.Decision{Allowed: true}, nil
-    })),
-)
+## HTTP layer (summary)
 
-result, err := engine.Check(ctx, UsernamePassword{Username: "alice", Password: "secret"})
-if err != nil {
-    panic(err)
-}
+`authhttp.NewGuard` combines:
 
-decision, err := engine.Can(ctx, authx.AuthorizationModel{
-    Principal: result.Principal,
-    Action:    "query",
-    Resource:  "order",
-})
-if err != nil {
-    panic(err)
-}
-_ = decision
-```
+- **`WithCredentialResolverFunc`** — `(ctx, RequestInfo) → (credential any, err)`
+- **`WithAuthorizationResolverFunc`** — `(ctx, RequestInfo, principal) → (AuthorizationModel, err)`
 
-## HTTP Integrations
+`Guard.Require` runs **Check** then **Can**. `authx/http/std` middleware injects `Principal` into `context` on success.
 
-`authx/http` provides a unified Guard plus middleware integrations:
+Full `net/http` sample: [HTTP integration](./http-integration).
 
-- `authx/http/std`
-- `authx/http/gin`
-- `authx/http/echo`
-- `authx/http/fiber`
+## Error and behavior model
 
-Unified extension points:
+- `Check` returns `AuthenticationResult` and error; invalid credentials should surface as explicit errors (not silent success).
+- `Can` returns `Decision` and error; policy failures should not be silently treated as deny without an observable error path where appropriate.
+- HTTP middleware maps failures to stable status codes (`401` / `403`) via `authx/http` helpers; see package docs for `StatusCodeFromError`.
 
-- `WithCredentialResolverFunc`
-- `WithAuthorizationResolverFunc`
+## Integration guide
 
-```go
-guard := authhttp.NewGuard(
-    engine,
-    authhttp.WithCredentialResolverFunc(resolveCredential),
-    authhttp.WithAuthorizationResolverFunc(resolveAuthorization),
-)
+- **httpx** — register guard middleware on route groups; keep policy evaluation in services when possible.
+- **dix** — provide `Engine`, providers, and `Authorizer` from modules; inject into HTTP setup.
+- **configx** — externalize secrets, provider toggles, and policy sources.
+- **logx / observabilityx** — record check/can latency and error categories without logging raw secrets.
 
-router.Use(authstd.Require(guard))
-// hot path: router.Use(authstd.RequireFast(guard))
-```
+## Runnable examples (repository)
 
-## Error and Behavior Model
+- [examples/authx/jwt](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/jwt)
+- [examples/authx/std](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/std) (Chi + shared resolvers)
+- [examples/authx/gin](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/gin)
+- [examples/authx/echo](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/echo)
+- [examples/authx/fiber](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/fiber)
+- Shared helpers: [examples/authx/shared](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/shared)
 
-- `Check` returns an authentication result plus error; provider-level invalid credentials should remain explicit domain errors.
-- `Can` returns authorization decision plus error; policy-engine failure should not be treated as "deny by default" silently.
-- Middleware layers should map auth/authz failures to stable HTTP status conventions (`401` / `403`) and keep internal failures observable.
-
-## Integration Guide
-
-- With `httpx`: wire auth guard middleware into group/server routes and keep `authx` policy evaluation in service boundaries.
-- With `dix`: provide `Engine`, `ProviderManager`, and `Authorizer` in module providers, then inject into HTTP setup modules.
-- With `configx`: externalize secret keys, provider toggles, and policy-source settings from code.
-- With `observabilityx` and `logx`: emit check/can timing and failure categories without leaking sensitive credentials.
-
-## Examples
-
-- `authx/http/examples/shared`
-- `authx/http/examples/jwt`
-- `authx/http/examples/std`
-- `authx/http/examples/gin`
-- `authx/http/examples/echo`
-- `authx/http/examples/fiber`
-
-## Testing and Benchmarks
+## Testing and benchmarks
 
 ```bash
 go test ./authx/...
@@ -141,8 +109,8 @@ go test ./authx/http/echo -run ^$ -bench BenchmarkRequire -benchmem
 go test ./authx/http/fiber -run ^$ -bench BenchmarkRequire -benchmem
 ```
 
-## Production Notes
+## Production notes
 
-- Keep auth provider behavior deterministic across transports (HTTP/gRPC/CLI) to avoid divergence.
-- Avoid embedding secrets in code; always load through configuration.
-- Treat authorization policy loading as startup-critical and fail fast on invalid policy state.
+- Keep provider behavior consistent across transports (HTTP / gRPC / CLI).
+- Do not embed secrets; load via configuration.
+- Treat policy loading as startup-critical and fail fast on invalid policy state.

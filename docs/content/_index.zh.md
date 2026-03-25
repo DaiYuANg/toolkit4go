@@ -35,7 +35,6 @@ go get github.com/DaiYuANg/arcgo/{package}
   {{< card link="./docs/eventx" title="eventx" subtitle="进程内强类型事件总线" icon="lightning-bolt" >}}
   {{< card link="./docs/httpx" title="httpx" subtitle="多框架统一强类型 HTTP 路由" icon="server" >}}
   {{< card link="./docs/kvx" title="kvx" subtitle="强类型 Redis/Valkey 访问与 repository 层" icon="chip" >}}
-  {{< card link="./docs/sqltmplx" title="sqltmplx" subtitle="SQL 优先条件模板渲染器（可选 parser 校验）" icon="database" >}}
   {{< card link="./docs/logx" title="logx" subtitle="结构化日志与 slog 互通" icon="document-text" >}}
   {{< card link="./docs/observabilityx" title="observabilityx" subtitle="可选可观测性抽象（OTel/Prometheus）" icon="chart-bar" >}}
 {{< /cards >}}
@@ -131,7 +130,7 @@ httpx.Get(s, "/health", func(ctx context.Context, input *struct{}) (*HealthOutpu
 - 需要协议导向客户端：从 [clientx](./docs/clientx) 开始
 - 需要 HTTP 路由：从 [httpx](./docs/httpx) 开始
 - 需要 Redis/Valkey 强类型访问：从 [kvx](./docs/kvx) 开始
-- 需要 SQL 优先动态模板：从 [dbx](./docs/dbx) 开始（包含 [sqltmplx](./docs/sqltmplx)）
+- 需要 SQL 优先动态模板：从 [dbx](./docs/dbx) 开始（见 [sqltmplx 集成](./docs/dbx/sqltmplx-integration)）
 - 需要日志记录：从 [logx](./docs/logx) 开始
 - 需要可观测性：从 [observabilityx](./docs/observabilityx) 开始
 

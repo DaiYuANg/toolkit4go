@@ -5,11 +5,11 @@ description: 'Optional Observability Abstraction (OTel/Prometheus)'
 weight: 7
 ---
 
-## observabilityx
+## Overview
 
-`observabilityx` provides an optional unified facade for logging/tracing/metrics.
+`observabilityx` provides an optional unified facade for **logging / tracing / metrics**. It exists to keep arcgo package APIs stable while allowing observability backends to stay optional.
 
-## Install / Import
+## Install
 
 ```bash
 go get github.com/DaiYuANg/arcgo/observabilityx@latest
@@ -17,11 +17,11 @@ go get github.com/DaiYuANg/arcgo/observabilityx/otel@latest
 go get github.com/DaiYuANg/arcgo/observabilityx/prometheus@latest
 ```
 
-## Why
+## Documentation map
 
-- Keep `authx`, `eventx`, `configx` APIs stable.
-- Make observability backends optional.
-- Avoid forcing business code into one telemetry stack.
+- Minimal usage + multi-backend composition: [Getting Started](./getting-started)
+- Export `/metrics` with Prometheus: [Prometheus metrics endpoint](./prometheus-metrics)
+- OTel backend notes: [OpenTelemetry backend](./otel-backend)
 
 ## Backends
 
@@ -29,52 +29,9 @@ go get github.com/DaiYuANg/arcgo/observabilityx/prometheus@latest
 - `observabilityx/otel` - OpenTelemetry backend (trace + metric).
 - `observabilityx/prometheus` - Prometheus backend (metrics + `/metrics` handler).
 
-## Composing Multiple Backends
+## Runnable examples (repository)
 
-```go
-otelObs := otelobs.New()
-promObs := promobs.New()
-
-obs := observabilityx.Multi(otelObs, promObs)
-```
-
-## Adopting Packages
-
-```go
-manager, _ := authx.NewManager(
-    authx.WithObservability(obs),
-    authx.WithProvider(provider),
-)
-
-bus := eventx.New(
-    eventx.WithObservability(obs),
-)
-
-var cfg AppConfig
-_ = configx.Load(&cfg,
-    configx.WithObservability(obs),
-    configx.WithFiles("config.yaml"),
-)
-```
-
-## Prometheus Metrics Endpoint
-
-```go
-promObs := promobs.New()
-
-stdAdapter := std.New(nil, adapter.HumaOptions{
-    DisableDocsRoutes: true,
-})
-
-metricsServer := httpx.New(
-    httpx.WithAdapter(stdAdapter),
-)
-stdAdapter.Router().Handle("/metrics", promObs.Handler())
-```
-
-## Examples
-
-- [multi](https://github.com/DaiYuANg/arcgo/tree/main/observabilityx/examples/multi): Compose OTel + Prometheus backends.
+- Multi backend: [examples/observabilityx/multi](https://github.com/DaiYuANg/arcgo/tree/main/examples/observabilityx/multi)
 
 ## Integration Guide
 

@@ -75,11 +75,6 @@ menu:
       nameEn: DBX
       pageRef: /docs/dbx
       weight: 7
-    - identifier: sqltmplx
-      name: SQLtmplx
-      nameEn: SQLtmplx
-      pageRef: /docs/sqltmplx
-      weight: 8
     - identifier: eventx
       name: EventX
       nameEn: EventX

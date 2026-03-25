@@ -1,0 +1,115 @@
+---
+title: 'dix 快速开始'
+linkTitle: 'getting-started'
+description: '构建、启动与停止强类型模块图'
+weight: 2
+---
+
+## Getting Started
+
+本页给出一个可直接复制运行的 **`dix` 最小示例**：
+
+- 定义若干强类型服务
+- 组装为模块
+- `Build()` 生成运行时
+- `Start()` / `Stop()` 管理生命周期
+
+## 1) Install
+
+```bash
+go get github.com/DaiYuANg/arcgo/dix@latest
+go get github.com/DaiYuANg/arcgo/logx@latest
+```
+
+## 2）创建 `main.go`
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+
+	"github.com/DaiYuANg/arcgo/dix"
+	"github.com/DaiYuANg/arcgo/logx"
+)
+
+type Config struct {
+	Port int
+}
+
+type Server struct {
+	Logger *slog.Logger
+	Config Config
+}
+
+func main() {
+	configModule := dix.NewModule("config",
+		dix.WithModuleProviders(
+			dix.Provider0(func() Config { return Config{Port: 8080} }),
+		),
+	)
+
+	serverModule := dix.NewModule("server",
+		dix.WithModuleImports(configModule),
+		dix.WithModuleProviders(
+			dix.Provider2(func(logger *slog.Logger, cfg Config) *Server {
+				return &Server{Logger: logger, Config: cfg}
+			}),
+		),
+		dix.WithModuleHooks(
+			dix.OnStart(func(ctx context.Context, srv *Server) error {
+				srv.Logger.Info("server starting", "port", srv.Config.Port)
+				return nil
+			}),
+			dix.OnStop(func(ctx context.Context, srv *Server) error {
+				srv.Logger.Info("server stopping", "port", srv.Config.Port)
+				return nil
+			}),
+		),
+	)
+
+	logger, err := logx.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+
+	app := dix.New(
+		"demo",
+		dix.WithProfile(dix.ProfileDev),
+		dix.WithLogger(logger),
+		dix.WithModules(configModule, serverModule),
+	)
+
+	if err := app.Validate(); err != nil {
+		panic(err)
+	}
+
+	rt, err := app.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	if err := rt.Start(context.Background()); err != nil {
+		panic(err)
+	}
+	defer func() {
+		_, _ = rt.StopWithReport(context.Background())
+	}()
+}
+```
+
+## 3）运行
+
+```bash
+go mod init example.com/dix-hello
+go get github.com/DaiYuANg/arcgo/dix@latest
+go get github.com/DaiYuANg/arcgo/logx@latest
+go run .
+```
+
+## Next
+
+- 健康检查与 `net/http` handler：[健康检查与生命周期](./health-and-lifecycle)
+- 高级特性（named/alias/scope/override）：见 [dix 示例](./examples) 与 `dix/advanced`
+

@@ -19,18 +19,17 @@ go get github.com/DaiYuANg/arcgo/{package}
 
 | 包 | 作用 | 描述 |
 | --- | --- | --- |
-| [authx](./authx) | 认证与授权 | 多场景可扩展的认证与鉴权抽象层 |
-| [clientx](./clientx) | 协议客户端 | 协议导向客户端（`http/tcp/udp`）+ 共享工程约束 |
-| [collectionx](./collectionx) | 数据结构 | 泛型集合与并发安全结构 |
-| [configx](./configx) | 配置管理 | 分层配置加载与校验 |
-| [dix](./dix) | 应用框架 | 基于 `do` 的强类型模块化应用框架 |
-| [eventx](./eventx) | 事件总线 | 进程内强类型事件总线 |
-| [httpx](./httpx) | HTTP 路由 | 多框架统一强类型 HTTP 路由 |
-| [kvx](./kvx) | Redis / Valkey 访问 | 强类型 Redis / Valkey 对象访问与 repository 层 |
-| [logx](./logx) | 日志记录 | 结构化日志与 slog 互通 |
-| [observabilityx](./observabilityx) | 可观测性 | 可选可观测性抽象（OTel/Prometheus） |
+| [authx](./authx) | 认证与授权 | 多场景可扩展的认证与鉴权抽象层 · 教程：[快速开始](./authx/getting-started)、[HTTP](./authx/http-integration) |
+| [clientx](./clientx) | 协议客户端 | 协议导向客户端（`http/tcp/udp`）+ 共享工程约束 · 教程：[快速开始](./clientx/getting-started)、[TCP/UDP](./clientx/tcp-and-udp)、[codec](./clientx/codec-and-hooks) |
+| [collectionx](./collectionx) | 数据结构 | 泛型集合与并发安全结构 · 教程：[快速开始](./collectionx/getting-started)、[映射、集合与表](./collectionx/mapping-recipes)、[列表与结构化数据](./collectionx/structured-data) |
+| [configx](./configx) | 配置管理 | 分层配置加载与校验 · 教程：[快速开始](./configx/getting-started)、[配置源与优先级](./configx/sources-and-priority)、[校验与动态访问](./configx/validation-and-dynamic) |
+| [dix](./dix) | 应用框架 | 基于 `do` 的强类型模块化应用框架 · 教程：[快速开始](./dix/getting-started)、[健康检查](./dix/health-and-lifecycle)、[示例](./dix/examples) |
+| [eventx](./eventx) | 事件总线 | 进程内强类型事件总线 · 教程：[快速开始](./eventx/getting-started)、[异步](./eventx/async-and-middleware)、[错误](./eventx/errors-and-lifecycle) |
+| [httpx](./httpx) | HTTP 路由 | 多框架统一强类型 HTTP 路由 · 指南：[入门](./httpx/getting-started)、[适配器](./httpx/adapters)、[OpenAPI/文档](./httpx/openapi-and-docs) |
+| [kvx](./kvx) | Redis / Valkey 访问 | 强类型 Redis / Valkey 对象访问与 repository 层 · 指南：[入门](./kvx/getting-started)、[JSON 仓库](./kvx/json-repository)、[适配器](./kvx/adapters) |
+| [logx](./logx) | 日志记录 | 结构化日志与 slog 互通 · 指南：[入门](./logx/getting-started)、[配置](./logx/configuration)、[Trace/oops](./logx/trace-and-oops) |
+| [observabilityx](./observabilityx) | 可观测性 | 可选可观测性抽象（OTel/Prometheus） · 指南：[入门](./observabilityx/getting-started)、[/metrics](./observabilityx/prometheus-metrics)、[OTel](./observabilityx/otel-backend) |
 | [dbx](./dbx) | ORM 与迁移 | 基于 `database/sql` 的 schema-first / generic-first ORM 核心 |
-| [sqltmplx](./sqltmplx) | SQL 模板 | 以 SQL 为主的条件模板（`dbx/sqltmplx`），可独立或与完整 `dbx` 联用 |
 
 ## 文档结构
 
@@ -38,6 +37,12 @@ go get github.com/DaiYuANg/arcgo/{package}
 - 章节标准见：[文档章节标准](./standards)
 - 可运行示例位于仓库 `examples/` 目录，定位为支撑示例代码，不作为独立子包体系。
 - 部分子包提供中文入口页（`*_index.zh.md`）。
+- **authx** 分步教程：[快速开始](./authx/getting-started)、[HTTP 集成](./authx/http-integration)（总览见 [authx](./authx)）。
+- **clientx** 分步教程：[快速开始](./clientx/getting-started)、[TCP 与 UDP](./clientx/tcp-and-udp)、[Codec 与 hooks](./clientx/codec-and-hooks)（总览见 [clientx](./clientx)）。
+- **collectionx** 分步教程：[快速开始](./collectionx/getting-started)、[映射、集合与表](./collectionx/mapping-recipes)、[列表与结构化数据](./collectionx/structured-data)（总览见 [collectionx](./collectionx)）。
+- **configx** 分步教程：[快速开始](./configx/getting-started)、[配置源与优先级](./configx/sources-and-priority)、[校验与动态访问](./configx/validation-and-dynamic)（总览见 [configx](./configx)）。
+- **dix** 分步教程：[快速开始](./dix/getting-started)、[健康检查与生命周期](./dix/health-and-lifecycle)、[示例](./dix/examples)（总览见 [dix](./dix)）。
+- **eventx** 分步教程：[快速开始](./eventx/getting-started)、[异步与中间件](./eventx/async-and-middleware)、[错误与生命周期](./eventx/errors-and-lifecycle)（总览见 [eventx](./eventx)）。
 
 ## 如何选择
 

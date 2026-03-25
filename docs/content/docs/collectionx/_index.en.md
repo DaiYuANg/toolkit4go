@@ -7,7 +7,28 @@ weight: 2
 
 ## collectionx
 
-`collectionx` provides strongly typed collection data structures for Go, including concurrent variants and non-standard structures like `MultiMap`, `Table`, `Trie`, and interval structures.
+`collectionx` provides strongly typed collection data structures for Go, including concurrent variants and non-standard structures such as `MultiMap`, `Table`, `Trie`, and interval types.
+
+## Current capabilities
+
+- **Generics-first** API with explicit method names and predictable semantics.
+- **Optional concurrent** variants (`ConcurrentSet`, `ConcurrentMap`, …) when data is shared across goroutines.
+- **Non-standard but practical** structures inspired by mature ecosystems (ordered maps, multi-maps, 2D `Table`, prefix `Trie`, interval maps, parent/child `Tree`).
+
+## Package layout
+
+- `github.com/DaiYuANg/arcgo/collectionx/set` — `Set`, `ConcurrentSet`, `MultiSet`, `OrderedSet`
+- `github.com/DaiYuANg/arcgo/collectionx/mapping` — `Map`, `ConcurrentMap`, `BiMap`, `OrderedMap`, `MultiMap`, `Table`
+- `github.com/DaiYuANg/arcgo/collectionx/list` — `List`, `ConcurrentList`, `Deque`, `RingBuffer`, `PriorityQueue`
+- `github.com/DaiYuANg/arcgo/collectionx/interval` — `Range`, `RangeSet`, `RangeMap`
+- `github.com/DaiYuANg/arcgo/collectionx/prefix` — `Trie` / `PrefixMap`
+- `github.com/DaiYuANg/arcgo/collectionx/tree` — `Tree`, `ConcurrentTree`
+
+## Documentation map
+
+- First program (`Set` + `OrderedMap`): [Getting Started](./getting-started)
+- Sets, ordered types, `MultiMap`, `Table`, JSON helpers: [Maps, sets, and tables](./mapping-recipes)
+- Lists, intervals, trie, tree: [Lists and structured data](./structured-data)
 
 ## Install / Import
 
@@ -15,183 +36,29 @@ weight: 2
 go get github.com/DaiYuANg/arcgo/collectionx@latest
 ```
 
-## Why Use collectionx
+Import the **subpackage** you need (for example `collectionx/set`, `collectionx/mapping`).
 
-Go standard containers are intentionally minimal. `collectionx` focuses on:
+## Why use collectionx
 
-- Generic, strongly typed API
-- Predictable semantics and explicit method names
-- Optional concurrency-safe structures when needed
-- Useful non-standard structures inspired by Java ecosystem
+Go’s standard library containers are intentionally minimal. `collectionx` focuses on generic, strongly typed APIs, explicit ordering guarantees where they matter, and shared engineering conventions across structures.
 
-## Package Layout
+## Concurrency-safe types
 
-- `collectionx/set`
-  - `Set`, `ConcurrentSet`, `MultiSet`, `OrderedSet`
-- `collectionx/mapping`
-  - `Map`, `ConcurrentMap`, `BiMap`, `OrderedMap`, `MultiMap`, `Table`
-- `collectionx/list`
-  - `List`, `ConcurrentList`, `Deque`, `RingBuffer`, `PriorityQueue`
-- `collectionx/interval`
-  - `Range`, `RangeSet`, `RangeMap`
-- `collectionx/prefix`
-  - `Trie` / `PrefixMap`
-- `collectionx/tree`
-  - `Tree`, `ConcurrentTree` (parent-child hierarchy)
+Use **concurrent** variants only when the same instance is accessed from multiple goroutines:
 
-## 0 to 1 Runnable Example
+- `ConcurrentSet`, `ConcurrentMap`, `ConcurrentMultiMap`, `ConcurrentTable`, `ConcurrentList`, `ConcurrentTree`
 
-- Quick start directory: [collectionx/examples/quickstart](https://github.com/DaiYuANg/arcgo/tree/main/collectionx/examples/quickstart)
-- Run from repository root:
+For single-goroutine use or external locking, prefer the non-concurrent types for lower overhead.
 
-```bash
-go run ./collectionx/examples/quickstart
-```
+## API style notes
 
-## Use Cases
+- Many `Values` / `All` / `Row` / `Column` style methods return **snapshots** to avoid accidental mutation leakage.
+- `GetOption` helpers use `mo.Option` for nullable-style reads where applicable.
+- Prefer constructors even when zero values work, for clarity.
 
-### 1) Quick Deduplication with `Set`
+## JSON and logging
 
-```go
-s := set.NewSet[string]()
-s.Add("A", "A", "B")
-fmt.Println(s.Len()) // 2
-fmt.Println(s.Contains("B"))
-```
-
-### 2) Preserve Insertion Order with `OrderedSet` / `OrderedMap`
-
-```go
-os := set.NewOrderedSet[int]()
-os.Add(3, 1, 3, 2)
-fmt.Println(os.Values()) // [3 1 2]
-
-om := mapping.NewOrderedMap[string, int]()
-om.Set("x", 1)
-om.Set("y", 2)
-om.Set("x", 9) // Update doesn't change order
-fmt.Println(om.Keys())   // [x y]
-fmt.Println(om.Values()) // [9 2]
-```
-
-### 3) One-to-Many with `MultiMap`
-
-```go
-mm := mapping.NewMultiMap[string, int]()
-mm.PutAll("tag", 1, 2, 3)
-fmt.Println(mm.Get("tag"))        // [1 2 3]
-owned := mm.GetCopy("tag")        // use GetCopy if you need to mutate the result
-fmt.Println(mm.ValueCount())       // 3
-removed := mm.DeleteValueIf("tag", func(v int) bool { return v%2 == 0 })
-fmt.Println(removed, mm.Get("tag")) // 1 [1 3]
-```
-
-### 4) 2D Indexing with `Table` (Guava Style)
-
-```go
-t := mapping.NewTable[string, string, int]()
-t.Put("r1", "c1", 10)
-t.Put("r1", "c2", 20)
-t.Put("r2", "c1", 30)
-
-v, ok := t.Get("r1", "c2")
-fmt.Println(v, ok) // 20 true
-fmt.Println(t.Row("r1"))
-fmt.Println(t.Column("c1"))
-```
-
-### 5) Prefix Lookup with `Trie`
-
-```go
-tr := prefix.NewTrie[int]()
-tr.Put("user:1", 1)
-tr.Put("user:2", 2)
-tr.Put("order:9", 9)
-
-fmt.Println(tr.KeysWithPrefix("user:")) // [user:1 user:2]
-```
-
-### 6) Queue and Buffer with `list` Package
-
-```go
-dq := list.NewDeque[int]()
-dq.PushBack(1, 2)
-dq.PushFront(0)
-fmt.Println(dq.Values()) // [0 1 2]
-
-rb := list.NewRingBuffer[int](2)
-_ = rb.Push(1)
-_ = rb.Push(2)
-evicted := rb.Push(3) // Evicts 1
-fmt.Println(evicted)
-```
-
-### 7) Interval Operations
-
-```go
-rs := interval.NewRangeSet[int]()
-rs.Add(1, 5)
-rs.Add(5, 8) // Adjacent ranges are merged
-fmt.Println(rs.Ranges())
-
-rm := interval.NewRangeMap[int, string]()
-rm.Put(0, 10, "A")
-rm.Put(3, 5, "B") // Overlapping coverage
-v, _ := rm.Get(4)
-fmt.Println(v) // B
-```
-
-### 8) Parent-Child Hierarchy with `Tree`
-
-```go
-org := tree.NewTree[int, string]()
-_ = org.AddRoot(1, "CEO")
-_ = org.AddChild(1, 2, "CTO")
-_ = org.AddChild(2, 3, "Platform Lead")
-
-parent, _ := org.Parent(3)
-fmt.Println(parent.ID())          // 2
-fmt.Println(len(org.Descendants(1))) // 2
-```
-
-## Concurrency-Safe Types: When to Use
-
-Use concurrent variants only when access is shared across goroutines:
-
-- `ConcurrentSet`
-- `ConcurrentMap`
-- `ConcurrentMultiMap`
-- `ConcurrentTable`
-- `ConcurrentList`
-- `ConcurrentTree`
-
-For single-goroutine or externally synchronized workflows, non-concurrent types are typically faster.
-
-## API Style Notes
-
-- Most `All/Values/Row/Column` style methods return copies/snapshots to avoid accidental mutation leakage.
-- `GetOption` methods use `mo.Option` for nullable-style reads.
-- Many structures support zero-value behavior but constructors are still recommended for clarity.
-
-## JSON and Logging Helpers
-
-Most structures provide:
-
-- `ToJSON() ([]byte, error)` for quick serialization
-- `MarshalJSON() ([]byte, error)` for `json.Marshal(x)` to work directly
-- `String() string` for log-friendly output
-
-Example:
-
-```go
-s := set.NewSet[string]("a", "b")
-raw, _ := s.ToJSON()
-fmt.Println(string(raw))  // ["a","b"]
-fmt.Println(s.String())   // ["a","b"]
-
-payload, _ := json.Marshal(s) // Same behavior via MarshalJSON
-_ = payload
-```
+Most structures support `ToJSON`, `MarshalJSON` (for `json.Marshal`), and `String()`. See [Maps, sets, and tables](./mapping-recipes) for a minimal JSON example.
 
 ## Benchmarks
 
@@ -199,78 +66,56 @@ _ = payload
 go test ./collectionx/... -run ^$ -bench . -benchmem
 ```
 
-You can target a single package:
+Target one package:
 
 ```bash
 go test ./collectionx/mapping -run ^$ -bench . -benchmem
 go test ./collectionx/prefix -run ^$ -bench Trie -benchmem
 ```
 
-## Practical Tips
+## Practical tips
 
-- Prefer `Table` when you're manually using nested maps.
-- Prefer `OrderedMap/OrderedSet` when result order matters (serialization, deterministic tests).
-- Prefer `Trie` for large prefix searches instead of repeated linear scans.
-- Prefer `MultiSet` when count frequency is the primary operation.
-- Prefer `Tree` when your model is naturally parent-child (org charts, categories, menu trees).
+- Prefer `Table` over nested maps when keys are naturally two-dimensional.
+- Prefer `OrderedMap` / `OrderedSet` when stable iteration order matters (tests, APIs, serialization).
+- Prefer `Trie` for large prefix searches instead of repeated linear scans over string keys.
+- Prefer `MultiSet` when frequency counts are the primary operation.
+- Prefer `Tree` for parent/child models (org charts, categories, menus).
 
 ## FAQ
 
-### Should I always use concurrent variants?
+**Should I always use concurrent variants?**  
+No. Use them only when multiple goroutines share the same instance without external synchronization.
 
-No. Use concurrent variants only when multiple goroutines share the same structure instance.
-If access is single-threaded or already externally synchronized, non-concurrent variants are simpler and faster.
+**Are returned slices safe to mutate?**  
+Snapshot-style APIs return copies; mutating them does not change internal state.
 
-### Are returned slices/maps safe to modify?
+**Why does `OrderedMap` keep insertion order on value update?**  
+By design: updates change values, not key order (similar to insertion-ordered maps elsewhere).
 
-For most snapshot-style APIs (`Values`, `All`, `Row`, `Column`, etc.), return values are copies.
-Modifying returned objects typically doesn't modify internal state.
-
-### Why does `OrderedMap` keep old insertion order on update?
-
-It's intentionally designed to behave like insertion-order maps in other ecosystems: updates change values, not order.
-
-### How does `RangeSet` handle adjacent ranges?
-
-For half-open ranges, adjacent ranges are normalized and merged (e.g., `[1,5)` + `[5,8)`).
+**How does `RangeSet` merge ranges?**  
+Half-open ranges `[start, end)` are normalized; adjacent ranges merge (for example `[1,5)` + `[5,8)`).
 
 ## Troubleshooting
 
-### `Publish` style code needs deterministic order but map-backed structures seem random
+- **Non-deterministic order** — `Map` / `Set` hash iteration is unordered; use `OrderedMap` / `OrderedSet` when you need stable order.
+- **`Trie.KeysWithPrefix` allocations** — returns new slices; narrow the prefix, use `RangePrefix` when available, or avoid building huge snapshots on hot paths.
+- **Unbounded `MultiMap` / `Table` growth** — use `Delete`, `DeleteRow`, `DeleteColumn`, `DeleteValueIf`, or lifecycle-driven cleanup.
 
-`Map`, `Set`, and similar hash-backed structures don't guarantee iteration order.
-Use `OrderedMap` / `OrderedSet` for deterministic order.
+## Anti-patterns
 
-### `Trie.KeysWithPrefix` allocates more than expected
-
-Prefix collection returns new slices and traverses matching subtrees.
-For hot paths:
-
-- Narrow the prefix when possible.
-- Use `RangePrefix` callback style when available.
-- Avoid building large temporary snapshots on every request.
-
-### `MultiMap` or `Table` memory growth after long runs
-
-Common causes are unbounded key growth and missing cleanup paths.
-Use `Delete`, `DeleteColumn`, `DeleteRow`, `DeleteValueIf`, or periodic resets based on business lifecycle.
-
-## Anti-Patterns
-
-- Using `Concurrent*` structures everywhere by default.
+- Defaulting to `Concurrent*` everywhere.
 - Relying on hash-map iteration order in tests or business logic.
-- Treating snapshot-returning APIs as live views and expecting in-place synchronization.
-- Building huge temporary collections per request instead of incremental updates.
-- Using `RangeMap` only for point lookups; use plain maps if interval semantics aren't necessary.
+- Treating snapshot APIs as live views.
+- Using `RangeMap` when a plain `map` and point lookups are enough.
 
-## Integration Guide
+## Integration guide
 
-- With `configx`: use typed map/list helpers to normalize loaded config before binding to services.
-- With `clientx` / `kvx`: use collection utilities for index/cache shaping without ad-hoc container code.
-- With `dix`: keep collection instances in explicit module providers, not hidden package globals.
+- **configx** — normalize loaded config into typed maps/lists before binding services.
+- **clientx** / **kvx** — shape caches and indexes without one-off container code.
+- **dix** — provide collection instances from module providers instead of hidden globals.
 
-## Production Notes
+## Production notes
 
-- Pick the simplest structure that satisfies your invariants; avoid abstraction-by-default.
+- Prefer the smallest structure that matches your invariants.
 - Document ordering guarantees at API boundaries (`OrderedMap` vs hash-backed maps).
-- For concurrent variants, design ownership and lifecycle explicitly even when internals are lock-safe.
+- For concurrent types, define ownership and lifecycle even when internals are lock-safe.

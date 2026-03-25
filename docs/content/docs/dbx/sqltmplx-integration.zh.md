@@ -14,6 +14,23 @@ weight: 12
 - SQL 主要以 `.sql` 文件维护。
 - 需要 statement 复用，同时保留 dbx 的执行与观测能力。
 
+## 安装 / 导入
+
+```bash
+go get github.com/DaiYuANg/arcgo/dbx@latest
+go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
+```
+
+## 模板能力速查
+
+- `/*%if expr */ ... /*%end */`
+- `/*%where */ ... /*%end */`
+- `/*%set */ ... /*%end */`
+- Doma 风格占位符：`/* Name */'alice'`
+- 切片展开：`/* IDs */(1, 2, 3)`
+- 表达式辅助：`empty(x)`、`blank(x)`、`present(x)`
+- 参数绑定：优先按字段名，其次尝试 `sqltmpl` / `db` / `json` 别名
+
 ## 完整示例
 
 ```go
@@ -76,3 +93,10 @@ func main() {
 ```bash
 go test ./dbx/sqltmplx/...
 ```
+
+## 可运行示例（仓库）
+
+- [examples/sqltmplx/basic](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/basic)
+- [examples/sqltmplx/postgres](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/postgres)
+- [examples/sqltmplx/sqlite_update](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/sqlite_update)
+- [examples/sqltmplx/precompile](https://github.com/DaiYuANg/arcgo/tree/main/examples/sqltmplx/precompile)

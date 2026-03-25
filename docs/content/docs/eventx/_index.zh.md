@@ -7,22 +7,33 @@ weight: 4
 
 ## eventx
 
-`eventx` 是一个用于 Go 服务的内存强类型事件总线。
+`eventx` 是面向 Go 服务的进程内强类型事件总线。
 
-## 安装 / 导入
+## Install / Import
 
 ```bash
 go get github.com/DaiYuANg/arcgo/eventx@latest
 ```
 
-## 核心能力
+## 当前能力
 
-- 泛型类型订阅：`Subscribe[T Event]`
-- 同步发布：`Publish`
-- 带队列/工作者的异步发布：`PublishAsync`
-- 可选的同一事件类型处理器的并行分发
-- 中间件管道（全局 + 每订阅者）
-- 优雅关闭和进行中排空 (`Close`)
+- Generic type subscription: `Subscribe[T Event]`
+- Synchronous publishing: `Publish`
+- Asynchronous publishing with queue/workers: `PublishAsync`
+- Optional parallel dispatch for handlers of the same event type
+- Middleware pipeline (global + per-subscriber)
+- Graceful shutdown and in-flight draining (`Close`)
+
+## 包结构
+
+- 核心包：`github.com/DaiYuANg/arcgo/eventx`
+- FX 模块（可选）：`github.com/DaiYuANg/arcgo/eventx/fx`
+
+## 文档导航
+
+- 最小同步 pub/sub：[快速开始](./getting-started)
+- 异步 + 中间件：[异步与中间件](./async-and-middleware)
+- 错误、Close 语义与顺序说明：[错误与生命周期](./errors-and-lifecycle)
 
 ## 事件契约
 
@@ -32,186 +43,37 @@ type Event interface {
 }
 ```
 
-`Name()` 用于语义/可观测性。路由基于 Go 运行时类型。
+事件路由依据 Go 的具体类型；`Name()` 仅作为语义元信息（日志/指标等）。
 
-## 快速开始
+## 核心 API（摘要）
 
-```go
-type UserCreated struct { ID int }
-func (e UserCreated) Name() string { return "user.created" }
+- `eventx.New(opts...)`
+- `eventx.Subscribe[T](bus, handler, subscriberOpts...)`
+- `bus.Publish(ctx, event)`
+- `bus.PublishAsync(ctx, event)`
+- `bus.SubscriberCount()`
+- `bus.Close()`
 
-bus := eventx.New()
-defer bus.Close()
+## 可运行示例（仓库）
 
-unsub, err := eventx.Subscribe(bus, func(ctx context.Context, evt UserCreated) error {
-    fmt.Println(evt.ID)
-    return nil
-})
-if err != nil { panic(err) }
-defer unsub()
-
-_ = bus.Publish(context.Background(), UserCreated{ID: 42})
-```
-
-## 分发模式
-
-### 1) 确定性串行分发（默认）
-
-```go
-bus := eventx.New()
-```
-
-### 2) 每事件并行处理器分发
-
-```go
-bus := eventx.New(eventx.WithParallelDispatch(true))
-```
-
-## 异步发布
-
-```go
-bus := eventx.New(
-    eventx.WithAsyncWorkers(8),
-    eventx.WithAsyncQueueSize(1024),
-    eventx.WithAsyncErrorHandler(func(ctx context.Context, evt eventx.Event, err error) {
-        // log/metric/report
-    }),
-)
-
-err := bus.PublishAsync(ctx, UserCreated{ID: 1})
-if errors.Is(err, eventx.ErrAsyncQueueFull) {
-    // 应用背压或回退策略
-}
-```
-
-## 可选可观测性
-
-```go
-otelObs := otelobs.New()
-promObs := promobs.New()
-obs := observabilityx.Multi(otelObs, promObs)
-
-bus := eventx.New(
-    eventx.WithObservability(obs),
-)
-```
-
-行为说明：
-
-- 如果异步队列/工作者被禁用，`PublishAsync` 回退到同步 `Publish`。
-- 当队列满时，`PublishAsync` 返回 `ErrAsyncQueueFull`。
-
-## 中间件
-
-### 全局中间件
-
-```go
-bus := eventx.New(
-    eventx.WithMiddleware(
-        eventx.RecoverMiddleware(),
-        eventx.ObserveMiddleware(func(ctx context.Context, evt eventx.Event, d time.Duration, err error) {
-            // metrics
-        }),
-    ),
-)
-```
-
-### 每订阅者中间件
-
-```go
-_, _ = eventx.Subscribe(
-    bus,
-    handler,
-    eventx.WithSubscriberMiddleware(mySubscriberMw),
-)
-```
-
-执行顺序：
-
-- 全局中间件包装订阅者中间件。
-- 中间件顺序按提供顺序保持。
-
-## 错误处理
-
-- `Publish` 返回聚合的处理器错误（`errors.Join` 语义）。
-- 处理器中的 panic 可以通过 `RecoverMiddleware` 转换为错误。
-- 异步错误可以通过 `WithAsyncErrorHandler` 观察。
-
-## 取消订阅和生命周期
-
-- `Subscribe` 返回一个幂等的 `unsubscribe` 函数。
-- `Close` 停止新发布，排空异步队列，并等待进行中的分发。
-- 多次调用 `Close` 是安全的。
-
-## 有用的 API
-
-- `bus.SubscriberCount()` 检查活动订阅。
-- `eventx.ErrBusClosed`、`eventx.ErrNilEvent`、`eventx.ErrNilBus`、`eventx.ErrNilHandler` 用于类型化错误分支。
+- [examples/eventx/basic](https://github.com/DaiYuANg/arcgo/tree/main/examples/eventx/basic)
+- [examples/eventx/middleware](https://github.com/DaiYuANg/arcgo/tree/main/examples/eventx/middleware)
+- [examples/eventx/observability](https://github.com/DaiYuANg/arcgo/tree/main/examples/eventx/observability)
+- [examples/eventx/fx](https://github.com/DaiYuANg/arcgo/tree/main/examples/eventx/fx)
 
 ## 集成指南
 
-- 与 `dix`：按领域边界创建 bus，并通过应用 hook 管理生命周期。
-- 与 `observabilityx`：挂载可观测性中间件，采集吞吐、延迟与失败指标。
-- 与 `logx`：在失败路径输出结构化事件类型与处理器分类日志。
-- 与 `httpx`：在请求校验与服务层提交点之后发布领域事件。
+- With `dix`: build one bus per bounded context and manage lifecycle with app hooks.
+- With `observabilityx`: attach observability middleware for event throughput, latency, and error metrics.
+- With `logx`: emit structured event type and handler category logs around failure paths.
+- With `httpx`: publish domain events from handlers after validation and service-layer commit points.
 
-## 测试技巧
+## 测试建议
 
-- 在单元测试中使用串行分发以获得确定性排序。
-- 在每个测试中调用 `defer bus.Close()` 避免工作者泄漏。
-- 在测试中使用显式事件类型以避免意外的共享订阅。
+- Use serial dispatch in unit tests for deterministic ordering.
+- Call `defer bus.Close()` in each test to avoid worker leaks.
+- Use explicit event types in tests to avoid accidental shared subscriptions.
+## 生产注意
 
-## 常见问题
-
-### `Event.Name()` 用于路由吗？
-
-不。路由基于事件的具体 Go 类型。
-`Name()` 主要用于日志/指标/追踪的语义元数据。
-
-### 一个订阅者可以接收多种事件类型吗？
-
-对每种类型使用单独的 `Subscribe[T]` 调用。
-每个订阅绑定到一个泛型类型 `T`。
-
-### 我可以从处理器恢复 panic 吗？
-
-可以。全局或每订阅者添加 `RecoverMiddleware()`。
-
-## 故障排除
-
-### `PublishAsync` 返回 `ErrAsyncQueueFull`
-
-选项：
-
-- 增加队列大小 (`WithAsyncQueueSize`)。
-- 增加工作者 (`WithAsyncWorkers`)。
-- 添加上游背压/重试策略。
-- 对关键事件回退到 `Publish`。
-
-### 处理器似乎在意外顺序下运行
-
-- 串行模式保留快照迭代顺序。
-- 并行模式 (`WithParallelDispatch(true)`) 不保证排序。
-- 如果顺序很重要，对该总线保持并行分发禁用。
-
-### `Close` 在关闭时挂起
-
-通常由长时间运行的处理器或阻塞的下游调用引起。
-在处理器中传递可取消的 context 并强制执行超时。
-
-## 反模式
-
-- 使用一个全局总线用于所有域而没有清晰的拥有权边界。
-- 发布高容量 firehose 流量而没有队列/背压规划。
-- 在需要严格顺序保证的同时启用并行分发。
-- 当涉及业务关键事件时忽略异步错误。
-
-## 示例
-
-- [observability](https://github.com/DaiYuANg/arcgo/tree/main/eventx/examples/observability): 带有可选 OTel + Prometheus 可观测性的事件总线。
-
-## 生产注意事项
-
-- 提前定义所有权边界，避免一个全局 bus 承担所有无关领域流量。
-- 基于真实流量调优异步队列与 worker 参数，不要只依赖默认值。
-- 对关键异步事件必须定义明确的重试/背压策略。
+- Define ownership boundaries up front; avoid one global bus for unrelated domains.
+- Tune async dispatch capacity from real traffic, and define backpressure for critical events.

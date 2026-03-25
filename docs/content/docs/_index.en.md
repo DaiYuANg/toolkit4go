@@ -19,18 +19,17 @@ go get github.com/DaiYuANg/arcgo/{package}
 
 | Package | Purpose | Description |
 | --- | --- | --- |
-| [authx](./authx) | Authentication & Authorization | Extensible abstraction for multi-scenario authentication and authorization |
-| [clientx](./clientx) | Protocol Clients | Protocol-oriented clients (`http/tcp/udp`) with shared engineering conventions |
-| [collectionx](./collectionx) | Data Structures | Generic collections and concurrency-safe structures |
-| [configx](./configx) | Configuration Management | Hierarchical configuration loading and validation |
-| [dix](./dix) | Application Framework | Strongly typed modular app framework built on `do` |
-| [eventx](./eventx) | Event Bus | In-process strongly typed event bus |
-| [httpx](./httpx) | HTTP Routing | Multi-framework unified strongly typed HTTP routing |
-| [kvx](./kvx) | Redis / Valkey Access | Strongly typed Redis / Valkey object access and repository layer |
-| [logx](./logx) | Logging | Structured logging with slog interoperability |
-| [observabilityx](./observabilityx) | Observability | Optional observability abstraction (OTel/Prometheus) |
+| [authx](./authx) | Authentication & Authorization | Extensible abstraction for multi-scenario authentication and authorization · Guides: [start](./authx/getting-started), [HTTP](./authx/http-integration) |
+| [clientx](./clientx) | Protocol Clients | Protocol-oriented clients (`http/tcp/udp`) with shared engineering conventions · Guides: [start](./clientx/getting-started), [TCP/UDP](./clientx/tcp-and-udp), [codec](./clientx/codec-and-hooks) |
+| [collectionx](./collectionx) | Data Structures | Generic collections and concurrency-safe structures · Guides: [start](./collectionx/getting-started), [maps](./collectionx/mapping-recipes), [structured](./collectionx/structured-data) |
+| [configx](./configx) | Configuration Management | Hierarchical configuration loading and validation · Guides: [start](./configx/getting-started), [sources](./configx/sources-and-priority), [validate](./configx/validation-and-dynamic) |
+| [dix](./dix) | Application Framework | Strongly typed modular app framework built on `do` · Guides: [start](./dix/getting-started), [health](./dix/health-and-lifecycle), [examples](./dix/examples) |
+| [eventx](./eventx) | Event Bus | In-process strongly typed event bus · Guides: [start](./eventx/getting-started), [async](./eventx/async-and-middleware), [errors](./eventx/errors-and-lifecycle) |
+| [httpx](./httpx) | HTTP Routing | Multi-framework unified strongly typed HTTP routing · Guides: [start](./httpx/getting-started), [adapters](./httpx/adapters), [OpenAPI/docs](./httpx/openapi-and-docs) |
+| [kvx](./kvx) | Redis / Valkey Access | Strongly typed Redis / Valkey object access and repository layer · Guides: [start](./kvx/getting-started), [json repo](./kvx/json-repository), [adapters](./kvx/adapters) |
+| [logx](./logx) | Logging | Structured logging with slog interoperability · Guides: [start](./logx/getting-started), [config](./logx/configuration), [trace/oops](./logx/trace-and-oops) |
+| [observabilityx](./observabilityx) | Observability | Optional observability abstraction (OTel/Prometheus) · Guides: [start](./observabilityx/getting-started), [/metrics](./observabilityx/prometheus-metrics), [OTel](./observabilityx/otel-backend) |
 | [dbx](./dbx) | ORM & Migrations | Schema-first / generic-first ORM core on `database/sql` |
-| [sqltmplx](./sqltmplx) | SQL templates | SQL-first conditional templates (`dbx/sqltmplx`); with or without full `dbx` |
 
 ## Documentation layout
 
@@ -38,6 +37,12 @@ go get github.com/DaiYuANg/arcgo/{package}
 - Documentation section standard: [Package Documentation Standard](./standards)
 - Runnable examples live under repository `examples/` and are only supporting sample code.
 - Some packages expose Chinese landing pages via `*_index.zh.md`.
+- **authx** guided pages: [Getting Started](./authx/getting-started), [HTTP integration](./authx/http-integration) (see [authx](./authx)).
+- **clientx** guided pages: [Getting Started](./clientx/getting-started), [TCP and UDP](./clientx/tcp-and-udp), [Codec and hooks](./clientx/codec-and-hooks) (see [clientx](./clientx)).
+- **collectionx** guided pages: [Getting Started](./collectionx/getting-started), [Maps, sets, and tables](./collectionx/mapping-recipes), [Lists and structured data](./collectionx/structured-data) (see [collectionx](./collectionx)).
+- **configx** guided pages: [Getting Started](./configx/getting-started), [Sources and priority](./configx/sources-and-priority), [Validation and dynamic config](./configx/validation-and-dynamic) (see [configx](./configx)).
+- **dix** guided pages: [Getting Started](./dix/getting-started), [Health and lifecycle](./dix/health-and-lifecycle), [Examples](./dix/examples) (see [dix](./dix)).
+- **eventx** guided pages: [Getting Started](./eventx/getting-started), [Async and middleware](./eventx/async-and-middleware), [Errors and lifecycle](./eventx/errors-and-lifecycle) (see [eventx](./eventx)).
 
 ## How to Choose
 

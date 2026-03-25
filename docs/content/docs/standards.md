@@ -47,6 +47,6 @@ Each package landing page (`_index.md`) should include these sections in order:
 
 - All code snippets must include complete package imports.
 - Prefer practical examples over conceptual prose.
-- Keep version/roadmap/iteration plan content out of package docs.
+- Keep forward-looking planning schedules out of package landing pages (focus on current behavior and usage).
 - If a package has language variants, keep section structure aligned across `*.md`, `*.en.md`, and `*.zh.md`.
 
