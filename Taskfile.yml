@@ -156,6 +156,23 @@ tasks:
     cmds:
       - go run ./scripts/tagger major-push
 
+  "release:modules:auto":
+    desc: "Auto bump patch version for module tags (default scope: libs) and create local tags"
+    cmds:
+      - go run ./scripts/tagger modules-patch
+
+  "release:modules:auto:dry-run":
+    desc: "Preview module patch tags that would be created (default scope: libs)"
+    cmds:
+      - go run ./scripts/tagger modules-patch-dry-run
+
+  "release:modules:auto:push":
+    desc: "Auto bump patch version for module tags (default scope: libs) and push tags"
+    env:
+      TAGGER_REMOTE: '{{.REMOTE}}'
+    cmds:
+      - go run ./scripts/tagger modules-patch-push
+
   tag:
     desc: Alias of release:auto
     deps:
