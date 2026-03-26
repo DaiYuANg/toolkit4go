@@ -10,6 +10,7 @@ package kvx
 
 import (
 	"context"
+	"log/slog"
 	"time"
 )
 
@@ -277,6 +278,10 @@ type ClientOptions struct {
 	ConnMaxLifetime time.Duration
 	// ConnMaxIdleTime is the maximum idle time of a connection.
 	ConnMaxIdleTime time.Duration
+	// Logger receives adapter lifecycle logs when Debug is true.
+	Logger *slog.Logger
+	// Debug enables adapter-level debug logs.
+	Debug bool
 }
 
 // ClientFactory creates a Client from options.

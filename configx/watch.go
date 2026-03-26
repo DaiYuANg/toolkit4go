@@ -95,6 +95,7 @@ func NewWatcher(opts ...Option) (*Watcher, error) {
 func newWatcherFromOptions(opts *Options) (*Watcher, error) {
 	cfg, err := loadConfigFromOptions(opts)
 	if err != nil {
+		logError(opts, "configx watcher initial load failed", "error", err)
 		return nil, fmt.Errorf("configx: watcher initial load: %w", err)
 	}
 
@@ -104,6 +105,7 @@ func newWatcherFromOptions(opts *Options) (*Watcher, error) {
 		stopCh:    make(chan struct{}),
 	}
 	w.cfg.Store(cfg)
+	logDebug(opts, "configx watcher created", "providers", len(w.providers))
 	return w, nil
 }
 
@@ -148,6 +150,7 @@ func (w *Watcher) OnChange(fn ChangeHandler) {
 func (w *Watcher) Start(ctx context.Context) error {
 	// Nothing to watch – block until signalled.
 	if len(w.providers) == 0 {
+		logDebug(w.opts, "configx watcher started without providers")
 		select {
 		case <-ctx.Done():
 		case <-w.stopCh:
@@ -177,18 +180,22 @@ func (w *Watcher) Start(ctx context.Context) error {
 		fp := fp // capture
 		if err := fp.Watch(func(_ any, err error) {
 			if err != nil {
+				logError(w.opts, "configx watcher provider error", "index", i, "error", err)
 				w.handleErr(fmt.Errorf("configx: fsnotify error on file %d: %w", i, err))
 				return
 			}
+			logDebug(w.opts, "configx watcher change detected", "index", i)
 			trigger()
 		}); err != nil {
 			// Clean up watchers that started successfully before returning.
 			for j := 0; j < i; j++ {
 				_ = w.providers[j].Unwatch()
 			}
+			logError(w.opts, "configx watcher start failed", "index", i, "error", err)
 			return fmt.Errorf("configx: start file watcher: %w", err)
 		}
 	}
+	logDebug(w.opts, "configx watcher started", "providers", len(w.providers), "debounce_ms", debounce.Milliseconds())
 
 	// Debounced reload loop.
 	var (
@@ -217,6 +224,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 			return nil
 
 		case <-reloadCh:
+			logDebug(w.opts, "configx watcher reload queued")
 			resetTimer()
 		}
 	}
@@ -226,12 +234,18 @@ func (w *Watcher) Start(ctx context.Context) error {
 // It is idempotent and safe to call from multiple goroutines.
 func (w *Watcher) Close() error {
 	w.stopOnce.Do(func() { close(w.stopCh) })
+	logDebug(w.opts, "configx watcher closing", "providers", len(w.providers))
 
 	var errs []error
 	for _, fp := range w.providers {
 		if err := fp.Unwatch(); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if len(errs) > 0 {
+		logError(w.opts, "configx watcher close completed with errors", "errors", len(errs))
+	} else {
+		logDebug(w.opts, "configx watcher closed")
 	}
 	return errors.Join(errs...)
 }
@@ -240,21 +254,25 @@ func (w *Watcher) Close() error {
 
 // reload performs a full config reload and notifies subscribers.
 func (w *Watcher) reload() {
+	logDebug(w.opts, "configx watcher reload started")
 	newCfg, err := loadConfigFromOptions(w.opts)
 	if err != nil {
 		wrapped := fmt.Errorf("configx: reload failed: %w", err)
+		logError(w.opts, "configx watcher reload failed", "error", wrapped)
 		w.handleErr(wrapped)
 		w.notify(nil, wrapped)
 		return
 	}
 
 	w.cfg.Store(newCfg)
+	logDebug(w.opts, "configx watcher reload completed")
 
 	w.notify(newCfg, nil)
 }
 
 // notify calls every registered ChangeHandler in order.
 func (w *Watcher) notify(cfg *Config, err error) {
+	logDebug(w.opts, "configx watcher notifying subscribers", "subscribers", len(w.loadSubscribers()), "has_error", err != nil)
 	for _, fn := range w.loadSubscribers() {
 		fn(cfg, err)
 	}

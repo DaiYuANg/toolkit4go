@@ -1,6 +1,12 @@
 package httpx
 
-import "github.com/samber/lo"
+import (
+	"context"
+	"log/slog"
+	"reflect"
+
+	"github.com/samber/lo"
+)
 
 // Endpoint is an optional route-module interface for organizing related routes.
 type Endpoint interface {
@@ -27,6 +33,12 @@ func (s *Server) Register(endpoint Endpoint, hooks ...EndpointHooks) {
 	if endpoint == nil {
 		return
 	}
+	if s != nil && s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx endpoint registration starting",
+			"endpoint_type", reflect.TypeOf(endpoint).String(),
+			"hooks", len(hooks),
+		)
+	}
 
 	lo.ForEach(hooks, func(h EndpointHooks, index int) {
 		if h.Before != nil {
@@ -42,6 +54,12 @@ func (s *Server) Register(endpoint Endpoint, hooks ...EndpointHooks) {
 			h.After(s, endpoint)
 		}
 	})
+	if s != nil && s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx endpoint registration completed",
+			"endpoint_type", reflect.TypeOf(endpoint).String(),
+			"routes", s.RouteCount(),
+		)
+	}
 }
 
 // RegisterOnly registers endpoints without hook processing.

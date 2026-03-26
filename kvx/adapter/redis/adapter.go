@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/redis/go-redis/v9"
+	"log/slog"
 	"time"
 )
 
@@ -17,13 +18,21 @@ var _ kvx.Client = (*Adapter)(nil)
 
 // New creates a new Redis adapter.
 func New(opts kvx.ClientOptions) (*Adapter, error) {
+	logger := opts.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	kvx.LogDebug(logger, opts.Debug, "kvx redis adapter create start", "addrs", len(opts.Addrs), "db", opts.DB)
 	if len(opts.Addrs) == 0 {
+		kvx.LogError(logger, "kvx redis adapter create failed", "error", kvx.ErrInvalidClientOptions)
 		return nil, fmt.Errorf("%w: addrs cannot be empty", kvx.ErrInvalidClientOptions)
 	}
 	if opts.UseTLS {
+		kvx.LogError(logger, "kvx redis adapter create failed", "error", kvx.ErrUnsupportedOption, "reason", "tls")
 		return nil, fmt.Errorf("%w: redis adapter does not support tls yet", kvx.ErrUnsupportedOption)
 	}
 	if opts.MasterName != "" {
+		kvx.LogError(logger, "kvx redis adapter create failed", "error", kvx.ErrUnsupportedOption, "reason", "master_name")
 		return nil, fmt.Errorf("%w: redis adapter does not support sentinel master selection", kvx.ErrUnsupportedOption)
 	}
 
@@ -43,9 +52,11 @@ func New(opts kvx.ClientOptions) (*Adapter, error) {
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
+		kvx.LogError(logger, "kvx redis adapter ping failed", "addr", opts.Addrs[0], "error", err)
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
+	kvx.LogDebug(logger, opts.Debug, "kvx redis adapter create done", "addr", opts.Addrs[0])
 	return &Adapter{client: rdb}, nil
 }
 

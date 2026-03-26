@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/danielgtaylor/huma/v2"
 	humasse "github.com/danielgtaylor/huma/v2/sse"
@@ -77,10 +78,27 @@ func registerSSE[I any](
 			modifier(&op)
 		}
 	})
+	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx sse route registration starting",
+			"method", method,
+			"path", fullPath,
+			"register_path", registerPath,
+			"operation_id", op.OperationID,
+			"event_types", len(eventTypeMap),
+			"policies", len(policies),
+		)
+	}
 
 	s.openAPIMu.Lock()
 	defer s.openAPIMu.Unlock()
 	if err := s.validateRouteRegistration(method, fullPath); err != nil {
+		if s.logger != nil {
+			s.logger.Error("httpx sse route registration failed",
+				"method", method,
+				"path", fullPath,
+				"error", err,
+			)
+		}
 		return err
 	}
 	humasse.Register(api, op, eventTypeMap, func(ctx context.Context, input *I, send SSESender) {
@@ -92,6 +110,13 @@ func registerSSE[I any](
 		Path:        fullPath,
 		HandlerName: handlerName(handler),
 	})
+	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx sse route registration completed",
+			"method", method,
+			"path", fullPath,
+			"operation_id", op.OperationID,
+		)
+	}
 
 	return nil
 }

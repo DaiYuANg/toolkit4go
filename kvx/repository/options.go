@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"log/slog"
+
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/DaiYuANg/arcgo/kvx/mapping"
 	"github.com/samber/mo"
@@ -13,6 +15,8 @@ type hashRepositoryConfig[T any] struct {
 	indexer    *Indexer[T]
 	pipeline   mo.Option[pipelineProvider]
 	script     mo.Option[kvx.Script]
+	logger     *slog.Logger
+	debug      bool
 }
 
 type jsonRepositoryConfig[T any] struct {
@@ -22,6 +26,8 @@ type jsonRepositoryConfig[T any] struct {
 	indexer    *Indexer[T]
 	pipeline   mo.Option[pipelineProvider]
 	script     mo.Option[kvx.Script]
+	logger     *slog.Logger
+	debug      bool
 }
 
 type HashRepositoryOption[T any] interface {
@@ -95,6 +101,7 @@ func defaultHashConfig[T any](kv kvx.KV, keyPrefix string) hashRepositoryConfig[
 		indexer:    NewIndexer[T](kv, keyPrefix),
 		pipeline:   mo.None[pipelineProvider](),
 		script:     mo.None[kvx.Script](),
+		logger:     slog.Default(),
 	}
 }
 
@@ -106,6 +113,7 @@ func defaultJSONConfig[T any](kv kvx.KV, keyPrefix string) jsonRepositoryConfig[
 		indexer:    NewIndexer[T](kv, keyPrefix),
 		pipeline:   mo.None[pipelineProvider](),
 		script:     mo.None[kvx.Script](),
+		logger:     slog.Default(),
 	}
 }
 
@@ -216,4 +224,26 @@ func NewPreset[T any](options ...dualOption[T]) Preset[T] {
 		jsonOptions = append(jsonOptions, option)
 	}
 	return Preset[T]{Hash: hashOptions, JSON: jsonOptions}
+}
+
+func WithLogger[T any](logger *slog.Logger) dualOption[T] {
+	return dualOption[T]{
+		hash: func(cfg *hashRepositoryConfig[T]) {
+			if logger != nil {
+				cfg.logger = logger
+			}
+		},
+		json: func(cfg *jsonRepositoryConfig[T]) {
+			if logger != nil {
+				cfg.logger = logger
+			}
+		},
+	}
+}
+
+func WithDebug[T any](enabled bool) dualOption[T] {
+	return dualOption[T]{
+		hash: func(cfg *hashRepositoryConfig[T]) { cfg.debug = enabled },
+		json: func(cfg *jsonRepositoryConfig[T]) { cfg.debug = enabled },
+	}
 }

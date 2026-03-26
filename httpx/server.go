@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -62,6 +63,15 @@ func newServer(opts ...ServerOption) *Server {
 	}
 
 	s.applyPendingHumaConfig()
+	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx server created",
+			slog.String("adapter", s.adapter.Name()),
+			slog.String("base_path", s.basePath),
+			slog.Bool("panic_recover", s.panicRecover),
+			slog.Bool("access_log", s.accessLog),
+			slog.Bool("print_routes", s.printRoutes),
+		)
+	}
 
 	return s
 }

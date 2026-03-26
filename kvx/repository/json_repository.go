@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/kvx"
@@ -18,6 +19,8 @@ type JSONRepository[T any] struct {
 	pipeline   mo.Option[pipelineProvider]
 	script     mo.Option[kvx.Script]
 	serializer mapping.Serializer
+	logger     *slog.Logger
+	debug      bool
 }
 
 func NewJSONRepository[T any](client kvx.JSON, kv kvx.KV, keyPrefix string, options ...JSONRepositoryOption[T]) *JSONRepository[T] {
@@ -30,7 +33,10 @@ func NewJSONRepository[T any](client kvx.JSON, kv kvx.KV, keyPrefix string, opti
 		pipeline:   cfg.pipeline,
 		script:     cfg.script,
 		serializer: cfg.serializer,
+		logger:     cfg.logger,
+		debug:      cfg.debug,
 	}
+	repo.logDebug("kvx json repository created", "key_prefix", keyPrefix)
 	return repo
 }
 
@@ -44,20 +50,25 @@ func (r *JSONRepository[T]) Save(ctx context.Context, entity *T) error {
 }
 
 func (r *JSONRepository[T]) SaveWithExpiration(ctx context.Context, entity *T, expiration time.Duration) error {
+	r.logDebug("kvx json save started", "expiration_ms", expiration.Milliseconds())
 	metadata, err := r.base.metadata(entity)
 	if err != nil {
+		r.logError("kvx json save failed", "stage", "metadata", "error", err)
 		return err
 	}
 	key, err := r.base.keyBuilder.Build(entity, metadata)
 	if err != nil {
+		r.logError("kvx json save failed", "stage", "key", "error", err)
 		return err
 	}
 	data, err := r.serializer.Marshal(entity)
 	if err != nil {
+		r.logError("kvx json save failed", "stage", "marshal", "key", key, "error", err)
 		return err
 	}
 	previous, err := r.findByKey(ctx, key)
 	if err != nil && !errors.Is(err, ErrNotFound) {
+		r.logError("kvx json save failed", "stage", "load_previous", "key", key, "error", err)
 		return err
 	}
 	if errors.Is(err, ErrNotFound) {
@@ -66,19 +77,29 @@ func (r *JSONRepository[T]) SaveWithExpiration(ctx context.Context, entity *T, e
 
 	oldEntries, newEntries, err := r.base.indexer.ReplaceEntityIndexEntries(ctx, previous, entity, metadata, key)
 	if err != nil {
+		r.logError("kvx json save failed", "stage", "index_diff", "key", key, "error", err)
 		return err
 	}
 
 	if script, ok := r.script.Get(); ok {
-		return execJSONUpsertScript(ctx, script, key, data, expiration, oldEntries, newEntries)
+		err := execJSONUpsertScript(ctx, script, key, data, expiration, oldEntries, newEntries)
+		if err != nil {
+			r.logError("kvx json save failed", "stage", "script_upsert", "key", key, "error", err)
+			return err
+		}
+		r.logDebug("kvx json save completed", "key", key, "indexed", len(newEntries))
+		return nil
 	}
 
 	if err := r.client.JSONSet(ctx, key, "$", data, expiration); err != nil {
+		r.logError("kvx json save failed", "stage", "json_set", "key", key, "error", err)
 		return err
 	}
 	if err := r.base.indexer.ApplyIndexDiff(ctx, oldEntries, newEntries); err != nil {
+		r.logError("kvx json save failed", "stage", "apply_index_diff", "key", key, "error", err)
 		return err
 	}
+	r.logDebug("kvx json save completed", "key", key, "indexed", len(newEntries))
 	return nil
 }
 
@@ -123,28 +144,45 @@ func (r *JSONRepository[T]) ExistsBatch(ctx context.Context, ids []string) (map[
 
 func (r *JSONRepository[T]) Delete(ctx context.Context, id string) error {
 	key := r.base.keyFromID(id)
+	r.logDebug("kvx json delete started", "key", key)
 	entity, err := r.findByKey(ctx, key)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
+			r.logDebug("kvx json delete skipped", "key", key, "reason", "not_found")
 			return nil
 		}
+		r.logError("kvx json delete failed", "stage", "find", "key", key, "error", err)
 		return err
 	}
 	metadata, err := r.base.metadata(entity)
 	if err != nil {
+		r.logError("kvx json delete failed", "stage", "metadata", "key", key, "error", err)
 		return err
 	}
 	oldEntries, err := r.base.indexer.EntityIndexEntries(entity, metadata, key)
 	if err != nil {
+		r.logError("kvx json delete failed", "stage", "index_entries", "key", key, "error", err)
 		return err
 	}
 	if script, ok := r.script.Get(); ok {
-		return execDeleteScript(ctx, script, key, oldEntries)
+		err := execDeleteScript(ctx, script, key, oldEntries)
+		if err != nil {
+			r.logError("kvx json delete failed", "stage", "script_delete", "key", key, "error", err)
+			return err
+		}
+		r.logDebug("kvx json delete completed", "key", key)
+		return nil
 	}
 	if err := r.client.JSONDelete(ctx, key, "$"); err != nil {
+		r.logError("kvx json delete failed", "stage", "json_delete", "key", key, "error", err)
 		return err
 	}
-	return r.base.indexer.ApplyIndexDiff(ctx, oldEntries, nil)
+	if err := r.base.indexer.ApplyIndexDiff(ctx, oldEntries, nil); err != nil {
+		r.logError("kvx json delete failed", "stage", "apply_index_diff", "key", key, "error", err)
+		return err
+	}
+	r.logDebug("kvx json delete completed", "key", key)
+	return nil
 }
 
 func (r *JSONRepository[T]) DeleteBatch(ctx context.Context, ids []string) error {
@@ -232,28 +270,44 @@ func (r *JSONRepository[T]) Count(ctx context.Context) (int64, error) {
 }
 
 func (r *JSONRepository[T]) findByKey(ctx context.Context, key string) (*T, error) {
+	r.logDebug("kvx json find_by_key started", "key", key)
 	data, err := r.client.JSONGet(ctx, key, "$")
 	if err != nil {
 		if kvx.IsNil(err) {
+			r.logDebug("kvx json find_by_key not found", "key", key)
 			return nil, ErrNotFound
 		}
+		r.logError("kvx json find_by_key failed", "stage", "json_get", "key", key, "error", err)
 		return nil, err
 	}
 	if len(data) == 0 {
+		r.logDebug("kvx json find_by_key not found", "key", key)
 		return nil, ErrNotFound
 	}
 	var entity T
 	if err := r.serializer.Unmarshal(data, &entity); err != nil {
+		r.logError("kvx json find_by_key failed", "stage", "unmarshal", "key", key, "error", err)
 		return nil, err
 	}
 	metadata, err := r.base.metadataForType()
 	if err != nil {
+		r.logError("kvx json find_by_key failed", "stage", "metadata", "key", key, "error", err)
 		return nil, err
 	}
 	if err := r.base.hydrateEntityID(&entity, metadata, key); err != nil {
+		r.logError("kvx json find_by_key failed", "stage", "hydrate_id", "key", key, "error", err)
 		return nil, err
 	}
+	r.logDebug("kvx json find_by_key completed", "key", key)
 	return &entity, nil
+}
+
+func (r *JSONRepository[T]) logDebug(msg string, attrs ...any) {
+	kvx.LogDebug(r.logger, r.debug, msg, attrs...)
+}
+
+func (r *JSONRepository[T]) logError(msg string, attrs ...any) {
+	kvx.LogError(r.logger, msg, attrs...)
 }
 
 func (r *JSONRepository[T]) findManyByIDs(ctx context.Context, ids []string) ([]*T, error) {

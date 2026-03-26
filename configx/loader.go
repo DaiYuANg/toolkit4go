@@ -248,6 +248,13 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 	if opts == nil {
 		opts = NewOptions()
 	}
+	logDebug(opts,
+		"configx load started",
+		"files", len(opts.files),
+		"dotenv_files", len(opts.dotenvFiles),
+		"priority", len(opts.priority),
+		"env_prefix", opts.envPrefix,
+	)
 
 	obs := observabilityx.Normalize(opts.observability, nil)
 	ctx, span := obs.StartSpan(context.Background(), "configx.load")
@@ -274,13 +281,16 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 			err := fmt.Errorf("typed defaults: %w", errors.Join(ErrDefaults, errors.New(errMsg)))
 			result = "error"
 			span.RecordError(err)
+			logError(opts, "configx load failed", "stage", "typed_defaults", "error", err)
 			return nil, err
 		}
 		if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
 			result = "error"
 			span.RecordError(err)
+			logError(opts, "configx load failed", "stage", "typed_defaults", "error", err)
 			return nil, fmt.Errorf("typed defaults map: %w", errors.Join(ErrDefaults, err))
 		}
+		logDebug(opts, "configx typed defaults loaded")
 	}
 
 	if opts.defaults.IsPresent() {
@@ -288,32 +298,41 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 		if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
 			result = "error"
 			span.RecordError(err)
+			logError(opts, "configx load failed", "stage", "defaults", "error", err)
 			return nil, fmt.Errorf("defaults map: %w", errors.Join(ErrDefaults, err))
 		}
+		logDebug(opts, "configx defaults loaded")
 	}
 
 	// 2. External sources in priority order (later = higher precedence).
 	for _, src := range opts.priority {
 		switch src {
 		case SourceDotenv:
+			logDebug(opts, "configx source loading", "source", src.String())
 			if err := loadSourceWithObservability(ctx, obs, src, func() error {
 				return loadDotenv(opts.dotenvFiles, opts.ignoreDotenvErr)
 			}); err != nil {
 				result = "error"
 				span.RecordError(err)
+				logError(opts, "configx source load failed", "source", src.String(), "error", err)
 				return nil, fmt.Errorf("dotenv source: %w", errors.Join(ErrLoad, err))
 			}
+			logDebug(opts, "configx source loaded", "source", src.String())
 
 		case SourceFile:
+			logDebug(opts, "configx source loading", "source", src.String(), "files", len(opts.files))
 			if err := loadSourceWithObservability(ctx, obs, src, func() error {
 				return loadFiles(k, opts.files)
 			}); err != nil {
 				result = "error"
 				span.RecordError(err)
+				logError(opts, "configx source load failed", "source", src.String(), "error", err)
 				return nil, fmt.Errorf("file source: %w", errors.Join(ErrLoad, err))
 			}
+			logDebug(opts, "configx source loaded", "source", src.String())
 
 		case SourceEnv:
+			logDebug(opts, "configx source loading", "source", src.String(), "env_prefix", opts.envPrefix)
 			if err := loadSourceWithObservability(ctx, obs, src, func() error {
 				// envSeparator is resolved inside loadEnv; passing it here
 				// makes the behaviour explicit and testable.
@@ -321,11 +340,14 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 			}); err != nil {
 				result = "error"
 				span.RecordError(err)
+				logError(opts, "configx source load failed", "source", src.String(), "error", err)
 				return nil, fmt.Errorf("env source: %w", errors.Join(ErrLoad, err))
 			}
+			logDebug(opts, "configx source loaded", "source", src.String())
 		}
 	}
 
+	logDebug(opts, "configx load completed", "result", result)
 	return newConfig(k, opts), nil
 }
 

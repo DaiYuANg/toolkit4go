@@ -1,5 +1,7 @@
 package authx
 
+import "log/slog"
+
 type EngineOption func(*Engine)
 
 func WithAuthenticationManager(manager AuthenticationManager) EngineOption {
@@ -17,5 +19,21 @@ func WithAuthorizer(authorizer Authorizer) EngineOption {
 func WithHook(hook Hook) EngineOption {
 	return func(engine *Engine) {
 		engine.AddHook(hook)
+	}
+}
+
+func WithLogger(logger *slog.Logger) EngineOption {
+	return func(engine *Engine) {
+		if engine != nil && logger != nil {
+			engine.logger = logger
+		}
+	}
+}
+
+func WithDebug(enabled bool) EngineOption {
+	return func(engine *Engine) {
+		if engine != nil {
+			engine.debug = enabled
+		}
 	}
 }

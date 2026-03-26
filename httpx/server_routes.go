@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -71,6 +72,13 @@ func (s *Server) addRoute(route RouteInfo) {
 	route.Method = strings.ToUpper(route.Method)
 	key := routeKey(route.Method, route.Path)
 	if _, loaded := s.routeExact.GetOrStore(key, route); loaded {
+		if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+			s.logger.Debug("httpx route add skipped",
+				slog.String("method", route.Method),
+				slog.String("path", route.Path),
+				slog.String("reason", "already_exists"),
+			)
+		}
 		return
 	}
 
@@ -80,6 +88,14 @@ func (s *Server) addRoute(route RouteInfo) {
 	}
 
 	s.routes.Add(route)
+	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx route registered",
+			slog.String("method", route.Method),
+			slog.String("path", route.Path),
+			slog.String("handler", route.HandlerName),
+			slog.Int("routes", s.routes.Len()),
+		)
+	}
 	s.printRoutesIfEnabled()
 }
 

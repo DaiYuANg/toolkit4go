@@ -2,6 +2,8 @@ package authx
 
 import (
 	"context"
+	"log/slog"
+	"reflect"
 	"sync"
 
 	"github.com/samber/lo"
@@ -9,19 +11,22 @@ import (
 
 // Engine separates authentication (Check) and authorization (Can).
 type Engine struct {
-	mu    sync.RWMutex
-	authn AuthenticationManager
-	authz Authorizer
-	hooks []Hook
+	mu     sync.RWMutex
+	authn  AuthenticationManager
+	authz  Authorizer
+	hooks  []Hook
+	logger *slog.Logger
+	debug  bool
 }
 
 func NewEngine(opts ...EngineOption) *Engine {
-	engine := &Engine{}
+	engine := &Engine{logger: slog.Default()}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(engine)
 		}
 	}
+	engine.logDebug("authx engine created", "hooks", len(engine.hooks), "has_authn", engine.authn != nil, "has_authz", engine.authz != nil)
 	return engine
 }
 
@@ -32,6 +37,7 @@ func (engine *Engine) SetAuthenticationManager(manager AuthenticationManager) {
 	engine.mu.Lock()
 	engine.authn = manager
 	engine.mu.Unlock()
+	engine.logDebug("authentication manager configured", "manager_type", reflect.TypeOf(manager))
 }
 
 func (engine *Engine) SetAuthorizer(authorizer Authorizer) {
@@ -41,6 +47,7 @@ func (engine *Engine) SetAuthorizer(authorizer Authorizer) {
 	engine.mu.Lock()
 	engine.authz = authorizer
 	engine.mu.Unlock()
+	engine.logDebug("authorizer configured", "authorizer_type", reflect.TypeOf(authorizer))
 }
 
 func (engine *Engine) AddHook(hook Hook) {
@@ -50,6 +57,7 @@ func (engine *Engine) AddHook(hook Hook) {
 	engine.mu.Lock()
 	engine.hooks = lo.Concat(engine.hooks, []Hook{hook})
 	engine.mu.Unlock()
+	engine.logDebug("authx hook added", "hook_type", reflect.TypeOf(hook), "hooks", len(engine.hooks))
 }
 
 // Check authenticates credential and returns principal.
@@ -57,14 +65,17 @@ func (engine *Engine) Check(ctx context.Context, credential any) (Authentication
 	if credential == nil {
 		return AuthenticationResult{}, ErrInvalidAuthenticationCredential
 	}
+	engine.logDebug("authx check started", "credential_type", reflect.TypeOf(credential))
 
 	authn, hooks := engine.snapshotCheckDependencies()
 	if authn == nil {
+		engine.logError("authx check failed", "credential_type", reflect.TypeOf(credential), "error", ErrAuthenticationManagerNotConfigured)
 		return AuthenticationResult{}, ErrAuthenticationManagerNotConfigured
 	}
 
 	for _, hook := range hooks {
 		if err := hook.BeforeCheck(ctx, credential); err != nil {
+			engine.logError("authx check before hook failed", "credential_type", reflect.TypeOf(credential), "error", err)
 			return AuthenticationResult{}, err
 		}
 	}
@@ -74,8 +85,10 @@ func (engine *Engine) Check(ctx context.Context, credential any) (Authentication
 		hook.AfterCheck(ctx, credential, result, err)
 	}
 	if err != nil {
+		engine.logError("authx check failed", "credential_type", reflect.TypeOf(credential), "error", err)
 		return AuthenticationResult{}, err
 	}
+	engine.logDebug("authx check completed", "credential_type", reflect.TypeOf(credential), "principal_type", reflect.TypeOf(result.Principal))
 	return result, nil
 }
 
@@ -84,14 +97,17 @@ func (engine *Engine) Can(ctx context.Context, input AuthorizationModel) (Decisi
 	if err := validateAuthorizationModel(input); err != nil {
 		return Decision{}, err
 	}
+	engine.logDebug("authx can started", "action", input.Action, "resource", input.Resource)
 
 	authorizer, hooks := engine.snapshotCanDependencies()
 	if authorizer == nil {
+		engine.logError("authx can failed", "action", input.Action, "resource", input.Resource, "error", ErrAuthorizerNotConfigured)
 		return Decision{}, ErrAuthorizerNotConfigured
 	}
 
 	for _, hook := range hooks {
 		if err := hook.BeforeCan(ctx, input); err != nil {
+			engine.logError("authx can before hook failed", "action", input.Action, "resource", input.Resource, "error", err)
 			return Decision{}, err
 		}
 	}
@@ -101,8 +117,10 @@ func (engine *Engine) Can(ctx context.Context, input AuthorizationModel) (Decisi
 		hook.AfterCan(ctx, input, decision, err)
 	}
 	if err != nil {
+		engine.logError("authx can failed", "action", input.Action, "resource", input.Resource, "error", err)
 		return Decision{}, err
 	}
+	engine.logDebug("authx can completed", "action", input.Action, "resource", input.Resource, "allowed", decision.Allowed, "policy_id", decision.PolicyID)
 	return decision, nil
 }
 
@@ -138,4 +156,18 @@ func validateAuthorizationModel(input AuthorizationModel) error {
 		return ErrInvalidAuthorizationModel
 	}
 	return nil
+}
+
+func (engine *Engine) logDebug(msg string, attrs ...any) {
+	if engine == nil || engine.logger == nil || !engine.debug {
+		return
+	}
+	engine.logger.Debug(msg, attrs...)
+}
+
+func (engine *Engine) logError(msg string, attrs ...any) {
+	if engine == nil || engine.logger == nil {
+		return
+	}
+	engine.logger.Error(msg, attrs...)
 }

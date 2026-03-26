@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/valkey-io/valkey-go"
+	"log/slog"
 	"time"
 )
 
@@ -17,13 +18,21 @@ var _ kvx.Client = (*Adapter)(nil)
 
 // New creates a new Valkey adapter.
 func New(opts kvx.ClientOptions) (*Adapter, error) {
+	logger := opts.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	kvx.LogDebug(logger, opts.Debug, "kvx valkey adapter create start", "addrs", len(opts.Addrs), "db", opts.DB)
 	if len(opts.Addrs) == 0 {
+		kvx.LogError(logger, "kvx valkey adapter create failed", "error", kvx.ErrInvalidClientOptions)
 		return nil, fmt.Errorf("%w: addrs cannot be empty", kvx.ErrInvalidClientOptions)
 	}
 	if opts.UseTLS {
+		kvx.LogError(logger, "kvx valkey adapter create failed", "error", kvx.ErrUnsupportedOption, "reason", "tls")
 		return nil, fmt.Errorf("%w: valkey adapter does not support tls yet", kvx.ErrUnsupportedOption)
 	}
 	if opts.MasterName != "" {
+		kvx.LogError(logger, "kvx valkey adapter create failed", "error", kvx.ErrUnsupportedOption, "reason", "master_name")
 		return nil, fmt.Errorf("%w: valkey adapter does not support sentinel master selection", kvx.ErrUnsupportedOption)
 	}
 
@@ -34,6 +43,7 @@ func New(opts kvx.ClientOptions) (*Adapter, error) {
 		TLSConfig:   nil, // TODO: support TLS
 	})
 	if err != nil {
+		kvx.LogError(logger, "kvx valkey adapter create failed", "stage", "new_client", "error", err)
 		return nil, fmt.Errorf("failed to create Valkey client: %w", err)
 	}
 
@@ -42,9 +52,11 @@ func New(opts kvx.ClientOptions) (*Adapter, error) {
 	defer cancel()
 
 	if err := client.Do(ctx, client.B().Ping().Build()).Error(); err != nil {
+		kvx.LogError(logger, "kvx valkey adapter ping failed", "addr", opts.Addrs[0], "error", err)
 		return nil, fmt.Errorf("failed to connect to Valkey: %w", err)
 	}
 
+	kvx.LogDebug(logger, opts.Debug, "kvx valkey adapter create done", "addr", opts.Addrs[0])
 	return &Adapter{client: client}, nil
 }
 

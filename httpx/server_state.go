@@ -1,6 +1,9 @@
 package httpx
 
-import "log/slog"
+import (
+	"context"
+	"log/slog"
+)
 
 // IsFrozen reports whether runtime configuration is frozen.
 func (s *Server) IsFrozen() bool {
@@ -13,7 +16,13 @@ func (s *Server) freezeConfiguration() {
 	}
 	s.openAPIMu.Lock()
 	defer s.openAPIMu.Unlock()
+	wasFrozen := s.frozen.Load()
 	s.frozen.Store(true)
+	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) && !wasFrozen {
+		s.logger.Debug("httpx configuration frozen",
+			slog.Int("routes", s.RouteCount()),
+		)
+	}
 }
 
 func (s *Server) allowConfigMutation(action string) bool {

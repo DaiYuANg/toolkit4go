@@ -3,6 +3,7 @@ package configx
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/observabilityx"
@@ -84,6 +85,8 @@ type Options struct {
 
 	// --- observability ---
 	observability observabilityx.Observability
+	logger        *slog.Logger
+	debug         bool
 }
 
 // Option is a functional option that mutates an *Options.
@@ -104,6 +107,7 @@ func NewOptions() *Options {
 		ignoreDotenvErr: true,
 		watchDebounce:   100 * time.Millisecond,
 		observability:   observabilityx.Nop(),
+		logger:          slog.Default(),
 	}
 }
 
@@ -254,5 +258,19 @@ func WithWatchErrHandler(fn func(error)) Option {
 func WithObservability(obs observabilityx.Observability) Option {
 	return func(o *Options) {
 		o.observability = obs
+	}
+}
+
+func WithLogger(logger *slog.Logger) Option {
+	return func(o *Options) {
+		if logger != nil {
+			o.logger = logger
+		}
+	}
+}
+
+func WithDebug(enabled bool) Option {
+	return func(o *Options) {
+		o.debug = enabled
 	}
 }

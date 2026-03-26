@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"runtime"
 	"strings"
@@ -209,10 +210,27 @@ func registerTyped[I, O any](
 			modifier(&op)
 		}
 	})
+	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx route registration starting",
+			"method", method,
+			"path", fullPath,
+			"register_path", registerPath,
+			"operation_id", op.OperationID,
+			"handler", handlerName,
+			"policies", len(policies),
+		)
+	}
 
 	s.openAPIMu.Lock()
 	defer s.openAPIMu.Unlock()
 	if err := s.validateRouteRegistration(method, fullPath); err != nil {
+		if s.logger != nil {
+			s.logger.Error("httpx route registration failed",
+				"method", method,
+				"path", fullPath,
+				"error", err,
+			)
+		}
 		return err
 	}
 	huma.Register(api, op, func(ctx context.Context, input *I) (*O, error) {
@@ -224,6 +242,13 @@ func registerTyped[I, O any](
 		Path:        fullPath,
 		HandlerName: handlerName,
 	})
+	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug("httpx route registration completed",
+			"method", method,
+			"path", fullPath,
+			"operation_id", op.OperationID,
+		)
+	}
 
 	return nil
 }
