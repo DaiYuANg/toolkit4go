@@ -3,7 +3,7 @@ module github.com/DaiYuANg/arcgo/httpx/adapter/gin
 go 1.26
 
 require (
-	github.com/danielgtaylor/huma/v2 v2.37.2
+	github.com/danielgtaylor/huma/v2 v2.37.3
 	github.com/gin-gonic/gin v1.12.0
 	github.com/stretchr/testify v1.11.1
 )

@@ -3,7 +3,7 @@ module github.com/DaiYuANg/arcgo/httpx/adapter/fiber
 go 1.26
 
 require (
-	github.com/danielgtaylor/huma/v2 v2.37.2
+	github.com/danielgtaylor/huma/v2 v2.37.3
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/stretchr/testify v1.11.1
 )

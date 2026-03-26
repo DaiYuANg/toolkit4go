@@ -3,7 +3,7 @@ module github.com/DaiYuANg/arcgo/httpx/adapter/echo
 go 1.26
 
 require (
-	github.com/danielgtaylor/huma/v2 v2.37.2
+	github.com/danielgtaylor/huma/v2 v2.37.3
 	github.com/labstack/echo/v4 v4.15.1
 	github.com/stretchr/testify v1.11.1
 )
