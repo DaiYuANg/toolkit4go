@@ -11,10 +11,8 @@ var (
 	ErrNilHandler = errors.New("eventx: handler is nil")
 	// ErrNilBus indicates that operation received a nil bus.
 	ErrNilBus = errors.New("eventx: bus is nil")
-	// ErrAsyncQueueFull indicates the async queue is full.
-	ErrAsyncQueueFull = errors.New("eventx: async queue is full")
+	// ErrAsyncRuntimeUnavailable indicates async runtime could not be initialized.
+	ErrAsyncRuntimeUnavailable = errors.New("eventx: async runtime unavailable")
 	// ErrInvalidSubscribeCount indicates subscribe call count limit is invalid.
 	ErrInvalidSubscribeCount = errors.New("eventx: subscribe count must be greater than zero")
-
-	errAsyncQueueUnavailable = errors.New("eventx: async queue is unavailable")
 )

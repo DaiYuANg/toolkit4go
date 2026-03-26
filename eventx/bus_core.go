@@ -17,12 +17,13 @@ type Bus struct {
 	closed        bool
 	nextID        uint64
 	subsByType    subscriptionTable
+	handlerCache  collectionx.ConcurrentMap[reflect.Type, []HandlerFunc]
 	parallel      bool
+	parallelLimit chan struct{}
 	middleware    []Middleware
 	onAsyncErr    asyncErrorHandler
 	antsPool      *ants.Pool
-	asyncQueue    chan publishTask
-	workerWG      sync.WaitGroup
+	initErr       error
 	dispatchWG    sync.WaitGroup
 	observability observabilityx.Observability
 	logger        *slog.Logger
@@ -47,37 +48,38 @@ func New(opts ...Option) BusRuntime {
 
 	b := &Bus{
 		subsByType:    collectionx.NewConcurrentTable[reflect.Type, uint64, *subscription](),
+		handlerCache:  collectionx.NewConcurrentMap[reflect.Type, []HandlerFunc](),
 		parallel:      cfg.parallel,
+		parallelLimit: newParallelLimiter(cfg.antsPoolSize),
 		middleware:    cfg.middleware,
 		onAsyncErr:    cfg.onAsyncError,
 		observability: observabilityx.Normalize(cfg.observability, nil),
 	}
 	b.logger = b.observability.Logger().With("component", "eventx.bus")
 
-	// Initialize ants pool if enabled
-	if cfg.useAntsPool {
-		poolOpts := []ants.Option{
-			ants.WithPreAlloc(true),
-			ants.WithNonblocking(false),
-		}
-		if cfg.antsMaxBlockingCalls > 0 {
-			poolOpts = append(poolOpts, ants.WithMaxBlockingTasks(cfg.antsMaxBlockingCalls))
-		}
-
-		pool, err := ants.NewPool(cfg.antsPoolSize, poolOpts...)
-		if err != nil {
-			b.logger.Error("failed to create ants pool", "error", err)
-		} else {
-			b.antsPool = pool
-		}
-	} else if cfg.asyncWorkers > 0 && cfg.asyncQueueSize > 0 {
-		// Legacy mode: use channel-based worker pool
-		b.asyncQueue = make(chan publishTask, cfg.asyncQueueSize)
-		for i := 0; i < cfg.asyncWorkers; i++ {
-			b.workerWG.Add(1)
-			go b.workerLoop()
-		}
+	poolOpts := []ants.Option{
+		ants.WithPreAlloc(true),
+		ants.WithNonblocking(false),
 	}
+	if cfg.antsMaxBlockingCalls > 0 {
+		poolOpts = append(poolOpts, ants.WithMaxBlockingTasks(cfg.antsMaxBlockingCalls))
+	}
+
+	pool, err := ants.NewPool(cfg.antsPoolSize, poolOpts...)
+	if err != nil {
+		b.initErr = err
+		b.logger.Error("failed to create ants pool", "error", err)
+	} else {
+		b.antsPool = pool
+	}
+
+	b.logger.Debug("bus initialized",
+		"parallel", b.parallel,
+		"ants_pool_size", cfg.antsPoolSize,
+		"ants_max_blocking_calls", cfg.antsMaxBlockingCalls,
+		"middleware_count", len(cfg.middleware),
+		"async_runtime_ready", b.antsPool != nil,
+	)
 
 	return b
 }
@@ -88,7 +90,6 @@ func (b *Bus) Close() error {
 		return nil
 	}
 
-	var queue chan publishTask
 	var pool *ants.Pool
 	b.lifecycleMu.Lock()
 	if b.closed {
@@ -96,23 +97,18 @@ func (b *Bus) Close() error {
 		return nil
 	}
 	b.closed = true
-	queue = b.asyncQueue
 	pool = b.antsPool
-	if queue != nil {
-		close(queue)
-	}
 	b.lifecycleMu.Unlock()
 
-	// Release ants pool if enabled
+	b.logger.Debug("closing bus",
+		"subscriber_count", b.subsByType.Len(),
+	)
+
 	if pool != nil {
 		pool.Release()
 	}
-
-	// Wait for legacy worker pool if enabled
-	if queue != nil {
-		b.workerWG.Wait()
-	}
 	b.dispatchWG.Wait()
+	b.logger.Debug("bus closed")
 	return nil
 }
 
@@ -155,30 +151,37 @@ func (b *Bus) registerSubscription(eventType reflect.Type, buildHandler func(id 
 		id:      id,
 		handler: handler,
 	})
+	b.invalidateHandlerSnapshot(eventType)
+	b.logger.Debug("subscription registered",
+		"event_type", eventType.String(),
+		"subscription_id", id,
+	)
 	return id, nil
 }
 
-func (b *Bus) enqueueLegacyAsyncTask(task publishTask) error {
+func (b *Bus) invalidateHandlerSnapshot(eventType reflect.Type) {
+	if b == nil || b.handlerCache == nil {
+		return
+	}
+	b.handlerCache.Delete(eventType)
+}
+
+func (b *Bus) deleteSubscription(eventType reflect.Type, id uint64) {
 	if b == nil {
-		return ErrNilBus
+		return
 	}
-
-	b.lifecycleMu.Lock()
-	defer b.lifecycleMu.Unlock()
-
-	if b.closed {
-		return ErrBusClosed
+	if b.subsByType.Delete(eventType, id) {
+		b.invalidateHandlerSnapshot(eventType)
+		b.logger.Debug("subscription removed",
+			"event_type", eventType.String(),
+			"subscription_id", id,
+		)
 	}
-	if b.asyncQueue == nil {
-		return errAsyncQueueUnavailable
-	}
+}
 
-	b.dispatchWG.Add(1)
-	select {
-	case b.asyncQueue <- task:
+func newParallelLimiter(size int) chan struct{} {
+	if size <= 0 {
 		return nil
-	default:
-		b.dispatchWG.Done()
-		return ErrAsyncQueueFull
 	}
+	return make(chan struct{}, size)
 }

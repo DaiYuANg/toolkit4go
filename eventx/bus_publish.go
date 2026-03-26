@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/observabilityx"
+	"github.com/panjf2000/ants/v2"
 )
 
 // Publish dispatches one event synchronously to all matching subscribers.
@@ -28,6 +29,10 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 	defer b.dispatchWG.Done()
 
 	handlers := b.snapshotHandlersByEventType(reflect.TypeOf(event))
+	b.logger.Debug("publish sync",
+		"event_name", eventName(event),
+		"handler_count", len(handlers),
+	)
 
 	return b.dispatch(ctx, event, handlers, "sync")
 }
@@ -52,11 +57,36 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 	defer span.End()
 
 	handlers := b.snapshotHandlersByEventType(reflect.TypeOf(event))
+	b.logger.Debug("publish async requested",
+		"event_name", eventName(event),
+		"handler_count", len(handlers),
+	)
 
-	// Use ants pool if enabled
+	if b.initErr != nil {
+		err := errors.Join(ErrAsyncRuntimeUnavailable, b.initErr)
+		b.logger.Debug("publish async unavailable",
+			"event_name", eventName(event),
+			"error", err,
+		)
+		span.RecordError(err)
+		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
+			observabilityx.String("result", "unavailable"),
+			observabilityx.String("event_name", eventName(event)),
+		)
+		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
+			observabilityx.String("result", "unavailable"),
+			observabilityx.String("event_name", eventName(event)),
+		)
+		return err
+	}
+
 	if b.antsPool != nil {
 		if !b.beginDispatch() {
 			err := ErrBusClosed
+			b.logger.Debug("publish async rejected",
+				"event_name", eventName(event),
+				"reason", "bus_closed",
+			)
 			span.RecordError(err)
 			obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
 				observabilityx.String("result", "closed"),
@@ -80,15 +110,29 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 		})
 		if err != nil {
 			b.dispatchWG.Done()
+			if errors.Is(err, ants.ErrPoolClosed) {
+				err = ErrBusClosed
+			}
+			b.logger.Debug("publish async submit failed",
+				"event_name", eventName(event),
+				"error", err,
+			)
 			span.RecordError(err)
+			result := "pool_error"
+			if errors.Is(err, ErrBusClosed) {
+				result = "closed"
+			}
 			obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-				observabilityx.String("result", "pool_error"),
+				observabilityx.String("result", result),
 				observabilityx.String("event_name", eventName(event)),
 			)
 			obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-				observabilityx.String("result", "pool_error"),
+				observabilityx.String("result", result),
 				observabilityx.String("event_name", eventName(event)),
 			)
+			if errors.Is(err, ErrBusClosed) {
+				return err
+			}
 			return fmt.Errorf("failed to submit task to ants pool: %w", err)
 		}
 
@@ -100,54 +144,21 @@ func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
 			observabilityx.String("result", "submitted"),
 			observabilityx.String("event_name", eventName(event)),
 		)
+		b.logger.Debug("publish async submitted",
+			"event_name", eventName(event),
+			"handler_count", len(handlers),
+		)
 		return nil
 	}
 
-	// Fallback to legacy channel-based queue
-	if b.asyncQueue == nil {
-		return b.Publish(ctx, event)
-	}
-
-	err := b.enqueueLegacyAsyncTask(publishTask{ctx: ctx, event: event, handlers: handlers})
-	switch {
-	case err == nil:
-		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observabilityx.String("result", "enqueued"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observabilityx.String("result", "enqueued"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		return nil
-	case errors.Is(err, ErrBusClosed):
-		span.RecordError(err)
-		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observabilityx.String("result", "closed"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observabilityx.String("result", "closed"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		return ErrBusClosed
-	case errors.Is(err, errAsyncQueueUnavailable):
-		return b.Publish(ctx, event)
-	default:
-		span.RecordError(ErrAsyncQueueFull)
-		obs.AddCounter(ctx, metricAsyncEnqueueTotal, 1,
-			observabilityx.String("result", "queue_full"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		obs.RecordHistogram(ctx, metricAsyncEnqueueDurationMS, float64(time.Since(start).Milliseconds()),
-			observabilityx.String("result", "queue_full"),
-			observabilityx.String("event_name", eventName(event)),
-		)
-		return ErrAsyncQueueFull
-	}
+	return b.Publish(ctx, event)
 }
 
 func (b *Bus) executeTask(task publishTask) {
+	b.logger.Debug("async dispatch started",
+		"event_name", eventName(task.event),
+		"handler_count", len(task.handlers),
+	)
 	err := b.dispatch(task.ctx, task.event, task.handlers, "async")
 	if err != nil && b.onAsyncErr != nil {
 		b.onAsyncErr(task.ctx, task.event, err)
@@ -162,14 +173,9 @@ func (b *Bus) executeTask(task publishTask) {
 			observabilityx.String("event_name", eventName(task.event)),
 		)
 	}
-}
-
-func (b *Bus) workerLoop() {
-	defer b.workerWG.Done()
-	for task := range b.asyncQueue {
-		func(t publishTask) {
-			defer b.dispatchWG.Done()
-			b.executeTask(t)
-		}(task)
-	}
+	b.logger.Debug("async dispatch finished",
+		"event_name", eventName(task.event),
+		"handler_count", len(task.handlers),
+		"has_error", err != nil,
+	)
 }

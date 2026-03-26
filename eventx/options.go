@@ -8,21 +8,14 @@ import (
 )
 
 const (
-	defaultAsyncWorkers   = 4
-	defaultAsyncQueueSize = 256
+	defaultAsyncWorkers = 4
 )
 
 type asyncErrorHandler func(ctx context.Context, event Event, err error)
 
 type options struct {
-	// ants pool options
-	useAntsPool          bool
 	antsPoolSize         int
 	antsMaxBlockingCalls int
-
-	// legacy options (for backward compatibility)
-	asyncWorkers   int
-	asyncQueueSize int
 
 	parallel      bool
 	middleware    []Middleware
@@ -32,13 +25,8 @@ type options struct {
 
 func defaultOptions() options {
 	return options{
-		useAntsPool:          true,
 		antsPoolSize:         defaultAsyncWorkers,
 		antsMaxBlockingCalls: -1, // -1 means infinite blocking calls
-
-		// legacy options
-		asyncWorkers:   defaultAsyncWorkers,
-		asyncQueueSize: defaultAsyncQueueSize,
 
 		parallel:      false,
 		middleware:    nil,
@@ -54,7 +42,6 @@ type Option func(*options)
 // This is the recommended way for async event dispatch.
 func WithAntsPool(size int) Option {
 	return func(o *options) {
-		o.useAntsPool = true
 		o.antsPoolSize = size
 	}
 }
@@ -63,29 +50,8 @@ func WithAntsPool(size int) Option {
 // maxBlockingCalls <= 0 means infinite.
 func WithAntsPoolWithMaxBlockingCalls(size int, maxBlockingCalls int) Option {
 	return func(o *options) {
-		o.useAntsPool = true
 		o.antsPoolSize = size
 		o.antsMaxBlockingCalls = maxBlockingCalls
-	}
-}
-
-// WithAsyncWorkers sets worker count for async publish (legacy mode).
-// Values <= 0 disable async workers.
-// Deprecated: Use WithAntsPool instead for better performance.
-func WithAsyncWorkers(workers int) Option {
-	return func(o *options) {
-		o.useAntsPool = false
-		o.asyncWorkers = workers
-	}
-}
-
-// WithAsyncQueueSize sets async queue size (legacy mode).
-// Values <= 0 disable async queueing.
-// Deprecated: Ants pool handles queueing internally.
-func WithAsyncQueueSize(size int) Option {
-	return func(o *options) {
-		o.useAntsPool = false
-		o.asyncQueueSize = size
 	}
 }
 

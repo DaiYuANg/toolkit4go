@@ -12,6 +12,11 @@ import (
 
 func (b *Bus) dispatch(ctx context.Context, event Event, handlers []HandlerFunc, mode string) error {
 	if len(handlers) == 0 {
+		b.logger.Debug("dispatch skipped",
+			"mode", mode,
+			"event_name", eventName(event),
+			"reason", "no_handlers",
+		)
 		return nil
 	}
 	if ctx == nil {
@@ -52,6 +57,12 @@ func (b *Bus) dispatch(ctx context.Context, event Event, handlers []HandlerFunc,
 		result = "error"
 		span.RecordError(err)
 	}
+	b.logger.Debug("dispatch completed",
+		"mode", mode,
+		"event_name", eventName(event),
+		"handler_count", len(handlers),
+		"result", result,
+	)
 	return err
 }
 
@@ -77,6 +88,8 @@ func (b *Bus) dispatchParallel(ctx context.Context, event Event, handlers []Hand
 		wg.Add(1)
 		go func(h HandlerFunc) {
 			defer wg.Done()
+			b.acquireParallelSlot()
+			defer b.releaseParallelSlot()
 			if err := h(ctx, event); err != nil {
 				errCh <- err
 			}
@@ -91,4 +104,18 @@ func (b *Bus) dispatchParallel(ctx context.Context, event Event, handlers []Hand
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
+}
+
+func (b *Bus) acquireParallelSlot() {
+	if b == nil || b.parallelLimit == nil {
+		return
+	}
+	b.parallelLimit <- struct{}{}
+}
+
+func (b *Bus) releaseParallelSlot() {
+	if b == nil || b.parallelLimit == nil {
+		return
+	}
+	<-b.parallelLimit
 }

@@ -92,11 +92,19 @@ func (b *Bus) subscribe(eventType reflect.Type, base HandlerFunc, subscriberMidd
 		wrapped := finalHandler
 		remaining := int64(maxCalls)
 		return func(ctx context.Context, event Event) error {
-			err := wrapped(ctx, event)
-			if atomic.AddInt64(&remaining, -1) <= 0 {
-				b.subsByType.Delete(eventType, id)
+			for {
+				current := atomic.LoadInt64(&remaining)
+				if current <= 0 {
+					return nil
+				}
+				if !atomic.CompareAndSwapInt64(&remaining, current, current-1) {
+					continue
+				}
+				if current == 1 {
+					b.deleteSubscription(eventType, id)
+				}
+				return wrapped(ctx, event)
 			}
-			return err
 		}
 	})
 	if err != nil {
@@ -106,22 +114,32 @@ func (b *Bus) subscribe(eventType reflect.Type, base HandlerFunc, subscriberMidd
 	var once sync.Once
 	unsubscribe := func() {
 		once.Do(func() {
-			b.subsByType.Delete(eventType, id)
+			b.deleteSubscription(eventType, id)
 		})
 	}
 	return unsubscribe, nil
 }
 
 func (b *Bus) snapshotHandlersByEventType(eventType reflect.Type) []HandlerFunc {
+	if cached, ok := b.handlerCache.Get(eventType); ok {
+		return cached
+	}
+
 	row := b.subsByType.Row(eventType)
 	if len(row) == 0 {
 		return nil
 	}
 
-	return lo.FilterMap(lo.Values(row), func(sub *subscription, _ int) (HandlerFunc, bool) {
+	handlers := lo.FilterMap(lo.Values(row), func(sub *subscription, _ int) (HandlerFunc, bool) {
 		if sub == nil || sub.handler == nil {
 			return nil, false
 		}
 		return sub.handler, true
 	})
+	b.handlerCache.Set(eventType, handlers)
+	b.logger.Debug("handler snapshot rebuilt",
+		"event_type", eventType.String(),
+		"handler_count", len(handlers),
+	)
+	return handlers
 }

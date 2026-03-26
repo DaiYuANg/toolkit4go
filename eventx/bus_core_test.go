@@ -3,6 +3,7 @@ package eventx
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sync/atomic"
 	"testing"
 
@@ -105,10 +106,7 @@ func TestUnsubscribe(t *testing.T) {
 func TestCloseRejectsNewRequests(t *testing.T) {
 	t.Parallel()
 
-	bus := New(
-		WithAsyncWorkers(1),
-		WithAsyncQueueSize(8),
-	)
+	bus := New(WithAntsPool(1))
 	require.NoError(t, bus.Close())
 
 	err := bus.Publish(context.Background(), userCreated{ID: 1})
@@ -190,3 +188,20 @@ func TestSubscribeNInvalidCount(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidSubscribeCount)
 }
 
+func TestHandlerSnapshotInvalidatedOnUnsubscribe(t *testing.T) {
+	t.Parallel()
+
+	bus := New().(*Bus)
+	defer func() { _ = bus.Close() }()
+
+	unsub1, err := Subscribe(bus, func(ctx context.Context, evt userCreated) error { return nil })
+	require.NoError(t, err)
+	_, err = Subscribe(bus, func(ctx context.Context, evt userCreated) error { return nil })
+	require.NoError(t, err)
+
+	eventType := reflect.TypeFor[userCreated]()
+	require.Len(t, bus.snapshotHandlersByEventType(eventType), 2)
+
+	unsub1()
+	require.Len(t, bus.snapshotHandlersByEventType(eventType), 1)
+}
