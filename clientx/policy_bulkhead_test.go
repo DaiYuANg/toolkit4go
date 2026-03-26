@@ -1,4 +1,4 @@
-package clientx
+package clientx_test
 
 import (
 	"context"
@@ -7,34 +7,24 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/DaiYuANg/arcgo/clientx"
 )
 
 func TestConcurrencyLimitPolicySerialize(t *testing.T) {
-	policy := NewConcurrencyLimitPolicy(1)
-	var active int32
-	var maxActive int32
-
-	fn := func(ctx context.Context) (int, error) {
-		current := atomic.AddInt32(&active, 1)
-		defer atomic.AddInt32(&active, -1)
-		for {
-			seen := atomic.LoadInt32(&maxActive)
-			if current <= seen || atomic.CompareAndSwapInt32(&maxActive, seen, current) {
-				break
-			}
-		}
-		time.Sleep(30 * time.Millisecond)
-		return 1, nil
-	}
+	policy := clientx.NewConcurrencyLimitPolicy(1)
+	var active atomic.Int32
+	var maxActive atomic.Int32
+	fn := trackedPolicyFunc(&active, &maxActive)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	for range 2 {
 		go func() {
 			defer wg.Done()
-			_, err := InvokeWithPolicies(
+			_, err := clientx.InvokeWithPolicies(
 				context.Background(),
-				Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+				clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 				fn,
 				policy,
 			)
@@ -45,14 +35,14 @@ func TestConcurrencyLimitPolicySerialize(t *testing.T) {
 	}
 	wg.Wait()
 
-	if got := atomic.LoadInt32(&maxActive); got != 1 {
+	if got := maxActive.Load(); got != 1 {
 		t.Fatalf("expected max concurrency 1, got %d", got)
 	}
 }
 
 func TestConcurrencyLimitPolicyRespectsContextCancel(t *testing.T) {
-	policy := NewConcurrencyLimitPolicy(1)
-	op := Operation{Protocol: ProtocolTCP, Kind: OperationKindDial, Op: "dial"}
+	policy := clientx.NewConcurrencyLimitPolicy(1)
+	op := clientx.Operation{Protocol: clientx.ProtocolTCP, Kind: clientx.OperationKindDial, Op: "dial"}
 
 	ctx := context.Background()
 	_, err := policy.Before(ctx, op)
@@ -73,20 +63,39 @@ func TestConcurrencyLimitPolicyRespectsContextCancel(t *testing.T) {
 }
 
 func TestConcurrencyLimitPolicyReleaseAfterError(t *testing.T) {
-	policy := NewConcurrencyLimitPolicy(1)
+	policy := clientx.NewConcurrencyLimitPolicy(1)
 	boom := errors.New("boom")
 
 	for i := range 2 {
-		_, err := InvokeWithPolicies(
+		_, err := clientx.InvokeWithPolicies(
 			context.Background(),
-			Operation{Protocol: ProtocolUDP, Kind: OperationKindDial, Op: "dial"},
-			func(ctx context.Context) (int, error) {
+			clientx.Operation{Protocol: clientx.ProtocolUDP, Kind: clientx.OperationKindDial, Op: "dial"},
+			func(_ context.Context) (int, error) {
 				return 0, boom
 			},
 			policy,
 		)
 		if !errors.Is(err, boom) {
 			t.Fatalf("round %d expected boom error, got %v", i, err)
+		}
+	}
+}
+
+func trackedPolicyFunc(active, maxActive *atomic.Int32) func(context.Context) (int, error) {
+	return func(_ context.Context) (int, error) {
+		current := active.Add(1)
+		defer active.Add(-1)
+		updateMaxActive(maxActive, current)
+		time.Sleep(30 * time.Millisecond)
+		return 1, nil
+	}
+}
+
+func updateMaxActive(maxActive *atomic.Int32, current int32) {
+	for {
+		seen := maxActive.Load()
+		if current <= seen || maxActive.CompareAndSwap(seen, current) {
+			return
 		}
 	}
 }

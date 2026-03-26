@@ -8,6 +8,7 @@ import (
 	"github.com/samber/lo"
 )
 
+// ObservabilityHookOption configures NewObservabilityHook behavior.
 type ObservabilityHookOption func(*observabilityHookConfig)
 
 type observabilityHookConfig struct {
@@ -15,6 +16,7 @@ type observabilityHookConfig struct {
 	includeAddressAttrs bool
 }
 
+// WithHookMetricPrefix overrides the metric prefix used by the hook.
 func WithHookMetricPrefix(prefix string) ObservabilityHookOption {
 	return func(cfg *observabilityHookConfig) {
 		clean := strings.TrimSpace(prefix)
@@ -24,12 +26,14 @@ func WithHookMetricPrefix(prefix string) ObservabilityHookOption {
 	}
 }
 
+// WithHookAddressAttribute controls whether address attributes are attached to emitted metrics.
 func WithHookAddressAttribute(enabled bool) ObservabilityHookOption {
 	return func(cfg *observabilityHookConfig) {
 		cfg.includeAddressAttrs = enabled
 	}
 }
 
+// NewObservabilityHook creates a Hook that emits dial and I/O metrics.
 func NewObservabilityHook(obs observabilityx.Observability, opts ...ObservabilityHookOption) Hook {
 	cfg := observabilityHookConfig{
 		metricPrefix: "clientx",

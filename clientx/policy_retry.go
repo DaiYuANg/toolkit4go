@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"time"
 )
 
+// RetryPolicyConfig configures retry behavior for NewRetryPolicy.
 type RetryPolicyConfig struct {
 	MaxAttempts int
 	BaseDelay   time.Duration
@@ -27,6 +28,7 @@ type retryPolicy struct {
 	retryable   func(error) bool
 }
 
+// NewRetryPolicy creates a retry policy with sane defaults for transient failures.
 func NewRetryPolicy(cfg RetryPolicyConfig) Policy {
 	maxAttempts := cfg.MaxAttempts
 	if maxAttempts <= 0 {
@@ -117,6 +119,7 @@ func (p *retryPolicy) backoffDelay(attempt int) time.Duration {
 	if maxDelay <= minDelay {
 		return delay
 	}
+	//nolint:gosec // Retry jitter only needs non-cryptographic randomness.
 	jittered := minDelay + rand.Float64()*(maxDelay-minDelay)
 	if jittered < 0 {
 		jittered = 0
@@ -143,11 +146,12 @@ func defaultRetryable(err error) bool {
 	switch kind {
 	case ErrorKindTimeout, ErrorKindTemporary, ErrorKindConnRefused, ErrorKindDNS, ErrorKindNetwork:
 		return true
-	case ErrorKindCanceled, ErrorKindClosed, ErrorKindTLS, ErrorKindCodec:
+	case ErrorKindUnknown, ErrorKindCanceled, ErrorKindClosed, ErrorKindTLS, ErrorKindCodec:
 		return false
 	}
 
-	if netErr, ok := errors.AsType[net.Error](err); ok {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
 		return netErr.Timeout()
 	}
 	return false

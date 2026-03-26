@@ -1,4 +1,4 @@
-package tcp
+package tcp_test
 
 import (
 	"context"
@@ -10,18 +10,19 @@ import (
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
+	clienttcp "github.com/DaiYuANg/arcgo/clientx/tcp"
 	"github.com/samber/lo"
 )
 
 func TestDialErrorIsTyped(t *testing.T) {
-	client, err := New(Config{
+	client, err := clienttcp.New(clienttcp.Config{
 		Address:     "127.0.0.1:1",
 		DialTimeout: 150 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	_, err = client.Dial(context.Background())
 	if err == nil {
@@ -45,11 +46,11 @@ func TestDialErrorIsTyped(t *testing.T) {
 }
 
 func TestReadTimeoutIsTypedAndStillNetError(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen tcp failed: %v", err)
 	}
-	defer func() { _ = ln.Close() }()
+	defer closeListener(t, ln)
 
 	done := make(chan struct{})
 	var doneOnce sync.Once
@@ -57,16 +58,16 @@ func TestReadTimeoutIsTypedAndStillNetError(t *testing.T) {
 		doneOnce.Do(func() { close(done) })
 	}
 	go func() {
-		conn, acceptErr := ln.Accept()
+		serverConn, acceptErr := ln.Accept()
 		if acceptErr != nil {
 			closeDone()
 			return
 		}
-		defer func() { _ = conn.Close() }()
+		defer closeConn(t, serverConn)
 		<-done
 	}()
 
-	client, err := New(Config{
+	client, err := clienttcp.New(clienttcp.Config{
 		Address:     ln.Addr().String(),
 		DialTimeout: time.Second,
 		ReadTimeout: 40 * time.Millisecond,
@@ -74,14 +75,14 @@ func TestReadTimeoutIsTypedAndStillNetError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	conn, err := client.Dial(context.Background())
 	if err != nil {
 		closeDone()
 		t.Fatalf("dial tcp failed: %v", err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer closeConn(t, conn)
 	defer closeDone()
 
 	buf := make([]byte, 8)
@@ -93,8 +94,8 @@ func TestReadTimeoutIsTypedAndStillNetError(t *testing.T) {
 		t.Fatalf("expected kind %q, got %q", clientx.ErrorKindTimeout, clientx.KindOf(err))
 	}
 
-	netErr, ok := err.(net.Error)
-	if !ok || !netErr.Timeout() {
+	var netErr net.Error
+	if !errors.As(err, &netErr) || !netErr.Timeout() {
 		t.Fatalf("expected timeout net.Error, got %v", err)
 	}
 }
@@ -104,31 +105,16 @@ func TestDialCodecRoundTrip(t *testing.T) {
 		Message string `json:"message"`
 	}
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen tcp failed: %v", err)
 	}
-	defer func() { _ = ln.Close() }()
+	defer closeListener(t, ln)
 
 	serverErr := make(chan error, 1)
-	go func() {
-		conn, acceptErr := ln.Accept()
-		if acceptErr != nil {
-			serverErr <- acceptErr
-			return
-		}
-		defer func() { _ = conn.Close() }()
+	go serveCodecRoundTrip(ln, serverErr)
 
-		cc := NewCodecConn(conn, clientcodec.JSON, clientcodec.NewLengthPrefixed(1024), ln.Addr().String())
-		var req payload
-		if err := cc.ReadValue(&req); err != nil {
-			serverErr <- err
-			return
-		}
-		serverErr <- cc.WriteValue(payload{Message: "ack:" + req.Message})
-	}()
-
-	client, err := New(Config{
+	client, err := clienttcp.New(clienttcp.Config{
 		Address:      ln.Addr().String(),
 		DialTimeout:  time.Second,
 		ReadTimeout:  time.Second,
@@ -137,13 +123,13 @@ func TestDialCodecRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	cc, err := client.DialCodec(context.Background(), clientcodec.JSON, clientcodec.NewLengthPrefixed(1024))
 	if err != nil {
 		t.Fatalf("dial codec failed: %v", err)
 	}
-	defer func() { _ = cc.Close() }()
+	defer closeCodecConn(t, cc)
 
 	if err := cc.WriteValue(payload{Message: "ping"}); err != nil {
 		t.Fatalf("client write value failed: %v", err)
@@ -163,11 +149,11 @@ func TestDialCodecRoundTrip(t *testing.T) {
 }
 
 func TestDialCodecWithNilCodec(t *testing.T) {
-	client, err := New(Config{Address: "127.0.0.1:9000"})
+	client, err := clienttcp.New(clienttcp.Config{Address: "127.0.0.1:9000"})
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	_, err = client.DialCodec(context.Background(), nil, clientcodec.NewLengthPrefixed(1024))
 	if err == nil {
@@ -180,12 +166,12 @@ func TestDialCodecWithNilCodec(t *testing.T) {
 
 func TestDialEmitsHookOnError(t *testing.T) {
 	var got clientx.DialEvent
-	client, err := New(
-		Config{
+	client, err := clienttcp.New(
+		clienttcp.Config{
 			Address:     "127.0.0.1:1",
 			DialTimeout: 100 * time.Millisecond,
 		},
-		WithHooks(clientx.HookFuncs{
+		clienttcp.WithHooks(clientx.HookFuncs{
 			OnDialFunc: func(event clientx.DialEvent) {
 				got = event
 			},
@@ -194,7 +180,7 @@ func TestDialEmitsHookOnError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	_, err = client.Dial(context.Background())
 	if err == nil {
@@ -212,20 +198,20 @@ func TestDialEmitsHookOnError(t *testing.T) {
 }
 
 func TestNewWithInvalidConfig(t *testing.T) {
-	_, err := New(Config{})
+	_, err := clienttcp.New(clienttcp.Config{})
 	if err == nil {
 		t.Fatal("expected config validation error, got nil")
 	}
-	if !errors.Is(err, ErrInvalidConfig) {
+	if !errors.Is(err, clienttcp.ErrInvalidConfig) {
 		t.Fatalf("expected ErrInvalidConfig, got %v", err)
 	}
 }
 
 func TestDialPolicyBeforeError(t *testing.T) {
 	denyErr := errors.New("deny dial")
-	client, err := New(
-		Config{Address: "127.0.0.1:1"},
-		WithPolicies(clientx.PolicyFuncs{
+	client, err := clienttcp.New(
+		clienttcp.Config{Address: "127.0.0.1:1"},
+		clienttcp.WithPolicies(clientx.PolicyFuncs{
 			BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
 				if operation.Protocol != clientx.ProtocolTCP || operation.Kind != clientx.OperationKindDial {
 					t.Fatalf("unexpected operation: %+v", operation)
@@ -237,10 +223,67 @@ func TestDialPolicyBeforeError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	_, err = client.Dial(context.Background())
 	if !errors.Is(err, denyErr) {
 		t.Fatalf("expected policy error, got %v", err)
 	}
+}
+
+func closeClient(t *testing.T, client clienttcp.Client) {
+	t.Helper()
+	if err := client.Close(); err != nil {
+		t.Fatalf("close tcp client: %v", err)
+	}
+}
+
+func closeListener(t *testing.T, listener net.Listener) {
+	t.Helper()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close tcp listener: %v", err)
+	}
+}
+
+func closeConn(t *testing.T, conn net.Conn) {
+	t.Helper()
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close tcp connection: %v", err)
+	}
+}
+
+func closeCodecConn(t *testing.T, conn *clienttcp.CodecConn) {
+	t.Helper()
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close tcp codec connection: %v", err)
+	}
+}
+
+func serveCodecRoundTrip(listener net.Listener, serverErr chan<- error) {
+	type payload struct {
+		Message string `json:"message"`
+	}
+
+	conn, acceptErr := listener.Accept()
+	if acceptErr != nil {
+		serverErr <- acceptErr
+		return
+	}
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			select {
+			case serverErr <- closeErr:
+			default:
+			}
+		}
+	}()
+
+	codecConn := clienttcp.NewCodecConn(conn, clientcodec.JSON, clientcodec.NewLengthPrefixed(1024), listener.Addr().String())
+	var req payload
+	readErr := codecConn.ReadValue(&req)
+	if readErr != nil {
+		serverErr <- readErr
+		return
+	}
+	serverErr <- codecConn.WriteValue(payload{Message: "ack:" + req.Message})
 }

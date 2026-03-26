@@ -26,4 +26,5 @@ func (c bytesCodec) Unmarshal(data []byte, v any) error {
 	return nil
 }
 
+// Bytes is the built-in codec for raw byte slices.
 var Bytes Codec = bytesCodec{}

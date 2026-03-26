@@ -1,11 +1,15 @@
 package clientx
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type concurrencyLimitPolicy struct {
 	sem chan struct{}
 }
 
+// NewConcurrencyLimitPolicy limits concurrent executions to maxInFlight.
 func NewConcurrencyLimitPolicy(maxInFlight int) Policy {
 	if maxInFlight <= 0 {
 		maxInFlight = 1
@@ -14,14 +18,12 @@ func NewConcurrencyLimitPolicy(maxInFlight int) Policy {
 }
 
 func (p *concurrencyLimitPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = normalizeContext(ctx)
 	select {
 	case p.sem <- struct{}{}:
 		return ctx, nil
 	case <-ctx.Done():
-		return ctx, ctx.Err()
+		return ctx, fmt.Errorf("acquire concurrency slot: %w", ctx.Err())
 	}
 }
 

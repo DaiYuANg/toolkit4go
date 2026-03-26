@@ -7,30 +7,37 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx/mapping"
-	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
 var (
-	ErrNilCodec         = errors.New("codec is nil")
-	ErrCodecNameEmpty   = errors.New("codec name is empty")
-	ErrCodecExists      = errors.New("codec already exists")
-	ErrCodecNotFound    = errors.New("codec not found")
+	// ErrNilCodec indicates that a nil codec was provided.
+	ErrNilCodec = errors.New("codec is nil")
+	// ErrCodecNameEmpty indicates that a codec reported an empty name.
+	ErrCodecNameEmpty = errors.New("codec name is empty")
+	// ErrCodecExists indicates that a codec name is already registered.
+	ErrCodecExists = errors.New("codec already exists")
+	// ErrCodecNotFound indicates that a codec lookup failed.
+	ErrCodecNotFound = errors.New("codec not found")
+	// ErrUnsupportedValue indicates that a codec cannot handle the provided value type.
 	ErrUnsupportedValue = errors.New("codec unsupported value type")
 )
 
+// Registry stores codecs by normalized name.
 type Registry struct {
 	codecs *mapping.ConcurrentMap[string, Codec]
 }
 
+// NewRegistry creates a Registry populated with codecs.
 func NewRegistry(codecs ...Codec) *Registry {
 	r := &Registry{codecs: mapping.NewConcurrentMap[string, Codec]()}
-	lo.ForEach(codecs, func(c Codec, _ int) {
-		_ = r.Register(c)
-	})
+	for _, c := range codecs {
+		mustRegisterCodec(r, c)
+	}
 	return r
 }
 
+// Register adds c to the registry under its normalized name.
 func (r *Registry) Register(c Codec) error {
 	if c == nil {
 		return ErrNilCodec
@@ -46,11 +53,13 @@ func (r *Registry) Register(c Codec) error {
 	return nil
 }
 
+// Get looks up a codec by name.
 func (r *Registry) Get(name string) (Codec, bool) {
 	c, ok := r.codecs.Get(strings.TrimSpace(strings.ToLower(name)))
 	return c, ok
 }
 
+// GetOption looks up a codec by name and returns an option-wrapped result.
 func (r *Registry) GetOption(name string) mo.Option[Codec] {
 	c, ok := r.Get(name)
 	if !ok {
@@ -59,6 +68,7 @@ func (r *Registry) GetOption(name string) mo.Option[Codec] {
 	return mo.Some(c)
 }
 
+// Must returns the named codec or panics when it is not registered.
 func (r *Registry) Must(name string) Codec {
 	c, ok := r.GetOption(name).Get()
 	if !ok {
@@ -67,6 +77,7 @@ func (r *Registry) Must(name string) Codec {
 	return c
 }
 
+// Names returns the registered codec names in sorted order.
 func (r *Registry) Names() []string {
 	names := r.codecs.Keys()
 	sort.Strings(names)
@@ -79,22 +90,33 @@ var defaultRegistry = NewRegistry(
 	Bytes,
 )
 
+// Register adds c to the default registry.
 func Register(c Codec) error {
 	return defaultRegistry.Register(c)
 }
 
+// Get looks up a codec in the default registry.
 func Get(name string) (Codec, bool) {
 	return defaultRegistry.Get(name)
 }
 
+// GetOption looks up a codec in the default registry and returns an option-wrapped result.
 func GetOption(name string) mo.Option[Codec] {
 	return defaultRegistry.GetOption(name)
 }
 
+// Must returns a codec from the default registry or panics when not found.
 func Must(name string) Codec {
 	return defaultRegistry.Must(name)
 }
 
+// Names returns the codec names from the default registry.
 func Names() []string {
 	return defaultRegistry.Names()
+}
+
+func mustRegisterCodec(r *Registry, c Codec) {
+	if err := r.Register(c); err != nil {
+		panic(fmt.Sprintf("register builtin codec: %v", err))
+	}
 }

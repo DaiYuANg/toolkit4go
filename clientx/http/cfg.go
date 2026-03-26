@@ -11,6 +11,7 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
+// Config configures the HTTP client implementation.
 type Config struct {
 	BaseURL   string
 	Timeout   time.Duration
@@ -22,8 +23,10 @@ type Config struct {
 
 const defaultTimeout = 30 * time.Second
 
+// ErrInvalidConfig indicates that the HTTP client configuration is invalid.
 var ErrInvalidConfig = errors.New("invalid http client config")
 
+// NormalizeAndValidate normalizes cfg and validates all supported options.
 func (cfg Config) NormalizeAndValidate() (Config, error) {
 	out := cfg
 	out.BaseURL = strings.TrimSpace(out.BaseURL)
@@ -31,7 +34,7 @@ func (cfg Config) NormalizeAndValidate() (Config, error) {
 
 	if out.BaseURL != "" {
 		if _, err := url.ParseRequestURI(out.BaseURL); err != nil {
-			return Config{}, fmt.Errorf("%w: base_url: %v", ErrInvalidConfig, err)
+			return Config{}, fmt.Errorf("%w: base_url: %w", ErrInvalidConfig, err)
 		}
 	}
 

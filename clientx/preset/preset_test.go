@@ -1,4 +1,4 @@
-package preset
+package preset_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clienthttp "github.com/DaiYuANg/arcgo/clientx/http"
+	"github.com/DaiYuANg/arcgo/clientx/preset"
 	clienttcp "github.com/DaiYuANg/arcgo/clientx/tcp"
 	clientudp "github.com/DaiYuANg/arcgo/clientx/udp"
 	"resty.dev/v3"
@@ -23,17 +24,17 @@ func TestNewEdgeHTTPRetryPreset(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	var attempts int32
-	client, err := NewEdgeHTTP(
+	var attempts atomic.Int32
+	client, err := preset.NewEdgeHTTP(
 		clienthttp.Config{BaseURL: srv.URL},
-		WithEdgeHTTPRetry(clientx.RetryConfig{
+		preset.WithEdgeHTTPRetry(clientx.RetryConfig{
 			Enabled:    true,
 			MaxRetries: 2,
 			WaitMin:    time.Millisecond,
 			WaitMax:    2 * time.Millisecond,
 		}),
-		WithEdgeHTTPOption(clienthttp.WithRequestMiddleware(func(_ *resty.Client, _ *resty.Request) error {
-			if atomic.AddInt32(&attempts, 1) < 3 {
+		preset.WithEdgeHTTPOption(clienthttp.WithRequestMiddleware(func(_ *resty.Client, _ *resty.Request) error {
+			if attempts.Add(1) < 3 {
 				return context.DeadlineExceeded
 			}
 			return nil
@@ -42,16 +43,16 @@ func TestNewEdgeHTTPRetryPreset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new edge http client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeHTTPClient(t, client)
 
 	resp, err := client.Execute(context.Background(), nil, stdhttp.MethodGet, "/health")
 	if err != nil {
-		t.Fatalf("execute failed: %v (attempts=%d)", err, atomic.LoadInt32(&attempts))
+		t.Fatalf("execute failed: %v (attempts=%d)", err, attempts.Load())
 	}
 	if resp.StatusCode() != stdhttp.StatusNoContent {
 		t.Fatalf("expected status %d, got %d", stdhttp.StatusNoContent, resp.StatusCode())
 	}
-	if got := atomic.LoadInt32(&attempts); got != 3 {
+	if got := attempts.Load(); got != 3 {
 		t.Fatalf("expected 3 attempts, got %d", got)
 	}
 }
@@ -63,16 +64,16 @@ func TestNewEdgeHTTPTimeoutGuard(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client, err := NewEdgeHTTP(
+	client, err := preset.NewEdgeHTTP(
 		clienthttp.Config{BaseURL: srv.URL},
-		WithEdgeHTTPTimeout(2*time.Second),
-		WithEdgeHTTPTimeoutGuard(25*time.Millisecond),
-		WithEdgeHTTPDisableRetry(),
+		preset.WithEdgeHTTPTimeout(2*time.Second),
+		preset.WithEdgeHTTPTimeoutGuard(25*time.Millisecond),
+		preset.WithEdgeHTTPDisableRetry(),
 	)
 	if err != nil {
 		t.Fatalf("new edge http client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeHTTPClient(t, client)
 
 	_, err = client.Execute(context.Background(), nil, stdhttp.MethodGet, "/slow")
 	if err == nil {
@@ -85,22 +86,22 @@ func TestNewEdgeHTTPTimeoutGuard(t *testing.T) {
 
 func TestNewInternalRPCTimeoutGuard(t *testing.T) {
 	blockingPolicy := clientx.PolicyFuncs{
-		BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
+		BeforeFunc: func(ctx context.Context, _ clientx.Operation) (context.Context, error) {
 			<-ctx.Done()
 			return ctx, ctx.Err()
 		},
 	}
 
-	client, err := NewInternalRPC(
+	client, err := preset.NewInternalRPC(
 		clienttcp.Config{Address: "127.0.0.1:1"},
-		WithInternalRPCDisableRetry(),
-		WithInternalRPCTimeoutGuard(25*time.Millisecond),
-		WithInternalRPCOption(clienttcp.WithPolicies(blockingPolicy)),
+		preset.WithInternalRPCDisableRetry(),
+		preset.WithInternalRPCTimeoutGuard(25*time.Millisecond),
+		preset.WithInternalRPCOption(clienttcp.WithPolicies(blockingPolicy)),
 	)
 	if err != nil {
 		t.Fatalf("new internal rpc client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeTCPClient(t, client)
 
 	_, err = client.Dial(context.Background())
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -109,47 +110,83 @@ func TestNewInternalRPCTimeoutGuard(t *testing.T) {
 }
 
 func TestNewLowLatencyUDPConcurrencyLimit(t *testing.T) {
-	var active int32
-	var maxActive int32
+	var active atomic.Int32
+	var maxActive atomic.Int32
 	trackingPolicy := clientx.PolicyFuncs{
-		BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
-			current := atomic.AddInt32(&active, 1)
-			for {
-				seen := atomic.LoadInt32(&maxActive)
-				if current <= seen || atomic.CompareAndSwapInt32(&maxActive, seen, current) {
-					break
-				}
-			}
+		BeforeFunc: func(ctx context.Context, _ clientx.Operation) (context.Context, error) {
+			current := active.Add(1)
+			updateMaxActive(&maxActive, current)
 			time.Sleep(30 * time.Millisecond)
 			return ctx, nil
 		},
-		AfterFunc: func(ctx context.Context, operation clientx.Operation, err error) error {
-			atomic.AddInt32(&active, -1)
+		AfterFunc: func(context.Context, clientx.Operation, error) error {
+			active.Add(-1)
 			return nil
 		},
 	}
 
-	client, err := NewLowLatencyUDP(
+	client, err := preset.NewLowLatencyUDP(
 		clientudp.Config{Address: "127.0.0.1:1"},
-		WithLowLatencyUDPConcurrencyLimit(1),
-		WithLowLatencyUDPOption(clientudp.WithPolicies(trackingPolicy)),
+		preset.WithLowLatencyUDPConcurrencyLimit(1),
+		preset.WithLowLatencyUDPOption(clientudp.WithPolicies(trackingPolicy)),
 	)
 	if err != nil {
 		t.Fatalf("new low latency udp client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeUDPClient(t, client)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	for range 2 {
 		go func() {
 			defer wg.Done()
-			_, _ = client.Dial(context.Background())
+			maybeDialAndClose(t, client)
 		}()
 	}
 	wg.Wait()
 
-	if got := atomic.LoadInt32(&maxActive); got != 1 {
+	if got := maxActive.Load(); got != 1 {
 		t.Fatalf("expected max in-flight 1, got %d", got)
+	}
+}
+
+func closeHTTPClient(t *testing.T, client clienthttp.Client) {
+	t.Helper()
+	if err := client.Close(); err != nil {
+		t.Fatalf("close http client: %v", err)
+	}
+}
+
+func closeTCPClient(t *testing.T, client clienttcp.Client) {
+	t.Helper()
+	if err := client.Close(); err != nil {
+		t.Fatalf("close tcp client: %v", err)
+	}
+}
+
+func closeUDPClient(t *testing.T, client clientudp.Client) {
+	t.Helper()
+	if err := client.Close(); err != nil {
+		t.Fatalf("close udp client: %v", err)
+	}
+}
+
+func updateMaxActive(maxActive *atomic.Int32, current int32) {
+	for {
+		seen := maxActive.Load()
+		if current <= seen || maxActive.CompareAndSwap(seen, current) {
+			return
+		}
+	}
+}
+
+func maybeDialAndClose(t *testing.T, client clientudp.Client) {
+	t.Helper()
+	conn, err := client.Dial(context.Background())
+	if err != nil {
+		return
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close udp connection: %v", err)
 	}
 }

@@ -3,6 +3,7 @@ package udp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -10,12 +11,14 @@ import (
 	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
 )
 
+// DefaultClient is the default UDP client implementation.
 type DefaultClient struct {
 	cfg      Config
 	hooks    []clientx.Hook
 	policies []clientx.Policy
 }
 
+// New creates a Client from cfg and applies opts.
 func New(cfg Config, opts ...Option) (Client, error) {
 	normalized, err := cfg.NormalizeAndValidate()
 	if err != nil {
@@ -27,10 +30,12 @@ func New(cfg Config, opts ...Option) (Client, error) {
 	return c, nil
 }
 
+// Close releases resources held by the client.
 func (c *DefaultClient) Close() error {
 	return nil
 }
 
+// Dial establishes a UDP connection using the configured policy chain.
 func (c *DefaultClient) Dial(ctx context.Context) (net.Conn, error) {
 	network := c.cfg.Network
 	operation := clientx.Operation{
@@ -41,13 +46,13 @@ func (c *DefaultClient) Dial(ctx context.Context) (net.Conn, error) {
 		Addr:     c.cfg.Address,
 	}
 
-	return clientx.InvokeWithPolicies(ctx, operation, func(execCtx context.Context) (net.Conn, error) {
+	conn, err := invokeWithDialPolicies(ctx, operation, func(execCtx context.Context) (net.Conn, error) {
 		start := time.Now()
 		dialer := &net.Dialer{Timeout: c.cfg.DialTimeout}
 
 		conn, err := dialer.DialContext(execCtx, network, c.cfg.Address)
 		if err != nil {
-			wrappedErr := clientx.WrapError(clientx.ProtocolUDP, "dial", c.cfg.Address, err)
+			wrappedErr := wrapClientError("dial", c.cfg.Address, err)
 			clientx.EmitDial(c.hooks, clientx.DialEvent{
 				Protocol: clientx.ProtocolUDP,
 				Op:       "dial",
@@ -74,8 +79,13 @@ func (c *DefaultClient) Dial(ctx context.Context) (net.Conn, error) {
 			hooks:        c.hooks,
 		}, nil
 	}, c.policies...)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
 }
 
+// ListenPacket opens a UDP packet listener using the configured policy chain.
 func (c *DefaultClient) ListenPacket(ctx context.Context) (net.PacketConn, error) {
 	network := c.cfg.Network
 	operation := clientx.Operation{
@@ -86,12 +96,12 @@ func (c *DefaultClient) ListenPacket(ctx context.Context) (net.PacketConn, error
 		Addr:     c.cfg.Address,
 	}
 
-	return clientx.InvokeWithPolicies(ctx, operation, func(execCtx context.Context) (net.PacketConn, error) {
+	packetConn, err := invokeWithListenPolicies(ctx, operation, func(execCtx context.Context) (net.PacketConn, error) {
 		start := time.Now()
 		lc := &net.ListenConfig{}
 		conn, err := lc.ListenPacket(execCtx, network, c.cfg.Address)
 		if err != nil {
-			wrappedErr := clientx.WrapError(clientx.ProtocolUDP, "listen", c.cfg.Address, err)
+			wrappedErr := wrapClientError("listen", c.cfg.Address, err)
 			clientx.EmitDial(c.hooks, clientx.DialEvent{
 				Protocol: clientx.ProtocolUDP,
 				Op:       "listen",
@@ -118,13 +128,16 @@ func (c *DefaultClient) ListenPacket(ctx context.Context) (net.PacketConn, error
 			hooks:        c.hooks,
 		}, nil
 	}, c.policies...)
+	if err != nil {
+		return nil, err
+	}
+	return packetConn, nil
 }
 
+// DialCodec establishes a UDP connection wrapped with codec helpers.
 func (c *DefaultClient) DialCodec(ctx context.Context, codec clientcodec.Codec) (*CodecConn, error) {
 	if codec == nil {
-		return nil, clientx.WrapErrorWithKind(
-			clientx.ProtocolUDP, "dial_codec", c.cfg.Address, clientx.ErrorKindCodec, errors.New("codec is nil"),
-		)
+		return nil, wrapCodecError("dial_codec", c.cfg.Address, errors.New("codec is nil"))
 	}
 
 	conn, err := c.Dial(ctx)
@@ -134,11 +147,10 @@ func (c *DefaultClient) DialCodec(ctx context.Context, codec clientcodec.Codec) 
 	return NewCodecConn(conn, codec, c.cfg.Address), nil
 }
 
+// ListenPacketCodec opens a packet listener wrapped with codec helpers.
 func (c *DefaultClient) ListenPacketCodec(ctx context.Context, codec clientcodec.Codec) (*CodecPacketConn, error) {
 	if codec == nil {
-		return nil, clientx.WrapErrorWithKind(
-			clientx.ProtocolUDP, "listen_codec", c.cfg.Address, clientx.ErrorKindCodec, errors.New("codec is nil"),
-		)
+		return nil, wrapCodecError("listen_codec", c.cfg.Address, errors.New("codec is nil"))
 	}
 
 	packetConn, err := c.ListenPacket(ctx)
@@ -146,4 +158,38 @@ func (c *DefaultClient) ListenPacketCodec(ctx context.Context, codec clientcodec
 		return nil, err
 	}
 	return NewCodecPacketConn(packetConn, codec, c.cfg.Address), nil
+}
+
+func invokeWithDialPolicies(
+	ctx context.Context,
+	operation clientx.Operation,
+	fn func(context.Context) (net.Conn, error),
+	policies ...clientx.Policy,
+) (net.Conn, error) {
+	conn, err := clientx.InvokeWithPolicies(ctx, operation, fn, policies...)
+	if err != nil {
+		return nil, fmt.Errorf("execute udp dial operation: %w", err)
+	}
+	return conn, nil
+}
+
+func invokeWithListenPolicies(
+	ctx context.Context,
+	operation clientx.Operation,
+	fn func(context.Context) (net.PacketConn, error),
+	policies ...clientx.Policy,
+) (net.PacketConn, error) {
+	conn, err := clientx.InvokeWithPolicies(ctx, operation, fn, policies...)
+	if err != nil {
+		return nil, fmt.Errorf("execute udp listen operation: %w", err)
+	}
+	return conn, nil
+}
+
+func wrapClientError(op, addr string, err error) error {
+	return fmt.Errorf("udp %s %s: %w", op, addr, clientx.WrapError(clientx.ProtocolUDP, op, addr, err))
+}
+
+func wrapCodecError(op, addr string, err error) error {
+	return fmt.Errorf("udp %s %s: %w", op, addr, clientx.WrapErrorWithKind(clientx.ProtocolUDP, op, addr, clientx.ErrorKindCodec, err))
 }

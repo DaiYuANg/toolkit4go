@@ -1,28 +1,30 @@
-package clientx
+package clientx_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/DaiYuANg/arcgo/clientx"
 )
 
 func TestRetryPolicyRetriesUntilSuccess(t *testing.T) {
 	attempts := 0
-	policy := NewRetryPolicy(RetryPolicyConfig{
+	policy := clientx.NewRetryPolicy(clientx.RetryPolicyConfig{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
 		MaxDelay:    time.Millisecond,
 		JitterRatio: 0,
 	})
 
-	result, err := InvokeWithPolicies(
+	result, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 		func(ctx context.Context) (string, error) {
 			attempts++
 			if attempts < 3 {
-				return "", WrapError(ProtocolHTTP, "get", "example", context.DeadlineExceeded)
+				return "", clientx.WrapError(clientx.ProtocolHTTP, "get", "example", context.DeadlineExceeded)
 			}
 			return "ok", nil
 		},
@@ -41,19 +43,19 @@ func TestRetryPolicyRetriesUntilSuccess(t *testing.T) {
 
 func TestRetryPolicyStopsAtMaxAttempts(t *testing.T) {
 	attempts := 0
-	policy := NewRetryPolicy(RetryPolicyConfig{
+	policy := clientx.NewRetryPolicy(clientx.RetryPolicyConfig{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
 		MaxDelay:    time.Millisecond,
 		JitterRatio: 0,
 	})
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolTCP, Kind: OperationKindDial, Op: "dial"},
+		clientx.Operation{Protocol: clientx.ProtocolTCP, Kind: clientx.OperationKindDial, Op: "dial"},
 		func(ctx context.Context) (int, error) {
 			attempts++
-			return 0, WrapError(ProtocolTCP, "dial", "127.0.0.1:1", context.DeadlineExceeded)
+			return 0, clientx.WrapError(clientx.ProtocolTCP, "dial", "127.0.0.1:1", context.DeadlineExceeded)
 		},
 		policy,
 	)
@@ -67,14 +69,14 @@ func TestRetryPolicyStopsAtMaxAttempts(t *testing.T) {
 
 func TestRetryPolicySkipsNonRetryableError(t *testing.T) {
 	attempts := 0
-	policy := NewRetryPolicy(RetryPolicyConfig{MaxAttempts: 5})
+	policy := clientx.NewRetryPolicy(clientx.RetryPolicyConfig{MaxAttempts: 5})
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolUDP, Kind: OperationKindDial, Op: "dial"},
+		clientx.Operation{Protocol: clientx.ProtocolUDP, Kind: clientx.OperationKindDial, Op: "dial"},
 		func(ctx context.Context) (int, error) {
 			attempts++
-			return 0, WrapErrorWithKind(ProtocolUDP, "dial", "127.0.0.1:1", ErrorKindCodec, errors.New("codec"))
+			return 0, clientx.WrapErrorWithKind(clientx.ProtocolUDP, "dial", "127.0.0.1:1", clientx.ErrorKindCodec, errors.New("codec"))
 		},
 		policy,
 	)
@@ -88,7 +90,7 @@ func TestRetryPolicySkipsNonRetryableError(t *testing.T) {
 
 func TestRetryPolicyContextCancelDuringBackoff(t *testing.T) {
 	attempts := 0
-	policy := NewRetryPolicy(RetryPolicyConfig{
+	policy := clientx.NewRetryPolicy(clientx.RetryPolicyConfig{
 		MaxAttempts: 3,
 		BaseDelay:   100 * time.Millisecond,
 		MaxDelay:    100 * time.Millisecond,
@@ -102,12 +104,12 @@ func TestRetryPolicyContextCancelDuringBackoff(t *testing.T) {
 		cancel()
 	}()
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		ctx,
-		Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 		func(ctx context.Context) (int, error) {
 			attempts++
-			return 0, WrapError(ProtocolHTTP, "get", "example", context.DeadlineExceeded)
+			return 0, clientx.WrapError(clientx.ProtocolHTTP, "get", "example", context.DeadlineExceeded)
 		},
 		policy,
 	)

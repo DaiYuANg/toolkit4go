@@ -1,19 +1,21 @@
-package clientx
+package clientx_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/DaiYuANg/arcgo/clientx"
 )
 
 func TestTimeoutPolicyTriggersDeadline(t *testing.T) {
-	policy := NewTimeoutPolicy(30 * time.Millisecond)
+	policy := clientx.NewTimeoutPolicy(30 * time.Millisecond)
 	start := time.Now()
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 		func(ctx context.Context) (int, error) {
 			<-ctx.Done()
 			return 0, ctx.Err()
@@ -31,14 +33,14 @@ func TestTimeoutPolicyTriggersDeadline(t *testing.T) {
 }
 
 func TestTimeoutPolicyKeepsShorterParentDeadline(t *testing.T) {
-	policy := NewTimeoutPolicy(200 * time.Millisecond)
+	policy := clientx.NewTimeoutPolicy(200 * time.Millisecond)
 	parentCtx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
 	defer cancel()
 
 	start := time.Now()
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		parentCtx,
-		Operation{Protocol: ProtocolTCP, Kind: OperationKindDial, Op: "dial"},
+		clientx.Operation{Protocol: clientx.ProtocolTCP, Kind: clientx.OperationKindDial, Op: "dial"},
 		func(ctx context.Context) (int, error) {
 			<-ctx.Done()
 			return 0, ctx.Err()
@@ -55,14 +57,14 @@ func TestTimeoutPolicyKeepsShorterParentDeadline(t *testing.T) {
 }
 
 func TestTimeoutPolicyTightensLongerParentDeadline(t *testing.T) {
-	policy := NewTimeoutPolicy(30 * time.Millisecond)
+	policy := clientx.NewTimeoutPolicy(30 * time.Millisecond)
 	parentCtx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
 
 	start := time.Now()
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		parentCtx,
-		Operation{Protocol: ProtocolUDP, Kind: OperationKindDial, Op: "dial"},
+		clientx.Operation{Protocol: clientx.ProtocolUDP, Kind: clientx.OperationKindDial, Op: "dial"},
 		func(ctx context.Context) (int, error) {
 			<-ctx.Done()
 			return 0, ctx.Err()
@@ -79,11 +81,11 @@ func TestTimeoutPolicyTightensLongerParentDeadline(t *testing.T) {
 }
 
 func TestTimeoutPolicyNoopWhenDisabled(t *testing.T) {
-	policy := NewTimeoutPolicy(0)
+	policy := clientx.NewTimeoutPolicy(0)
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 		func(ctx context.Context) (int, error) {
 			if _, ok := ctx.Deadline(); ok {
 				t.Fatal("expected no deadline from timeout policy")
@@ -99,17 +101,17 @@ func TestTimeoutPolicyNoopWhenDisabled(t *testing.T) {
 
 func TestTimeoutPolicyWorksWithRetryPolicy(t *testing.T) {
 	attempts := 0
-	timeoutPolicy := NewTimeoutPolicy(50 * time.Millisecond)
-	retryPolicy := NewRetryPolicy(RetryPolicyConfig{
+	timeoutPolicy := clientx.NewTimeoutPolicy(50 * time.Millisecond)
+	retryPolicy := clientx.NewRetryPolicy(clientx.RetryPolicyConfig{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
 		MaxDelay:    time.Millisecond,
 		JitterRatio: 0,
 	})
 
-	result, err := InvokeWithPolicies(
+	result, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 		func(ctx context.Context) (string, error) {
 			attempts++
 			if attempts < 3 {

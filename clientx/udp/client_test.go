@@ -1,4 +1,4 @@
-package udp
+package udp_test
 
 import (
 	"context"
@@ -9,28 +9,29 @@ import (
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
+	clientudp "github.com/DaiYuANg/arcgo/clientx/udp"
 )
 
 func TestDialRoundTrip(t *testing.T) {
-	server, err := net.ListenPacket("udp", "127.0.0.1:0")
+	server, err := (&net.ListenConfig{}).ListenPacket(context.Background(), "udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen udp server failed: %v", err)
 	}
-	defer func() { _ = server.Close() }()
+	defer closePacketConn(t, server)
 
 	serverErr := make(chan error, 1)
 	go func() {
 		buf := make([]byte, 128)
-		n, addr, err := server.ReadFrom(buf)
-		if err != nil {
-			serverErr <- err
+		n, addr, readErr := server.ReadFrom(buf)
+		if readErr != nil {
+			serverErr <- readErr
 			return
 		}
-		_, err = server.WriteTo(append([]byte("ack:"), buf[:n]...), addr)
-		serverErr <- err
+		_, writeErr := server.WriteTo(append([]byte("ack:"), buf[:n]...), addr)
+		serverErr <- writeErr
 	}()
 
-	client, err := New(Config{
+	client, err := clientudp.New(clientudp.Config{
 		Address:      server.LocalAddr().String(),
 		DialTimeout:  time.Second,
 		ReadTimeout:  time.Second,
@@ -39,16 +40,17 @@ func TestDialRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	conn, err := client.Dial(context.Background())
 	if err != nil {
 		t.Fatalf("dial udp failed: %v", err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer closeConn(t, conn)
 
-	if _, err := conn.Write([]byte("ping")); err != nil {
-		t.Fatalf("write udp failed: %v", err)
+	_, writeErr := conn.Write([]byte("ping"))
+	if writeErr != nil {
+		t.Fatalf("write udp failed: %v", writeErr)
 	}
 
 	buf := make([]byte, 128)
@@ -66,20 +68,20 @@ func TestDialRoundTrip(t *testing.T) {
 }
 
 func TestListenPacketReadTimeout(t *testing.T) {
-	client, err := New(Config{
+	client, err := clientudp.New(clientudp.Config{
 		Address:     "127.0.0.1:0",
 		ReadTimeout: 40 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	conn, err := client.ListenPacket(context.Background())
 	if err != nil {
 		t.Fatalf("listen packet failed: %v", err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer closePacketConn(t, conn)
 
 	buf := make([]byte, 16)
 	start := time.Now()
@@ -98,8 +100,8 @@ func TestListenPacketReadTimeout(t *testing.T) {
 		t.Fatalf("expected kind %q, got %q", clientx.ErrorKindTimeout, clientx.KindOf(err))
 	}
 
-	netErr, ok := err.(net.Error)
-	if !ok || !netErr.Timeout() {
+	var netErr net.Error
+	if !errors.As(err, &netErr) || !netErr.Timeout() {
 		t.Fatalf("expected net timeout error, got: %v", err)
 	}
 
@@ -113,7 +115,7 @@ func TestDialCodecRoundTrip(t *testing.T) {
 		Message string `json:"message"`
 	}
 
-	serverClient, err := New(Config{
+	serverClient, err := clientudp.New(clientudp.Config{
 		Address:      "127.0.0.1:0",
 		ReadTimeout:  time.Second,
 		WriteTimeout: time.Second,
@@ -121,26 +123,26 @@ func TestDialCodecRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new server client failed: %v", err)
 	}
-	defer func() { _ = serverClient.Close() }()
+	defer closeClient(t, serverClient)
 
 	server, err := serverClient.ListenPacketCodec(context.Background(), clientcodec.JSON)
 	if err != nil {
 		t.Fatalf("listen packet codec failed: %v", err)
 	}
-	defer func() { _ = server.Close() }()
+	defer closeCodecPacketConn(t, server)
 
 	serverErr := make(chan error, 1)
 	go func() {
 		var req payload
-		addr, err := server.ReadValueFrom(&req)
-		if err != nil {
-			serverErr <- err
+		addr, readErr := server.ReadValueFrom(&req)
+		if readErr != nil {
+			serverErr <- readErr
 			return
 		}
 		serverErr <- server.WriteValueTo(payload{Message: "ack:" + req.Message}, addr)
 	}()
 
-	client, err := New(Config{
+	client, err := clientudp.New(clientudp.Config{
 		Address:      server.Raw().LocalAddr().String(),
 		DialTimeout:  time.Second,
 		ReadTimeout:  time.Second,
@@ -149,13 +151,13 @@ func TestDialCodecRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	codecConn, err := client.DialCodec(context.Background(), clientcodec.JSON)
 	if err != nil {
 		t.Fatalf("dial codec failed: %v", err)
 	}
-	defer func() { _ = codecConn.Close() }()
+	defer closeCodecConn(t, codecConn)
 
 	if err := codecConn.WriteValue(payload{Message: "ping"}); err != nil {
 		t.Fatalf("write value failed: %v", err)
@@ -175,11 +177,11 @@ func TestDialCodecRoundTrip(t *testing.T) {
 }
 
 func TestDialCodecWithNilCodec(t *testing.T) {
-	client, err := New(Config{Address: "127.0.0.1:9000"})
+	client, err := clientudp.New(clientudp.Config{Address: "127.0.0.1:9000"})
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	_, err = client.DialCodec(context.Background(), nil)
 	if err == nil {
@@ -192,12 +194,12 @@ func TestDialCodecWithNilCodec(t *testing.T) {
 
 func TestListenPacketEmitsIOHook(t *testing.T) {
 	var got clientx.IOEvent
-	client, err := New(
-		Config{
+	client, err := clientudp.New(
+		clientudp.Config{
 			Address:     "127.0.0.1:0",
 			ReadTimeout: 40 * time.Millisecond,
 		},
-		WithHooks(clientx.HookFuncs{
+		clientudp.WithHooks(clientx.HookFuncs{
 			OnIOFunc: func(event clientx.IOEvent) {
 				got = event
 			},
@@ -206,13 +208,13 @@ func TestListenPacketEmitsIOHook(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer closeClient(t, client)
 
 	conn, err := client.ListenPacket(context.Background())
 	if err != nil {
 		t.Fatalf("listen packet failed: %v", err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer closePacketConn(t, conn)
 
 	buf := make([]byte, 8)
 	_, _, err = conn.ReadFrom(buf)
@@ -227,5 +229,40 @@ func TestListenPacketEmitsIOHook(t *testing.T) {
 	}
 	if got.Err == nil {
 		t.Fatal("expected hook error to be set")
+	}
+}
+
+func closeClient(t *testing.T, client clientudp.Client) {
+	t.Helper()
+	if err := client.Close(); err != nil {
+		t.Fatalf("close udp client: %v", err)
+	}
+}
+
+func closeConn(t *testing.T, conn net.Conn) {
+	t.Helper()
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close udp connection: %v", err)
+	}
+}
+
+func closePacketConn(t *testing.T, conn net.PacketConn) {
+	t.Helper()
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close udp packet connection: %v", err)
+	}
+}
+
+func closeCodecConn(t *testing.T, conn *clientudp.CodecConn) {
+	t.Helper()
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close udp codec connection: %v", err)
+	}
+}
+
+func closeCodecPacketConn(t *testing.T, conn *clientudp.CodecPacketConn) {
+	t.Helper()
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close udp codec packet connection: %v", err)
 	}
 }

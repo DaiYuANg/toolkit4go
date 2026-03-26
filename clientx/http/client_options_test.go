@@ -1,44 +1,39 @@
-package http
+package http_test
 
 import (
 	"context"
 	"errors"
 	stdhttp "net/http"
-	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
+	clienthttp "github.com/DaiYuANg/arcgo/clientx/http"
 )
 
 func TestExecuteWithConcurrencyLimitOption(t *testing.T) {
-	var active int32
-	var maxActive int32
+	var active atomic.Int32
+	var maxActive atomic.Int32
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		current := atomic.AddInt32(&active, 1)
-		for {
-			seen := atomic.LoadInt32(&maxActive)
-			if current <= seen || atomic.CompareAndSwapInt32(&maxActive, seen, current) {
-				break
-			}
-		}
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		current := active.Add(1)
+		defer active.Add(-1)
+		updateMaxActive(&maxActive, current)
 		time.Sleep(40 * time.Millisecond)
-		atomic.AddInt32(&active, -1)
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
 
-	client, err := New(
-		Config{BaseURL: srv.URL, Timeout: 2 * time.Second},
-		WithConcurrencyLimit(1),
+	client, err := clienthttp.New(
+		clienthttp.Config{BaseURL: srv.URL, Timeout: 2 * time.Second},
+		clienthttp.WithConcurrencyLimit(1),
 	)
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer mustCloseClient(t, client)
 
 	errCh := make(chan error, 2)
 	var wg sync.WaitGroup
@@ -59,29 +54,29 @@ func TestExecuteWithConcurrencyLimitOption(t *testing.T) {
 		}
 	}
 
-	if got := atomic.LoadInt32(&maxActive); got != 1 {
+	if got := maxActive.Load(); got != 1 {
 		t.Fatalf("expected max in-flight 1, got %d", got)
 	}
 }
 
 func TestExecuteWithTimeoutGuardOption(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		time.Sleep(120 * time.Millisecond)
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
 
-	client, err := New(
-		Config{
+	client, err := clienthttp.New(
+		clienthttp.Config{
 			BaseURL: srv.URL,
 			Timeout: time.Second,
 		},
-		WithTimeoutGuard(30*time.Millisecond),
+		clienthttp.WithTimeoutGuard(30*time.Millisecond),
 	)
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer mustCloseClient(t, client)
 
 	_, err = client.Execute(context.Background(), nil, stdhttp.MethodGet, "/slow")
 	if err == nil {
@@ -92,5 +87,14 @@ func TestExecuteWithTimeoutGuardOption(t *testing.T) {
 	}
 	if !clientx.IsKind(err, clientx.ErrorKindTimeout) {
 		t.Fatalf("expected timeout kind, got %q", clientx.KindOf(err))
+	}
+}
+
+func updateMaxActive(maxActive *atomic.Int32, current int32) {
+	for {
+		seen := maxActive.Load()
+		if current <= seen || maxActive.CompareAndSwap(seen, current) {
+			return
+		}
 	}
 }

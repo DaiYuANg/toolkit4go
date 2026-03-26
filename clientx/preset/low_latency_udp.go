@@ -1,6 +1,7 @@
 package preset
 
 import (
+	"fmt"
 	"time"
 
 	clientudp "github.com/DaiYuANg/arcgo/clientx/udp"
@@ -15,38 +16,45 @@ type lowLatencyUDPPreset struct {
 	options          []clientudp.Option
 }
 
+// LowLatencyUDPOption configures the NewLowLatencyUDP preset.
 type LowLatencyUDPOption func(*lowLatencyUDPPreset)
 
+// WithLowLatencyUDPDialTimeout overrides the preset dial timeout.
 func WithLowLatencyUDPDialTimeout(timeout time.Duration) LowLatencyUDPOption {
 	return func(p *lowLatencyUDPPreset) {
 		p.dialTimeout = timeout
 	}
 }
 
+// WithLowLatencyUDPReadTimeout overrides the preset read timeout.
 func WithLowLatencyUDPReadTimeout(timeout time.Duration) LowLatencyUDPOption {
 	return func(p *lowLatencyUDPPreset) {
 		p.readTimeout = timeout
 	}
 }
 
+// WithLowLatencyUDPWriteTimeout overrides the preset write timeout.
 func WithLowLatencyUDPWriteTimeout(timeout time.Duration) LowLatencyUDPOption {
 	return func(p *lowLatencyUDPPreset) {
 		p.writeTimeout = timeout
 	}
 }
 
+// WithLowLatencyUDPTimeoutGuard adds a timeout guard policy to the preset client.
 func WithLowLatencyUDPTimeoutGuard(timeout time.Duration) LowLatencyUDPOption {
 	return func(p *lowLatencyUDPPreset) {
 		p.timeoutGuard = timeout
 	}
 }
 
+// WithLowLatencyUDPConcurrencyLimit adds a concurrency limit policy to the preset client.
 func WithLowLatencyUDPConcurrencyLimit(maxInFlight int) LowLatencyUDPOption {
 	return func(p *lowLatencyUDPPreset) {
 		p.concurrencyLimit = maxInFlight
 	}
 }
 
+// WithLowLatencyUDPOption appends a raw UDP client option to the preset.
 func WithLowLatencyUDPOption(opt clientudp.Option) LowLatencyUDPOption {
 	return func(p *lowLatencyUDPPreset) {
 		if opt != nil {
@@ -55,6 +63,7 @@ func WithLowLatencyUDPOption(opt clientudp.Option) LowLatencyUDPOption {
 	}
 }
 
+// NewLowLatencyUDP creates a UDP client tuned for low-latency traffic.
 func NewLowLatencyUDP(cfg clientudp.Config, opts ...LowLatencyUDPOption) (clientudp.Client, error) {
 	preset := defaultLowLatencyUDPPreset()
 	for _, opt := range opts {
@@ -82,7 +91,11 @@ func NewLowLatencyUDP(cfg clientudp.Config, opts ...LowLatencyUDPOption) (client
 		clientOpts = append(clientOpts, clientudp.WithConcurrencyLimit(preset.concurrencyLimit))
 	}
 	clientOpts = append(clientOpts, preset.options...)
-	return clientudp.New(tuned, clientOpts...)
+	client, err := clientudp.New(tuned, clientOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("build low latency udp client: %w", err)
+	}
+	return client, nil
 }
 
 func defaultLowLatencyUDPPreset() lowLatencyUDPPreset {

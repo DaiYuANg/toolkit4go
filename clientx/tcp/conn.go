@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -16,57 +17,54 @@ type timeoutConn struct {
 }
 
 func (c *timeoutConn) Read(b []byte) (int, error) {
-	if c.readTimeout > 0 {
-		_ = c.SetReadDeadline(time.Now().Add(c.readTimeout))
-	}
-	start := time.Now()
-	n, err := c.Conn.Read(b)
-	if err != nil {
-		wrappedErr := clientx.WrapError(clientx.ProtocolTCP, "read", c.addr, err)
-		clientx.EmitIO(c.hooks, clientx.IOEvent{
-			Protocol: clientx.ProtocolTCP,
-			Op:       "read",
-			Addr:     c.addr,
-			Bytes:    n,
-			Duration: time.Since(start),
-			Err:      wrappedErr,
-		})
-		return n, wrappedErr
-	}
-	clientx.EmitIO(c.hooks, clientx.IOEvent{
-		Protocol: clientx.ProtocolTCP,
-		Op:       "read",
-		Addr:     c.addr,
-		Bytes:    n,
-		Duration: time.Since(start),
-	})
-	return n, nil
+	return c.runIO("read", b, c.readTimeout, c.SetReadDeadline, c.Conn.Read)
 }
 
 func (c *timeoutConn) Write(b []byte) (int, error) {
-	if c.writeTimeout > 0 {
-		_ = c.SetWriteDeadline(time.Now().Add(c.writeTimeout))
-	}
+	return c.runIO("write", b, c.writeTimeout, c.SetWriteDeadline, c.Conn.Write)
+}
+
+func (c *timeoutConn) runIO(
+	op string,
+	data []byte,
+	timeout time.Duration,
+	setDeadline func(time.Time) error,
+	run func([]byte) (int, error),
+) (int, error) {
 	start := time.Now()
-	n, err := c.Conn.Write(b)
+	if err := applyDeadline(setDeadline, timeout, op, c.addr); err != nil {
+		emitIO(op, c.addr, 0, time.Since(start), err, c.hooks)
+		return 0, err
+	}
+
+	n, err := run(data)
 	if err != nil {
-		wrappedErr := clientx.WrapError(clientx.ProtocolTCP, "write", c.addr, err)
-		clientx.EmitIO(c.hooks, clientx.IOEvent{
-			Protocol: clientx.ProtocolTCP,
-			Op:       "write",
-			Addr:     c.addr,
-			Bytes:    n,
-			Duration: time.Since(start),
-			Err:      wrappedErr,
-		})
+		wrappedErr := wrapClientError(op, c.addr, err)
+		emitIO(op, c.addr, n, time.Since(start), wrappedErr, c.hooks)
 		return n, wrappedErr
 	}
-	clientx.EmitIO(c.hooks, clientx.IOEvent{
-		Protocol: clientx.ProtocolTCP,
-		Op:       "write",
-		Addr:     c.addr,
-		Bytes:    n,
-		Duration: time.Since(start),
-	})
+
+	emitIO(op, c.addr, n, time.Since(start), nil, c.hooks)
 	return n, nil
+}
+
+func applyDeadline(setDeadline func(time.Time) error, timeout time.Duration, op, addr string) error {
+	if timeout <= 0 {
+		return nil
+	}
+	if err := setDeadline(time.Now().Add(timeout)); err != nil {
+		return fmt.Errorf("set tcp %s deadline for %s: %w", op, addr, err)
+	}
+	return nil
+}
+
+func emitIO(op, addr string, bytes int, duration time.Duration, err error, hooks []clientx.Hook) {
+	clientx.EmitIO(hooks, clientx.IOEvent{
+		Protocol: clientx.ProtocolTCP,
+		Op:       op,
+		Addr:     addr,
+		Bytes:    bytes,
+		Duration: duration,
+		Err:      err,
+	})
 }

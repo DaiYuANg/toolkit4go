@@ -1,4 +1,4 @@
-package http
+package http_test
 
 import (
 	"context"
@@ -11,24 +11,25 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
+	clienthttp "github.com/DaiYuANg/arcgo/clientx/http"
 	"github.com/samber/lo"
 	"resty.dev/v3"
 )
 
 func TestExecuteWithNilRequest(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
 
-	client, err := New(Config{
+	client, err := clienthttp.New(clienthttp.Config{
 		BaseURL: srv.URL,
 		Timeout: time.Second,
 	})
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer mustCloseClient(t, client)
 
 	resp, err := client.Execute(context.Background(), nil, stdhttp.MethodGet, "/health")
 	if err != nil {
@@ -40,14 +41,14 @@ func TestExecuteWithNilRequest(t *testing.T) {
 }
 
 func TestExecuteWrapsTransportError(t *testing.T) {
-	client, err := New(Config{
+	client, err := clienthttp.New(clienthttp.Config{
 		BaseURL: "http://127.0.0.1:1",
 		Timeout: 150 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer mustCloseClient(t, client)
 
 	_, err = client.Execute(context.Background(), client.R(), stdhttp.MethodGet, "")
 	if err == nil {
@@ -73,18 +74,18 @@ func TestExecuteWrapsTransportError(t *testing.T) {
 }
 
 func TestExecuteEmitsHook(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		_, _ = w.Write([]byte("ok"))
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		mustWriteBody(t, w, "ok")
 	}))
 	defer srv.Close()
 
 	var got clientx.IOEvent
-	client, err := New(
-		Config{
+	client, err := clienthttp.New(
+		clienthttp.Config{
 			BaseURL: srv.URL,
 			Timeout: time.Second,
 		},
-		WithHooks(clientx.HookFuncs{
+		clienthttp.WithHooks(clientx.HookFuncs{
 			OnIOFunc: func(event clientx.IOEvent) {
 				got = event
 			},
@@ -93,7 +94,7 @@ func TestExecuteEmitsHook(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer mustCloseClient(t, client)
 
 	_, err = client.Execute(context.Background(), nil, stdhttp.MethodGet, "/health")
 	if err != nil {
@@ -111,25 +112,25 @@ func TestExecuteEmitsHook(t *testing.T) {
 }
 
 func TestNewWithInvalidBaseURL(t *testing.T) {
-	_, err := New(Config{BaseURL: "://bad"})
+	_, err := clienthttp.New(clienthttp.Config{BaseURL: "://bad"})
 	if err == nil {
 		t.Fatal("expected config validation error, got nil")
 	}
-	if !errors.Is(err, ErrInvalidConfig) {
+	if !errors.Is(err, clienthttp.ErrInvalidConfig) {
 		t.Fatalf("expected ErrInvalidConfig, got %v", err)
 	}
 }
 
 func TestExecuteAppliesPolicies(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
 
 	calls := make([]string, 0, 3)
-	client, err := New(
-		Config{BaseURL: srv.URL, Timeout: time.Second},
-		WithPolicies(clientx.PolicyFuncs{
+	client, err := clienthttp.New(
+		clienthttp.Config{BaseURL: srv.URL, Timeout: time.Second},
+		clienthttp.WithPolicies(clientx.PolicyFuncs{
 			BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
 				calls = append(calls, "before")
 				if operation.Protocol != clientx.ProtocolHTTP || operation.Kind != clientx.OperationKindRequest {
@@ -146,7 +147,7 @@ func TestExecuteAppliesPolicies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer mustCloseClient(t, client)
 
 	_, err = client.Execute(context.Background(), nil, stdhttp.MethodGet, "/health")
 	if err != nil {
@@ -158,14 +159,14 @@ func TestExecuteAppliesPolicies(t *testing.T) {
 }
 
 func TestExecuteRetriesFromConfig(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
 
-	var attempts int32
-	client, err := New(
-		Config{
+	var attempts atomic.Int32
+	client, err := clienthttp.New(
+		clienthttp.Config{
 			BaseURL: srv.URL,
 			Timeout: time.Second,
 			Retry: clientx.RetryConfig{
@@ -175,8 +176,8 @@ func TestExecuteRetriesFromConfig(t *testing.T) {
 				WaitMax:    2 * time.Millisecond,
 			},
 		},
-		WithRequestMiddleware(func(_ *resty.Client, _ *resty.Request) error {
-			if atomic.AddInt32(&attempts, 1) < 3 {
+		clienthttp.WithRequestMiddleware(func(_ *resty.Client, _ *resty.Request) error {
+			if attempts.Add(1) < 3 {
 				return context.DeadlineExceeded
 			}
 			return nil
@@ -185,7 +186,7 @@ func TestExecuteRetriesFromConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client failed: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer mustCloseClient(t, client)
 
 	resp, err := client.Execute(context.Background(), nil, stdhttp.MethodGet, "/health")
 	if err != nil {
@@ -194,7 +195,28 @@ func TestExecuteRetriesFromConfig(t *testing.T) {
 	if resp.StatusCode() != stdhttp.StatusNoContent {
 		t.Fatalf("expected status %d, got %d", stdhttp.StatusNoContent, resp.StatusCode())
 	}
-	if got := atomic.LoadInt32(&attempts); got != 3 {
+	if got := attempts.Load(); got != 3 {
 		t.Fatalf("expected 3 attempts, got %d", got)
+	}
+}
+
+func newHTTPTestServer(handler stdhttp.Handler) *httptest.Server {
+	server := httptest.NewUnstartedServer(handler)
+	server.Config.ReadHeaderTimeout = time.Second
+	server.Start()
+	return server
+}
+
+func mustCloseClient(t *testing.T, client clienthttp.Client) {
+	t.Helper()
+	if err := client.Close(); err != nil {
+		t.Fatalf("close client failed: %v", err)
+	}
+}
+
+func mustWriteBody(t *testing.T, w stdhttp.ResponseWriter, body string) {
+	t.Helper()
+	if _, err := w.Write([]byte(body)); err != nil {
+		t.Fatalf("write response body failed: %v", err)
 	}
 }

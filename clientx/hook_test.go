@@ -1,26 +1,28 @@
-package clientx
+package clientx_test
 
 import (
 	"context"
 	"log/slog"
 	"testing"
+
+	"github.com/DaiYuANg/arcgo/clientx"
 )
 
 func TestHookFuncsDispatch(t *testing.T) {
 	var dialCalled bool
 	var ioCalled bool
 
-	h := HookFuncs{
-		OnDialFunc: func(event DialEvent) {
-			dialCalled = event.Protocol == ProtocolTCP
+	h := clientx.HookFuncs{
+		OnDialFunc: func(event clientx.DialEvent) {
+			dialCalled = event.Protocol == clientx.ProtocolTCP
 		},
-		OnIOFunc: func(event IOEvent) {
-			ioCalled = event.Protocol == ProtocolHTTP
+		OnIOFunc: func(event clientx.IOEvent) {
+			ioCalled = event.Protocol == clientx.ProtocolHTTP
 		},
 	}
 
-	EmitDial([]Hook{h}, DialEvent{Protocol: ProtocolTCP})
-	EmitIO([]Hook{h}, IOEvent{Protocol: ProtocolHTTP})
+	clientx.EmitDial([]clientx.Hook{h}, clientx.DialEvent{Protocol: clientx.ProtocolTCP})
+	clientx.EmitIO([]clientx.Hook{h}, clientx.IOEvent{Protocol: clientx.ProtocolHTTP})
 
 	if !dialCalled {
 		t.Fatal("expected dial hook to be called")
@@ -34,27 +36,27 @@ func TestEmitHookPanicIsolation(t *testing.T) {
 	dialCalled := false
 	ioCalled := false
 
-	hooks := []Hook{
-		HookFuncs{
-			OnDialFunc: func(event DialEvent) {
+	hooks := []clientx.Hook{
+		clientx.HookFuncs{
+			OnDialFunc: func(event clientx.DialEvent) {
 				panic("dial hook panic")
 			},
-			OnIOFunc: func(event IOEvent) {
+			OnIOFunc: func(event clientx.IOEvent) {
 				panic("io hook panic")
 			},
 		},
-		HookFuncs{
-			OnDialFunc: func(event DialEvent) {
+		clientx.HookFuncs{
+			OnDialFunc: func(event clientx.DialEvent) {
 				dialCalled = true
 			},
-			OnIOFunc: func(event IOEvent) {
+			OnIOFunc: func(event clientx.IOEvent) {
 				ioCalled = true
 			},
 		},
 	}
 
-	EmitDial(hooks, DialEvent{Protocol: ProtocolTCP})
-	EmitIO(hooks, IOEvent{Protocol: ProtocolHTTP})
+	clientx.EmitDial(hooks, clientx.DialEvent{Protocol: clientx.ProtocolTCP})
+	clientx.EmitIO(hooks, clientx.IOEvent{Protocol: clientx.ProtocolHTTP})
 
 	if !dialCalled {
 		t.Fatal("expected subsequent dial hook to be called after panic")
@@ -96,10 +98,10 @@ func (h *memoryLogHandler) WithGroup(string) slog.Handler      { return h }
 func TestLoggingHookEmitsDialAndIORecords(t *testing.T) {
 	handler := &memoryLogHandler{}
 	logger := slog.New(handler)
-	hook := NewLoggingHook(logger)
+	hook := clientx.NewLoggingHook(logger)
 
-	EmitDial([]Hook{hook}, DialEvent{Protocol: ProtocolTCP, Op: "dial", Network: "tcp", Addr: "127.0.0.1:9000"})
-	EmitIO([]Hook{hook}, IOEvent{Protocol: ProtocolHTTP, Op: "get", Addr: "http://example.com", Bytes: 32})
+	clientx.EmitDial([]clientx.Hook{hook}, clientx.DialEvent{Protocol: clientx.ProtocolTCP, Op: "dial", Network: "tcp", Addr: "127.0.0.1:9000"})
+	clientx.EmitIO([]clientx.Hook{hook}, clientx.IOEvent{Protocol: clientx.ProtocolHTTP, Op: "get", Addr: "http://example.com", Bytes: 32})
 
 	if len(handler.records) != 2 {
 		t.Fatalf("expected 2 log records, got %d", len(handler.records))

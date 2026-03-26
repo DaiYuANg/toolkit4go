@@ -2,12 +2,13 @@ package tcp
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
-	"github.com/DaiYuANg/arcgo/clientx"
 	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
 )
 
+// CodecConn wraps a TCP connection with codec and framer helpers.
 type CodecConn struct {
 	conn   net.Conn
 	codec  clientcodec.Codec
@@ -15,6 +16,7 @@ type CodecConn struct {
 	addr   string
 }
 
+// NewCodecConn wraps conn with codec/framer helpers.
 func NewCodecConn(conn net.Conn, codec clientcodec.Codec, framer clientcodec.Framer, addr string) *CodecConn {
 	return &CodecConn{
 		conn:   conn,
@@ -24,47 +26,50 @@ func NewCodecConn(conn net.Conn, codec clientcodec.Codec, framer clientcodec.Fra
 	}
 }
 
+// Raw returns the underlying net.Conn.
 func (c *CodecConn) Raw() net.Conn {
 	return c.conn
 }
 
+// Close closes the underlying connection.
 func (c *CodecConn) Close() error {
 	if c.conn == nil {
 		return nil
 	}
-	return c.conn.Close()
-}
-
-func (c *CodecConn) WriteValue(v any) error {
-	if c.codec == nil || c.framer == nil {
-		return clientx.WrapErrorWithKind(
-			clientx.ProtocolTCP, "encode", c.addr, clientx.ErrorKindCodec, errors.New("codec/framer is nil"),
-		)
-	}
-
-	payload, err := c.codec.Marshal(v)
-	if err != nil {
-		return clientx.WrapErrorWithKind(clientx.ProtocolTCP, "encode", c.addr, clientx.ErrorKindCodec, err)
-	}
-	if err := c.framer.WriteFrame(c.conn, payload); err != nil {
-		return clientx.WrapError(clientx.ProtocolTCP, "write_frame", c.addr, err)
+	if err := c.conn.Close(); err != nil {
+		return fmt.Errorf("close tcp codec conn: %w", err)
 	}
 	return nil
 }
 
+// WriteValue encodes v and writes it as one framed payload.
+func (c *CodecConn) WriteValue(v any) error {
+	if c.codec == nil || c.framer == nil {
+		return wrapCodecError("encode", c.addr, errors.New("codec/framer is nil"))
+	}
+
+	payload, err := c.codec.Marshal(v)
+	if err != nil {
+		return wrapCodecError("encode", c.addr, err)
+	}
+	if err := c.framer.WriteFrame(c.conn, payload); err != nil {
+		return wrapClientError("write_frame", c.addr, err)
+	}
+	return nil
+}
+
+// ReadValue reads one framed payload and decodes it into v.
 func (c *CodecConn) ReadValue(v any) error {
 	if c.codec == nil || c.framer == nil {
-		return clientx.WrapErrorWithKind(
-			clientx.ProtocolTCP, "decode", c.addr, clientx.ErrorKindCodec, errors.New("codec/framer is nil"),
-		)
+		return wrapCodecError("decode", c.addr, errors.New("codec/framer is nil"))
 	}
 
 	frame, err := c.framer.ReadFrame(c.conn)
 	if err != nil {
-		return clientx.WrapError(clientx.ProtocolTCP, "read_frame", c.addr, err)
+		return wrapClientError("read_frame", c.addr, err)
 	}
 	if err := c.codec.Unmarshal(frame, v); err != nil {
-		return clientx.WrapErrorWithKind(clientx.ProtocolTCP, "decode", c.addr, clientx.ErrorKindCodec, err)
+		return wrapCodecError("decode", c.addr, err)
 	}
 	return nil
 }

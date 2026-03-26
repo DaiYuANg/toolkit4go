@@ -1,6 +1,7 @@
 package preset
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
@@ -19,44 +20,52 @@ type internalRPCPreset struct {
 	options          []clienttcp.Option
 }
 
+// InternalRPCOption configures the NewInternalRPC preset.
 type InternalRPCOption func(*internalRPCPreset)
 
+// WithInternalRPCDialTimeout overrides the preset dial timeout.
 func WithInternalRPCDialTimeout(timeout time.Duration) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.dialTimeout = timeout
 	}
 }
 
+// WithInternalRPCReadTimeout overrides the preset read timeout.
 func WithInternalRPCReadTimeout(timeout time.Duration) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.readTimeout = timeout
 	}
 }
 
+// WithInternalRPCWriteTimeout overrides the preset write timeout.
 func WithInternalRPCWriteTimeout(timeout time.Duration) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.writeTimeout = timeout
 	}
 }
 
+// WithInternalRPCKeepAlive overrides the preset keepalive interval.
 func WithInternalRPCKeepAlive(keepAlive time.Duration) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.keepAlive = keepAlive
 	}
 }
 
+// WithInternalRPCTimeoutGuard adds a timeout guard policy to the preset client.
 func WithInternalRPCTimeoutGuard(timeout time.Duration) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.timeoutGuard = timeout
 	}
 }
 
+// WithInternalRPCConcurrencyLimit adds a concurrency limit policy to the preset client.
 func WithInternalRPCConcurrencyLimit(maxInFlight int) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.concurrencyLimit = maxInFlight
 	}
 }
 
+// WithInternalRPCRetryPolicy overrides the preset retry policy.
 func WithInternalRPCRetryPolicy(cfg clientx.RetryPolicyConfig) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.retryPolicy = cfg
@@ -64,12 +73,14 @@ func WithInternalRPCRetryPolicy(cfg clientx.RetryPolicyConfig) InternalRPCOption
 	}
 }
 
+// WithInternalRPCDisableRetry disables preset-managed retries.
 func WithInternalRPCDisableRetry() InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		p.disableRetry = true
 	}
 }
 
+// WithInternalRPCOption appends a raw TCP client option to the preset.
 func WithInternalRPCOption(opt clienttcp.Option) InternalRPCOption {
 	return func(p *internalRPCPreset) {
 		if opt != nil {
@@ -78,6 +89,7 @@ func WithInternalRPCOption(opt clienttcp.Option) InternalRPCOption {
 	}
 }
 
+// NewInternalRPC creates a TCP client tuned for internal RPC traffic.
 func NewInternalRPC(cfg clienttcp.Config, opts ...InternalRPCOption) (clienttcp.Client, error) {
 	preset := defaultInternalRPCPreset()
 	for _, opt := range opts {
@@ -86,32 +98,13 @@ func NewInternalRPC(cfg clienttcp.Config, opts ...InternalRPCOption) (clienttcp.
 		}
 	}
 
-	tuned := cfg
-	if tuned.DialTimeout == 0 {
-		tuned.DialTimeout = preset.dialTimeout
+	tuned := tuneInternalRPCConfig(cfg, preset)
+	clientOpts := buildInternalRPCOptions(preset)
+	client, err := clienttcp.New(tuned, clientOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("build internal rpc client: %w", err)
 	}
-	if tuned.ReadTimeout == 0 {
-		tuned.ReadTimeout = preset.readTimeout
-	}
-	if tuned.WriteTimeout == 0 {
-		tuned.WriteTimeout = preset.writeTimeout
-	}
-	if tuned.KeepAlive == 0 {
-		tuned.KeepAlive = preset.keepAlive
-	}
-
-	clientOpts := make([]clienttcp.Option, 0, 3+len(preset.options))
-	if preset.timeoutGuard > 0 {
-		clientOpts = append(clientOpts, clienttcp.WithTimeoutGuard(preset.timeoutGuard))
-	}
-	if preset.concurrencyLimit > 0 {
-		clientOpts = append(clientOpts, clienttcp.WithConcurrencyLimit(preset.concurrencyLimit))
-	}
-	if !preset.disableRetry {
-		clientOpts = append(clientOpts, clienttcp.WithPolicies(clientx.NewRetryPolicy(preset.retryPolicy)))
-	}
-	clientOpts = append(clientOpts, preset.options...)
-	return clienttcp.New(tuned, clientOpts...)
+	return client, nil
 }
 
 func defaultInternalRPCPreset() internalRPCPreset {
@@ -130,4 +123,36 @@ func defaultInternalRPCPreset() internalRPCPreset {
 			JitterRatio: 0.2,
 		},
 	}
+}
+
+func tuneInternalRPCConfig(cfg clienttcp.Config, preset internalRPCPreset) clienttcp.Config {
+	tuned := cfg
+	if tuned.DialTimeout == 0 {
+		tuned.DialTimeout = preset.dialTimeout
+	}
+	if tuned.ReadTimeout == 0 {
+		tuned.ReadTimeout = preset.readTimeout
+	}
+	if tuned.WriteTimeout == 0 {
+		tuned.WriteTimeout = preset.writeTimeout
+	}
+	if tuned.KeepAlive == 0 {
+		tuned.KeepAlive = preset.keepAlive
+	}
+	return tuned
+}
+
+func buildInternalRPCOptions(preset internalRPCPreset) []clienttcp.Option {
+	clientOpts := make([]clienttcp.Option, 0, 3+len(preset.options))
+	if preset.timeoutGuard > 0 {
+		clientOpts = append(clientOpts, clienttcp.WithTimeoutGuard(preset.timeoutGuard))
+	}
+	if preset.concurrencyLimit > 0 {
+		clientOpts = append(clientOpts, clienttcp.WithConcurrencyLimit(preset.concurrencyLimit))
+	}
+	if !preset.disableRetry {
+		clientOpts = append(clientOpts, clienttcp.WithPolicies(clientx.NewRetryPolicy(preset.retryPolicy)))
+	}
+	clientOpts = append(clientOpts, preset.options...)
+	return clientOpts
 }

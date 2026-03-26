@@ -7,6 +7,7 @@ import (
 	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
 )
 
+// Client is the TCP client abstraction exposed by this package.
 type Client interface {
 	clientx.Closer
 	clientx.Dialer

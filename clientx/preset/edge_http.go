@@ -1,6 +1,7 @@
 package preset
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -18,26 +19,31 @@ type edgeHTTPPreset struct {
 	options          []clienthttp.Option
 }
 
+// EdgeHTTPOption configures the NewEdgeHTTP preset.
 type EdgeHTTPOption func(*edgeHTTPPreset)
 
+// WithEdgeHTTPTimeout overrides the default client timeout.
 func WithEdgeHTTPTimeout(timeout time.Duration) EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
 		p.timeout = timeout
 	}
 }
 
+// WithEdgeHTTPTimeoutGuard adds a timeout guard policy to the preset client.
 func WithEdgeHTTPTimeoutGuard(timeout time.Duration) EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
 		p.timeoutGuard = timeout
 	}
 }
 
+// WithEdgeHTTPConcurrencyLimit adds a concurrency limit policy to the preset client.
 func WithEdgeHTTPConcurrencyLimit(maxInFlight int) EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
 		p.concurrencyLimit = maxInFlight
 	}
 }
 
+// WithEdgeHTTPRetry overrides the preset retry configuration.
 func WithEdgeHTTPRetry(cfg clientx.RetryConfig) EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
 		p.retry = cfg
@@ -45,18 +51,21 @@ func WithEdgeHTTPRetry(cfg clientx.RetryConfig) EdgeHTTPOption {
 	}
 }
 
+// WithEdgeHTTPDisableRetry disables preset-managed retries.
 func WithEdgeHTTPDisableRetry() EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
 		p.disableRetry = true
 	}
 }
 
+// WithEdgeHTTPUserAgent overrides the preset user agent.
 func WithEdgeHTTPUserAgent(userAgent string) EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
 		p.userAgent = strings.TrimSpace(userAgent)
 	}
 }
 
+// WithEdgeHTTPOption appends a raw HTTP client option to the preset.
 func WithEdgeHTTPOption(opt clienthttp.Option) EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
 		if opt != nil {
@@ -65,6 +74,7 @@ func WithEdgeHTTPOption(opt clienthttp.Option) EdgeHTTPOption {
 	}
 }
 
+// NewEdgeHTTP creates an HTTP client tuned for edge-facing traffic.
 func NewEdgeHTTP(cfg clienthttp.Config, opts ...EdgeHTTPOption) (clienthttp.Client, error) {
 	preset := defaultEdgeHTTPPreset()
 	for _, opt := range opts {
@@ -73,31 +83,13 @@ func NewEdgeHTTP(cfg clienthttp.Config, opts ...EdgeHTTPOption) (clienthttp.Clie
 		}
 	}
 
-	tuned := cfg
-	if tuned.Timeout == 0 {
-		tuned.Timeout = preset.timeout
+	tuned := tuneEdgeHTTPConfig(cfg, preset)
+	clientOpts := buildEdgeHTTPOptions(preset)
+	client, err := clienthttp.New(tuned, clientOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("build edge http client: %w", err)
 	}
-	if strings.TrimSpace(tuned.UserAgent) == "" && preset.userAgent != "" {
-		tuned.UserAgent = preset.userAgent
-	}
-	if !preset.disableRetry {
-		if isZeroRetryConfig(tuned.Retry) {
-			tuned.Retry = preset.retry
-		}
-		if !tuned.Retry.Enabled && hasRetryHint(tuned.Retry) {
-			tuned.Retry.Enabled = true
-		}
-	}
-
-	clientOpts := make([]clienthttp.Option, 0, 2+len(preset.options))
-	if preset.timeoutGuard > 0 {
-		clientOpts = append(clientOpts, clienthttp.WithTimeoutGuard(preset.timeoutGuard))
-	}
-	if preset.concurrencyLimit > 0 {
-		clientOpts = append(clientOpts, clienthttp.WithConcurrencyLimit(preset.concurrencyLimit))
-	}
-	clientOpts = append(clientOpts, preset.options...)
-	return clienthttp.New(tuned, clientOpts...)
+	return client, nil
 }
 
 func defaultEdgeHTTPPreset() edgeHTTPPreset {
@@ -113,4 +105,35 @@ func defaultEdgeHTTPPreset() edgeHTTPPreset {
 		},
 		userAgent: "arcgo-clientx/edge-http",
 	}
+}
+
+func tuneEdgeHTTPConfig(cfg clienthttp.Config, preset edgeHTTPPreset) clienthttp.Config {
+	tuned := cfg
+	if tuned.Timeout == 0 {
+		tuned.Timeout = preset.timeout
+	}
+	if strings.TrimSpace(tuned.UserAgent) == "" && preset.userAgent != "" {
+		tuned.UserAgent = preset.userAgent
+	}
+	if !preset.disableRetry {
+		if isZeroRetryConfig(tuned.Retry) {
+			tuned.Retry = preset.retry
+		}
+		if !tuned.Retry.Enabled && hasRetryHint(tuned.Retry) {
+			tuned.Retry.Enabled = true
+		}
+	}
+	return tuned
+}
+
+func buildEdgeHTTPOptions(preset edgeHTTPPreset) []clienthttp.Option {
+	clientOpts := make([]clienthttp.Option, 0, 2+len(preset.options))
+	if preset.timeoutGuard > 0 {
+		clientOpts = append(clientOpts, clienthttp.WithTimeoutGuard(preset.timeoutGuard))
+	}
+	if preset.concurrencyLimit > 0 {
+		clientOpts = append(clientOpts, clienthttp.WithConcurrencyLimit(preset.concurrencyLimit))
+	}
+	clientOpts = append(clientOpts, preset.options...)
+	return clientOpts
 }

@@ -1,4 +1,4 @@
-package clientx
+package clientx_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/DaiYuANg/arcgo/clientx"
 )
 
 // testCtxKey is a private type for context keys in tests,
@@ -16,47 +18,48 @@ const ctxKeyV testCtxKey = "v"
 
 type panicRetryPolicy struct{}
 
-func (p panicRetryPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
+func (p panicRetryPolicy) Before(ctx context.Context, operation clientx.Operation) (context.Context, error) {
 	return ctx, nil
 }
 
-func (p panicRetryPolicy) After(ctx context.Context, operation Operation, err error) error {
+func (p panicRetryPolicy) After(ctx context.Context, operation clientx.Operation, err error) error {
 	return nil
 }
 
-func (p panicRetryPolicy) ShouldRetry(ctx context.Context, operation Operation, attempt int, err error) (bool, time.Duration) {
+func (p panicRetryPolicy) ShouldRetry(ctx context.Context, operation clientx.Operation, attempt int, err error) (bool, time.Duration) {
 	panic("retry decider panic")
 }
 
 func TestInvokeWithPoliciesOrder(t *testing.T) {
 	calls := make([]string, 0, 8)
-	p1 := PolicyFuncs{
-		BeforeFunc: func(ctx context.Context, operation Operation) (context.Context, error) {
+	p1 := clientx.PolicyFuncs{
+		BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
 			calls = append(calls, "before1")
 			return context.WithValue(ctx, ctxKeyV, "ok"), nil
 		},
-		AfterFunc: func(ctx context.Context, operation Operation, err error) error {
+		AfterFunc: func(ctx context.Context, operation clientx.Operation, err error) error {
 			calls = append(calls, "after1")
 			return nil
 		},
 	}
-	p2 := PolicyFuncs{
-		BeforeFunc: func(ctx context.Context, operation Operation) (context.Context, error) {
+	p2 := clientx.PolicyFuncs{
+		BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
 			calls = append(calls, "before2")
-			if got, _ := ctx.Value(ctxKeyV).(string); got != "ok" {
+			got, ok := ctx.Value(ctxKeyV).(string)
+			if !ok || got != "ok" {
 				t.Fatalf("expected ctx value propagated, got %q", got)
 			}
 			return ctx, nil
 		},
-		AfterFunc: func(ctx context.Context, operation Operation, err error) error {
+		AfterFunc: func(ctx context.Context, operation clientx.Operation, err error) error {
 			calls = append(calls, "after2")
 			return nil
 		},
 	}
 
-	out, err := InvokeWithPolicies(
+	out, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 		func(ctx context.Context) (string, error) {
 			calls = append(calls, "execute")
 			return "done", nil
@@ -81,14 +84,14 @@ func TestInvokeWithPoliciesBeforeError(t *testing.T) {
 	boom := errors.New("boom")
 	called := false
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolTCP, Kind: OperationKindDial, Op: "dial"},
+		clientx.Operation{Protocol: clientx.ProtocolTCP, Kind: clientx.OperationKindDial, Op: "dial"},
 		func(ctx context.Context) (int, error) {
 			called = true
 			return 1, nil
 		},
-		PolicyFuncs{BeforeFunc: func(ctx context.Context, operation Operation) (context.Context, error) {
+		clientx.PolicyFuncs{BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
 			return ctx, boom
 		}},
 	)
@@ -104,13 +107,13 @@ func TestInvokeWithPoliciesAfterErrorJoin(t *testing.T) {
 	baseErr := errors.New("base")
 	afterErr := errors.New("after")
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolUDP, Kind: OperationKindListen, Op: "listen"},
+		clientx.Operation{Protocol: clientx.ProtocolUDP, Kind: clientx.OperationKindListen, Op: "listen"},
 		func(ctx context.Context) (int, error) {
 			return 0, baseErr
 		},
-		PolicyFuncs{AfterFunc: func(ctx context.Context, operation Operation, err error) error {
+		clientx.PolicyFuncs{AfterFunc: func(ctx context.Context, operation clientx.Operation, err error) error {
 			return afterErr
 		}},
 	)
@@ -122,15 +125,15 @@ func TestInvokeWithPoliciesAfterErrorJoin(t *testing.T) {
 func TestInvokeWithPoliciesBeforePanicIsolation(t *testing.T) {
 	called := false
 
-	out, err := InvokeWithPolicies(
+	out, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolHTTP, Kind: OperationKindRequest, Op: "get"},
+		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
 		func(ctx context.Context) (string, error) {
 			called = true
 			return "ok", nil
 		},
-		PolicyFuncs{
-			BeforeFunc: func(ctx context.Context, operation Operation) (context.Context, error) {
+		clientx.PolicyFuncs{
+			BeforeFunc: func(ctx context.Context, operation clientx.Operation) (context.Context, error) {
 				panic("before panic")
 			},
 		},
@@ -147,14 +150,14 @@ func TestInvokeWithPoliciesBeforePanicIsolation(t *testing.T) {
 }
 
 func TestInvokeWithPoliciesAfterPanicIsolation(t *testing.T) {
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolTCP, Kind: OperationKindDial, Op: "dial"},
+		clientx.Operation{Protocol: clientx.ProtocolTCP, Kind: clientx.OperationKindDial, Op: "dial"},
 		func(ctx context.Context) (int, error) {
 			return 1, nil
 		},
-		PolicyFuncs{
-			AfterFunc: func(ctx context.Context, operation Operation, err error) error {
+		clientx.PolicyFuncs{
+			AfterFunc: func(ctx context.Context, operation clientx.Operation, err error) error {
 				panic("after panic")
 			},
 		},
@@ -168,9 +171,9 @@ func TestInvokeWithPoliciesRetryDeciderPanicIsolation(t *testing.T) {
 	boom := errors.New("boom")
 	attempts := 0
 
-	_, err := InvokeWithPolicies(
+	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
-		Operation{Protocol: ProtocolUDP, Kind: OperationKindDial, Op: "dial"},
+		clientx.Operation{Protocol: clientx.ProtocolUDP, Kind: clientx.OperationKindDial, Op: "dial"},
 		func(ctx context.Context) (int, error) {
 			attempts++
 			return 0, boom

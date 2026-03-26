@@ -2,18 +2,21 @@ package clientx
 
 import "log/slog"
 
+// LoggingHookOption configures NewLoggingHook behavior.
 type LoggingHookOption func(*loggingHookConfig)
 
 type loggingHookConfig struct {
 	includeAddress bool
 }
 
+// WithLoggingHookAddress controls whether emitted logs include target addresses.
 func WithLoggingHookAddress(enabled bool) LoggingHookOption {
 	return func(cfg *loggingHookConfig) {
 		cfg.includeAddress = enabled
 	}
 }
 
+// NewLoggingHook creates a Hook that logs dial and I/O events with slog.
 func NewLoggingHook(logger *slog.Logger, opts ...LoggingHookOption) Hook {
 	cfg := loggingHookConfig{includeAddress: true}
 	Apply(&cfg, opts...)

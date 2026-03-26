@@ -1,9 +1,11 @@
-package codec
+package codec_test
 
 import (
 	"bytes"
 	"errors"
 	"testing"
+
+	"github.com/DaiYuANg/arcgo/clientx/codec"
 )
 
 type sample struct {
@@ -19,7 +21,7 @@ func (c reverseCodec) Name() string {
 func (c reverseCodec) Marshal(v any) ([]byte, error) {
 	s, ok := v.(string)
 	if !ok {
-		return nil, ErrUnsupportedValue
+		return nil, codec.ErrUnsupportedValue
 	}
 	raw := []byte(s)
 	for i, j := 0, len(raw)-1; i < j; i, j = i+1, j-1 {
@@ -31,7 +33,7 @@ func (c reverseCodec) Marshal(v any) ([]byte, error) {
 func (c reverseCodec) Unmarshal(data []byte, v any) error {
 	target, ok := v.(*string)
 	if !ok {
-		return ErrUnsupportedValue
+		return codec.ErrUnsupportedValue
 	}
 	raw := append([]byte(nil), data...)
 	for i, j := 0, len(raw)-1; i < j; i, j = i+1, j-1 {
@@ -43,23 +45,23 @@ func (c reverseCodec) Unmarshal(data []byte, v any) error {
 
 func TestDefaultRegistryBuiltins(t *testing.T) {
 	for _, name := range []string{"bytes", "json", "text"} {
-		if _, ok := Get(name); !ok {
+		if _, ok := codec.Get(name); !ok {
 			t.Fatalf("expected builtin codec %q", name)
 		}
 	}
-	if GetOption("json").IsAbsent() {
+	if codec.GetOption("json").IsAbsent() {
 		t.Fatal("expected json codec option to be present")
 	}
 }
 
 func TestJSONRoundTrip(t *testing.T) {
-	raw, err := JSON.Marshal(sample{Name: "arc"})
+	raw, err := codec.JSON.Marshal(sample{Name: "arc"})
 	if err != nil {
 		t.Fatalf("marshal failed: %v", err)
 	}
 
 	var out sample
-	if err := JSON.Unmarshal(raw, &out); err != nil {
+	if err := codec.JSON.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}
 	if out.Name != "arc" {
@@ -68,12 +70,12 @@ func TestJSONRoundTrip(t *testing.T) {
 }
 
 func TestTextRoundTrip(t *testing.T) {
-	raw, err := Text.Marshal("hello")
+	raw, err := codec.Text.Marshal("hello")
 	if err != nil {
 		t.Fatalf("marshal text failed: %v", err)
 	}
 	var out string
-	if err := Text.Unmarshal(raw, &out); err != nil {
+	if err := codec.Text.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("unmarshal text failed: %v", err)
 	}
 	if out != "hello" {
@@ -82,17 +84,17 @@ func TestTextRoundTrip(t *testing.T) {
 }
 
 func TestBytesUnsupportedType(t *testing.T) {
-	_, err := Bytes.Marshal("not-bytes")
+	_, err := codec.Bytes.Marshal("not-bytes")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, ErrUnsupportedValue) {
+	if !errors.Is(err, codec.ErrUnsupportedValue) {
 		t.Fatalf("expected ErrUnsupportedValue, got %v", err)
 	}
 }
 
 func TestLengthPrefixedRoundTrip(t *testing.T) {
-	f := NewLengthPrefixed(32)
+	f := codec.NewLengthPrefixed(32)
 	buf := bytes.NewBuffer(nil)
 
 	if err := f.WriteFrame(buf, []byte("ping")); err != nil {
@@ -108,7 +110,7 @@ func TestLengthPrefixedRoundTrip(t *testing.T) {
 }
 
 func TestLengthPrefixedExceedLimit(t *testing.T) {
-	f := NewLengthPrefixed(2)
+	f := codec.NewLengthPrefixed(2)
 	err := f.WriteFrame(bytes.NewBuffer(nil), []byte("hello"))
 	if err == nil {
 		t.Fatal("expected frame size error, got nil")
@@ -116,7 +118,7 @@ func TestLengthPrefixedExceedLimit(t *testing.T) {
 }
 
 func TestRegisterCustomCodec(t *testing.T) {
-	r := NewRegistry()
+	r := codec.NewRegistry()
 	if err := r.Register(reverseCodec{}); err != nil {
 		t.Fatalf("register custom codec failed: %v", err)
 	}

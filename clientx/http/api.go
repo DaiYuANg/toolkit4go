@@ -7,6 +7,7 @@ import (
 	"resty.dev/v3"
 )
 
+// Client is the HTTP client abstraction exposed by this package.
 type Client interface {
 	clientx.Closer
 	Raw() *resty.Client

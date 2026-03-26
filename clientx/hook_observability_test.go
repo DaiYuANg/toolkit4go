@@ -1,4 +1,4 @@
-package clientx
+package clientx_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/clientx"
 	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/samber/lo"
 )
@@ -70,22 +71,22 @@ func (s testSpan) SetAttributes(attrs ...observabilityx.Attribute) {
 
 func TestObservabilityHookDefaultMetrics(t *testing.T) {
 	obs := &testObservability{}
-	h := NewObservabilityHook(obs)
+	h := clientx.NewObservabilityHook(obs)
 
-	h.OnDial(DialEvent{
-		Protocol: ProtocolTCP,
+	h.OnDial(clientx.DialEvent{
+		Protocol: clientx.ProtocolTCP,
 		Op:       "dial",
 		Network:  "tcp",
 		Addr:     "127.0.0.1:9000",
 		Duration: 12 * time.Millisecond,
 	})
-	h.OnIO(IOEvent{
-		Protocol: ProtocolTCP,
+	h.OnIO(clientx.IOEvent{
+		Protocol: clientx.ProtocolTCP,
 		Op:       "read",
 		Addr:     "127.0.0.1:9000",
 		Bytes:    20,
 		Duration: 8 * time.Millisecond,
-		Err:      WrapError(ProtocolTCP, "read", "127.0.0.1:9000", context.DeadlineExceeded),
+		Err:      clientx.WrapError(clientx.ProtocolTCP, "read", "127.0.0.1:9000", context.DeadlineExceeded),
 	})
 
 	assertCounterCall(t, obs.counterCalls, "clientx_dial_total", 1)
@@ -101,21 +102,21 @@ func TestObservabilityHookDefaultMetrics(t *testing.T) {
 	if got := ioTotal.attrs["result"]; got != "error" {
 		t.Fatalf("expected result=error, got %v", got)
 	}
-	if got := ioTotal.attrs["error_kind"]; got != string(ErrorKindTimeout) {
-		t.Fatalf("expected error_kind=%q, got %v", ErrorKindTimeout, got)
+	if got := ioTotal.attrs["error_kind"]; got != string(clientx.ErrorKindTimeout) {
+		t.Fatalf("expected error_kind=%q, got %v", clientx.ErrorKindTimeout, got)
 	}
 }
 
 func TestObservabilityHookWithOptions(t *testing.T) {
 	obs := &testObservability{}
-	h := NewObservabilityHook(
+	h := clientx.NewObservabilityHook(
 		obs,
-		WithHookMetricPrefix("arc_client"),
-		WithHookAddressAttribute(true),
+		clientx.WithHookMetricPrefix("arc_client"),
+		clientx.WithHookAddressAttribute(true),
 	)
 
-	h.OnDial(DialEvent{
-		Protocol: ProtocolUDP,
+	h.OnDial(clientx.DialEvent{
+		Protocol: clientx.ProtocolUDP,
 		Op:       "dial",
 		Network:  "udp",
 		Addr:     "127.0.0.1:9001",

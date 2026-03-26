@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Config configures the UDP client implementation.
 type Config struct {
 	Network      string
 	Address      string
@@ -17,8 +18,10 @@ type Config struct {
 
 const defaultDialTimeout = 5 * time.Second
 
+// ErrInvalidConfig indicates that the UDP client configuration is invalid.
 var ErrInvalidConfig = errors.New("invalid udp client config")
 
+// NormalizeAndValidate normalizes cfg and validates all supported options.
 func (cfg Config) NormalizeAndValidate() (Config, error) {
 	out := cfg
 	out.Network = strings.TrimSpace(out.Network)

@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"resty.dev/v3"
 )
 
+// DefaultClient is the default HTTP client implementation.
 type DefaultClient struct {
 	raw      *resty.Client
 	baseURL  string
@@ -19,6 +21,7 @@ type DefaultClient struct {
 	policies []clientx.Policy
 }
 
+// New creates a Client from cfg and applies opts.
 func New(cfg Config, opts ...Option) (Client, error) {
 	normalized, err := cfg.NormalizeAndValidate()
 	if err != nil {
@@ -28,6 +31,7 @@ func New(cfg Config, opts ...Option) (Client, error) {
 	transport := &http.Transport{}
 	if normalized.TLS.Enabled || normalized.TLS.InsecureSkipVerify || normalized.TLS.ServerName != "" {
 		transport.TLSClientConfig = &tls.Config{
+			//nolint:gosec // This client must support explicitly configured insecure TLS for development and controlled environments.
 			InsecureSkipVerify: normalized.TLS.InsecureSkipVerify,
 			ServerName:         normalized.TLS.ServerName,
 		}
@@ -60,6 +64,7 @@ func New(cfg Config, opts ...Option) (Client, error) {
 	return client, nil
 }
 
+// Close releases idle HTTP connections held by the underlying transport.
 func (c *DefaultClient) Close() error {
 	if c == nil || c.raw == nil {
 		return nil
@@ -70,14 +75,17 @@ func (c *DefaultClient) Close() error {
 	return nil
 }
 
+// Raw returns the underlying resty client.
 func (c *DefaultClient) Raw() *resty.Client {
 	return c.raw
 }
 
+// R creates a new resty request from the underlying client.
 func (c *DefaultClient) R() *resty.Request {
 	return c.raw.R()
 }
 
+// Execute runs an HTTP request through the configured policy chain.
 func (c *DefaultClient) Execute(ctx context.Context, req *resty.Request, method, endpoint string) (*resty.Response, error) {
 	op := strings.ToLower(strings.TrimSpace(method))
 	if op == "" {
@@ -92,7 +100,7 @@ func (c *DefaultClient) Execute(ctx context.Context, req *resty.Request, method,
 		Addr:     addr,
 	}
 
-	return clientx.InvokeWithPolicies(ctx, operation, func(execCtx context.Context) (*resty.Response, error) {
+	resp, err := invokeWithPolicies(ctx, operation, func(execCtx context.Context) (*resty.Response, error) {
 		workingReq := req
 		if workingReq == nil {
 			workingReq = c.R()
@@ -102,7 +110,7 @@ func (c *DefaultClient) Execute(ctx context.Context, req *resty.Request, method,
 		start := time.Now()
 		resp, err := workingReq.Execute(method, endpoint)
 		if err != nil {
-			wrappedErr := clientx.WrapError(clientx.ProtocolHTTP, op, addr, err)
+			wrappedErr := wrapClientError(op, addr, err)
 			clientx.EmitIO(c.hooks, clientx.IOEvent{
 				Protocol: clientx.ProtocolHTTP,
 				Op:       op,
@@ -121,6 +129,10 @@ func (c *DefaultClient) Execute(ctx context.Context, req *resty.Request, method,
 		})
 		return resp, nil
 	}, c.policies...)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *DefaultClient) resolveAddr(endpoint string) string {
@@ -136,4 +148,21 @@ func (c *DefaultClient) resolveAddr(endpoint string) string {
 		return base + addr
 	}
 	return base + "/" + addr
+}
+
+func invokeWithPolicies(
+	ctx context.Context,
+	operation clientx.Operation,
+	fn func(context.Context) (*resty.Response, error),
+	policies ...clientx.Policy,
+) (*resty.Response, error) {
+	resp, err := clientx.InvokeWithPolicies(ctx, operation, fn, policies...)
+	if err != nil {
+		return nil, fmt.Errorf("execute http operation: %w", err)
+	}
+	return resp, nil
+}
+
+func wrapClientError(op, addr string, err error) error {
+	return fmt.Errorf("http %s %s: %w", op, addr, clientx.WrapError(clientx.ProtocolHTTP, op, addr, err))
 }

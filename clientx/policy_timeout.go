@@ -11,14 +11,13 @@ type timeoutPolicy struct {
 
 type timeoutCancelKey struct{}
 
+// NewTimeoutPolicy applies a per-operation timeout when the parent context is looser.
 func NewTimeoutPolicy(timeout time.Duration) Policy {
 	return &timeoutPolicy{timeout: timeout}
 }
 
 func (p *timeoutPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = normalizeContext(ctx)
 	if p.timeout <= 0 {
 		return ctx, nil
 	}

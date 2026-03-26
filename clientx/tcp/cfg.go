@@ -9,6 +9,7 @@ import (
 	"github.com/DaiYuANg/arcgo/clientx"
 )
 
+// Config configures the TCP client implementation.
 type Config struct {
 	Network      string
 	Address      string
@@ -21,8 +22,10 @@ type Config struct {
 
 const defaultDialTimeout = 5 * time.Second
 
+// ErrInvalidConfig indicates that the TCP client configuration is invalid.
 var ErrInvalidConfig = errors.New("invalid tcp client config")
 
+// NormalizeAndValidate normalizes cfg and validates all supported options.
 func (cfg Config) NormalizeAndValidate() (Config, error) {
 	out := cfg
 	out.Network = strings.TrimSpace(out.Network)

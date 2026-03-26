@@ -1,6 +1,7 @@
 package udp
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -16,59 +17,11 @@ type timeoutConn struct {
 }
 
 func (c *timeoutConn) Read(b []byte) (int, error) {
-	if c.readTimeout > 0 {
-		_ = c.SetReadDeadline(time.Now().Add(c.readTimeout))
-	}
-	start := time.Now()
-	n, err := c.Conn.Read(b)
-	if err != nil {
-		wrappedErr := clientx.WrapError(clientx.ProtocolUDP, "read", c.addr, err)
-		clientx.EmitIO(c.hooks, clientx.IOEvent{
-			Protocol: clientx.ProtocolUDP,
-			Op:       "read",
-			Addr:     c.addr,
-			Bytes:    n,
-			Duration: time.Since(start),
-			Err:      wrappedErr,
-		})
-		return n, wrappedErr
-	}
-	clientx.EmitIO(c.hooks, clientx.IOEvent{
-		Protocol: clientx.ProtocolUDP,
-		Op:       "read",
-		Addr:     c.addr,
-		Bytes:    n,
-		Duration: time.Since(start),
-	})
-	return n, nil
+	return c.runIO("read", b, c.readTimeout, c.SetReadDeadline, c.Conn.Read)
 }
 
 func (c *timeoutConn) Write(b []byte) (int, error) {
-	if c.writeTimeout > 0 {
-		_ = c.SetWriteDeadline(time.Now().Add(c.writeTimeout))
-	}
-	start := time.Now()
-	n, err := c.Conn.Write(b)
-	if err != nil {
-		wrappedErr := clientx.WrapError(clientx.ProtocolUDP, "write", c.addr, err)
-		clientx.EmitIO(c.hooks, clientx.IOEvent{
-			Protocol: clientx.ProtocolUDP,
-			Op:       "write",
-			Addr:     c.addr,
-			Bytes:    n,
-			Duration: time.Since(start),
-			Err:      wrappedErr,
-		})
-		return n, wrappedErr
-	}
-	clientx.EmitIO(c.hooks, clientx.IOEvent{
-		Protocol: clientx.ProtocolUDP,
-		Op:       "write",
-		Addr:     c.addr,
-		Bytes:    n,
-		Duration: time.Since(start),
-	})
-	return n, nil
+	return c.runIO("write", b, c.writeTimeout, c.SetWriteDeadline, c.Conn.Write)
 }
 
 type timeoutPacketConn struct {
@@ -80,65 +33,89 @@ type timeoutPacketConn struct {
 }
 
 func (c *timeoutPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
-	if c.readTimeout > 0 {
-		_ = c.SetReadDeadline(time.Now().Add(c.readTimeout))
-	}
 	start := time.Now()
+	if err := applyDeadline(c.SetReadDeadline, c.readTimeout, "read_from", c.addr); err != nil {
+		emitIO("read_from", c.addr, 0, time.Since(start), err, c.hooks)
+		return 0, nil, err
+	}
+
 	n, addr, err := c.PacketConn.ReadFrom(b)
 	if err != nil {
-		wrappedErr := clientx.WrapError(clientx.ProtocolUDP, "read_from", c.addr, err)
-		clientx.EmitIO(c.hooks, clientx.IOEvent{
-			Protocol: clientx.ProtocolUDP,
-			Op:       "read_from",
-			Addr:     c.addr,
-			Bytes:    n,
-			Duration: time.Since(start),
-			Err:      wrappedErr,
-		})
+		wrappedErr := wrapClientError("read_from", c.addr, err)
+		emitIO("read_from", c.addr, n, time.Since(start), wrappedErr, c.hooks)
 		return n, addr, wrappedErr
 	}
-	clientx.EmitIO(c.hooks, clientx.IOEvent{
-		Protocol: clientx.ProtocolUDP,
-		Op:       "read_from",
-		Addr:     c.addr,
-		Bytes:    n,
-		Duration: time.Since(start),
-	})
+
+	emitIO("read_from", c.addr, n, time.Since(start), nil, c.hooks)
 	return n, addr, nil
 }
 
 func (c *timeoutPacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
-	if c.writeTimeout > 0 {
-		_ = c.SetWriteDeadline(time.Now().Add(c.writeTimeout))
-	}
+	target := targetAddr(c.addr, addr)
 	start := time.Now()
+	if err := applyDeadline(c.SetWriteDeadline, c.writeTimeout, "write_to", target); err != nil {
+		emitIO("write_to", target, 0, time.Since(start), err, c.hooks)
+		return 0, err
+	}
+
 	n, err := c.PacketConn.WriteTo(b, addr)
 	if err != nil {
-		target := c.addr
-		if addr != nil {
-			target = addr.String()
-		}
-		wrappedErr := clientx.WrapError(clientx.ProtocolUDP, "write_to", target, err)
-		clientx.EmitIO(c.hooks, clientx.IOEvent{
-			Protocol: clientx.ProtocolUDP,
-			Op:       "write_to",
-			Addr:     target,
-			Bytes:    n,
-			Duration: time.Since(start),
-			Err:      wrappedErr,
-		})
+		wrappedErr := wrapClientError("write_to", target, err)
+		emitIO("write_to", target, n, time.Since(start), wrappedErr, c.hooks)
 		return n, wrappedErr
 	}
-	target := c.addr
-	if addr != nil {
-		target = addr.String()
-	}
-	clientx.EmitIO(c.hooks, clientx.IOEvent{
-		Protocol: clientx.ProtocolUDP,
-		Op:       "write_to",
-		Addr:     target,
-		Bytes:    n,
-		Duration: time.Since(start),
-	})
+	emitIO("write_to", target, n, time.Since(start), nil, c.hooks)
 	return n, nil
+}
+
+func (c *timeoutConn) runIO(
+	op string,
+	data []byte,
+	timeout time.Duration,
+	setDeadline func(time.Time) error,
+	run func([]byte) (int, error),
+) (int, error) {
+	start := time.Now()
+	if err := applyDeadline(setDeadline, timeout, op, c.addr); err != nil {
+		emitIO(op, c.addr, 0, time.Since(start), err, c.hooks)
+		return 0, err
+	}
+
+	n, err := run(data)
+	if err != nil {
+		wrappedErr := wrapClientError(op, c.addr, err)
+		emitIO(op, c.addr, n, time.Since(start), wrappedErr, c.hooks)
+		return n, wrappedErr
+	}
+
+	emitIO(op, c.addr, n, time.Since(start), nil, c.hooks)
+	return n, nil
+}
+
+func applyDeadline(setDeadline func(time.Time) error, timeout time.Duration, op, addr string) error {
+	if timeout <= 0 {
+		return nil
+	}
+	if err := setDeadline(time.Now().Add(timeout)); err != nil {
+		return fmt.Errorf("set udp %s deadline for %s: %w", op, addr, err)
+	}
+	return nil
+}
+
+func emitIO(op, addr string, bytes int, duration time.Duration, err error, hooks []clientx.Hook) {
+	clientx.EmitIO(hooks, clientx.IOEvent{
+		Protocol: clientx.ProtocolUDP,
+		Op:       op,
+		Addr:     addr,
+		Bytes:    bytes,
+		Duration: duration,
+		Err:      err,
+	})
+}
+
+func targetAddr(fallback string, addr net.Addr) string {
+	if addr == nil {
+		return fallback
+	}
+	return addr.String()
 }
