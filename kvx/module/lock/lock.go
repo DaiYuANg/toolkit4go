@@ -66,7 +66,7 @@ func New(client kvx.Lock, key string, opts *Options) *Lock {
 
 // Acquire acquires the lock.
 func (l *Lock) Acquire(ctx context.Context) error {
-	acquired, err := l.client.Acquire(ctx, l.key, l.ttl)
+	acquired, err := l.client.Acquire(ctx, l.key, l.identifier, l.ttl)
 	if err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
@@ -111,16 +111,19 @@ func (l *Lock) TryAcquire(ctx context.Context, timeout time.Duration) error {
 func (l *Lock) Release(ctx context.Context) error {
 	l.stopAutoExtend()
 
-	err := l.client.Release(ctx, l.key)
+	released, err := l.client.Release(ctx, l.key, l.identifier)
 	if err != nil {
 		return fmt.Errorf("failed to release lock: %w", err)
+	}
+	if !released {
+		return ErrLockNotHeld
 	}
 	return nil
 }
 
 // Extend extends the lock TTL.
 func (l *Lock) Extend(ctx context.Context, ttl time.Duration) error {
-	extended, err := l.client.Extend(ctx, l.key, ttl)
+	extended, err := l.client.Extend(ctx, l.key, l.identifier, ttl)
 	if err != nil {
 		return fmt.Errorf("failed to extend lock: %w", err)
 	}
@@ -133,7 +136,7 @@ func (l *Lock) Extend(ctx context.Context, ttl time.Duration) error {
 // IsHeld checks if the lock is still held.
 func (l *Lock) IsHeld(ctx context.Context) (bool, error) {
 	// Try to extend with 0 TTL - this will only succeed if we hold the lock
-	return l.client.Extend(ctx, l.key, l.ttl)
+	return l.client.Extend(ctx, l.key, l.identifier, l.ttl)
 }
 
 // startAutoExtend starts the auto-extend goroutine.
@@ -153,7 +156,7 @@ func (l *Lock) startAutoExtend(ctx context.Context) {
 			case <-l.stopExtend:
 				return
 			case <-ticker.C:
-				_, err := l.client.Extend(ctx, l.key, l.ttl)
+				_, err := l.client.Extend(ctx, l.key, l.identifier, l.ttl)
 				if err != nil {
 					// Log error but continue trying
 					return

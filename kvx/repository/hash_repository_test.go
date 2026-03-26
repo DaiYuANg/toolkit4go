@@ -367,6 +367,70 @@ func TestHashRepository_FindByID(t *testing.T) {
 	}
 }
 
+func TestHashRepository_Save_ReplacesStaleIndexes(t *testing.T) {
+	ctx := context.Background()
+	hash := newMockHash()
+	kv := newMockKV()
+	repo := NewHashRepository[TestUser](hash, kv, "user")
+
+	hash.data["user:user1"] = map[string][]byte{
+		"name":  []byte("John Doe"),
+		"email": []byte("old@example.com"),
+		"age":   []byte("30"),
+	}
+	kv.data["user:idx:email:old@example.com:user1"] = []byte("1")
+	kv.data["user:idx:age:30:user1"] = []byte("1")
+
+	user := &TestUser{
+		ID:    "user1",
+		Name:  "John Doe",
+		Email: "new@example.com",
+		Age:   31,
+	}
+
+	if err := repo.Save(ctx, user); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	if _, ok := kv.data["user:idx:email:old@example.com:user1"]; ok {
+		t.Fatalf("stale email index should be removed")
+	}
+	if _, ok := kv.data["user:idx:age:30:user1"]; ok {
+		t.Fatalf("stale age index should be removed")
+	}
+	if _, ok := kv.data["user:idx:email:new@example.com:user1"]; !ok {
+		t.Fatalf("new email index should exist")
+	}
+	if _, ok := kv.data["user:idx:age:31:user1"]; !ok {
+		t.Fatalf("new age index should exist")
+	}
+}
+
+func TestHashRepository_UpdateField_ReplacesIndexedFieldEntry(t *testing.T) {
+	ctx := context.Background()
+	hash := newMockHash()
+	kv := newMockKV()
+	repo := NewHashRepository[TestUser](hash, kv, "user")
+
+	hash.data["user:user1"] = map[string][]byte{
+		"name":  []byte("John Doe"),
+		"email": []byte("old@example.com"),
+		"age":   []byte("30"),
+	}
+	kv.data["user:idx:email:old@example.com:user1"] = []byte("1")
+
+	if err := repo.UpdateField(ctx, "user1", "Email", "new@example.com"); err != nil {
+		t.Fatalf("UpdateField failed: %v", err)
+	}
+
+	if _, ok := kv.data["user:idx:email:old@example.com:user1"]; ok {
+		t.Fatalf("old email index should be removed")
+	}
+	if _, ok := kv.data["user:idx:email:new@example.com:user1"]; !ok {
+		t.Fatalf("new email index should exist")
+	}
+}
+
 func TestHashRepository_FindByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	hash := newMockHash()

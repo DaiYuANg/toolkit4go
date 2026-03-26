@@ -166,3 +166,64 @@ func TestJSONRepository_Count_ScansAllPagesAndDeduplicates(t *testing.T) {
 		t.Fatalf("Expected count 3, got %d", count)
 	}
 }
+
+func TestJSONRepository_Save_ReplacesStaleIndexes(t *testing.T) {
+	ctx := context.Background()
+	client := newMockJSON()
+	kv := newMockKV()
+	repo := NewJSONRepository[TestUser](client, kv, "user")
+
+	original := &TestUser{ID: "user1", Name: "John Doe", Email: "old@example.com", Age: 30}
+	updated := &TestUser{ID: "user1", Name: "John Doe", Email: "new@example.com", Age: 31}
+
+	payload, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	client.data["user:user1"] = payload
+	kv.data["user:idx:email:old@example.com:user1"] = []byte("1")
+	kv.data["user:idx:age:30:user1"] = []byte("1")
+
+	if err := repo.Save(ctx, updated); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	if _, ok := kv.data["user:idx:email:old@example.com:user1"]; ok {
+		t.Fatalf("stale email index should be removed")
+	}
+	if _, ok := kv.data["user:idx:age:30:user1"]; ok {
+		t.Fatalf("stale age index should be removed")
+	}
+	if _, ok := kv.data["user:idx:email:new@example.com:user1"]; !ok {
+		t.Fatalf("new email index should exist")
+	}
+	if _, ok := kv.data["user:idx:age:31:user1"]; !ok {
+		t.Fatalf("new age index should exist")
+	}
+}
+
+func TestJSONRepository_UpdateField_ReplacesIndexedFieldEntry(t *testing.T) {
+	ctx := context.Background()
+	client := newMockJSON()
+	kv := newMockKV()
+	repo := NewJSONRepository[TestUser](client, kv, "user")
+
+	user := &TestUser{ID: "user1", Name: "John Doe", Email: "old@example.com", Age: 30}
+	payload, err := json.Marshal(user)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	client.data["user:user1"] = payload
+	kv.data["user:idx:email:old@example.com:user1"] = []byte("1")
+
+	if err := repo.UpdateField(ctx, "user1", "$.email", "new@example.com"); err != nil {
+		t.Fatalf("UpdateField failed: %v", err)
+	}
+
+	if _, ok := kv.data["user:idx:email:old@example.com:user1"]; ok {
+		t.Fatalf("old email index should be removed")
+	}
+	if _, ok := kv.data["user:idx:email:new@example.com:user1"]; !ok {
+		t.Fatalf("new email index should exist")
+	}
+}

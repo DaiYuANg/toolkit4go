@@ -7,8 +7,10 @@ import (
 
 // Common errors that adapters should convert to.
 var (
-	ErrNil         = errors.New("kvx: nil") // Key not found error
-	ErrTooManyArgs = errors.New("too many redis pipeline args")
+	ErrNil                  = errors.New("kvx: nil") // Key not found error
+	ErrTooManyArgs          = errors.New("too many redis pipeline args")
+	ErrInvalidClientOptions = errors.New("kvx: invalid client options")
+	ErrUnsupportedOption    = errors.New("kvx: unsupported client option")
 )
 
 const MaxPipelineArgs = 1024

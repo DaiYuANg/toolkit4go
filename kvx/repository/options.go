@@ -12,6 +12,7 @@ type hashRepositoryConfig[T any] struct {
 	codec      *mapping.HashCodec
 	indexer    *Indexer[T]
 	pipeline   mo.Option[pipelineProvider]
+	script     mo.Option[kvx.Script]
 }
 
 type jsonRepositoryConfig[T any] struct {
@@ -20,6 +21,7 @@ type jsonRepositoryConfig[T any] struct {
 	serializer mapping.Serializer
 	indexer    *Indexer[T]
 	pipeline   mo.Option[pipelineProvider]
+	script     mo.Option[kvx.Script]
 }
 
 type HashRepositoryOption[T any] interface {
@@ -92,6 +94,7 @@ func defaultHashConfig[T any](kv kvx.KV, keyPrefix string) hashRepositoryConfig[
 		codec:      mapping.NewHashCodec(nil),
 		indexer:    NewIndexer[T](kv, keyPrefix),
 		pipeline:   mo.None[pipelineProvider](),
+		script:     mo.None[kvx.Script](),
 	}
 }
 
@@ -102,6 +105,7 @@ func defaultJSONConfig[T any](kv kvx.KV, keyPrefix string) jsonRepositoryConfig[
 		serializer: mapping.NewJSONSerializer(),
 		indexer:    NewIndexer[T](kv, keyPrefix),
 		pipeline:   mo.None[pipelineProvider](),
+		script:     mo.None[kvx.Script](),
 	}
 }
 
@@ -125,6 +129,21 @@ func WithPipeline[T any](provider pipelineProvider) dualOption[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) { cfg.pipeline = mo.Some[pipelineProvider](provider) },
 		json: func(cfg *jsonRepositoryConfig[T]) { cfg.pipeline = mo.Some[pipelineProvider](provider) },
+	}
+}
+
+func WithScript[T any](script kvx.Script) dualOption[T] {
+	return dualOption[T]{
+		hash: func(cfg *hashRepositoryConfig[T]) {
+			if script != nil {
+				cfg.script = mo.Some(script)
+			}
+		},
+		json: func(cfg *jsonRepositoryConfig[T]) {
+			if script != nil {
+				cfg.script = mo.Some(script)
+			}
+		},
 	}
 }
 

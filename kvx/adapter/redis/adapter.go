@@ -17,6 +17,16 @@ var _ kvx.Client = (*Adapter)(nil)
 
 // New creates a new Redis adapter.
 func New(opts kvx.ClientOptions) (*Adapter, error) {
+	if len(opts.Addrs) == 0 {
+		return nil, fmt.Errorf("%w: addrs cannot be empty", kvx.ErrInvalidClientOptions)
+	}
+	if opts.UseTLS {
+		return nil, fmt.Errorf("%w: redis adapter does not support tls yet", kvx.ErrUnsupportedOption)
+	}
+	if opts.MasterName != "" {
+		return nil, fmt.Errorf("%w: redis adapter does not support sentinel master selection", kvx.ErrUnsupportedOption)
+	}
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr:            opts.Addrs[0],
 		Password:        opts.Password,

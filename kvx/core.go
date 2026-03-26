@@ -233,11 +233,11 @@ type Pipeline interface {
 // Lock represents distributed lock operations.
 type Lock interface {
 	// Acquire tries to acquire a lock.
-	Acquire(ctx context.Context, key string, ttl time.Duration) (bool, error)
+	Acquire(ctx context.Context, key string, token string, ttl time.Duration) (bool, error)
 	// Release releases a lock.
-	Release(ctx context.Context, key string) error
+	Release(ctx context.Context, key string, token string) (bool, error)
 	// Extend extends the lock TTL.
-	Extend(ctx context.Context, key string, ttl time.Duration) (bool, error)
+	Extend(ctx context.Context, key string, token string, ttl time.Duration) (bool, error)
 }
 
 // Client is the main client interface combining all capabilities.

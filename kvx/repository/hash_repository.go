@@ -16,6 +16,7 @@ type HashRepository[T any] struct {
 	client   kvx.Hash
 	kv       kvx.KV
 	pipeline mo.Option[pipelineProvider]
+	script   mo.Option[kvx.Script]
 	codec    *mapping.HashCodec
 }
 
@@ -33,6 +34,7 @@ func NewHashRepository[T any](client kvx.Hash, kv kvx.KV, keyPrefix string, opti
 		client:   client,
 		kv:       kv,
 		pipeline: cfg.pipeline,
+		script:   cfg.script,
 		codec:    cfg.codec,
 	}
 	return repo
@@ -40,7 +42,7 @@ func NewHashRepository[T any](client kvx.Hash, kv kvx.KV, keyPrefix string, opti
 
 // NewHashRepositoryWithClient creates a new HashRepository with full client (for pipeline support).
 func NewHashRepositoryWithClient[T any](client kvx.Client, keyPrefix string, options ...HashRepositoryOption[T]) *HashRepository[T] {
-	options = append([]HashRepositoryOption[T]{WithPipeline[T](client)}, options...)
+	options = append([]HashRepositoryOption[T]{WithPipeline[T](client), WithScript[T](client)}, options...)
 	return NewHashRepository[T](client, client, keyPrefix, options...)
 }
 
@@ -66,6 +68,23 @@ func (r *HashRepository[T]) SaveWithExpiration(ctx context.Context, entity *T, e
 	if err != nil {
 		return err
 	}
+	previous, err := r.findByKey(ctx, key)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	if errors.Is(err, ErrNotFound) {
+		previous = nil
+	}
+
+	oldEntries, newEntries, err := r.base.indexer.ReplaceEntityIndexEntries(ctx, previous, entity, metadata, key)
+	if err != nil {
+		return err
+	}
+
+	if script, ok := r.script.Get(); ok {
+		return execHashUpsertScript(ctx, script, key, hashData, expiration, oldEntries, newEntries)
+	}
+
 	if err := r.client.HSet(ctx, key, hashData); err != nil {
 		return err
 	}
@@ -74,10 +93,8 @@ func (r *HashRepository[T]) SaveWithExpiration(ctx context.Context, entity *T, e
 			return err
 		}
 	}
-	if len(metadata.IndexFields) > 0 {
-		if err := r.base.indexer.IndexEntity(ctx, entity, metadata, key); err != nil {
-			return err
-		}
+	if err := r.base.indexer.ApplyIndexDiff(ctx, oldEntries, newEntries); err != nil {
+		return err
 	}
 	return nil
 }
@@ -89,39 +106,6 @@ func (r *HashRepository[T]) SaveBatch(ctx context.Context, entities []*T) error 
 func (r *HashRepository[T]) SaveBatchWithExpiration(ctx context.Context, entities []*T, expiration time.Duration) error {
 	if len(entities) == 0 {
 		return nil
-	}
-	if provider, ok := r.pipeline.Get(); ok {
-		pipe := provider.Pipeline()
-		defer func() { _ = pipe.Close() }()
-		for _, entity := range entities {
-			metadata, err := r.base.metadata(entity)
-			if err != nil {
-				return err
-			}
-			key, err := r.base.keyBuilder.Build(entity, metadata)
-			if err != nil {
-				return err
-			}
-			hashData, err := r.codec.Encode(entity, metadata)
-			if err != nil {
-				return err
-			}
-			err = pipe.Enqueue("HSET", append([][]byte{[]byte(key)}, encodeHashData(hashData)...)...)
-			if err != nil {
-				return err
-			}
-			err = enqueueExpire(pipe, key, expiration)
-			if err != nil {
-				return err
-			}
-			if len(metadata.IndexFields) > 0 {
-				if err := r.base.indexer.IndexEntity(ctx, entity, metadata, key); err != nil {
-					return err
-				}
-			}
-		}
-		_, err := pipe.Exec(ctx)
-		return err
 	}
 	for _, entity := range entities {
 		if err := r.SaveWithExpiration(ctx, entity, expiration); err != nil {
@@ -180,10 +164,12 @@ func (r *HashRepository[T]) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if len(metadata.IndexFields) > 0 {
-		if err := r.base.indexer.RemoveEntityFromIndexes(ctx, entity, metadata); err != nil {
-			return err
-		}
+	oldEntries, err := r.base.indexer.EntityIndexEntries(entity, metadata, key)
+	if err != nil {
+		return err
+	}
+	if script, ok := r.script.Get(); ok {
+		return execDeleteScript(ctx, script, key, oldEntries)
 	}
 	fields, err := r.client.HKeys(ctx, key)
 	if err != nil {
@@ -194,7 +180,10 @@ func (r *HashRepository[T]) Delete(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	return r.kv.Delete(ctx, key)
+	if err := r.kv.Delete(ctx, key); err != nil {
+		return err
+	}
+	return r.base.indexer.ApplyIndexDiff(ctx, oldEntries, nil)
 }
 
 func (r *HashRepository[T]) DeleteBatch(ctx context.Context, ids []string) error {
@@ -278,12 +267,17 @@ func (r *HashRepository[T]) UpdateField(ctx context.Context, id string, fieldNam
 	if err != nil {
 		return err
 	}
-	if fieldTag.Index {
-		if err := r.base.indexer.UpdateFieldIndex(ctx, entity, metadata, resolvedField, key); err != nil {
-			return err
-		}
+	oldEntries, newEntries, err := r.base.indexer.ReplaceFieldIndexEntries(metadata, resolvedField, key, entity, value)
+	if err != nil {
+		return err
 	}
-	return r.client.HSet(ctx, key, map[string][]byte{fieldTag.StorageName(): data})
+	if script, ok := r.script.Get(); ok {
+		return execHashFieldUpdateScript(ctx, script, key, fieldTag.StorageName(), data, oldEntries, newEntries)
+	}
+	if err := r.client.HSet(ctx, key, map[string][]byte{fieldTag.StorageName(): data}); err != nil {
+		return err
+	}
+	return r.base.indexer.ApplyIndexDiff(ctx, oldEntries, newEntries)
 }
 
 func (r *HashRepository[T]) IncrementField(ctx context.Context, id string, fieldName string, increment int64) (int64, error) {

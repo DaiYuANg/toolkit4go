@@ -17,6 +17,16 @@ var _ kvx.Client = (*Adapter)(nil)
 
 // New creates a new Valkey adapter.
 func New(opts kvx.ClientOptions) (*Adapter, error) {
+	if len(opts.Addrs) == 0 {
+		return nil, fmt.Errorf("%w: addrs cannot be empty", kvx.ErrInvalidClientOptions)
+	}
+	if opts.UseTLS {
+		return nil, fmt.Errorf("%w: valkey adapter does not support tls yet", kvx.ErrUnsupportedOption)
+	}
+	if opts.MasterName != "" {
+		return nil, fmt.Errorf("%w: valkey adapter does not support sentinel master selection", kvx.ErrUnsupportedOption)
+	}
+
 	client, err := valkey.NewClient(valkey.ClientOption{
 		InitAddress: opts.Addrs,
 		Password:    opts.Password,

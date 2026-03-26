@@ -16,6 +16,7 @@ type JSONRepository[T any] struct {
 	client     kvx.JSON
 	kv         kvx.KV
 	pipeline   mo.Option[pipelineProvider]
+	script     mo.Option[kvx.Script]
 	serializer mapping.Serializer
 }
 
@@ -27,13 +28,14 @@ func NewJSONRepository[T any](client kvx.JSON, kv kvx.KV, keyPrefix string, opti
 		client:     client,
 		kv:         kv,
 		pipeline:   cfg.pipeline,
+		script:     cfg.script,
 		serializer: cfg.serializer,
 	}
 	return repo
 }
 
 func NewJSONRepositoryWithClient[T any](client kvx.Client, keyPrefix string, options ...JSONRepositoryOption[T]) *JSONRepository[T] {
-	options = append([]JSONRepositoryOption[T]{WithPipeline[T](client)}, options...)
+	options = append([]JSONRepositoryOption[T]{WithPipeline[T](client), WithScript[T](client)}, options...)
 	return NewJSONRepository[T](client, client, keyPrefix, options...)
 }
 
@@ -54,13 +56,28 @@ func (r *JSONRepository[T]) SaveWithExpiration(ctx context.Context, entity *T, e
 	if err != nil {
 		return err
 	}
+	previous, err := r.findByKey(ctx, key)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	if errors.Is(err, ErrNotFound) {
+		previous = nil
+	}
+
+	oldEntries, newEntries, err := r.base.indexer.ReplaceEntityIndexEntries(ctx, previous, entity, metadata, key)
+	if err != nil {
+		return err
+	}
+
+	if script, ok := r.script.Get(); ok {
+		return execJSONUpsertScript(ctx, script, key, data, expiration, oldEntries, newEntries)
+	}
+
 	if err := r.client.JSONSet(ctx, key, "$", data, expiration); err != nil {
 		return err
 	}
-	if len(metadata.IndexFields) > 0 {
-		if err := r.base.indexer.IndexEntity(ctx, entity, metadata, key); err != nil {
-			return err
-		}
+	if err := r.base.indexer.ApplyIndexDiff(ctx, oldEntries, newEntries); err != nil {
+		return err
 	}
 	return nil
 }
@@ -72,39 +89,6 @@ func (r *JSONRepository[T]) SaveBatch(ctx context.Context, entities []*T) error 
 func (r *JSONRepository[T]) SaveBatchWithExpiration(ctx context.Context, entities []*T, expiration time.Duration) error {
 	if len(entities) == 0 {
 		return nil
-	}
-	if provider, ok := r.pipeline.Get(); ok {
-		pipe := provider.Pipeline()
-		defer func() { _ = pipe.Close() }()
-		for _, entity := range entities {
-			metadata, err := r.base.metadata(entity)
-			if err != nil {
-				return err
-			}
-			key, err := r.base.keyBuilder.Build(entity, metadata)
-			if err != nil {
-				return err
-			}
-			data, err := r.serializer.Marshal(entity)
-			if err != nil {
-				return err
-			}
-			err = pipe.Enqueue("JSON.SET", []byte(key), []byte("$"), data)
-			if err != nil {
-				return err
-			}
-			err = enqueueExpire(pipe, key, expiration)
-			if err != nil {
-				return err
-			}
-			if len(metadata.IndexFields) > 0 {
-				if err := r.base.indexer.IndexEntity(ctx, entity, metadata, key); err != nil {
-					return err
-				}
-			}
-		}
-		_, err := pipe.Exec(ctx)
-		return err
 	}
 	for _, entity := range entities {
 		if err := r.SaveWithExpiration(ctx, entity, expiration); err != nil {
@@ -163,12 +147,17 @@ func (r *JSONRepository[T]) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if len(metadata.IndexFields) > 0 {
-		if err := r.base.indexer.RemoveEntityFromIndexes(ctx, entity, metadata); err != nil {
-			return err
-		}
+	oldEntries, err := r.base.indexer.EntityIndexEntries(entity, metadata, key)
+	if err != nil {
+		return err
 	}
-	return r.client.JSONDelete(ctx, key, "$")
+	if script, ok := r.script.Get(); ok {
+		return execDeleteScript(ctx, script, key, oldEntries)
+	}
+	if err := r.client.JSONDelete(ctx, key, "$"); err != nil {
+		return err
+	}
+	return r.base.indexer.ApplyIndexDiff(ctx, oldEntries, nil)
 }
 
 func (r *JSONRepository[T]) DeleteBatch(ctx context.Context, ids []string) error {
@@ -192,16 +181,25 @@ func (r *JSONRepository[T]) UpdateField(ctx context.Context, id string, fieldPat
 	}
 	fieldName := extractFieldNameFromPath(fieldPath)
 	resolvedField, fieldTag, exists := metadata.ResolveField(fieldName)
-	if exists && fieldTag.Index {
-		if err := r.base.indexer.UpdateFieldIndex(ctx, entity, metadata, resolvedField, key); err != nil {
-			return err
-		}
-	}
 	data, err := r.serializer.Marshal(value)
 	if err != nil {
 		return err
 	}
-	return r.client.JSONSetField(ctx, key, fieldPath, data)
+	oldEntries := []string(nil)
+	newEntries := []string(nil)
+	if exists && fieldTag.Index {
+		oldEntries, newEntries, err = r.base.indexer.ReplaceFieldIndexEntries(metadata, resolvedField, key, entity, value)
+		if err != nil {
+			return err
+		}
+	}
+	if script, ok := r.script.Get(); ok {
+		return execJSONFieldUpdateScript(ctx, script, key, fieldPath, data, oldEntries, newEntries)
+	}
+	if err := r.client.JSONSetField(ctx, key, fieldPath, data); err != nil {
+		return err
+	}
+	return r.base.indexer.ApplyIndexDiff(ctx, oldEntries, newEntries)
 }
 
 func (r *JSONRepository[T]) FindByField(ctx context.Context, fieldName string, fieldValue string) ([]*T, error) {
@@ -261,6 +259,9 @@ func (r *JSONRepository[T]) Count(ctx context.Context) (int64, error) {
 func (r *JSONRepository[T]) findByKey(ctx context.Context, key string) (*T, error) {
 	data, err := r.client.JSONGet(ctx, key, "$")
 	if err != nil {
+		if kvx.IsNil(err) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	if len(data) == 0 {
