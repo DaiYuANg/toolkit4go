@@ -35,6 +35,23 @@ const (
 	AppStateStopped
 )
 
+func (s AppState) String() string {
+	switch s {
+	case AppStateCreated:
+		return "created"
+	case AppStateBuilt:
+		return "built"
+	case AppStateStarting:
+		return "starting"
+	case AppStateStarted:
+		return "started"
+	case AppStateStopped:
+		return "stopped"
+	default:
+		return "unknown"
+	}
+}
+
 // App is an immutable application specification.
 type App struct {
 	spec *appSpec

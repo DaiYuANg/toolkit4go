@@ -51,6 +51,16 @@ func (p *buildPlan) Build() (*Runtime, error) {
 	if infoEnabled {
 		logger.Info("building app", "app", p.spec.meta.Name, "profile", p.spec.profile)
 	}
+	if debugEnabled {
+		logger.Debug("build plan ready",
+			"app", p.spec.meta.Name,
+			"modules", p.modules.Len(),
+			"providers", countModuleProviders(p.modules),
+			"hooks", countModuleHooks(p.modules),
+			"setups", countModuleSetups(p.modules),
+			"invokes", countModuleInvokes(p.modules),
+		)
+	}
 
 	rt := newRuntime(p.spec, p)
 	ProvideValueT[*slog.Logger](rt.container, rt.logger)
@@ -59,9 +69,24 @@ func (p *buildPlan) Build() (*Runtime, error) {
 
 	p.modules.Range(func(_ int, mod *moduleSpec) bool {
 		if debugEnabled {
-			logger.Debug("registering module", "module", mod.name)
+			logger.Debug("registering module",
+				"module", mod.name,
+				"providers", mod.providers.Len(),
+				"hooks", mod.hooks.Len(),
+				"setups", mod.setups.Len(),
+				"invokes", mod.invokes.Len(),
+			)
 		}
 		mod.providers.Range(func(_ int, provider ProviderFunc) bool {
+			if debugEnabled {
+				logger.Debug("registering provider",
+					"module", mod.name,
+					"label", provider.meta.Label,
+					"output", provider.meta.Output.Name,
+					"dependencies", serviceRefNames(provider.meta.Dependencies),
+					"raw", provider.meta.Raw,
+				)
+			}
 			provider.apply(rt.container)
 			return true
 		})
@@ -71,18 +96,38 @@ func (p *buildPlan) Build() (*Runtime, error) {
 	var setupErr error
 	p.modules.Range(func(_ int, mod *moduleSpec) bool {
 		mod.hooks.Range(func(_ int, hook HookFunc) bool {
+			if debugEnabled {
+				logger.Debug("binding lifecycle hook",
+					"module", mod.name,
+					"label", hook.meta.Label,
+					"kind", hook.meta.Kind,
+					"dependencies", serviceRefNames(hook.meta.Dependencies),
+					"raw", hook.meta.Raw,
+				)
+			}
 			hook.bind(rt.container, rt.lifecycle)
 			return true
 		})
 
 		mod.setups.Range(func(_ int, setup SetupFunc) bool {
 			if debugEnabled {
-				logger.Debug("running module setup", "module", mod.name, "label", setup.meta.Label)
+				logger.Debug("running module setup",
+					"module", mod.name,
+					"label", setup.meta.Label,
+					"dependencies", serviceRefNames(setup.meta.Dependencies),
+					"provides", serviceRefNames(setup.meta.Provides),
+					"overrides", serviceRefNames(setup.meta.Overrides),
+					"graph_mutation", setup.meta.GraphMutation,
+					"raw", setup.meta.Raw,
+				)
 			}
 			if err := setup.apply(rt.container, rt.lifecycle); err != nil {
 				logger.Error("module setup failed", "module", mod.name, "label", setup.meta.Label, "error", err)
 				setupErr = fmt.Errorf("setup failed for module %s via %s: %w", mod.name, setup.meta.Label, err)
 				return false
+			}
+			if debugEnabled {
+				logger.Debug("module setup completed", "module", mod.name, "label", setup.meta.Label)
 			}
 			return true
 		})
@@ -96,7 +141,18 @@ func (p *buildPlan) Build() (*Runtime, error) {
 	p.modules.Range(func(_ int, mod *moduleSpec) bool {
 		var invokeErr error
 		mod.invokes.Range(func(_ int, invoke InvokeFunc) bool {
+			if debugEnabled {
+				logger.Debug("running invoke",
+					"module", mod.name,
+					"label", invoke.meta.Label,
+					"dependencies", serviceRefNames(invoke.meta.Dependencies),
+					"raw", invoke.meta.Raw,
+				)
+			}
 			invokeErr = invoke.apply(rt.container)
+			if invokeErr == nil && debugEnabled {
+				logger.Debug("invoke completed", "module", mod.name, "label", invoke.meta.Label)
+			}
 			return invokeErr == nil
 		})
 		if invokeErr != nil {
@@ -131,4 +187,70 @@ func cleanupBuildFailure(rt *Runtime, logger *slog.Logger, buildErr error) error
 		logger.Error("build cleanup failed", "app", rt.Name(), "error", report)
 	}
 	return errors.Join(buildErr, report)
+}
+
+func countModuleProviders(modules *collectionlist.List[*moduleSpec]) int {
+	total := 0
+	if modules == nil {
+		return total
+	}
+	modules.Range(func(_ int, mod *moduleSpec) bool {
+		if mod != nil {
+			total += mod.providers.Len()
+		}
+		return true
+	})
+	return total
+}
+
+func countModuleHooks(modules *collectionlist.List[*moduleSpec]) int {
+	total := 0
+	if modules == nil {
+		return total
+	}
+	modules.Range(func(_ int, mod *moduleSpec) bool {
+		if mod != nil {
+			total += mod.hooks.Len()
+		}
+		return true
+	})
+	return total
+}
+
+func countModuleSetups(modules *collectionlist.List[*moduleSpec]) int {
+	total := 0
+	if modules == nil {
+		return total
+	}
+	modules.Range(func(_ int, mod *moduleSpec) bool {
+		if mod != nil {
+			total += mod.setups.Len()
+		}
+		return true
+	})
+	return total
+}
+
+func countModuleInvokes(modules *collectionlist.List[*moduleSpec]) int {
+	total := 0
+	if modules == nil {
+		return total
+	}
+	modules.Range(func(_ int, mod *moduleSpec) bool {
+		if mod != nil {
+			total += mod.invokes.Len()
+		}
+		return true
+	})
+	return total
+}
+
+func serviceRefNames(refs []ServiceRef) []string {
+	names := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if ref.Name != "" {
+			names = append(names, ref.Name)
+		}
+	}
+	return names
 }

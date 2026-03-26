@@ -1,11 +1,13 @@
 package dix_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dix"
@@ -128,6 +130,14 @@ func buildRuntime(t *testing.T, app *dix.App) *dix.Runtime {
 	require.NoError(t, err)
 	require.NotNil(t, rt)
 	return rt
+}
+
+func newDebugLogger() (*slog.Logger, *bytes.Buffer) {
+	buf := &bytes.Buffer{}
+	logger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	return logger, buf
 }
 
 // Tests
@@ -735,6 +745,72 @@ func TestRuntimeStartFailureRollsBackStopHooks(t *testing.T) {
 	assert.Equal(t, 1, svc.starts)
 	assert.Equal(t, 1, svc.stops)
 	assert.Equal(t, dix.AppStateStopped, rt.State())
+}
+
+func TestBuildDebugLogging(t *testing.T) {
+	logger, buf := newDebugLogger()
+	app := dix.New("debug-build",
+		dix.WithLogger(logger),
+		dix.WithModule(
+			dix.NewModule("debug",
+				dix.WithModuleProviders(
+					dix.Provider0(func() string { return "value" }),
+				),
+				dix.WithModuleHooks(
+					dix.OnStart(func(context.Context, string) error { return nil }),
+				),
+				dix.WithModuleSetups(
+					dix.SetupWithMetadata(func(*dix.Container, dix.Lifecycle) error { return nil }, dix.SetupMetadata{
+						Label:        "DebugSetup",
+						Dependencies: []dix.ServiceRef{dix.TypedService[string]()},
+					}),
+				),
+				dix.WithModuleInvokes(
+					dix.Invoke1(func(string) {}),
+				),
+			),
+		),
+	)
+
+	_, err := app.Build()
+	require.NoError(t, err)
+
+	logs := buf.String()
+	assert.True(t, strings.Contains(logs, "build plan ready"), logs)
+	assert.True(t, strings.Contains(logs, "registering provider"), logs)
+	assert.True(t, strings.Contains(logs, "binding lifecycle hook"), logs)
+	assert.True(t, strings.Contains(logs, "module setup completed"), logs)
+	assert.True(t, strings.Contains(logs, "invoke completed"), logs)
+}
+
+func TestRuntimeStartRollbackDebugLogging(t *testing.T) {
+	logger, buf := newDebugLogger()
+	app := dix.New("debug-start",
+		dix.WithLogger(logger),
+		dix.WithModule(
+			dix.NewModule("debug-start",
+				dix.WithModuleProviders(
+					dix.Provider0(func() string { return "value" }),
+				),
+				dix.WithModuleHooks(
+					dix.OnStart(func(context.Context, string) error { return nil }),
+					dix.OnStop(func(context.Context, string) error { return nil }),
+					dix.OnStart0(func(context.Context) error { return fmt.Errorf("boom") }),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	err := rt.Start(context.Background())
+	require.Error(t, err)
+
+	logs := buf.String()
+	assert.True(t, strings.Contains(logs, "runtime state transition"), logs)
+	assert.True(t, strings.Contains(logs, "executing start hook"), logs)
+	assert.True(t, strings.Contains(logs, "rolling back app start"), logs)
+	assert.True(t, strings.Contains(logs, "executing stop hook"), logs)
+	assert.True(t, strings.Contains(logs, "shutting down container"), logs)
 }
 
 func TestHealthCheckReport(t *testing.T) {

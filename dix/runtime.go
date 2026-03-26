@@ -87,20 +87,28 @@ func (r *Runtime) Start(ctx context.Context) error {
 		return fmt.Errorf("runtime must be built before starting")
 	}
 
-	r.state = AppStateStarting
+	r.transitionState(AppStateStarting, "start requested")
 	if r.logger.Enabled(context.Background(), slog.LevelInfo) {
 		r.logger.Info("starting app", "app", r.Name())
 	}
-	if err := r.lifecycle.executeStartHooks(ctx, r.container); err != nil {
-		rollbackErr := r.lifecycle.executeStopHooks(ctx, r.container)
+	startedHooks, err := r.lifecycle.executeStartHooks(ctx, r.container)
+	if err != nil {
+		if r.logger.Enabled(context.Background(), slog.LevelDebug) {
+			r.logger.Debug("rolling back app start",
+				"app", r.Name(),
+				"started_hooks", startedHooks,
+				"rollback_stop_hooks", startedHooks,
+			)
+		}
+		rollbackErr := r.lifecycle.executeStopHooksSubset(ctx, startedHooks)
 		shutdownReport := r.container.ShutdownReport(ctx)
 		startErr := errors.Join(err, rollbackErr, shutdownReport)
-		r.state = AppStateStopped
+		r.transitionState(AppStateStopped, "start failed")
 		r.logger.Error("app start failed", "app", r.Name(), "error", startErr)
 		return startErr
 	}
 
-	r.state = AppStateStarted
+	r.transitionState(AppStateStarted, "start completed")
 	if r.logger.Enabled(context.Background(), slog.LevelInfo) {
 		r.logger.Info("app started", "app", r.Name())
 	}
@@ -132,6 +140,12 @@ func (r *Runtime) StopWithReport(ctx context.Context) (*StopReport, error) {
 	if r.logger.Enabled(context.Background(), slog.LevelInfo) {
 		r.logger.Info("stopping app", "app", r.Name())
 	}
+	if r.logger.Enabled(context.Background(), slog.LevelDebug) {
+		r.logger.Debug("executing runtime stop",
+			"app", r.Name(),
+			"stop_hooks", len(r.lifecycle.stopHooks.Values()),
+		)
+	}
 
 	report := &StopReport{}
 	if err := r.lifecycle.executeStopHooks(ctx, r.container); err != nil {
@@ -143,8 +157,19 @@ func (r *Runtime) StopWithReport(ctx context.Context) (*StopReport, error) {
 	if report.ShutdownReport != nil && len(report.ShutdownReport.Errors) > 0 {
 		r.logger.Error("container shutdown failed", "app", r.Name(), "error", report.ShutdownReport)
 	}
+	if r.logger.Enabled(context.Background(), slog.LevelDebug) {
+		shutdownErrors := 0
+		if report.ShutdownReport != nil {
+			shutdownErrors = len(report.ShutdownReport.Errors)
+		}
+		r.logger.Debug("runtime stop report",
+			"app", r.Name(),
+			"hook_error", report.HookError != nil,
+			"shutdown_errors", shutdownErrors,
+		)
+	}
 
-	r.state = AppStateStopped
+	r.transitionState(AppStateStopped, "stop completed")
 	if r.logger.Enabled(context.Background(), slog.LevelInfo) {
 		r.logger.Info("app stopped", "app", r.Name())
 	}
@@ -170,4 +195,20 @@ func (r *Runtime) logDebugInformation() {
 		}
 		return true
 	})
+}
+
+func (r *Runtime) transitionState(next AppState, reason string) {
+	if r == nil {
+		return
+	}
+	prev := r.state
+	r.state = next
+	if r.logger != nil && r.logger.Enabled(context.Background(), slog.LevelDebug) && prev != next {
+		r.logger.Debug("runtime state transition",
+			"app", r.Name(),
+			"from", prev.String(),
+			"to", next.String(),
+			"reason", reason,
+		)
+	}
 }

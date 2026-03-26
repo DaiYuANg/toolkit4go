@@ -65,16 +65,29 @@ func (l *lifecycleImpl) OnStop(hook StopHook) {
 	l.stopHooks.Add(hook)
 }
 
-func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) error {
-	for i, hook := range l.startHooks.Values() {
+func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) (int, error) {
+	hooks := l.startHooks.Values()
+	if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
+		l.logger.Debug("executing start hooks", "count", len(hooks))
+	}
+
+	completed := 0
+	for i, hook := range hooks {
+		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
+			l.logger.Debug("executing start hook", "index", i)
+		}
 		if err := hook(ctx); err != nil {
 			if l.logger != nil {
 				l.logger.Error("start hook failed", "index", i, "error", err)
 			}
-			return fmt.Errorf("start hook %d failed: %w", i, err)
+			return completed, fmt.Errorf("start hook %d failed: %w", i, err)
+		}
+		completed++
+		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
+			l.logger.Debug("start hook completed", "index", i)
 		}
 	}
-	return nil
+	return completed, nil
 }
 
 func (l *lifecycleImpl) executeStopHooks(ctx context.Context, _ *Container) error {
@@ -90,14 +103,24 @@ func (l *lifecycleImpl) executeStopHooksSubset(ctx context.Context, count int) e
 	if count < len(stopHooks) {
 		stopHooks = stopHooks[:count]
 	}
+	if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
+		l.logger.Debug("executing stop hooks", "count", len(stopHooks), "registered", len(l.stopHooks.Values()))
+	}
 	slices.Reverse(stopHooks)
 	errs := collectionlist.NewListWithCapacity[error](1)
 	for i, hook := range stopHooks {
+		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
+			l.logger.Debug("executing stop hook", "index", i)
+		}
 		if err := hook(ctx); err != nil {
 			if l.logger != nil {
 				l.logger.Error("stop hook failed", "index", i, "error", err)
 			}
 			errs.Add(fmt.Errorf("stop hook %d failed: %w", i, err))
+			continue
+		}
+		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
+			l.logger.Debug("stop hook completed", "index", i)
 		}
 	}
 	return errors.Join(errs.Values()...)

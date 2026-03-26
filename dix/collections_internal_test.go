@@ -98,7 +98,9 @@ func TestLifecycle_UsesCollectionBackedHooks(t *testing.T) {
 		return nil
 	})
 
-	require.NoError(t, lc.executeStartHooks(context.Background(), newContainer()))
+	started, err := lc.executeStartHooks(context.Background(), newContainer())
+	require.NoError(t, err)
+	assert.Equal(t, 2, started)
 	require.NoError(t, lc.executeStopHooks(context.Background(), newContainer()))
 	assert.Equal(t, []string{"start-1", "start-2", "stop-1", "stop-2"}, order)
 }

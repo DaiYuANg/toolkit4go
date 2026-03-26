@@ -46,7 +46,18 @@ func (c *Container) ShutdownReport(ctx context.Context) *do.ShutdownReport {
 	if c == nil || c.injector == nil {
 		return nil
 	}
-	return c.injector.ShutdownWithContext(ctx)
+	if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
+		c.logger.Debug("shutting down container")
+	}
+	report := c.injector.ShutdownWithContext(ctx)
+	if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
+		errorsCount := 0
+		if report != nil {
+			errorsCount = len(report.Errors)
+		}
+		c.logger.Debug("container shutdown completed", "errors", errorsCount)
+	}
+	return report
 }
 
 func resolveInjectorAs[T any](injector do.Injector) (T, error) {
