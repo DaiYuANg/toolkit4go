@@ -30,6 +30,7 @@ type AppState int32
 const (
 	AppStateCreated AppState = iota
 	AppStateBuilt
+	AppStateStarting
 	AppStateStarted
 	AppStateStopped
 )
@@ -79,4 +80,26 @@ type moduleSpec struct {
 type debugSettings struct {
 	scopeTree                bool
 	namedServiceDependencies collectionset.OrderedSet[string]
+}
+
+type ValidationWarningKind string
+
+const (
+	ValidationWarningRawProviderUndeclaredOutput ValidationWarningKind = "raw_provider_undeclared_output"
+	ValidationWarningRawProviderUndeclaredDeps   ValidationWarningKind = "raw_provider_undeclared_deps"
+	ValidationWarningRawInvokeUndeclaredDeps     ValidationWarningKind = "raw_invoke_undeclared_deps"
+	ValidationWarningRawHookUndeclaredDeps       ValidationWarningKind = "raw_hook_undeclared_deps"
+	ValidationWarningRawSetupUndeclaredGraph     ValidationWarningKind = "raw_setup_undeclared_graph"
+)
+
+type ValidationWarning struct {
+	Kind    ValidationWarningKind
+	Module  string
+	Label   string
+	Details string
+}
+
+type ValidationReport struct {
+	Errors   []error
+	Warnings []ValidationWarning
 }

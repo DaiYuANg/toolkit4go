@@ -16,7 +16,7 @@ and a runtime model without forcing most users to deal with `do` directly.
 - **Immutable spec**: `App` and `Module` are built as declarative specs.
 - **Typed DI**: `ProviderN` registers typed constructors; `InvokeN` runs typed eager initialization.
 - **Lifecycle**: `OnStart` / `OnStop` hooks with `Runtime.Start/Stop/StopWithReport`.
-- **Validation**: `app.Validate()` performs conservative graph validation before build.
+- **Validation**: `app.Validate()` fails on graph errors; `app.ValidateReport()` also exposes validation warnings for raw escape hatches.
 - **Runtime**: container access, health checks, and diagnostics.
 - **Advanced features**: named services, alias binding, transient providers, overrides, scopes via `dix/advanced`.
 
@@ -44,8 +44,15 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `dix.WithModuleProviders(...)`, `dix.ProviderN(...)`
 - `dix.WithModuleHooks(...)`, `dix.OnStart(...)`, `dix.OnStop(...)`
 - `dix.WithModuleSetup(...)` / `dix.WithModuleSetups(...)`
-- `app.Validate()`, `app.Build()`
+- `app.Validate()`, `app.ValidateReport()`, `app.Build()`
 - `rt.Start(ctx)`, `rt.Stop(ctx)`, `rt.StopWithReport(ctx)`
+
+## Validation model
+
+- Use `app.Validate()` when you only care about hard failures.
+- Use `app.ValidateReport()` when you also want to inspect warnings from raw providers, raw invokes, raw hooks, or raw setups.
+- Typed `ProviderN` / `InvokeN` / `OnStart` / `OnStop` stay on the strict validation path.
+- Raw escape hatches are still supported, but you should prefer the metadata-aware forms such as `RawProviderWithMetadata(...)`, `RawInvokeWithMetadata(...)`, `RawHookWithMetadata(...)`, `RawSetupWithMetadata(...)`, and `advanced.DoSetupWithMetadata(...)` so the validator can keep reasoning about dependencies and graph mutations.
 
 ## Integration guide
 

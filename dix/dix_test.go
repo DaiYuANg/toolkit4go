@@ -52,6 +52,15 @@ func (g *testGreeterImpl) Greet() string {
 	return "hello"
 }
 
+type cleanupService struct {
+	shutdowns int
+}
+
+func (s *cleanupService) Shutdown() error {
+	s.shutdowns++
+	return nil
+}
+
 func (d *Database) Close() error {
 	fmt.Println("Database closed")
 	return nil
@@ -328,9 +337,46 @@ func TestModule_ImportDeduplicatesSharedDependency(t *testing.T) {
 	assert.Equal(t, 1, called)
 }
 
+func TestApp_ValidateDetectsDuplicateModuleNames(t *testing.T) {
+	app := dix.NewApp("duplicate-modules",
+		dix.NewModule("shared",
+			dix.WithModuleProviders(
+				dix.Provider0(func() string { return "left" }),
+			),
+		),
+		dix.NewModule("shared",
+			dix.WithModuleProviders(
+				dix.Provider0(func() int { return 42 }),
+			),
+		),
+	)
+
+	err := app.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate module name detected: shared")
+}
+
 func TestApp_ValidateGraph(t *testing.T) {
 	app := dix.NewApp("test", DatabaseModule, ServerModule)
 	require.NoError(t, app.Validate())
+}
+
+func TestApp_ValidateAllowsProviderDependencyDeclaredLater(t *testing.T) {
+	app := dix.NewApp("validate-order",
+		dix.NewModule("ordered",
+			dix.WithModuleProviders(
+				dix.Provider1(ProvideDatabase),
+				dix.Provider0(ProvideConfig),
+			),
+		),
+	)
+
+	require.NoError(t, app.Validate())
+
+	rt := buildRuntime(t, app)
+	db, err := dix.ResolveAs[*Database](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, "sqlite://test.db", db.dsn)
 }
 
 func TestApp_ValidateDetectsMissingDependency(t *testing.T) {
@@ -552,6 +598,143 @@ func TestWithDoSetup(t *testing.T) {
 	)
 	buildRuntime(t, dix.NewApp("test", module))
 	assert.True(t, called)
+}
+
+func TestValidateReportWarnsForUndeclaredRawEscapes(t *testing.T) {
+	module := dix.NewModule("advanced",
+		dix.WithModuleProviders(
+			dix.RawProvider(func(*dix.Container) {}),
+		),
+		dix.WithModuleInvokes(
+			dix.RawInvoke(func(*dix.Container) error { return nil }),
+		),
+		dix.WithModuleHooks(
+			dix.RawHook(func(*dix.Container, dix.Lifecycle) {}),
+		),
+		dix.WithModuleSetups(
+			dixadvanced.DoSetup(func(raw do.Injector) error {
+				_ = raw
+				return nil
+			}),
+		),
+	)
+
+	report := dix.NewApp("warnings", module).ValidateReport()
+	require.False(t, report.HasErrors())
+	require.True(t, report.HasWarnings())
+	assert.Contains(t, report.WarningSummary(), string(dix.ValidationWarningRawProviderUndeclaredOutput))
+	assert.Contains(t, report.WarningSummary(), string(dix.ValidationWarningRawInvokeUndeclaredDeps))
+	assert.Contains(t, report.WarningSummary(), string(dix.ValidationWarningRawHookUndeclaredDeps))
+	assert.Contains(t, report.WarningSummary(), string(dix.ValidationWarningRawSetupUndeclaredGraph))
+}
+
+func TestValidateReportUsesDeclaredRawMetadata(t *testing.T) {
+	module := dix.NewModule("advanced",
+		dix.WithModuleProviders(
+			dix.Provider0(ProvideConfig),
+			dix.RawProviderWithMetadata(func(c *dix.Container) {
+				dix.ProvideValueT(c, &Database{dsn: "sqlite://raw.db"})
+			}, dix.ProviderMetadata{
+				Label:        "RawDatabaseProvider",
+				Output:       dix.TypedService[*Database](),
+				Dependencies: []dix.ServiceRef{dix.TypedService[Config]()},
+			}),
+		),
+		dix.WithModuleInvokes(
+			dix.RawInvokeWithMetadata(func(c *dix.Container) error {
+				_, err := dix.ResolveAs[*Database](c)
+				return err
+			}, dix.InvokeMetadata{
+				Label:        "RawInvokeDatabase",
+				Dependencies: []dix.ServiceRef{dix.TypedService[*Database]()},
+			}),
+		),
+		dix.WithModuleHooks(
+			dix.RawHookWithMetadata(func(c *dix.Container, lc dix.Lifecycle) {
+				lc.OnStart(func(context.Context) error {
+					_, err := dix.ResolveAs[*Database](c)
+					return err
+				})
+			}, dix.HookMetadata{
+				Label:        "RawStartDatabase",
+				Kind:         dix.HookKindStart,
+				Dependencies: []dix.ServiceRef{dix.TypedService[*Database]()},
+			}),
+		),
+		dix.WithModuleSetups(
+			dixadvanced.DoSetupWithMetadata(func(raw do.Injector) error {
+				_ = raw
+				return nil
+			}, dix.SetupMetadata{
+				Label:         "RawDoSetup",
+				Dependencies:  []dix.ServiceRef{dix.TypedService[Config]()},
+				Provides:      []dix.ServiceRef{dix.NamedService("tenant.default")},
+				GraphMutation: true,
+			}),
+		),
+	)
+
+	report := dix.NewApp("warnings", module).ValidateReport()
+	require.False(t, report.HasErrors())
+	assert.False(t, report.HasWarnings(), report.WarningSummary())
+}
+
+func TestBuildFailureShutsDownResolvedServices(t *testing.T) {
+	svc := &cleanupService{}
+	app := dix.NewApp("cleanup",
+		dix.NewModule("cleanup",
+			dix.WithModuleProviders(
+				dix.Provider0(func() *cleanupService { return svc }),
+			),
+			dix.WithModuleSetup(func(c *dix.Container, _ dix.Lifecycle) error {
+				_, err := dix.ResolveAs[*cleanupService](c)
+				require.NoError(t, err)
+				return fmt.Errorf("setup failed")
+			}),
+		),
+	)
+
+	_, err := app.Build()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "setup failed")
+	assert.Equal(t, 1, svc.shutdowns)
+}
+
+func TestRuntimeStartFailureRollsBackStopHooks(t *testing.T) {
+	type lifecycleService struct {
+		starts int
+		stops  int
+	}
+
+	svc := &lifecycleService{}
+	app := dix.NewApp("rollback",
+		dix.NewModule("rollback",
+			dix.WithModuleProviders(
+				dix.Provider0(func() *lifecycleService { return svc }),
+			),
+			dix.WithModuleHooks(
+				dix.OnStart(func(context.Context, *lifecycleService) error {
+					svc.starts++
+					return nil
+				}),
+				dix.OnStop(func(context.Context, *lifecycleService) error {
+					svc.stops++
+					return nil
+				}),
+				dix.OnStart0(func(context.Context) error {
+					return fmt.Errorf("boom")
+				}),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	err := rt.Start(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "boom")
+	assert.Equal(t, 1, svc.starts)
+	assert.Equal(t, 1, svc.stops)
+	assert.Equal(t, dix.AppStateStopped, rt.State())
 }
 
 func TestHealthCheckReport(t *testing.T) {

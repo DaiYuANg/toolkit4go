@@ -2,6 +2,7 @@ package dix
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -88,7 +89,7 @@ func (p *buildPlan) Build() (*Runtime, error) {
 		return setupErr == nil
 	})
 	if setupErr != nil {
-		return nil, setupErr
+		return nil, cleanupBuildFailure(rt, logger, setupErr)
 	}
 
 	var buildErr error
@@ -106,7 +107,7 @@ func (p *buildPlan) Build() (*Runtime, error) {
 		return true
 	})
 	if buildErr != nil {
-		return nil, buildErr
+		return nil, cleanupBuildFailure(rt, logger, buildErr)
 	}
 
 	rt.state = AppStateBuilt
@@ -115,4 +116,19 @@ func (p *buildPlan) Build() (*Runtime, error) {
 	}
 	rt.logDebugInformation()
 	return rt, nil
+}
+
+func cleanupBuildFailure(rt *Runtime, logger *slog.Logger, buildErr error) error {
+	if rt == nil || rt.container == nil {
+		return buildErr
+	}
+
+	report := rt.container.ShutdownReport(context.Background())
+	if report == nil || len(report.Errors) == 0 {
+		return buildErr
+	}
+	if logger != nil {
+		logger.Error("build cleanup failed", "app", rt.Name(), "error", report)
+	}
+	return errors.Join(buildErr, report)
 }

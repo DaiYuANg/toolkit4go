@@ -93,6 +93,49 @@ if err := rt.Start(context.Background()); err != nil {
 }
 ```
 
+## Example: Validation Report For Raw Bridges
+
+```go
+report := app.ValidateReport()
+if err := report.Err(); err != nil {
+    panic(err)
+}
+for _, warning := range report.Warnings {
+    logger.Warn("validation warning", "kind", warning.Kind, "module", warning.Module, "label", warning.Label)
+}
+```
+
+Use this path when the module graph intentionally includes raw bridges.
+
+## Example: Declared Raw Metadata
+
+```go
+module := dix.NewModule("bridge",
+    dix.WithModuleProviders(
+        dix.Provider0(func() Config { return Config{Port: 8080} }),
+        dix.RawProviderWithMetadata(func(c *dix.Container) {
+            dix.ProvideValueT(c, &Server{})
+        }, dix.ProviderMetadata{
+            Label:        "RawServerProvider",
+            Output:       dix.TypedService[*Server](),
+            Dependencies: []dix.ServiceRef{dix.TypedService[Config]()},
+        }),
+    ),
+    dix.WithModuleSetups(
+        advanced.DoSetupWithMetadata(func(raw do.Injector) error {
+            _ = raw
+            return nil
+        }, dix.SetupMetadata{
+            Label:         "RawBridgeSetup",
+            Dependencies:  []dix.ServiceRef{dix.TypedService[Config]()},
+            GraphMutation: true,
+        }),
+    ),
+)
+```
+
+Declaring metadata keeps raw integration possible without making validation completely blind.
+
 ## Example: Runtime Scope
 
 ```go

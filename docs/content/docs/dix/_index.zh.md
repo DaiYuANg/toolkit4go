@@ -14,7 +14,7 @@ weight: 6
 - **不可变规格**：`App` 与 `Module` 以声明式 spec 组装。
 - **强类型 DI**：`ProviderN` 注册强类型构造器；`InvokeN` 执行强类型预热初始化。
 - **生命周期**：`OnStart` / `OnStop` hook，配合 `Runtime.Start/Stop/StopWithReport`。
-- **校验**：`app.Validate()` 在 build 前对依赖图做保守校验。
+- **校验**：`app.Validate()` 对依赖图错误快速失败；`app.ValidateReport()` 还会暴露 raw escape hatch 的校验警告。
 - **运行时**：容器访问、健康检查、诊断入口。
 - **高级能力**：named service、alias、transient、override、scope（见 `dix/advanced`）。
 
@@ -42,8 +42,15 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `dix.WithModuleProviders(...)`、`dix.ProviderN(...)`
 - `dix.WithModuleHooks(...)`、`dix.OnStart(...)`、`dix.OnStop(...)`
 - `dix.WithModuleSetup(...)` / `dix.WithModuleSetups(...)`
-- `app.Validate()`、`app.Build()`
+- `app.Validate()`、`app.ValidateReport()`、`app.Build()`
 - `rt.Start(ctx)`、`rt.Stop(ctx)`、`rt.StopWithReport(ctx)`
+
+## 校验模型
+
+- 只关心硬错误时，使用 `app.Validate()`。
+- 还想查看 raw provider / invoke / hook / setup 带来的校验盲区时，使用 `app.ValidateReport()`。
+- `ProviderN` / `InvokeN` / `OnStart` / `OnStop` 这些 typed API 仍然走严格校验路径。
+- raw escape hatch 仍然可用，但更推荐 `RawProviderWithMetadata(...)`、`RawInvokeWithMetadata(...)`、`RawHookWithMetadata(...)`、`RawSetupWithMetadata(...)`、`advanced.DoSetupWithMetadata(...)` 这类带 metadata 的形式，让校验器继续理解依赖和图变更边界。
 
 ## 集成指南
 

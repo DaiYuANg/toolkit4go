@@ -13,9 +13,17 @@ func (i InvokeFunc) apply(c *Container) error {
 }
 
 func RawInvoke(fn func(*Container) error) InvokeFunc {
-	return NewInvokeFunc(fn, InvokeMetadata{
+	return RawInvokeWithMetadata(fn, InvokeMetadata{
 		Label: "RawInvoke",
-		Raw:   true,
+	})
+}
+
+func RawInvokeWithMetadata(fn func(*Container) error, meta InvokeMetadata) InvokeFunc {
+	meta.Raw = true
+	return NewInvokeFunc(fn, InvokeMetadata{
+		Label:        meta.Label,
+		Dependencies: meta.Dependencies,
+		Raw:          true,
 	})
 }
 

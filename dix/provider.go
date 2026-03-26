@@ -12,9 +12,18 @@ func (p ProviderFunc) apply(c *Container) {
 }
 
 func RawProvider(fn func(*Container)) ProviderFunc {
-	return NewProviderFunc(fn, ProviderMetadata{
+	return RawProviderWithMetadata(fn, ProviderMetadata{
 		Label: "RawProvider",
-		Raw:   true,
+	})
+}
+
+func RawProviderWithMetadata(fn func(*Container), meta ProviderMetadata) ProviderFunc {
+	meta.Raw = true
+	return NewProviderFunc(fn, ProviderMetadata{
+		Label:        meta.Label,
+		Output:       meta.Output,
+		Dependencies: meta.Dependencies,
+		Raw:          true,
 	})
 }
 

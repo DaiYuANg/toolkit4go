@@ -81,8 +81,12 @@ func main() {
 		dix.WithModules(configModule, serverModule),
 	)
 
-	if err := app.Validate(); err != nil {
+	report := app.ValidateReport()
+	if err := report.Err(); err != nil {
 		panic(err)
+	}
+	for _, warning := range report.Warnings {
+		logger.Warn("validation warning", "kind", warning.Kind, "module", warning.Module, "label", warning.Label)
 	}
 
 	rt, err := app.Build()
@@ -108,8 +112,13 @@ go get github.com/DaiYuANg/arcgo/logx@latest
 go run .
 ```
 
+## Validation notes
+
+- For typed-only apps, `app.Validate()` is usually enough.
+- When you use raw bridge APIs, prefer `app.ValidateReport()` so you can inspect warnings as well as hard errors.
+- If a raw path is intentional, declare its validation boundary with metadata-aware APIs instead of relying on a fully opaque escape hatch.
+
 ## Next
 
 - Health checks and `net/http` handlers: [Health and lifecycle](./health-and-lifecycle)
 - Advanced features (named/alias/scope/override): see [dix examples](./examples) and `dix/advanced`
-

@@ -72,6 +72,49 @@ if err := rt.Start(context.Background()); err != nil {
 }
 ```
 
+## 示例：Raw Bridge 的 Validation Report
+
+```go
+report := app.ValidateReport()
+if err := report.Err(); err != nil {
+    panic(err)
+}
+for _, warning := range report.Warnings {
+    logger.Warn("validation warning", "kind", warning.Kind, "module", warning.Module, "label", warning.Label)
+}
+```
+
+当模块图里有意包含 raw bridge 时，优先走这条路径。
+
+## 示例：为 Raw 路径声明 Metadata
+
+```go
+module := dix.NewModule("bridge",
+    dix.WithModuleProviders(
+        dix.Provider0(func() Config { return Config{Port: 8080} }),
+        dix.RawProviderWithMetadata(func(c *dix.Container) {
+            dix.ProvideValueT(c, &Server{})
+        }, dix.ProviderMetadata{
+            Label:        "RawServerProvider",
+            Output:       dix.TypedService[*Server](),
+            Dependencies: []dix.ServiceRef{dix.TypedService[Config]()},
+        }),
+    ),
+    dix.WithModuleSetups(
+        advanced.DoSetupWithMetadata(func(raw do.Injector) error {
+            _ = raw
+            return nil
+        }, dix.SetupMetadata{
+            Label:         "RawBridgeSetup",
+            Dependencies:  []dix.ServiceRef{dix.TypedService[Config]()},
+            GraphMutation: true,
+        }),
+    ),
+)
+```
+
+显式声明 metadata 后，raw 集成仍然可用，但校验器不再完全失明。
+
 ## 示例：Runtime Scope
 
 ```go

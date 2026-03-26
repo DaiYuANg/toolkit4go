@@ -81,8 +81,12 @@ func main() {
 		dix.WithModules(configModule, serverModule),
 	)
 
-	if err := app.Validate(); err != nil {
+	report := app.ValidateReport()
+	if err := report.Err(); err != nil {
 		panic(err)
+	}
+	for _, warning := range report.Warnings {
+		logger.Warn("validation warning", "kind", warning.Kind, "module", warning.Module, "label", warning.Label)
 	}
 
 	rt, err := app.Build()
@@ -108,8 +112,13 @@ go get github.com/DaiYuANg/arcgo/logx@latest
 go run .
 ```
 
+## 校验说明
+
+- 对纯 typed 应用来说，`app.Validate()` 通常已经足够。
+- 一旦用了 raw bridge API，更推荐 `app.ValidateReport()`，这样既能看到硬错误，也能看到 warning。
+- 如果 raw 路径是有意为之，优先使用带 metadata 的 API 显式声明校验边界，而不是完全不透明的 escape hatch。
+
 ## Next
 
 - 健康检查与 `net/http` handler：[健康检查与生命周期](./health-and-lifecycle)
 - 高级特性（named/alias/scope/override）：见 [dix 示例](./examples) 与 `dix/advanced`
-

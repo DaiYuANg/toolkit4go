@@ -6,9 +6,17 @@ import (
 )
 
 func DoSetup(fn func(do.Injector) error) dix.SetupFunc {
-	return newSetup("DoSetup", func(c *dix.Container) error {
+	return DoSetupWithMetadata(fn, dix.SetupMetadata{
+		Label:         "DoSetup",
+		GraphMutation: true,
+	})
+}
+
+func DoSetupWithMetadata(fn func(do.Injector) error, meta dix.SetupMetadata) dix.SetupFunc {
+	meta.Raw = true
+	return dix.NewSetupFunc(func(c *dix.Container, _ dix.Lifecycle) error {
 		return fn(c.Raw())
-	}, nil, nil, nil, true, true)
+	}, meta)
 }
 
 func BindAlias[From, To any]() dix.SetupFunc {

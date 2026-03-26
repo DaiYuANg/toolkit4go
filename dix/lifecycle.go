@@ -2,6 +2,7 @@ package dix
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -30,6 +31,17 @@ func (h HookFunc) bind(c *Container, lc Lifecycle) {
 	if h.register != nil {
 		h.register(c, lc)
 	}
+}
+
+func RawHook(fn func(*Container, Lifecycle)) HookFunc {
+	return RawHookWithMetadata(fn, HookMetadata{
+		Label: "RawHook",
+	})
+}
+
+func RawHookWithMetadata(fn func(*Container, Lifecycle), meta HookMetadata) HookFunc {
+	meta.Raw = true
+	return NewHookFunc(fn, meta)
 }
 
 // lifecycleImpl is the internal implementation.
@@ -66,17 +78,29 @@ func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) err
 }
 
 func (l *lifecycleImpl) executeStopHooks(ctx context.Context, _ *Container) error {
+	return l.executeStopHooksSubset(ctx, len(l.stopHooks.Values()))
+}
+
+func (l *lifecycleImpl) executeStopHooksSubset(ctx context.Context, count int) error {
+	if count <= 0 {
+		return nil
+	}
+
 	stopHooks := slices.Clone(l.stopHooks.Values())
+	if count < len(stopHooks) {
+		stopHooks = stopHooks[:count]
+	}
 	slices.Reverse(stopHooks)
+	errs := collectionlist.NewListWithCapacity[error](1)
 	for i, hook := range stopHooks {
 		if err := hook(ctx); err != nil {
 			if l.logger != nil {
 				l.logger.Error("stop hook failed", "index", i, "error", err)
 			}
-			return fmt.Errorf("stop hook %d failed: %w", i, err)
+			errs.Add(fmt.Errorf("stop hook %d failed: %w", i, err))
 		}
 	}
-	return nil
+	return errors.Join(errs.Values()...)
 }
 
 func OnStart0(fn func(context.Context) error) HookFunc {

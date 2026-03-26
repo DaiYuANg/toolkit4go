@@ -2,6 +2,7 @@ package dix
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -86,12 +87,17 @@ func (r *Runtime) Start(ctx context.Context) error {
 		return fmt.Errorf("runtime must be built before starting")
 	}
 
+	r.state = AppStateStarting
 	if r.logger.Enabled(context.Background(), slog.LevelInfo) {
 		r.logger.Info("starting app", "app", r.Name())
 	}
 	if err := r.lifecycle.executeStartHooks(ctx, r.container); err != nil {
-		r.logger.Error("app start failed", "app", r.Name(), "error", err)
-		return err
+		rollbackErr := r.lifecycle.executeStopHooks(ctx, r.container)
+		shutdownReport := r.container.ShutdownReport(ctx)
+		startErr := errors.Join(err, rollbackErr, shutdownReport)
+		r.state = AppStateStopped
+		r.logger.Error("app start failed", "app", r.Name(), "error", startErr)
+		return startErr
 	}
 
 	r.state = AppStateStarted
@@ -115,6 +121,9 @@ func (r *Runtime) Stop(ctx context.Context) error {
 func (r *Runtime) StopWithReport(ctx context.Context) (*StopReport, error) {
 	if r == nil {
 		return nil, fmt.Errorf("runtime is nil")
+	}
+	if r.state == AppStateStarting {
+		return nil, fmt.Errorf("runtime is still starting")
 	}
 	if r.state != AppStateStarted {
 		return nil, fmt.Errorf("runtime must be started before stopping")

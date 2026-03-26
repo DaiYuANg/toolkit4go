@@ -82,8 +82,9 @@ func walkModuleList(modules *collectionlist.List[Module], profile Profile, visit
 		return nil
 	}
 
-	visited := collectionset.NewSetWithCapacity[string](16)
-	visiting := collectionset.NewSetWithCapacity[string](8)
+	visited := collectionset.NewSetWithCapacity[*moduleSpec](16)
+	visiting := collectionset.NewSetWithCapacity[*moduleSpec](8)
+	knownNames := map[string]*moduleSpec{}
 	stopped := false
 	path := collectionlist.NewListWithCapacity[string](8)
 
@@ -94,10 +95,16 @@ func walkModuleList(modules *collectionlist.List[Module], profile Profile, visit
 		}
 
 		key := moduleKey(spec)
-		if visited.Contains(key) {
+		if spec.name != "" {
+			if known, ok := knownNames[spec.name]; ok && known != spec {
+				return fmt.Errorf("duplicate module name detected: %s", spec.name)
+			}
+			knownNames[spec.name] = spec
+		}
+		if visited.Contains(spec) {
 			return nil
 		}
-		if visiting.Contains(key) {
+		if visiting.Contains(spec) {
 			return fmt.Errorf("module import cycle detected: %s -> %s", formatModulePath(*path), key)
 		}
 
@@ -108,10 +115,10 @@ func walkModuleList(modules *collectionlist.List[Module], profile Profile, visit
 			Depth:   path.Len() - 1,
 		}
 
-		visiting.Add(key)
+		visiting.Add(spec)
 		action, err := visitor.Enter(ctx, spec)
 		if err != nil {
-			visiting.Remove(key)
+			visiting.Remove(spec)
 			_, _ = path.RemoveAt(path.Len() - 1)
 			return err
 		}
@@ -128,14 +135,14 @@ func walkModuleList(modules *collectionlist.List[Module], profile Profile, visit
 				return childErr == nil && !stopped
 			})
 			if childErr != nil {
-				visiting.Remove(key)
+				visiting.Remove(spec)
 				_, _ = path.RemoveAt(path.Len() - 1)
 				return childErr
 			}
 		}
 
-		visiting.Remove(key)
-		visited.Add(key)
+		visiting.Remove(spec)
+		visited.Add(spec)
 		leaveErr := visitor.Leave(ctx, spec)
 		_, _ = path.RemoveAt(path.Len() - 1)
 		return leaveErr
