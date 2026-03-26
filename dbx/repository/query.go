@@ -13,7 +13,7 @@ func (r *Base[E, S]) List(ctx context.Context, query *dbx.SelectQuery) ([]E, err
 	}
 	listQuery := cloneOrDefault(r, query)
 	dbx.LogRuntimeNode(r.session, "repository.list.start", "table", r.schema.TableName(), "has_query", query != nil)
-	items, err := dbx.QueryAll(ctx, r.session, listQuery, r.mapper)
+	items, err := dbx.QueryAll[E](ctx, r.session, listQuery, r.mapper)
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.list.error", "table", r.schema.TableName(), "error", err)
 		return nil, err
@@ -33,7 +33,7 @@ func (r *Base[E, S]) First(ctx context.Context, query *dbx.SelectQuery) (E, erro
 	}
 	firstQuery := cloneOrDefault(r, query)
 	dbx.LogRuntimeNode(r.session, "repository.first.start", "table", r.schema.TableName(), "has_query", query != nil)
-	items, err := dbx.QueryAll(ctx, r.session, firstQuery.Limit(1), r.mapper)
+	items, err := dbx.QueryAll[E](ctx, r.session, firstQuery.Limit(1), r.mapper)
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.first.error", "table", r.schema.TableName(), "error", err)
 		return zero, err
@@ -60,7 +60,7 @@ func (r *Base[E, S]) Count(ctx context.Context, query *dbx.SelectQuery) (int64, 
 	}
 	dbx.LogRuntimeNode(r.session, "repository.count.start", "table", r.schema.TableName(), "has_query", query != nil)
 	countQuery.Items = []dbx.SelectItem{dbx.CountAll().As("count")}
-	rows, err := dbx.QueryAll(ctx, r.session, countQuery, dbx.MustStructMapper[countRow]())
+	rows, err := dbx.QueryAll[countRow](ctx, r.session, countQuery, dbx.MustStructMapper[countRow]())
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.count.error", "table", r.schema.TableName(), "error", err)
 		return 0, err

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	semver "github.com/Masterminds/semver/v3"
+	"github.com/Masterminds/semver/v3"
 )
 
 // Version 代表一个版本文档

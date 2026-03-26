@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/DaiYuANg/arcgo/kvx"
-	valkey "github.com/valkey-io/valkey-go"
+	"github.com/valkey-io/valkey-go"
 )
 
 // ============== PubSub Interface ==============

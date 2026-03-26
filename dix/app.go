@@ -15,6 +15,7 @@ import (
 // AppOption configures an App specification during construction.
 type AppOption func(*appSpec)
 
+// DefaultAppName is the fallback name used by NewDefault.
 const DefaultAppName = "dix application"
 
 // NewDefault creates an application with the default framework name.
@@ -45,6 +46,7 @@ func NewApp(name string, modules ...Module) *App {
 }
 
 // NewAppWithOptions keeps backward compatibility with the v0.3 style.
+//
 // Deprecated: prefer New(name, WithModules(...), WithProfile(...), ...).
 func NewAppWithOptions(name string, opts []AppOption, modules ...Module) *App {
 	merged := collectionlist.NewListWithCapacity[AppOption](len(opts)+1, WithModules(modules...))
@@ -52,6 +54,7 @@ func NewAppWithOptions(name string, opts []AppOption, modules ...Module) *App {
 	return New(name, merged.Values()...)
 }
 
+// WithProfile selects the runtime profile for the application.
 func WithProfile(profile Profile) AppOption {
 	return func(spec *appSpec) { spec.profile = profile }
 }
@@ -61,7 +64,7 @@ func WithVersion(version string) AppOption {
 	return func(spec *appSpec) { spec.meta.Version = version }
 }
 
-// WithDescription sets application description metadata.
+// WithAppDescription sets application description metadata.
 func WithAppDescription(description string) AppOption {
 	return func(spec *appSpec) { spec.meta.Description = description }
 }
@@ -103,6 +106,7 @@ func defaultLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
 }
 
+// Name returns the configured application name.
 func (a *App) Name() string {
 	if a == nil || a.spec == nil {
 		return ""
@@ -110,6 +114,7 @@ func (a *App) Name() string {
 	return a.spec.meta.Name
 }
 
+// Profile returns the configured application profile.
 func (a *App) Profile() Profile {
 	if a == nil || a.spec == nil {
 		return ""
@@ -117,6 +122,7 @@ func (a *App) Profile() Profile {
 	return a.spec.profile
 }
 
+// Logger returns the application logger.
 func (a *App) Logger() *slog.Logger {
 	if a == nil || a.spec == nil {
 		return nil
@@ -124,6 +130,7 @@ func (a *App) Logger() *slog.Logger {
 	return a.spec.logger
 }
 
+// Meta returns the application metadata.
 func (a *App) Meta() AppMeta {
 	if a == nil || a.spec == nil {
 		return AppMeta{}
@@ -131,6 +138,7 @@ func (a *App) Meta() AppMeta {
 	return a.spec.meta
 }
 
+// Modules returns the configured application modules.
 func (a *App) Modules() []Module {
 	if a == nil || a.spec == nil {
 		return nil

@@ -8,7 +8,7 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx/repository"
 )
 
-type Model[E any, S dbx.SchemaSource[E]] struct {
+type Model[E any, S repository.EntitySchema[E]] struct {
 	store  *Store[E, S]
 	entity *E
 	key    repository.Key
@@ -88,4 +88,3 @@ func (m *Model[E, S]) Delete(ctx context.Context) error {
 	_, err := m.store.repository.DeleteByKey(ctx, key)
 	return err
 }
-

@@ -3,16 +3,18 @@ package dix_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DaiYuANg/arcgo/dix"
 	dixadvanced "github.com/DaiYuANg/arcgo/dix/advanced"
-	do "github.com/samber/do/v2"
+	"github.com/samber/do/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +42,6 @@ func NewDatabase(dsn string) *Database {
 }
 
 func (d *Database) Connect() error {
-	fmt.Println("Database connected:", d.dsn)
 	return nil
 }
 
@@ -64,7 +65,6 @@ func (s *cleanupService) Shutdown() error {
 }
 
 func (d *Database) Close() error {
-	fmt.Println("Database closed")
 	return nil
 }
 
@@ -83,12 +83,10 @@ func ProvideServer(cfg Config) *Server {
 }
 
 func (s *Server) Start() error {
-	fmt.Println("Server starting on", s.addr)
 	return nil
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	fmt.Println("Server stopped")
 	return nil
 }
 
@@ -409,8 +407,8 @@ func TestApp_ValidateDetectsDuplicateProvider(t *testing.T) {
 	app := dix.NewApp("validate-duplicate",
 		dix.NewModule("dup",
 			dix.WithModuleProviders(
-				dix.Provider0(func() Config { return ProvideConfig() }),
-				dix.Provider0(func() Config { return ProvideConfig() }),
+				dix.Provider0(ProvideConfig),
+				dix.Provider0(ProvideConfig),
 			),
 		),
 	)
@@ -498,7 +496,11 @@ func TestLifecycleHookReceivesContext(t *testing.T) {
 		dix.WithModuleProviders(dix.Provider0(func() string { return "value" })),
 		dix.WithModuleHooks(
 			dix.OnStart(func(ctx context.Context, value string) error {
-				received = ctx.Value(key).(string) + ":" + value
+				trace, ok := ctx.Value(key).(string)
+				if !ok {
+					return errors.New("trace context value missing")
+				}
+				received = trace + ":" + value
 				return nil
 			}),
 		),
@@ -535,8 +537,14 @@ func ExampleNewModule() {
 		),
 		dix.WithModuleSetup(func(c *dix.Container, lc dix.Lifecycle) error {
 			lc.OnStart(func(ctx context.Context) error {
-				s, _ := dix.ResolveAs[string](c)
-				fmt.Println("Starting with:", s)
+				s, err := dix.ResolveAs[string](c)
+				if err != nil {
+					return err
+				}
+				_, err = fmt.Println("Starting with:", s)
+				if err != nil {
+					return fmt.Errorf("print startup message: %w", err)
+				}
 				return nil
 			})
 			return nil
@@ -544,19 +552,25 @@ func ExampleNewModule() {
 	)
 
 	app := dix.NewApp("test", module)
-	_, _ = app.Build()
+	if _, err := app.Build(); err != nil {
+		panic(err)
+	}
 }
 
 func ExampleWithModuleHooks() {
 	module := dix.NewModule("example",
 		dix.WithModuleProviders(
 			dix.Provider0(func() *http.Server {
-				return &http.Server{Addr: ":8080"}
+				return &http.Server{Addr: ":8080", ReadHeaderTimeout: time.Second}
 			}),
 		),
 		dix.WithModuleHooks(
 			dix.OnStart(func(ctx context.Context, s *http.Server) error {
-				go func() { _ = s.ListenAndServe() }()
+				go func() {
+					if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+						panic(err)
+					}
+				}()
 				return nil
 			}),
 			dix.OnStop(func(ctx context.Context, s *http.Server) error {
@@ -699,7 +713,7 @@ func TestBuildFailureShutsDownResolvedServices(t *testing.T) {
 			dix.WithModuleSetup(func(c *dix.Container, _ dix.Lifecycle) error {
 				_, err := dix.ResolveAs[*cleanupService](c)
 				require.NoError(t, err)
-				return fmt.Errorf("setup failed")
+				return errors.New("setup failed")
 			}),
 		),
 	)
@@ -732,7 +746,7 @@ func TestRuntimeStartFailureRollsBackStopHooks(t *testing.T) {
 					return nil
 				}),
 				dix.OnStart0(func(context.Context) error {
-					return fmt.Errorf("boom")
+					return errors.New("boom")
 				}),
 			),
 		),
@@ -795,7 +809,7 @@ func TestRuntimeStartRollbackDebugLogging(t *testing.T) {
 				dix.WithModuleHooks(
 					dix.OnStart(func(context.Context, string) error { return nil }),
 					dix.OnStop(func(context.Context, string) error { return nil }),
-					dix.OnStart0(func(context.Context) error { return fmt.Errorf("boom") }),
+					dix.OnStart0(func(context.Context) error { return errors.New("boom") }),
 				),
 			),
 		),
@@ -817,7 +831,7 @@ func TestHealthCheckReport(t *testing.T) {
 	module := dix.NewModule("health",
 		dix.WithModuleSetup(func(c *dix.Container, lc dix.Lifecycle) error {
 			c.RegisterHealthCheck("db", func(ctx context.Context) error { return nil })
-			c.RegisterHealthCheck("cache", func(ctx context.Context) error { return fmt.Errorf("down") })
+			c.RegisterHealthCheck("cache", func(ctx context.Context) error { return errors.New("down") })
 			return nil
 		}),
 	)
@@ -833,19 +847,19 @@ func TestRuntime_HealthHandlers(t *testing.T) {
 	module := dix.NewModule("health",
 		dix.WithModuleSetup(func(c *dix.Container, lc dix.Lifecycle) error {
 			c.RegisterLivenessCheck("live", func(ctx context.Context) error { return nil })
-			c.RegisterReadinessCheck("ready", func(ctx context.Context) error { return fmt.Errorf("booting") })
+			c.RegisterReadinessCheck("ready", func(ctx context.Context) error { return errors.New("booting") })
 			return nil
 		}),
 	)
 
 	rt := buildRuntime(t, dix.NewApp("health", module))
 
-	liveReq := httptest.NewRequest(http.MethodGet, "/livez", nil)
+	liveReq := httptest.NewRequest(http.MethodGet, "/livez", http.NoBody)
 	liveRes := httptest.NewRecorder()
 	rt.LivenessHandler()(liveRes, liveReq)
 	assert.Equal(t, http.StatusOK, liveRes.Code)
 
-	readyReq := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	readyReq := httptest.NewRequest(http.MethodGet, "/readyz", http.NoBody)
 	readyRes := httptest.NewRecorder()
 	rt.ReadinessHandler()(readyRes, readyReq)
 	assert.Equal(t, http.StatusServiceUnavailable, readyRes.Code)

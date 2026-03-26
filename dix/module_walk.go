@@ -32,6 +32,16 @@ type moduleVisitorFuncs struct {
 	leave func(ctx moduleVisitContext, spec *moduleSpec) error
 }
 
+type moduleWalkState struct {
+	visited    *collectionset.Set[*moduleSpec]
+	visiting   *collectionset.Set[*moduleSpec]
+	knownNames map[string]*moduleSpec
+	stopped    bool
+	path       *collectionlist.List[string]
+	profile    Profile
+	visitor    moduleVisitor
+}
+
 func (v moduleVisitorFuncs) Enter(ctx moduleVisitContext, spec *moduleSpec) (moduleVisitAction, error) {
 	if v.enter == nil {
 		return moduleVisitContinue, nil
@@ -82,79 +92,130 @@ func walkModuleList(modules *collectionlist.List[Module], profile Profile, visit
 		return nil
 	}
 
-	visited := collectionset.NewSetWithCapacity[*moduleSpec](16)
-	visiting := collectionset.NewSetWithCapacity[*moduleSpec](8)
-	knownNames := map[string]*moduleSpec{}
-	stopped := false
-	path := collectionlist.NewListWithCapacity[string](8)
+	state := newModuleWalkState(profile, visitor)
+	return state.walkAll(modules)
+}
 
-	var walk func(spec *moduleSpec) error
-	walk = func(spec *moduleSpec) error {
-		if stopped || spec == nil || spec.disabled || !isActiveForProfile(spec, profile) {
-			return nil
-		}
-
-		key := moduleKey(spec)
-		if spec.name != "" {
-			if known, ok := knownNames[spec.name]; ok && known != spec {
-				return fmt.Errorf("duplicate module name detected: %s", spec.name)
-			}
-			knownNames[spec.name] = spec
-		}
-		if visited.Contains(spec) {
-			return nil
-		}
-		if visiting.Contains(spec) {
-			return fmt.Errorf("module import cycle detected: %s -> %s", formatModulePath(*path), key)
-		}
-
-		path.Add(key)
-		ctx := moduleVisitContext{
-			Profile: profile,
-			Path:    *path,
-			Depth:   path.Len() - 1,
-		}
-
-		visiting.Add(spec)
-		action, err := visitor.Enter(ctx, spec)
-		if err != nil {
-			visiting.Remove(spec)
-			_, _ = path.RemoveAt(path.Len() - 1)
-			return err
-		}
-
-		switch action {
-		case moduleVisitStop:
-			stopped = true
-		case moduleVisitSkipChildren:
-			// no-op
-		default:
-			var childErr error
-			spec.imports.Range(func(_ int, imported Module) bool {
-				childErr = walk(imported.spec)
-				return childErr == nil && !stopped
-			})
-			if childErr != nil {
-				visiting.Remove(spec)
-				_, _ = path.RemoveAt(path.Len() - 1)
-				return childErr
-			}
-		}
-
-		visiting.Remove(spec)
-		visited.Add(spec)
-		leaveErr := visitor.Leave(ctx, spec)
-		_, _ = path.RemoveAt(path.Len() - 1)
-		return leaveErr
+func newModuleWalkState(profile Profile, visitor moduleVisitor) *moduleWalkState {
+	return &moduleWalkState{
+		visited:    collectionset.NewSetWithCapacity[*moduleSpec](16),
+		visiting:   collectionset.NewSetWithCapacity[*moduleSpec](8),
+		knownNames: map[string]*moduleSpec{},
+		path:       collectionlist.NewListWithCapacity[string](8),
+		profile:    profile,
+		visitor:    visitor,
 	}
+}
 
+func (s *moduleWalkState) walkAll(modules *collectionlist.List[Module]) error {
 	var walkErr error
 	modules.Range(func(_ int, mod Module) bool {
-		walkErr = walk(mod.spec)
-		return walkErr == nil && !stopped
+		walkErr = s.walk(mod.spec)
+		return walkErr == nil && !s.stopped
 	})
-
 	return walkErr
+}
+
+func (s *moduleWalkState) walk(spec *moduleSpec) error {
+	if s.shouldSkip(spec) {
+		return nil
+	}
+
+	key, alreadyVisited, err := s.beginVisit(spec)
+	if err != nil || alreadyVisited {
+		return err
+	}
+
+	ctx := s.currentContext()
+	action, err := s.enterModule(key, ctx, spec)
+	if err != nil {
+		s.abortVisit(spec)
+		return err
+	}
+	if err := s.handleVisitAction(spec, action); err != nil {
+		s.abortVisit(spec)
+		return err
+	}
+
+	return s.finishVisit(key, ctx, spec)
+}
+
+func (s *moduleWalkState) shouldSkip(spec *moduleSpec) bool {
+	return s.stopped || spec == nil || spec.disabled || !isActiveForProfile(spec, s.profile)
+}
+
+func (s *moduleWalkState) beginVisit(spec *moduleSpec) (string, bool, error) {
+	key := moduleKey(spec)
+	if spec.name != "" {
+		if known, ok := s.knownNames[spec.name]; ok && known != spec {
+			return "", false, fmt.Errorf("duplicate module name detected: %s", spec.name)
+		}
+		s.knownNames[spec.name] = spec
+	}
+	if s.visited.Contains(spec) {
+		return key, true, nil
+	}
+	if s.visiting.Contains(spec) {
+		return "", false, fmt.Errorf("module import cycle detected: %s -> %s", formatModulePath(*s.path), key)
+	}
+
+	s.path.Add(key)
+	s.visiting.Add(spec)
+	return key, false, nil
+}
+
+func (s *moduleWalkState) currentContext() moduleVisitContext {
+	return moduleVisitContext{
+		Profile: s.profile,
+		Path:    *s.path,
+		Depth:   s.path.Len() - 1,
+	}
+}
+
+func (s *moduleWalkState) enterModule(key string, ctx moduleVisitContext, spec *moduleSpec) (moduleVisitAction, error) {
+	action, err := s.visitor.Enter(ctx, spec)
+	if err != nil {
+		return 0, fmt.Errorf("enter module %s: %w", key, err)
+	}
+	return action, nil
+}
+
+func (s *moduleWalkState) handleVisitAction(spec *moduleSpec, action moduleVisitAction) error {
+	switch action {
+	case moduleVisitContinue:
+		return s.walkChildren(spec)
+	case moduleVisitSkipChildren:
+		return nil
+	case moduleVisitStop:
+		s.stopped = true
+		return nil
+	}
+	return nil
+}
+
+func (s *moduleWalkState) walkChildren(spec *moduleSpec) error {
+	var childErr error
+	spec.imports.Range(func(_ int, imported Module) bool {
+		childErr = s.walk(imported.spec)
+		return childErr == nil && !s.stopped
+	})
+	return childErr
+}
+
+func (s *moduleWalkState) abortVisit(spec *moduleSpec) {
+	s.visiting.Remove(spec)
+	_, _ = s.path.RemoveAt(s.path.Len() - 1)
+}
+
+func (s *moduleWalkState) finishVisit(key string, ctx moduleVisitContext, spec *moduleSpec) error {
+	s.visiting.Remove(spec)
+	s.visited.Add(spec)
+	leaveErr := s.visitor.Leave(ctx, spec)
+	_, _ = s.path.RemoveAt(s.path.Len() - 1)
+	if leaveErr != nil {
+		return fmt.Errorf("leave module %s: %w", key, leaveErr)
+	}
+	return nil
 }
 
 func moduleKey(spec *moduleSpec) string {

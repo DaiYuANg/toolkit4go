@@ -9,11 +9,11 @@ import (
 	"github.com/samber/mo"
 )
 
-type Store[E any, S dbx.SchemaSource[E]] struct {
+type Store[E any, S repository.EntitySchema[E]] struct {
 	repository *repository.Base[E, S]
 }
 
-func New[E any, S dbx.SchemaSource[E]](db *dbx.DB, schema S) *Store[E, S] {
+func New[E any, S repository.EntitySchema[E]](db *dbx.DB, schema S) *Store[E, S] {
 	return &Store[E, S]{repository: repository.New[E](db, schema)}
 }
 

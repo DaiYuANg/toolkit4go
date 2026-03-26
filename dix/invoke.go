@@ -1,5 +1,6 @@
 package dix
 
+// InvokeFunc describes a typed invoke registration.
 type InvokeFunc struct {
 	run  func(*Container) error
 	meta InvokeMetadata
@@ -12,14 +13,15 @@ func (i InvokeFunc) apply(c *Container) error {
 	return i.run(c)
 }
 
+// RawInvoke registers an untyped invoke callback.
 func RawInvoke(fn func(*Container) error) InvokeFunc {
 	return RawInvokeWithMetadata(fn, InvokeMetadata{
 		Label: "RawInvoke",
 	})
 }
 
+// RawInvokeWithMetadata registers an untyped invoke callback with metadata.
 func RawInvokeWithMetadata(fn func(*Container) error, meta InvokeMetadata) InvokeFunc {
-	meta.Raw = true
 	return NewInvokeFunc(fn, InvokeMetadata{
 		Label:        meta.Label,
 		Dependencies: meta.Dependencies,
@@ -27,13 +29,15 @@ func RawInvokeWithMetadata(fn func(*Container) error, meta InvokeMetadata) Invok
 	})
 }
 
+// Invoke0 registers an invoke callback with no dependencies.
 func Invoke0(fn func()) InvokeFunc {
 	return NewInvokeFunc(func(c *Container) error {
-		dixInvoke0(c, fn)
+		fn()
 		return nil
 	}, InvokeMetadata{Label: "Invoke0"})
 }
 
+// Invoke1 registers an invoke callback with one dependency.
 func Invoke1[T any](fn func(T)) InvokeFunc {
 	return NewInvokeFunc(
 		func(c *Container) error { return dixInvoke1(c, fn) },
@@ -44,6 +48,7 @@ func Invoke1[T any](fn func(T)) InvokeFunc {
 	)
 }
 
+// Invoke2 registers an invoke callback with two dependencies.
 func Invoke2[T1, T2 any](fn func(T1, T2)) InvokeFunc {
 	return NewInvokeFunc(
 		func(c *Container) error { return dixInvoke2(c, fn) },
@@ -54,6 +59,7 @@ func Invoke2[T1, T2 any](fn func(T1, T2)) InvokeFunc {
 	)
 }
 
+// Invoke3 registers an invoke callback with three dependencies.
 func Invoke3[T1, T2, T3 any](fn func(T1, T2, T3)) InvokeFunc {
 	return NewInvokeFunc(
 		func(c *Container) error { return dixInvoke3(c, fn) },
@@ -64,6 +70,7 @@ func Invoke3[T1, T2, T3 any](fn func(T1, T2, T3)) InvokeFunc {
 	)
 }
 
+// Invoke4 registers an invoke callback with four dependencies.
 func Invoke4[T1, T2, T3, T4 any](fn func(T1, T2, T3, T4)) InvokeFunc {
 	return NewInvokeFunc(
 		func(c *Container) error { return dixInvoke4(c, fn) },
@@ -74,6 +81,7 @@ func Invoke4[T1, T2, T3, T4 any](fn func(T1, T2, T3, T4)) InvokeFunc {
 	)
 }
 
+// Invoke5 registers an invoke callback with five dependencies.
 func Invoke5[T1, T2, T3, T4, T5 any](fn func(T1, T2, T3, T4, T5)) InvokeFunc {
 	return NewInvokeFunc(
 		func(c *Container) error { return dixInvoke5(c, fn) },
@@ -90,6 +98,7 @@ func Invoke5[T1, T2, T3, T4, T5 any](fn func(T1, T2, T3, T4, T5)) InvokeFunc {
 	)
 }
 
+// Invoke6 registers an invoke callback with six dependencies.
 func Invoke6[T1, T2, T3, T4, T5, T6 any](fn func(T1, T2, T3, T4, T5, T6)) InvokeFunc {
 	return NewInvokeFunc(
 		func(c *Container) error { return dixInvoke6(c, fn) },
@@ -106,8 +115,6 @@ func Invoke6[T1, T2, T3, T4, T5, T6 any](fn func(T1, T2, T3, T4, T5, T6)) Invoke
 		},
 	)
 }
-
-func dixInvoke0(c *Container, fn func()) { fn() }
 
 func dixInvoke1[T any](c *Container, fn func(T)) error {
 	t, err := ResolveAs[T](c)

@@ -1,5 +1,6 @@
 package dix
 
+// ProviderFunc describes a typed provider registration.
 type ProviderFunc struct {
 	register func(*Container)
 	meta     ProviderMetadata
@@ -11,14 +12,15 @@ func (p ProviderFunc) apply(c *Container) {
 	}
 }
 
+// RawProvider registers an untyped provider callback.
 func RawProvider(fn func(*Container)) ProviderFunc {
 	return RawProviderWithMetadata(fn, ProviderMetadata{
 		Label: "RawProvider",
 	})
 }
 
+// RawProviderWithMetadata registers an untyped provider callback with metadata.
 func RawProviderWithMetadata(fn func(*Container), meta ProviderMetadata) ProviderFunc {
-	meta.Raw = true
 	return NewProviderFunc(fn, ProviderMetadata{
 		Label:        meta.Label,
 		Output:       meta.Output,
@@ -27,6 +29,7 @@ func RawProviderWithMetadata(fn func(*Container), meta ProviderMetadata) Provide
 	})
 }
 
+// Provider0 registers a typed singleton provider with no dependencies.
 func Provider0[T any](fn func() T) ProviderFunc {
 	return NewProviderFunc(
 		func(c *Container) { ProvideT(c, fn) },
@@ -37,6 +40,7 @@ func Provider0[T any](fn func() T) ProviderFunc {
 	)
 }
 
+// Provider1 registers a typed singleton provider with one dependency.
 func Provider1[T, D1 any](fn func(D1) T) ProviderFunc {
 	return NewProviderFunc(
 		func(c *Container) { Provide1T(c, fn) },
@@ -48,6 +52,7 @@ func Provider1[T, D1 any](fn func(D1) T) ProviderFunc {
 	)
 }
 
+// Provider2 registers a typed singleton provider with two dependencies.
 func Provider2[T, D1, D2 any](fn func(D1, D2) T) ProviderFunc {
 	return NewProviderFunc(
 		func(c *Container) { Provide2T(c, fn) },
@@ -59,6 +64,7 @@ func Provider2[T, D1, D2 any](fn func(D1, D2) T) ProviderFunc {
 	)
 }
 
+// Provider3 registers a typed singleton provider with three dependencies.
 func Provider3[T, D1, D2, D3 any](fn func(D1, D2, D3) T) ProviderFunc {
 	return NewProviderFunc(
 		func(c *Container) { Provide3T(c, fn) },
@@ -70,6 +76,7 @@ func Provider3[T, D1, D2, D3 any](fn func(D1, D2, D3) T) ProviderFunc {
 	)
 }
 
+// Provider4 registers a typed singleton provider with four dependencies.
 func Provider4[T, D1, D2, D3, D4 any](fn func(D1, D2, D3, D4) T) ProviderFunc {
 	return NewProviderFunc(
 		func(c *Container) { Provide4T(c, fn) },
@@ -81,6 +88,7 @@ func Provider4[T, D1, D2, D3, D4 any](fn func(D1, D2, D3, D4) T) ProviderFunc {
 	)
 }
 
+// Provider5 registers a typed singleton provider with five dependencies.
 func Provider5[T, D1, D2, D3, D4, D5 any](fn func(D1, D2, D3, D4, D5) T) ProviderFunc {
 	return NewProviderFunc(
 		func(c *Container) { Provide5T(c, fn) },
@@ -92,6 +100,7 @@ func Provider5[T, D1, D2, D3, D4, D5 any](fn func(D1, D2, D3, D4, D5) T) Provide
 	)
 }
 
+// Provider6 registers a typed singleton provider with six dependencies.
 func Provider6[T, D1, D2, D3, D4, D5, D6 any](fn func(D1, D2, D3, D4, D5, D6) T) ProviderFunc {
 	return NewProviderFunc(
 		func(c *Container) { Provide6T(c, fn) },

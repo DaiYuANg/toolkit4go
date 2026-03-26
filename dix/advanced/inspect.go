@@ -3,10 +3,11 @@ package advanced
 import (
 	collectionmap "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/dix"
-	do "github.com/samber/do/v2"
+	"github.com/samber/do/v2"
 	"github.com/samber/lo"
 )
 
+// Inspection summarizes advanced runtime inspection output.
 type Inspection struct {
 	ScopeTree         string
 	ProvidedServices  []do.ServiceDescription
@@ -14,6 +15,7 @@ type Inspection struct {
 	NamedDependencies map[string]string
 }
 
+// InspectOptions controls which inspection sections are populated.
 type InspectOptions struct {
 	IncludeScopeTree        bool
 	IncludeProvidedServices bool
@@ -21,6 +23,7 @@ type InspectOptions struct {
 	IncludeNamedDeps        bool
 }
 
+// DefaultInspectOptions returns the default inspection option set.
 func DefaultInspectOptions() InspectOptions {
 	return InspectOptions{
 		IncludeScopeTree:        true,
@@ -30,6 +33,7 @@ func DefaultInspectOptions() InspectOptions {
 	}
 }
 
+// ExplainScopeTree returns the textual do scope tree for a runtime.
 func ExplainScopeTree(rt *dix.Runtime) string {
 	if rt == nil {
 		return ""
@@ -39,6 +43,7 @@ func ExplainScopeTree(rt *dix.Runtime) string {
 	return explainedScope.String()
 }
 
+// ListProvidedServices returns the services provided by the runtime injector.
 func ListProvidedServices(rt *dix.Runtime) []do.ServiceDescription {
 	if rt == nil {
 		return nil
@@ -47,6 +52,7 @@ func ListProvidedServices(rt *dix.Runtime) []do.ServiceDescription {
 	return rt.Raw().ListProvidedServices()
 }
 
+// ListInvokedServices returns the services invoked by the runtime injector.
 func ListInvokedServices(rt *dix.Runtime) []do.ServiceDescription {
 	if rt == nil {
 		return nil
@@ -55,6 +61,7 @@ func ListInvokedServices(rt *dix.Runtime) []do.ServiceDescription {
 	return rt.Raw().ListInvokedServices()
 }
 
+// ExplainNamedDependencies returns dependency trees for the requested named services.
 func ExplainNamedDependencies(rt *dix.Runtime, namedServices ...string) map[string]string {
 	if rt == nil || len(namedServices) == 0 {
 		return nil
@@ -70,10 +77,12 @@ func ExplainNamedDependencies(rt *dix.Runtime, namedServices ...string) map[stri
 	return dependencies.All()
 }
 
+// InspectRuntime inspects a runtime with the default options.
 func InspectRuntime(rt *dix.Runtime, namedServices ...string) Inspection {
 	return InspectRuntimeWithOptions(rt, DefaultInspectOptions(), namedServices...)
 }
 
+// InspectRuntimeWithOptions inspects a runtime with the provided options.
 func InspectRuntimeWithOptions(rt *dix.Runtime, opts InspectOptions, namedServices ...string) Inspection {
 	if rt == nil {
 		return Inspection{}

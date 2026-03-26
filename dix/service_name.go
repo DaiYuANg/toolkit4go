@@ -12,10 +12,15 @@ var serviceNameCache sync.Map
 func serviceNameOf[T any]() string {
 	typ := reflect.TypeFor[T]()
 	if name, ok := serviceNameCache.Load(typ); ok {
-		return name.(string)
+		if value, typeOK := name.(string); typeOK {
+			return value
+		}
 	}
 
 	name := typetostring.GetReflectType(typ)
 	actual, _ := serviceNameCache.LoadOrStore(typ, name)
-	return actual.(string)
+	if value, ok := actual.(string); ok {
+		return value
+	}
+	return name
 }

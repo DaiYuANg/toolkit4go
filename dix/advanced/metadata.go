@@ -37,8 +37,6 @@ func newSetup(
 	dependencies []dix.ServiceRef,
 	provides []dix.ServiceRef,
 	overrides []dix.ServiceRef,
-	graphMutation bool,
-	raw bool,
 ) dix.SetupFunc {
 	return dix.NewSetupFunc(func(c *dix.Container, _ dix.Lifecycle) error {
 		return run(c)
@@ -47,7 +45,7 @@ func newSetup(
 		Dependencies:  serviceRefs(dependencies...),
 		Provides:      serviceRefs(provides...),
 		Overrides:     serviceRefs(overrides...),
-		GraphMutation: graphMutation,
-		Raw:           raw,
+		GraphMutation: false,
+		Raw:           false,
 	})
 }

@@ -14,11 +14,11 @@ func WithByIDNotFoundAsError(enabled bool) Option {
 	return func(opts *baseOptions) { opts.byIDNotFoundAsError = enabled }
 }
 
-func New[E any, S dbx.SchemaSource[E]](db *dbx.DB, schema S) *Base[E, S] {
+func New[E any, S EntitySchema[E]](db *dbx.DB, schema S) *Base[E, S] {
 	return NewWithOptions[E](db, schema)
 }
 
-func NewWithOptions[E any, S dbx.SchemaSource[E]](db *dbx.DB, schema S, opts ...Option) *Base[E, S] {
+func NewWithOptions[E any, S EntitySchema[E]](db *dbx.DB, schema S, opts ...Option) *Base[E, S] {
 	config := defaultOptions()
 	for _, opt := range opts {
 		if opt != nil {
@@ -33,4 +33,3 @@ func NewWithOptions[E any, S dbx.SchemaSource[E]](db *dbx.DB, schema S, opts ...
 		byIDNotFoundAsError: config.byIDNotFoundAsError,
 	}
 }
-

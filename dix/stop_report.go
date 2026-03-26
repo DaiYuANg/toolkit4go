@@ -4,15 +4,17 @@ import (
 	"errors"
 	"strings"
 
-	do "github.com/samber/do/v2"
+	"github.com/samber/do/v2"
 	"github.com/samber/lo"
 )
 
+// StopReport aggregates errors produced while stopping a runtime.
 type StopReport struct {
 	HookError      error
 	ShutdownReport *do.ShutdownReport
 }
 
+// HasErrors reports whether the stop report contains any errors.
 func (r *StopReport) HasErrors() bool {
 	return r != nil && r.Err() != nil
 }
@@ -28,10 +30,12 @@ func (r *StopReport) collectErrors() []error {
 	return errs
 }
 
+// Err returns the combined stop error.
 func (r *StopReport) Err() error {
 	return errors.Join(r.collectErrors()...)
 }
 
+// Error returns the combined stop error string.
 func (r *StopReport) Error() string {
 	errs := r.collectErrors()
 	if len(errs) == 0 {

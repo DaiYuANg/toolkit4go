@@ -2,12 +2,14 @@ package advanced
 
 import (
 	"github.com/DaiYuANg/arcgo/dix"
-	do "github.com/samber/do/v2"
+	"github.com/samber/do/v2"
 	"github.com/samber/lo"
 )
 
+// ScopePackage configures a newly created do scope.
 type ScopePackage func(do.Injector)
 
+// Scope creates a named child scope from a runtime injector.
 func Scope(rt *dix.Runtime, name string, packages ...ScopePackage) *do.Scope {
 	if rt == nil {
 		return nil
@@ -33,26 +35,31 @@ func Scope(rt *dix.Runtime, name string, packages ...ScopePackage) *do.Scope {
 	}
 }
 
+// ProvideScopedValue registers a typed singleton value in a scope.
 func ProvideScopedValue[T any](injector do.Injector, value T) {
 	do.ProvideNamedValue(injector, typedName[T](), value)
 }
 
+// ProvideScopedNamedValue registers a named singleton value in a scope.
 func ProvideScopedNamedValue[T any](injector do.Injector, name string, value T) {
 	do.ProvideNamedValue(injector, name, value)
 }
 
+// ProvideScoped0 registers a typed scoped provider with no dependencies.
 func ProvideScoped0[T any](injector do.Injector, fn func() T) {
 	do.ProvideNamed(injector, typedName[T](), func(do.Injector) (T, error) {
 		return fn(), nil
 	})
 }
 
+// ProvideScopedNamed0 registers a named scoped provider with no dependencies.
 func ProvideScopedNamed0[T any](injector do.Injector, name string, fn func() T) {
 	do.ProvideNamed(injector, name, func(do.Injector) (T, error) {
 		return fn(), nil
 	})
 }
 
+// ProvideScoped1 registers a typed scoped provider with one dependency.
 func ProvideScoped1[T, D1 any](injector do.Injector, fn func(D1) T) {
 	do.ProvideNamed(injector, typedName[T](), func(i do.Injector) (T, error) {
 		d1, err := invokeTyped[D1](i)
@@ -64,6 +71,7 @@ func ProvideScoped1[T, D1 any](injector do.Injector, fn func(D1) T) {
 	})
 }
 
+// ProvideScopedNamed1 registers a named scoped provider with one dependency.
 func ProvideScopedNamed1[T, D1 any](injector do.Injector, name string, fn func(D1) T) {
 	do.ProvideNamed(injector, name, func(i do.Injector) (T, error) {
 		d1, err := invokeTyped[D1](i)
@@ -75,6 +83,7 @@ func ProvideScopedNamed1[T, D1 any](injector do.Injector, name string, fn func(D
 	})
 }
 
+// ProvideScoped2 registers a typed scoped provider with two dependencies.
 func ProvideScoped2[T, D1, D2 any](injector do.Injector, fn func(D1, D2) T) {
 	do.ProvideNamed(injector, typedName[T](), func(i do.Injector) (T, error) {
 		d1, err := invokeTyped[D1](i)
@@ -91,6 +100,7 @@ func ProvideScoped2[T, D1, D2 any](injector do.Injector, fn func(D1, D2) T) {
 	})
 }
 
+// ProvideScopedNamed2 registers a named scoped provider with two dependencies.
 func ProvideScopedNamed2[T, D1, D2 any](injector do.Injector, name string, fn func(D1, D2) T) {
 	do.ProvideNamed(injector, name, func(i do.Injector) (T, error) {
 		d1, err := invokeTyped[D1](i)
@@ -107,6 +117,7 @@ func ProvideScopedNamed2[T, D1, D2 any](injector do.Injector, name string, fn fu
 	})
 }
 
+// ProvideScoped3 registers a typed scoped provider with three dependencies.
 func ProvideScoped3[T, D1, D2, D3 any](injector do.Injector, fn func(D1, D2, D3) T) {
 	do.ProvideNamed(injector, typedName[T](), func(i do.Injector) (T, error) {
 		d1, err := invokeTyped[D1](i)
@@ -128,6 +139,7 @@ func ProvideScoped3[T, D1, D2, D3 any](injector do.Injector, fn func(D1, D2, D3)
 	})
 }
 
+// ProvideScopedNamed3 registers a named scoped provider with three dependencies.
 func ProvideScopedNamed3[T, D1, D2, D3 any](injector do.Injector, name string, fn func(D1, D2, D3) T) {
 	do.ProvideNamed(injector, name, func(i do.Injector) (T, error) {
 		d1, err := invokeTyped[D1](i)
@@ -149,10 +161,12 @@ func ProvideScopedNamed3[T, D1, D2, D3 any](injector do.Injector, name string, f
 	})
 }
 
+// ResolveScopedAs resolves a typed value from a scope injector.
 func ResolveScopedAs[T any](injector do.Injector) (T, error) {
 	return ResolveInjectorAs[T](injector)
 }
 
+// ResolveScopedNamedAs resolves a named value from a scope injector.
 func ResolveScopedNamedAs[T any](injector do.Injector, name string) (T, error) {
 	return do.InvokeNamed[T](injector, name)
 }

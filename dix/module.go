@@ -16,6 +16,7 @@ func NewModule(name string, opts ...ModuleOption) Module {
 	return Module{spec: spec}
 }
 
+// Name returns the module name.
 func (m Module) Name() string {
 	if m.spec == nil {
 		return ""
@@ -23,6 +24,7 @@ func (m Module) Name() string {
 	return m.spec.name
 }
 
+// Description returns the module description.
 func (m Module) Description() string {
 	if m.spec == nil {
 		return ""
@@ -30,6 +32,7 @@ func (m Module) Description() string {
 	return m.spec.description
 }
 
+// Tags returns the module tags.
 func (m Module) Tags() []string {
 	if m.spec == nil {
 		return nil
@@ -37,6 +40,7 @@ func (m Module) Tags() []string {
 	return m.spec.tags.Values()
 }
 
+// Imports returns the imported modules.
 func (m Module) Imports() []Module {
 	if m.spec == nil {
 		return nil

@@ -16,7 +16,7 @@ type buildPlan struct {
 
 func newBuildPlan(app *App) (*buildPlan, error) {
 	if app == nil || app.spec == nil {
-		return nil, fmt.Errorf("app is nil")
+		return nil, errors.New("app is nil")
 	}
 
 	modules, err := flattenModuleList(&app.spec.modules, app.spec.profile)
@@ -38,7 +38,7 @@ func newBuildPlan(app *App) (*buildPlan, error) {
 
 func (p *buildPlan) Build() (*Runtime, error) {
 	if p == nil || p.spec == nil {
-		return nil, fmt.Errorf("build plan is nil")
+		return nil, errors.New("build plan is nil")
 	}
 
 	logger := p.spec.logger
@@ -48,6 +48,44 @@ func (p *buildPlan) Build() (*Runtime, error) {
 	debugEnabled := logger.Enabled(context.Background(), slog.LevelDebug)
 	infoEnabled := logger.Enabled(context.Background(), slog.LevelInfo)
 
+	p.logBuildStart(logger, infoEnabled, debugEnabled)
+
+	rt := newRuntime(p.spec, p)
+	registerRuntimeCoreServices(rt)
+	p.registerProviders(rt, logger, debugEnabled)
+
+	if err := p.bindHooksAndRunSetups(rt, logger, debugEnabled); err != nil {
+		return nil, cleanupBuildFailure(rt, logger, err)
+	}
+
+	if err := p.runInvokes(rt, logger, debugEnabled); err != nil {
+		return nil, cleanupBuildFailure(rt, logger, err)
+	}
+
+	rt.state = AppStateBuilt
+	if infoEnabled {
+		logger.Info("app built", "app", rt.Name(), "modules", p.modules.Len())
+	}
+	rt.logDebugInformation()
+	return rt, nil
+}
+
+func cleanupBuildFailure(rt *Runtime, logger *slog.Logger, buildErr error) error {
+	if rt == nil || rt.container == nil {
+		return buildErr
+	}
+
+	report := rt.container.ShutdownReport(context.Background())
+	if report == nil || len(report.Errors) == 0 {
+		return buildErr
+	}
+	if logger != nil {
+		logger.Error("build cleanup failed", "app", rt.Name(), "error", report)
+	}
+	return errors.Join(buildErr, report)
+}
+
+func (p *buildPlan) logBuildStart(logger *slog.Logger, infoEnabled, debugEnabled bool) {
 	if infoEnabled {
 		logger.Info("building app", "app", p.spec.meta.Name, "profile", p.spec.profile)
 	}
@@ -61,12 +99,15 @@ func (p *buildPlan) Build() (*Runtime, error) {
 			"invokes", countModuleInvokes(p.modules),
 		)
 	}
+}
 
-	rt := newRuntime(p.spec, p)
+func registerRuntimeCoreServices(rt *Runtime) {
 	ProvideValueT[*slog.Logger](rt.container, rt.logger)
-	ProvideValueT[AppMeta](rt.container, p.spec.meta)
-	ProvideValueT[Profile](rt.container, p.spec.profile)
+	ProvideValueT[AppMeta](rt.container, rt.spec.meta)
+	ProvideValueT[Profile](rt.container, rt.spec.profile)
+}
 
+func (p *buildPlan) registerProviders(rt *Runtime, logger *slog.Logger, debugEnabled bool) {
 	p.modules.Range(func(_ int, mod *moduleSpec) bool {
 		if debugEnabled {
 			logger.Debug("registering module",
@@ -92,101 +133,92 @@ func (p *buildPlan) Build() (*Runtime, error) {
 		})
 		return true
 	})
+}
 
+func (p *buildPlan) bindHooksAndRunSetups(rt *Runtime, logger *slog.Logger, debugEnabled bool) error {
 	var setupErr error
 	p.modules.Range(func(_ int, mod *moduleSpec) bool {
-		mod.hooks.Range(func(_ int, hook HookFunc) bool {
-			if debugEnabled {
-				logger.Debug("binding lifecycle hook",
-					"module", mod.name,
-					"label", hook.meta.Label,
-					"kind", hook.meta.Kind,
-					"dependencies", serviceRefNames(hook.meta.Dependencies),
-					"raw", hook.meta.Raw,
-				)
-			}
-			hook.bind(rt.container, rt.lifecycle)
-			return true
-		})
-
-		mod.setups.Range(func(_ int, setup SetupFunc) bool {
-			if debugEnabled {
-				logger.Debug("running module setup",
-					"module", mod.name,
-					"label", setup.meta.Label,
-					"dependencies", serviceRefNames(setup.meta.Dependencies),
-					"provides", serviceRefNames(setup.meta.Provides),
-					"overrides", serviceRefNames(setup.meta.Overrides),
-					"graph_mutation", setup.meta.GraphMutation,
-					"raw", setup.meta.Raw,
-				)
-			}
-			if err := setup.apply(rt.container, rt.lifecycle); err != nil {
-				logger.Error("module setup failed", "module", mod.name, "label", setup.meta.Label, "error", err)
-				setupErr = fmt.Errorf("setup failed for module %s via %s: %w", mod.name, setup.meta.Label, err)
-				return false
-			}
-			if debugEnabled {
-				logger.Debug("module setup completed", "module", mod.name, "label", setup.meta.Label)
-			}
-			return true
-		})
+		bindModuleHooks(mod, rt, logger, debugEnabled)
+		setupErr = runModuleSetups(mod, rt, logger, debugEnabled)
 		return setupErr == nil
 	})
-	if setupErr != nil {
-		return nil, cleanupBuildFailure(rt, logger, setupErr)
-	}
+	return setupErr
+}
 
-	var buildErr error
-	p.modules.Range(func(_ int, mod *moduleSpec) bool {
-		var invokeErr error
-		mod.invokes.Range(func(_ int, invoke InvokeFunc) bool {
-			if debugEnabled {
-				logger.Debug("running invoke",
-					"module", mod.name,
-					"label", invoke.meta.Label,
-					"dependencies", serviceRefNames(invoke.meta.Dependencies),
-					"raw", invoke.meta.Raw,
-				)
-			}
-			invokeErr = invoke.apply(rt.container)
-			if invokeErr == nil && debugEnabled {
-				logger.Debug("invoke completed", "module", mod.name, "label", invoke.meta.Label)
-			}
-			return invokeErr == nil
-		})
-		if invokeErr != nil {
-			logger.Error("invoke failed", "module", mod.name, "error", invokeErr)
-			buildErr = fmt.Errorf("invoke failed in module %s: %w", mod.name, invokeErr)
+func bindModuleHooks(mod *moduleSpec, rt *Runtime, logger *slog.Logger, debugEnabled bool) {
+	mod.hooks.Range(func(_ int, hook HookFunc) bool {
+		if debugEnabled {
+			logger.Debug("binding lifecycle hook",
+				"module", mod.name,
+				"label", hook.meta.Label,
+				"kind", hook.meta.Kind,
+				"dependencies", serviceRefNames(hook.meta.Dependencies),
+				"raw", hook.meta.Raw,
+			)
+		}
+		hook.bind(rt.container, rt.lifecycle)
+		return true
+	})
+}
+
+func runModuleSetups(mod *moduleSpec, rt *Runtime, logger *slog.Logger, debugEnabled bool) error {
+	var setupErr error
+	mod.setups.Range(func(_ int, setup SetupFunc) bool {
+		if debugEnabled {
+			logger.Debug("running module setup",
+				"module", mod.name,
+				"label", setup.meta.Label,
+				"dependencies", serviceRefNames(setup.meta.Dependencies),
+				"provides", serviceRefNames(setup.meta.Provides),
+				"overrides", serviceRefNames(setup.meta.Overrides),
+				"graph_mutation", setup.meta.GraphMutation,
+				"raw", setup.meta.Raw,
+			)
+		}
+		if err := setup.apply(rt.container, rt.lifecycle); err != nil {
+			logger.Error("module setup failed", "module", mod.name, "label", setup.meta.Label, "error", err)
+			setupErr = fmt.Errorf("setup failed for module %s via %s: %w", mod.name, setup.meta.Label, err)
 			return false
+		}
+		if debugEnabled {
+			logger.Debug("module setup completed", "module", mod.name, "label", setup.meta.Label)
 		}
 		return true
 	})
-	if buildErr != nil {
-		return nil, cleanupBuildFailure(rt, logger, buildErr)
-	}
-
-	rt.state = AppStateBuilt
-	if infoEnabled {
-		logger.Info("app built", "app", rt.Name(), "modules", p.modules.Len())
-	}
-	rt.logDebugInformation()
-	return rt, nil
+	return setupErr
 }
 
-func cleanupBuildFailure(rt *Runtime, logger *slog.Logger, buildErr error) error {
-	if rt == nil || rt.container == nil {
-		return buildErr
-	}
+func (p *buildPlan) runInvokes(rt *Runtime, logger *slog.Logger, debugEnabled bool) error {
+	var buildErr error
+	p.modules.Range(func(_ int, mod *moduleSpec) bool {
+		buildErr = runModuleInvokes(mod, rt, logger, debugEnabled)
+		return buildErr == nil
+	})
+	return buildErr
+}
 
-	report := rt.container.ShutdownReport(context.Background())
-	if report == nil || len(report.Errors) == 0 {
-		return buildErr
+func runModuleInvokes(mod *moduleSpec, rt *Runtime, logger *slog.Logger, debugEnabled bool) error {
+	var invokeErr error
+	mod.invokes.Range(func(_ int, invoke InvokeFunc) bool {
+		if debugEnabled {
+			logger.Debug("running invoke",
+				"module", mod.name,
+				"label", invoke.meta.Label,
+				"dependencies", serviceRefNames(invoke.meta.Dependencies),
+				"raw", invoke.meta.Raw,
+			)
+		}
+		invokeErr = invoke.apply(rt.container)
+		if invokeErr == nil && debugEnabled {
+			logger.Debug("invoke completed", "module", mod.name, "label", invoke.meta.Label)
+		}
+		return invokeErr == nil
+	})
+	if invokeErr != nil {
+		logger.Error("invoke failed", "module", mod.name, "error", invokeErr)
+		return fmt.Errorf("invoke failed in module %s: %w", mod.name, invokeErr)
 	}
-	if logger != nil {
-		logger.Error("build cleanup failed", "app", rt.Name(), "error", report)
-	}
-	return errors.Join(buildErr, report)
+	return nil
 }
 
 func countModuleProviders(modules *collectionlist.List[*moduleSpec]) int {

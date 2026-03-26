@@ -10,6 +10,7 @@ func (a *App) Validate() error {
 	return a.ValidateReport().Err()
 }
 
+// ValidateReport validates the app and returns the full validation report.
 func (a *App) ValidateReport() ValidationReport {
 	plan, err := newBuildPlan(a)
 	if err != nil {
@@ -18,18 +19,22 @@ func (a *App) ValidateReport() ValidationReport {
 	return validateTypedGraphReport(plan)
 }
 
+// HasWarnings reports whether the validation report contains warnings.
 func (r ValidationReport) HasWarnings() bool {
 	return len(r.Warnings) > 0
 }
 
+// HasErrors reports whether the validation report contains errors.
 func (r ValidationReport) HasErrors() bool {
 	return len(r.Errors) > 0
 }
 
+// Err returns the combined validation error.
 func (r ValidationReport) Err() error {
 	return errors.Join(r.Errors...)
 }
 
+// WarningSummary renders the validation warnings as a newline-delimited summary.
 func (r ValidationReport) WarningSummary() string {
 	if len(r.Warnings) == 0 {
 		return ""

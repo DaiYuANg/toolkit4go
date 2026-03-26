@@ -17,7 +17,7 @@ var builtInProfiles = collectionx.NewSet(
 // ProfileManager provides utilities for working with application profiles.
 type ProfileManager struct{}
 
-// GetProfileFromEnv retrieves the current profile from an environment variable.
+// ProfileFromEnv retrieves the current profile from an environment variable.
 // If the environment variable is not set or contains an invalid value,
 // the default profile is returned.
 //
@@ -97,5 +97,5 @@ func (pf *ProfileFilter) FilterModules(modules []Module) []Module {
 	})
 }
 
-// Global profile manager instance
+// Profiles is the shared profile helper instance.
 var Profiles = ProfileManager{}

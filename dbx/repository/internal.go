@@ -44,7 +44,7 @@ func cloneForCount(query *dbx.SelectQuery) *dbx.SelectQuery {
 	return cloned
 }
 
-func cloneOrDefault[E any, S dbx.SchemaSource[E]](r *Base[E, S], query *dbx.SelectQuery) *dbx.SelectQuery {
+func cloneOrDefault[E any, S EntitySchema[E]](r *Base[E, S], query *dbx.SelectQuery) *dbx.SelectQuery {
 	if query == nil {
 		return r.defaultSelect()
 	}

@@ -35,7 +35,7 @@ func ConvertSchemaFields(fields []SchemaField) []SchemaField {
 	for i, f := range fields {
 		result[i] = SchemaField{
 			Name:     f.Name,
-			Type:     SchemaFieldType(f.Type),
+			Type:     f.Type,
 			Indexing: f.Indexing,
 			Sortable: f.Sortable,
 		}

@@ -2,7 +2,7 @@ package dix_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dix"
@@ -15,7 +15,7 @@ import (
 type failingShutdownService struct{}
 
 func (s *failingShutdownService) Shutdown() error {
-	return fmt.Errorf("shutdown failed")
+	return errors.New("shutdown failed")
 }
 
 func TestRuntimeStopWithReportAggregatesErrors(t *testing.T) {
@@ -30,7 +30,7 @@ func TestRuntimeStopWithReportAggregatesErrors(t *testing.T) {
 				),
 				dix.WithModuleHooks(
 					dix.OnStop(func(ctx context.Context, _ *failingShutdownService) error {
-						return fmt.Errorf("stop hook failed")
+						return errors.New("stop hook failed")
 					}),
 				),
 			),

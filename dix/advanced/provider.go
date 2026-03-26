@@ -2,21 +2,24 @@ package advanced
 
 import (
 	"github.com/DaiYuANg/arcgo/dix"
-	do "github.com/samber/do/v2"
+	"github.com/samber/do/v2"
 )
 
+// NamedValue registers a named singleton value.
 func NamedValue[T any](name string, value T) dix.ProviderFunc {
 	return newProvider("NamedValue", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamedValue(c.Raw(), name, value)
 	})
 }
 
+// NamedProvider0 registers a named singleton provider with no dependencies.
 func NamedProvider0[T any](name string, fn func() T) dix.ProviderFunc {
 	return newProvider("NamedProvider0", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamed(c.Raw(), name, func(do.Injector) (T, error) { return fn(), nil })
 	})
 }
 
+// NamedProvider1 registers a named singleton provider with one dependency.
 func NamedProvider1[T, D1 any](name string, fn func(D1) T) dix.ProviderFunc {
 	return newProvider("NamedProvider1", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamed(c.Raw(), name, func(i do.Injector) (T, error) {
@@ -30,6 +33,7 @@ func NamedProvider1[T, D1 any](name string, fn func(D1) T) dix.ProviderFunc {
 	}, dix.TypedService[D1]())
 }
 
+// NamedProvider2 registers a named singleton provider with two dependencies.
 func NamedProvider2[T, D1, D2 any](name string, fn func(D1, D2) T) dix.ProviderFunc {
 	return newProvider("NamedProvider2", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamed(c.Raw(), name, func(i do.Injector) (T, error) {
@@ -48,6 +52,7 @@ func NamedProvider2[T, D1, D2 any](name string, fn func(D1, D2) T) dix.ProviderF
 	}, dix.TypedService[D1](), dix.TypedService[D2]())
 }
 
+// NamedProvider3 registers a named singleton provider with three dependencies.
 func NamedProvider3[T, D1, D2, D3 any](name string, fn func(D1, D2, D3) T) dix.ProviderFunc {
 	return newProvider("NamedProvider3", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamed(c.Raw(), name, func(i do.Injector) (T, error) {
@@ -71,6 +76,7 @@ func NamedProvider3[T, D1, D2, D3 any](name string, fn func(D1, D2, D3) T) dix.P
 	}, dix.TypedService[D1](), dix.TypedService[D2](), dix.TypedService[D3]())
 }
 
+// TransientProvider0 registers a typed transient provider with no dependencies.
 func TransientProvider0[T any](fn func() T) dix.ProviderFunc {
 	name := typedName[T]()
 	return newProvider("TransientProvider0", dix.TypedService[T](), func(c *dix.Container) {
@@ -78,6 +84,7 @@ func TransientProvider0[T any](fn func() T) dix.ProviderFunc {
 	})
 }
 
+// TransientProvider1 registers a typed transient provider with one dependency.
 func TransientProvider1[T, D1 any](fn func(D1) T) dix.ProviderFunc {
 	name := typedName[T]()
 	return newProvider("TransientProvider1", dix.TypedService[T](), func(c *dix.Container) {
@@ -92,12 +99,14 @@ func TransientProvider1[T, D1 any](fn func(D1) T) dix.ProviderFunc {
 	}, dix.TypedService[D1]())
 }
 
+// NamedTransientProvider0 registers a named transient provider with no dependencies.
 func NamedTransientProvider0[T any](name string, fn func() T) dix.ProviderFunc {
 	return newProvider("NamedTransientProvider0", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamedTransient(c.Raw(), name, func(do.Injector) (T, error) { return fn(), nil })
 	})
 }
 
+// NamedTransientProvider1 registers a named transient provider with one dependency.
 func NamedTransientProvider1[T, D1 any](name string, fn func(D1) T) dix.ProviderFunc {
 	return newProvider("NamedTransientProvider1", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamedTransient(c.Raw(), name, func(i do.Injector) (T, error) {

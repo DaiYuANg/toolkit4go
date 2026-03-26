@@ -16,8 +16,11 @@ import (
 type HealthKind string
 
 const (
-	HealthKindGeneral   HealthKind = "general"
-	HealthKindLiveness  HealthKind = "liveness"
+	// HealthKindGeneral identifies general health checks.
+	HealthKindGeneral HealthKind = "general"
+	// HealthKindLiveness identifies liveness health checks.
+	HealthKindLiveness HealthKind = "liveness"
+	// HealthKindReadiness identifies readiness health checks.
 	HealthKindReadiness HealthKind = "readiness"
 )
 
@@ -103,7 +106,11 @@ func (r HealthReport) MarshalJSON() ([]byte, error) {
 		checks.Set(name, new(err.Error()))
 	})
 
-	return json.Marshal(payload{Kind: r.Kind, Healthy: r.Healthy(), Checks: checks.All()})
+	data, err := json.Marshal(payload{Kind: r.Kind, Healthy: r.Healthy(), Checks: checks.All()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal health report: %w", err)
+	}
+	return data, nil
 }
 
 // CheckHealth executes all general health checks.
@@ -167,6 +174,8 @@ func (r *Runtime) healthHandler(kind HealthKind) http.HandlerFunc {
 		var report HealthReport
 
 		switch kind {
+		case HealthKindGeneral:
+			report = r.CheckHealth(ctx)
 		case HealthKindLiveness:
 			report = r.CheckLiveness(ctx)
 		case HealthKindReadiness:
@@ -182,6 +191,8 @@ func (r *Runtime) healthHandler(kind HealthKind) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(report)
+		if err := json.NewEncoder(w).Encode(report); err != nil && r.logger != nil {
+			r.logger.Error("write health response failed", "kind", kind, "error", err)
+		}
 	}
 }

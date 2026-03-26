@@ -22,6 +22,7 @@ type Lifecycle interface {
 	OnStop(hook StopHook)
 }
 
+// HookFunc describes a typed lifecycle hook registration.
 type HookFunc struct {
 	register func(*Container, Lifecycle)
 	meta     HookMetadata
@@ -33,12 +34,14 @@ func (h HookFunc) bind(c *Container, lc Lifecycle) {
 	}
 }
 
+// RawHook registers an untyped lifecycle hook.
 func RawHook(fn func(*Container, Lifecycle)) HookFunc {
 	return RawHookWithMetadata(fn, HookMetadata{
 		Label: "RawHook",
 	})
 }
 
+// RawHookWithMetadata registers an untyped lifecycle hook with metadata.
 func RawHookWithMetadata(fn func(*Container, Lifecycle), meta HookMetadata) HookFunc {
 	meta.Raw = true
 	return NewHookFunc(fn, meta)
@@ -67,15 +70,12 @@ func (l *lifecycleImpl) OnStop(hook StopHook) {
 
 func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) (int, error) {
 	hooks := l.startHooks.Values()
-	if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
-		l.logger.Debug("executing start hooks", "count", len(hooks))
-	}
+	debugEnabled := l.debugEnabled(ctx)
+	l.logDebug(debugEnabled, "executing start hooks", "count", len(hooks))
 
 	completed := 0
 	for i, hook := range hooks {
-		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
-			l.logger.Debug("executing start hook", "index", i)
-		}
+		l.logDebug(debugEnabled, "executing start hook", "index", i)
 		if err := hook(ctx); err != nil {
 			if l.logger != nil {
 				l.logger.Error("start hook failed", "index", i, "error", err)
@@ -83,9 +83,7 @@ func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) (in
 			return completed, fmt.Errorf("start hook %d failed: %w", i, err)
 		}
 		completed++
-		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
-			l.logger.Debug("start hook completed", "index", i)
-		}
+		l.logDebug(debugEnabled, "start hook completed", "index", i)
 	}
 	return completed, nil
 }
@@ -103,15 +101,12 @@ func (l *lifecycleImpl) executeStopHooksSubset(ctx context.Context, count int) e
 	if count < len(stopHooks) {
 		stopHooks = stopHooks[:count]
 	}
-	if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
-		l.logger.Debug("executing stop hooks", "count", len(stopHooks), "registered", len(l.stopHooks.Values()))
-	}
+	debugEnabled := l.debugEnabled(ctx)
+	l.logDebug(debugEnabled, "executing stop hooks", "count", len(stopHooks), "registered", len(l.stopHooks.Values()))
 	slices.Reverse(stopHooks)
 	errs := collectionlist.NewListWithCapacity[error](1)
 	for i, hook := range stopHooks {
-		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
-			l.logger.Debug("executing stop hook", "index", i)
-		}
+		l.logDebug(debugEnabled, "executing stop hook", "index", i)
 		if err := hook(ctx); err != nil {
 			if l.logger != nil {
 				l.logger.Error("stop hook failed", "index", i, "error", err)
@@ -119,13 +114,22 @@ func (l *lifecycleImpl) executeStopHooksSubset(ctx context.Context, count int) e
 			errs.Add(fmt.Errorf("stop hook %d failed: %w", i, err))
 			continue
 		}
-		if l.logger != nil && l.logger.Enabled(context.Background(), slog.LevelDebug) {
-			l.logger.Debug("stop hook completed", "index", i)
-		}
+		l.logDebug(debugEnabled, "stop hook completed", "index", i)
 	}
 	return errors.Join(errs.Values()...)
 }
 
+func (l *lifecycleImpl) debugEnabled(ctx context.Context) bool {
+	return l.logger != nil && l.logger.Enabled(ctx, slog.LevelDebug)
+}
+
+func (l *lifecycleImpl) logDebug(enabled bool, msg string, args ...any) {
+	if enabled {
+		l.logger.Debug(msg, args...)
+	}
+}
+
+// OnStart0 registers a start hook with no resolved dependencies.
 func OnStart0(fn func(context.Context) error) HookFunc {
 	return NewHookFunc(func(_ *Container, lc Lifecycle) {
 		lc.OnStart(fn)
@@ -135,6 +139,7 @@ func OnStart0(fn func(context.Context) error) HookFunc {
 	})
 }
 
+// OnStop0 registers a stop hook with no resolved dependencies.
 func OnStop0(fn func(context.Context) error) HookFunc {
 	return NewHookFunc(func(_ *Container, lc Lifecycle) {
 		lc.OnStop(fn)
@@ -144,6 +149,7 @@ func OnStop0(fn func(context.Context) error) HookFunc {
 	})
 }
 
+// OnStart registers a start hook with one resolved dependency.
 func OnStart[T any](fn func(context.Context, T) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStart(func(ctx context.Context) error {
@@ -160,6 +166,7 @@ func OnStart[T any](fn func(context.Context, T) error) HookFunc {
 	})
 }
 
+// OnStop registers a stop hook with one resolved dependency.
 func OnStop[T any](fn func(context.Context, T) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStop(func(ctx context.Context) error {
@@ -176,6 +183,7 @@ func OnStop[T any](fn func(context.Context, T) error) HookFunc {
 	})
 }
 
+// OnStart2 registers a start hook with two resolved dependencies.
 func OnStart2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStart(func(ctx context.Context) error {
@@ -196,6 +204,7 @@ func OnStart2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	})
 }
 
+// OnStop2 registers a stop hook with two resolved dependencies.
 func OnStop2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStop(func(ctx context.Context) error {
@@ -216,6 +225,7 @@ func OnStop2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	})
 }
 
+// OnStart3 registers a start hook with three resolved dependencies.
 func OnStart3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStart(func(ctx context.Context) error {
@@ -240,6 +250,7 @@ func OnStart3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFu
 	})
 }
 
+// OnStop3 registers a stop hook with three resolved dependencies.
 func OnStop3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStop(func(ctx context.Context) error {

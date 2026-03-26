@@ -2,7 +2,13 @@ package repository
 
 import "github.com/DaiYuANg/arcgo/dbx"
 
-type Base[E any, S dbx.SchemaSource[E]] struct {
+// EntitySchema is the schema contract required by repository generic code.
+type EntitySchema[E any] interface {
+	dbx.SchemaSource[E]
+	TableName() string
+}
+
+type Base[E any, S EntitySchema[E]] struct {
 	db                  *dbx.DB
 	session             dbx.Session
 	schema              S
@@ -22,4 +28,3 @@ type PageResult[E any] struct {
 	Page     int
 	PageSize int
 }
-

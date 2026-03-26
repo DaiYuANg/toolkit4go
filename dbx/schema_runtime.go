@@ -1,7 +1,6 @@
 package dbx
 
 import (
-	"database/sql"
 	"strings"
 
 	"github.com/samber/lo"
@@ -110,11 +109,4 @@ func (o metadataColumnOperand) renderOperand(state *renderState) (string, error)
 	builder.WriteByte('.')
 	builder.WriteString(state.dialect.QuoteIdent(o.meta.Name))
 	return builder.String(), nil
-}
-
-func requireSQLDB(db *DB) (*sql.DB, bool) {
-	if db == nil || db.SQLDB() == nil {
-		return nil, false
-	}
-	return db.SQLDB(), true
 }

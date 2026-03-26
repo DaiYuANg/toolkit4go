@@ -8,14 +8,17 @@ type ServiceRef struct {
 	Name string
 }
 
+// TypedService returns a typed service reference for T.
 func TypedService[T any]() ServiceRef {
 	return ServiceRef{Name: serviceNameOf[T]()}
 }
 
+// NamedService returns a named service reference.
 func NamedService(name string) ServiceRef {
 	return ServiceRef{Name: name}
 }
 
+// ProviderMetadata describes a provider registration for validation and inspection.
 type ProviderMetadata struct {
 	Label        string
 	Output       ServiceRef
@@ -23,19 +26,24 @@ type ProviderMetadata struct {
 	Raw          bool
 }
 
+// InvokeMetadata describes an invoke registration for validation and inspection.
 type InvokeMetadata struct {
 	Label        string
 	Dependencies []ServiceRef
 	Raw          bool
 }
 
+// HookKind identifies a lifecycle hook phase.
 type HookKind string
 
 const (
+	// HookKindStart identifies start hooks.
 	HookKindStart HookKind = "start"
-	HookKindStop  HookKind = "stop"
+	// HookKindStop identifies stop hooks.
+	HookKindStop HookKind = "stop"
 )
 
+// HookMetadata describes a lifecycle hook registration.
 type HookMetadata struct {
 	Label        string
 	Kind         HookKind
@@ -43,6 +51,7 @@ type HookMetadata struct {
 	Raw          bool
 }
 
+// SetupMetadata describes a setup registration.
 type SetupMetadata struct {
 	Label         string
 	Dependencies  []ServiceRef
@@ -52,6 +61,7 @@ type SetupMetadata struct {
 	Raw           bool
 }
 
+// NewProviderFunc constructs a provider registration from a callback and metadata.
 func NewProviderFunc(register func(*Container), meta ProviderMetadata) ProviderFunc {
 	return ProviderFunc{
 		register: register,
@@ -59,6 +69,7 @@ func NewProviderFunc(register func(*Container), meta ProviderMetadata) ProviderF
 	}
 }
 
+// NewInvokeFunc constructs an invoke registration from a callback and metadata.
 func NewInvokeFunc(run func(*Container) error, meta InvokeMetadata) InvokeFunc {
 	return InvokeFunc{
 		run:  run,
@@ -66,6 +77,7 @@ func NewInvokeFunc(run func(*Container) error, meta InvokeMetadata) InvokeFunc {
 	}
 }
 
+// NewHookFunc constructs a hook registration from a callback and metadata.
 func NewHookFunc(register func(*Container, Lifecycle), meta HookMetadata) HookFunc {
 	return HookFunc{
 		register: register,
@@ -73,6 +85,7 @@ func NewHookFunc(register func(*Container, Lifecycle), meta HookMetadata) HookFu
 	}
 }
 
+// NewSetupFunc constructs a setup registration from a callback and metadata.
 func NewSetupFunc(run func(*Container, Lifecycle) error, meta SetupMetadata) SetupFunc {
 	return SetupFunc{
 		run:  run,
