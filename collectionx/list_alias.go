@@ -1,6 +1,8 @@
 package collectionx
 
 import (
+	"fmt"
+
 	"github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/samber/mo"
 )
@@ -26,6 +28,7 @@ type listWritable[T any] interface {
 	clearable
 }
 
+// List is the root list interface exposed by collectionx.
 type List[T any] interface {
 	listReadable[T]
 	listWritable[T]
@@ -35,24 +38,27 @@ type List[T any] interface {
 	jsonStringer
 }
 
+// NewList creates a List populated with items.
 func NewList[T any](items ...T) List[T] {
 	return list.NewList(items...)
 }
 
+// NewListWithCapacity creates a List with preallocated capacity and optional items.
 func NewListWithCapacity[T any](capacity int, items ...T) List[T] {
 	return list.NewListWithCapacity(capacity, items...)
 }
 
-// RopeList is a list optimized for frequent AddAt/RemoveAt at arbitrary positions
-// with O(log n) amortized cost. Use when middle insertions dominate.
+// NewRopeList creates a RopeList optimized for frequent AddAt and RemoveAt calls.
 func NewRopeList[T any](items ...T) *list.RopeList[T] {
 	return list.NewRopeList(items...)
 }
 
+// NewRopeListWithCapacity creates a RopeList with preallocated capacity and optional items.
 func NewRopeListWithCapacity[T any](capacity int, items ...T) *list.RopeList[T] {
 	return list.NewRopeListWithCapacity(capacity, items...)
 }
 
+// ConcurrentList is the thread-safe root list interface exposed by collectionx.
 type ConcurrentList[T any] interface {
 	listReadable[T]
 	listWritable[T]
@@ -63,10 +69,12 @@ type ConcurrentList[T any] interface {
 	jsonStringer
 }
 
+// NewConcurrentList creates a ConcurrentList populated with items.
 func NewConcurrentList[T any](items ...T) ConcurrentList[T] {
 	return list.NewConcurrentList(items...)
 }
 
+// NewConcurrentListWithCapacity creates a ConcurrentList with preallocated capacity and optional items.
 func NewConcurrentListWithCapacity[T any](capacity int, items ...T) ConcurrentList[T] {
 	return list.NewConcurrentListWithCapacity(capacity, items...)
 }
@@ -88,16 +96,19 @@ type dequeWritable[T any] interface {
 	clearable
 }
 
+// Deque is the root double-ended queue interface exposed by collectionx.
 type Deque[T any] interface {
 	dequeReadable[T]
 	dequeWritable[T]
 	jsonStringer
 }
 
+// NewDeque creates a Deque populated with items.
 func NewDeque[T any](items ...T) Deque[T] {
 	return list.NewDeque(items...)
 }
 
+// ConcurrentDeque is the thread-safe root deque interface exposed by collectionx.
 type ConcurrentDeque[T any] interface {
 	dequeReadable[T]
 	dequeWritable[T]
@@ -105,6 +116,7 @@ type ConcurrentDeque[T any] interface {
 	jsonStringer
 }
 
+// NewConcurrentDeque creates a ConcurrentDeque populated with items.
 func NewConcurrentDeque[T any](items ...T) ConcurrentDeque[T] {
 	return list.NewConcurrentDeque(items...)
 }
@@ -123,16 +135,19 @@ type ringWritable[T any] interface {
 	clearable
 }
 
+// RingBuffer is the root fixed-capacity ring buffer interface exposed by collectionx.
 type RingBuffer[T any] interface {
 	ringReadable[T]
 	ringWritable[T]
 	jsonStringer
 }
 
+// NewRingBuffer creates a RingBuffer with the provided capacity.
 func NewRingBuffer[T any](capacity int) RingBuffer[T] {
 	return list.NewRingBuffer[T](capacity)
 }
 
+// ConcurrentRingBuffer is the thread-safe root ring buffer interface exposed by collectionx.
 type ConcurrentRingBuffer[T any] interface {
 	ringReadable[T]
 	ringWritable[T]
@@ -141,10 +156,12 @@ type ConcurrentRingBuffer[T any] interface {
 	jsonStringer
 }
 
+// NewConcurrentRingBuffer creates a ConcurrentRingBuffer with the provided capacity.
 func NewConcurrentRingBuffer[T any](capacity int) ConcurrentRingBuffer[T] {
 	return list.NewConcurrentRingBuffer[T](capacity)
 }
 
+// PriorityQueue is the root priority queue interface exposed by collectionx.
 type PriorityQueue[T any] interface {
 	Push(value T)
 	Pop() (T, bool)
@@ -156,6 +173,11 @@ type PriorityQueue[T any] interface {
 	jsonStringer
 }
 
+// NewPriorityQueue creates a PriorityQueue using less to order items.
 func NewPriorityQueue[T any](less func(a, b T) bool, items ...T) (PriorityQueue[T], error) {
-	return list.NewPriorityQueue(less, items...)
+	queue, err := list.NewPriorityQueue(less, items...)
+	if err != nil {
+		return nil, fmt.Errorf("new priority queue: %w", err)
+	}
+	return queue, nil
 }

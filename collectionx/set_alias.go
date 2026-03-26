@@ -15,6 +15,7 @@ type setWritable[T comparable] interface {
 	clearable
 }
 
+// Set is the root set interface exposed by collectionx.
 type Set[T comparable] interface {
 	setReadable[T]
 	setWritable[T]
@@ -27,14 +28,17 @@ type Set[T comparable] interface {
 	jsonStringer
 }
 
+// NewSet creates a Set populated with items.
 func NewSet[T comparable](items ...T) Set[T] {
 	return set.NewSet(items...)
 }
 
+// NewSetWithCapacity creates a Set with preallocated capacity and optional items.
 func NewSetWithCapacity[T comparable](capacity int, items ...T) Set[T] {
 	return set.NewSetWithCapacity(capacity, items...)
 }
 
+// ConcurrentSet is the thread-safe root set interface exposed by collectionx.
 type ConcurrentSet[T comparable] interface {
 	setReadable[T]
 	setWritable[T]
@@ -46,10 +50,12 @@ type ConcurrentSet[T comparable] interface {
 	jsonStringer
 }
 
+// NewConcurrentSet creates a ConcurrentSet populated with items.
 func NewConcurrentSet[T comparable](items ...T) ConcurrentSet[T] {
 	return set.NewConcurrentSet(items...)
 }
 
+// NewConcurrentSetWithCapacity creates a ConcurrentSet with preallocated capacity and optional items.
 func NewConcurrentSetWithCapacity[T comparable](capacity int, items ...T) ConcurrentSet[T] {
 	return set.NewConcurrentSetWithCapacity(capacity, items...)
 }
@@ -73,16 +79,19 @@ type multiSetWritable[T comparable] interface {
 	clearable
 }
 
+// MultiSet is the root multiset interface exposed by collectionx.
 type MultiSet[T comparable] interface {
 	multiSetReadable[T]
 	multiSetWritable[T]
 	jsonStringer
 }
 
+// NewMultiSet creates a MultiSet populated with items.
 func NewMultiSet[T comparable](items ...T) MultiSet[T] {
 	return set.NewMultiSet(items...)
 }
 
+// NewMultiSetWithCapacity creates a MultiSet with preallocated capacity and optional items.
 func NewMultiSetWithCapacity[T comparable](capacity int, items ...T) MultiSet[T] {
 	return set.NewMultiSetWithCapacity(capacity, items...)
 }
@@ -92,6 +101,7 @@ type orderedSetReadable[T comparable] interface {
 	At(pos int) (T, bool)
 }
 
+// OrderedSet is the root ordered set interface exposed by collectionx.
 type OrderedSet[T comparable] interface {
 	orderedSetReadable[T]
 	setWritable[T]
@@ -99,10 +109,12 @@ type OrderedSet[T comparable] interface {
 	jsonStringer
 }
 
+// NewOrderedSet creates an OrderedSet populated with items.
 func NewOrderedSet[T comparable](items ...T) OrderedSet[T] {
 	return set.NewOrderedSet(items...)
 }
 
+// NewOrderedSetWithCapacity creates an OrderedSet with preallocated capacity and optional items.
 func NewOrderedSetWithCapacity[T comparable](capacity int, items ...T) OrderedSet[T] {
 	return set.NewOrderedSetWithCapacity(capacity, items...)
 }

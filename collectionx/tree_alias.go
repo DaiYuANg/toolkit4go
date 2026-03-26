@@ -1,6 +1,10 @@
 package collectionx
 
-import "github.com/DaiYuANg/arcgo/collectionx/tree"
+import (
+	"fmt"
+
+	"github.com/DaiYuANg/arcgo/collectionx/tree"
+)
 
 type treeWritable[K comparable, V any] interface {
 	AddRoot(id K, value V) error
@@ -23,6 +27,7 @@ type treeReadable[K comparable, V any] interface {
 	sized
 }
 
+// Tree is the root tree interface exposed by collectionx.
 type Tree[K comparable, V any] interface {
 	treeWritable[K, V]
 	treeReadable[K, V]
@@ -30,10 +35,12 @@ type Tree[K comparable, V any] interface {
 	jsonStringer
 }
 
+// NewTree creates an empty Tree.
 func NewTree[K comparable, V any]() Tree[K, V] {
 	return tree.NewTree[K, V]()
 }
 
+// ConcurrentTree is the thread-safe root tree interface exposed by collectionx.
 type ConcurrentTree[K comparable, V any] interface {
 	treeWritable[K, V]
 	treeReadable[K, V]
@@ -41,33 +48,52 @@ type ConcurrentTree[K comparable, V any] interface {
 	jsonStringer
 }
 
+// NewConcurrentTree creates an empty ConcurrentTree.
 func NewConcurrentTree[K comparable, V any]() ConcurrentTree[K, V] {
 	return tree.NewConcurrentTree[K, V]()
 }
 
+// TreeNode aliases tree.Node in the root collectionx package.
 type TreeNode[K comparable, V any] = tree.Node[K, V]
 
+// TreeEntry aliases tree.Entry in the root collectionx package.
 type TreeEntry[K comparable, V any] = tree.Entry[K, V]
 
+// NewRootTreeEntry creates a root TreeEntry.
 func NewRootTreeEntry[K comparable, V any](id K, value V) TreeEntry[K, V] {
 	return tree.RootEntry(id, value)
 }
 
-func NewChildTreeEntry[K comparable, V any](id K, parentID K, value V) TreeEntry[K, V] {
+// NewChildTreeEntry creates a child TreeEntry.
+func NewChildTreeEntry[K comparable, V any](id, parentID K, value V) TreeEntry[K, V] {
 	return tree.ChildEntry(id, parentID, value)
 }
 
+// BuildTree builds a Tree from entries.
 func BuildTree[K comparable, V any](entries []TreeEntry[K, V]) (Tree[K, V], error) {
-	return tree.Build(entries)
+	built, err := tree.Build(entries)
+	if err != nil {
+		return nil, fmt.Errorf("build tree: %w", err)
+	}
+	return built, nil
 }
 
+// BuildConcurrentTree builds a ConcurrentTree from entries.
 func BuildConcurrentTree[K comparable, V any](entries []TreeEntry[K, V]) (ConcurrentTree[K, V], error) {
-	return tree.BuildConcurrent(entries)
+	built, err := tree.BuildConcurrent(entries)
+	if err != nil {
+		return nil, fmt.Errorf("build concurrent tree: %w", err)
+	}
+	return built, nil
 }
 
 var (
+	// ErrTreeNodeAlreadyExists reports that a node with the same ID already exists.
 	ErrTreeNodeAlreadyExists = tree.ErrNodeAlreadyExists
-	ErrTreeNodeNotFound      = tree.ErrNodeNotFound
-	ErrTreeParentNotFound    = tree.ErrParentNotFound
-	ErrTreeCycleDetected     = tree.ErrCycleDetected
+	// ErrTreeNodeNotFound reports that a node could not be found.
+	ErrTreeNodeNotFound = tree.ErrNodeNotFound
+	// ErrTreeParentNotFound reports that a parent node could not be found.
+	ErrTreeParentNotFound = tree.ErrParentNotFound
+	// ErrTreeCycleDetected reports that an operation would create a cycle.
+	ErrTreeCycleDetected = tree.ErrCycleDetected
 )

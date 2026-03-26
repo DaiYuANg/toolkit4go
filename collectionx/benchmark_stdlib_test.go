@@ -1,8 +1,10 @@
-package collectionx
+package collectionx_test
 
 import (
 	"sync"
 	"testing"
+
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 const benchStdlibKeySpace = 1 << 12
@@ -14,7 +16,7 @@ func BenchmarkStdlibMapSetGet(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		k := i & mask
 		m[k] = i
 		_ = m[k]
@@ -24,14 +26,14 @@ func BenchmarkStdlibMapSetGet(b *testing.B) {
 // BenchmarkStdlibSetContains benchmarks map[T]struct{} for set containment.
 func BenchmarkStdlibSetContains(b *testing.B) {
 	s := make(map[int]struct{})
-	for i := 0; i < benchStdlibKeySpace; i++ {
+	for i := range benchStdlibKeySpace {
 		s[i] = struct{}{}
 	}
 	mask := benchStdlibKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = s[i&mask]
 	}
 }
@@ -42,7 +44,7 @@ func BenchmarkStdlibSliceAppendGet(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		sl = append(sl, i)
 		_ = sl[len(sl)-1]
 	}
@@ -54,7 +56,7 @@ func BenchmarkStdlibSliceAppend(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		sl = append(sl, i)
 		_ = len(sl)
 	}
@@ -67,7 +69,7 @@ func BenchmarkSyncMapLoadStore(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		k := i & mask
 		m.Store(k, i)
 		_, _ = m.Load(k)
@@ -77,26 +79,26 @@ func BenchmarkSyncMapLoadStore(b *testing.B) {
 // BenchmarkSyncMapLoad benchmarks sync.Map Load only (pre-filled).
 func BenchmarkSyncMapLoad(b *testing.B) {
 	var m sync.Map
-	for i := 0; i < benchStdlibKeySpace; i++ {
+	for i := range benchStdlibKeySpace {
 		m.Store(i, i)
 	}
 	mask := benchStdlibKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_, _ = m.Load(i & mask)
 	}
 }
 
 // BenchmarkCollectionxMapSetGet is collectionx.Map for comparison with BenchmarkStdlibMapSetGet.
 func BenchmarkCollectionxMapSetGet(b *testing.B) {
-	m := NewMap[int, int]()
+	m := collectionx.NewMap[int, int]()
 	mask := benchStdlibKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		k := i & mask
 		m.Set(k, i)
 		_, _ = m.Get(k)
@@ -105,26 +107,26 @@ func BenchmarkCollectionxMapSetGet(b *testing.B) {
 
 // BenchmarkCollectionxSetContains is collectionx.Set for comparison with BenchmarkStdlibSetContains.
 func BenchmarkCollectionxSetContains(b *testing.B) {
-	s := NewSet[int]()
-	for i := 0; i < benchStdlibKeySpace; i++ {
+	s := collectionx.NewSet[int]()
+	for i := range benchStdlibKeySpace {
 		s.Add(i)
 	}
 	mask := benchStdlibKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = s.Contains(i & mask)
 	}
 }
 
 // BenchmarkCollectionxListAppendGet is collectionx.List for comparison with BenchmarkStdlibSliceAppendGet.
 func BenchmarkCollectionxListAppendGet(b *testing.B) {
-	l := NewListWithCapacity[int](b.N)
+	l := collectionx.NewListWithCapacity[int](b.N)
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		l.Add(i)
 		_, _ = l.Get(l.Len() - 1)
 	}
@@ -132,12 +134,12 @@ func BenchmarkCollectionxListAppendGet(b *testing.B) {
 
 // BenchmarkCollectionxConcurrentMapLoadStore is collectionx.ConcurrentMap for comparison with sync.Map.
 func BenchmarkCollectionxConcurrentMapLoadStore(b *testing.B) {
-	m := NewConcurrentMap[int, int]()
+	m := collectionx.NewConcurrentMap[int, int]()
 	mask := benchStdlibKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		k := i & mask
 		m.Set(k, i)
 		_, _ = m.Get(k)

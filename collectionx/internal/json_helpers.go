@@ -1,16 +1,27 @@
 package internal
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // MarshalJSONValue serializes a value to JSON bytes.
 func MarshalJSONValue(value any) ([]byte, error) {
-	return json.Marshal(value)
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("marshal json value: %w", err)
+	}
+	return data, nil
 }
 
 // ForwardToJSON delegates json.Marshaler implementation to ToJSON-style methods.
 func ForwardToJSON(toJSON func() ([]byte, error)) ([]byte, error) {
 	if toJSON == nil {
-		return json.Marshal(nil)
+		data, err := json.Marshal(nil)
+		if err != nil {
+			return nil, fmt.Errorf("marshal nil json value: %w", err)
+		}
+		return data, nil
 	}
 	return toJSON()
 }

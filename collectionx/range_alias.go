@@ -7,12 +7,15 @@ import (
 	"github.com/samber/mo"
 )
 
+// Range aliases interval.Range in the root collectionx package.
 type Range[T cmp.Ordered] = interval.Range[T]
 
-func NewRange[T cmp.Ordered](start T, end T) (Range[T], bool) {
+// NewRange creates a normalized Range when start is not greater than end.
+func NewRange[T cmp.Ordered](start, end T) (Range[T], bool) {
 	return interval.NewRange(start, end)
 }
 
+// RangeSet is the root interval set interface exposed by collectionx.
 type RangeSet[T cmp.Ordered] interface {
 	rangeSetWritable[T]
 	rangeSetReadable[T]
@@ -34,12 +37,15 @@ type rangeSetReadable[T cmp.Ordered] interface {
 	Range(fn func(r interval.Range[T]) bool)
 }
 
+// NewRangeSet creates an empty RangeSet.
 func NewRangeSet[T cmp.Ordered]() RangeSet[T] {
 	return interval.NewRangeSet[T]()
 }
 
+// RangeEntry associates a Range with a value in RangeMap results.
 type RangeEntry[T cmp.Ordered, V any] = interval.RangeEntry[T, V]
 
+// RangeMap is the root interval map interface exposed by collectionx.
 type RangeMap[T cmp.Ordered, V any] interface {
 	rangeMapWritable[T, V]
 	rangeMapReadable[T, V]
@@ -60,6 +66,7 @@ type rangeMapReadable[T cmp.Ordered, V any] interface {
 	Range(fn func(entry interval.RangeEntry[T, V]) bool)
 }
 
+// NewRangeMap creates an empty RangeMap.
 func NewRangeMap[T cmp.Ordered, V any]() RangeMap[T, V] {
 	return interval.NewRangeMap[T, V]()
 }
