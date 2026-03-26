@@ -1,15 +1,16 @@
-package list
+package list_test
 
 import (
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPriorityQueue_MinHeap(t *testing.T) {
 	t.Parallel()
 
-	pq, err := NewPriorityQueue(func(a int, b int) bool { return a < b }, 5, 1, 3, 2)
+	pq, err := list.NewPriorityQueue(func(a, b int) bool { return a < b }, 5, 1, 3, 2)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 5}, pq.ValuesSorted())
 
@@ -21,7 +22,7 @@ func TestPriorityQueue_MinHeap(t *testing.T) {
 func TestPriorityQueue_MaxHeap(t *testing.T) {
 	t.Parallel()
 
-	pq, err := NewPriorityQueue(func(a int, b int) bool { return a > b })
+	pq, err := list.NewPriorityQueue(func(a, b int) bool { return a > b })
 	require.NoError(t, err)
 	pq.Push(10)
 	pq.Push(2)
@@ -35,7 +36,7 @@ func TestPriorityQueue_MaxHeap(t *testing.T) {
 func TestPriorityQueue_ErrorOnNilComparator(t *testing.T) {
 	t.Parallel()
 
-	pq, err := NewPriorityQueue[int](nil)
+	pq, err := list.NewPriorityQueue[int](nil)
 	require.Nil(t, pq)
-	require.ErrorIs(t, err, ErrNilPriorityQueueComparator)
+	require.ErrorIs(t, err, list.ErrNilPriorityQueueComparator)
 }

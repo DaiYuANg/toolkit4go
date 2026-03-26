@@ -200,7 +200,7 @@ func (r *RopeList[T]) Range(fn func(index int, item T) bool) {
 	if r == nil || fn == nil {
 		return
 	}
-	for i := 0; i < r.len; i++ {
+	for i := range r.len {
 		v, _ := r.Get(i)
 		if !fn(i, v) {
 			return

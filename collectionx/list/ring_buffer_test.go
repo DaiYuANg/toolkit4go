@@ -1,15 +1,16 @@
-package list
+package list_test
 
 import (
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRingBuffer_Overwrite(t *testing.T) {
 	t.Parallel()
 
-	r := NewRingBuffer[int](3)
+	r := list.NewRingBuffer[int](3)
 	require.True(t, r.Push(1).IsAbsent())
 	require.True(t, r.Push(2).IsAbsent())
 	require.True(t, r.Push(3).IsAbsent())
@@ -25,7 +26,7 @@ func TestRingBuffer_Overwrite(t *testing.T) {
 func TestRingBuffer_PopOrder(t *testing.T) {
 	t.Parallel()
 
-	r := NewRingBuffer[string](2)
+	r := list.NewRingBuffer[string](2)
 	r.Push("a")
 	r.Push("b")
 

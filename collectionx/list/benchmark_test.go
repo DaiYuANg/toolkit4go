@@ -1,6 +1,10 @@
-package list
+package list_test
 
-import "testing"
+import (
+	"testing"
+
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
+)
 
 const (
 	benchListKeySpace         = 1 << 12
@@ -8,37 +12,37 @@ const (
 	benchPriorityQueueSeedLen = 1 << 10
 )
 
-func newBenchPriorityQueue(b testing.TB) *PriorityQueue[int] {
-	b.Helper()
-	pq, err := NewPriorityQueue(func(a, c int) bool {
+func newBenchPriorityQueue(tb testing.TB) *list.PriorityQueue[int] {
+	tb.Helper()
+	pq, err := list.NewPriorityQueue(func(a, c int) bool {
 		return a < c
 	})
 	if err != nil {
-		b.Fatalf("NewPriorityQueue() error = %v", err)
+		tb.Fatalf("NewPriorityQueue() error = %v", err)
 	}
 	return pq
 }
 
 func BenchmarkListAppend(b *testing.B) {
-	l := NewListWithCapacity[int](b.N)
+	l := list.NewListWithCapacity[int](b.N)
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		l.Add(i)
 	}
 }
 
 func BenchmarkListSetGet(b *testing.B) {
-	l := NewListWithCapacity[int](benchListKeySpace)
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewListWithCapacity[int](benchListKeySpace)
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 
 	mask := benchListKeySpace - 1
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		index := i & mask
 		l.Set(index, i)
 		_, _ = l.Get(index)
@@ -46,29 +50,29 @@ func BenchmarkListSetGet(b *testing.B) {
 }
 
 func BenchmarkListRemoveAtMiddle(b *testing.B) {
-	l := NewListWithCapacity[int](benchListKeySpace)
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewListWithCapacity[int](benchListKeySpace)
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 	mid := benchListKeySpace / 2
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_, _ = l.RemoveAt(mid)
 		_ = l.AddAt(mid, i)
 	}
 }
 
 func BenchmarkListClone(b *testing.B) {
-	l := NewListWithCapacity[int](benchListKeySpace)
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewListWithCapacity[int](benchListKeySpace)
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		clone := l.Clone()
 		if clone.Len() != benchListKeySpace {
 			b.Fatalf("unexpected clone length: %d", clone.Len())
@@ -77,32 +81,32 @@ func BenchmarkListClone(b *testing.B) {
 }
 
 func BenchmarkDequePushPop(b *testing.B) {
-	d := NewDeque[int]()
+	d := list.NewDeque[int]()
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		d.PushBack(i)
 		_, _ = d.PopFront()
 	}
 }
 
 func BenchmarkDequeGet(b *testing.B) {
-	d := NewDeque[int]()
-	for i := 0; i < benchListKeySpace; i++ {
+	d := list.NewDeque[int]()
+	for i := range benchListKeySpace {
 		d.PushBack(i)
 	}
 	mask := benchListKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_, _ = d.Get(i & mask)
 	}
 }
 
 func BenchmarkConcurrentDequePushPopParallel(b *testing.B) {
-	d := NewConcurrentDeque[int]()
+	d := list.NewConcurrentDeque[int]()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -117,31 +121,31 @@ func BenchmarkConcurrentDequePushPopParallel(b *testing.B) {
 }
 
 func BenchmarkRingBufferPushPop(b *testing.B) {
-	r := NewRingBuffer[int](benchRingBufferCapacity)
+	r := list.NewRingBuffer[int](benchRingBufferCapacity)
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = r.Push(i)
 		_, _ = r.Pop()
 	}
 }
 
 func BenchmarkRingBufferOverwrite(b *testing.B) {
-	r := NewRingBuffer[int](benchRingBufferCapacity)
-	for i := 0; i < benchRingBufferCapacity; i++ {
+	r := list.NewRingBuffer[int](benchRingBufferCapacity)
+	for i := range benchRingBufferCapacity {
 		_ = r.Push(i)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = r.Push(i)
 	}
 }
 
 func BenchmarkConcurrentRingBufferPushParallel(b *testing.B) {
-	r := NewConcurrentRingBuffer[int](benchRingBufferCapacity)
+	r := list.NewConcurrentRingBuffer[int](benchRingBufferCapacity)
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -159,7 +163,7 @@ func BenchmarkPriorityQueuePushPop(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		pq.Push(i)
 		_, _ = pq.Pop()
 	}
@@ -167,20 +171,20 @@ func BenchmarkPriorityQueuePushPop(b *testing.B) {
 
 func BenchmarkPriorityQueuePeek(b *testing.B) {
 	pq := newBenchPriorityQueue(b)
-	for i := 0; i < benchPriorityQueueSeedLen; i++ {
+	for i := range benchPriorityQueueSeedLen {
 		pq.Push(i)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _ = pq.Peek()
 	}
 }
 
 func BenchmarkConcurrentListGetParallel(b *testing.B) {
-	l := NewConcurrentList[int]()
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewConcurrentList[int]()
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 
@@ -197,8 +201,8 @@ func BenchmarkConcurrentListGetParallel(b *testing.B) {
 }
 
 func BenchmarkConcurrentListSetParallel(b *testing.B) {
-	l := NewConcurrentList[int]()
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewConcurrentList[int]()
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 
@@ -215,57 +219,57 @@ func BenchmarkConcurrentListSetParallel(b *testing.B) {
 }
 
 func BenchmarkListAddAt(b *testing.B) {
-	l := NewListWithCapacity[int](benchListKeySpace)
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewListWithCapacity[int](benchListKeySpace)
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 	mid := benchListKeySpace / 2
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = l.AddAt(mid, i)
 		_, _ = l.RemoveAt(mid)
 	}
 }
 
 func BenchmarkListRemoveIf(b *testing.B) {
-	l := NewListWithCapacity[int](benchListKeySpace)
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewListWithCapacity[int](benchListKeySpace)
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 	half := benchListKeySpace / 2
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		l.RemoveIf(func(x int) bool { return x%2 == 0 })
-		for j := 0; j < half; j++ {
+		for j := range half {
 			l.Add(j * 2)
 		}
 	}
 }
 
 func BenchmarkDequePushFrontPopBack(b *testing.B) {
-	d := NewDeque[int]()
+	d := list.NewDeque[int]()
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		d.PushFront(i)
 		_, _ = d.PopBack()
 	}
 }
 
 func BenchmarkListRange(b *testing.B) {
-	l := NewListWithCapacity[int](benchListKeySpace)
-	for i := 0; i < benchListKeySpace; i++ {
+	l := list.NewListWithCapacity[int](benchListKeySpace)
+	for i := range benchListKeySpace {
 		l.Add(i)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		l.Range(func(idx int, item int) bool {
 			_ = item
 			return true
@@ -274,7 +278,7 @@ func BenchmarkListRange(b *testing.B) {
 }
 
 func BenchmarkConcurrentListAddParallel(b *testing.B) {
-	l := NewConcurrentList[int]()
+	l := list.NewConcurrentList[int]()
 	mask := benchListKeySpace - 1
 
 	b.ReportAllocs()
@@ -289,45 +293,45 @@ func BenchmarkConcurrentListAddParallel(b *testing.B) {
 }
 
 func BenchmarkRopeListAddAt(b *testing.B) {
-	r := NewRopeList[int]()
-	for i := 0; i < benchListKeySpace; i++ {
+	r := list.NewRopeList[int]()
+	for i := range benchListKeySpace {
 		r.Add(i)
 	}
 	mid := benchListKeySpace / 2
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = r.InsertAt(mid, i)
 		_, _ = r.RemoveAt(mid)
 	}
 }
 
 func BenchmarkRopeListGet(b *testing.B) {
-	r := NewRopeList[int]()
-	for i := 0; i < benchListKeySpace; i++ {
+	r := list.NewRopeList[int]()
+	for i := range benchListKeySpace {
 		r.Add(i)
 	}
 	mask := benchListKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_, _ = r.Get(i & mask)
 	}
 }
 
 func BenchmarkListAddAtLarge(b *testing.B) {
 	const largeSize = 50_000
-	l := NewListWithCapacity[int](largeSize)
-	for i := 0; i < largeSize; i++ {
+	l := list.NewListWithCapacity[int](largeSize)
+	for i := range largeSize {
 		l.Add(i)
 	}
 	mid := largeSize / 2
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = l.AddAt(mid, i)
 		_, _ = l.RemoveAt(mid)
 	}
@@ -335,15 +339,15 @@ func BenchmarkListAddAtLarge(b *testing.B) {
 
 func BenchmarkRopeListAddAtLarge(b *testing.B) {
 	const largeSize = 50_000
-	r := NewRopeList[int]()
-	for i := 0; i < largeSize; i++ {
+	r := list.NewRopeList[int]()
+	for i := range largeSize {
 		r.Add(i)
 	}
 	mid := largeSize / 2
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = r.InsertAt(mid, i)
 		_, _ = r.RemoveAt(mid)
 	}

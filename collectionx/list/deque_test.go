@@ -1,15 +1,16 @@
-package list
+package list_test
 
 import (
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDeque_PushPop(t *testing.T) {
 	t.Parallel()
 
-	var d Deque[int]
+	var d list.Deque[int]
 	d.PushBack(2, 3)
 	d.PushFront(1)
 	require.Equal(t, []int{1, 2, 3}, d.Values())
@@ -28,8 +29,8 @@ func TestDeque_PushPop(t *testing.T) {
 func TestDeque_GrowAndGet(t *testing.T) {
 	t.Parallel()
 
-	var d Deque[int]
-	for i := 0; i < 100; i++ {
+	var d list.Deque[int]
+	for i := range 100 {
 		d.PushBack(i)
 	}
 	require.Equal(t, 100, d.Len())

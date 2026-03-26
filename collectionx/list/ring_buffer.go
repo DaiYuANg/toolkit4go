@@ -103,7 +103,7 @@ func (r *RingBuffer[T]) Values() []T {
 		return nil
 	}
 	out := make([]T, r.size)
-	for i := 0; i < r.size; i++ {
+	for i := range r.size {
 		out[i] = r.buf[(r.head+i)%len(r.buf)]
 	}
 	return out
@@ -115,7 +115,7 @@ func (r *RingBuffer[T]) Clear() {
 		return
 	}
 	var zero T
-	for i := 0; i < r.size; i++ {
+	for i := range r.size {
 		r.buf[(r.head+i)%len(r.buf)] = zero
 	}
 	r.head = 0

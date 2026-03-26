@@ -1,16 +1,17 @@
-package list
+package list_test
 
 import (
 	"sync"
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrentRingBuffer_Basic(t *testing.T) {
 	t.Parallel()
 
-	r := NewConcurrentRingBuffer[int](3)
+	r := list.NewConcurrentRingBuffer[int](3)
 	require.True(t, r.Push(1).IsAbsent())
 	require.True(t, r.Push(2).IsAbsent())
 	require.True(t, r.Push(3).IsAbsent())
@@ -28,17 +29,16 @@ func TestConcurrentRingBuffer_ParallelPush(t *testing.T) {
 
 	const workers = 12
 	const each = 50
-	r := NewConcurrentRingBuffer[int](workers * each)
+	r := list.NewConcurrentRingBuffer[int](workers * each)
 
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
-	for worker := 0; worker < workers; worker++ {
-		worker := worker
+	for worker := range workers {
 		go func() {
 			defer wg.Done()
 			base := worker * each
-			for i := 0; i < each; i++ {
+			for i := range each {
 				r.Push(base + i)
 			}
 		}()
@@ -51,7 +51,7 @@ func TestConcurrentRingBuffer_ParallelPush(t *testing.T) {
 func TestConcurrentRingBuffer_SnapshotIsolation(t *testing.T) {
 	t.Parallel()
 
-	r := NewConcurrentRingBuffer[string](2)
+	r := list.NewConcurrentRingBuffer[string](2)
 	r.Push("a")
 	r.Push("b")
 	snapshot := r.Snapshot()

@@ -1,15 +1,16 @@
-package list
+package list_test
 
 import (
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestList_ZeroValueAndBasicOps(t *testing.T) {
 	t.Parallel()
 
-	var l List[string]
+	var l list.List[string]
 
 	l.Add("a", "b")
 	require.Equal(t, 2, l.Len())
@@ -32,7 +33,7 @@ func TestList_ZeroValueAndBasicOps(t *testing.T) {
 func TestList_AddAllAt(t *testing.T) {
 	t.Parallel()
 
-	l := NewList(1, 4)
+	l := list.NewList(1, 4)
 	require.True(t, l.AddAllAt(1, 2, 3))
 	require.Equal(t, []int{1, 2, 3, 4}, l.Values())
 
@@ -44,7 +45,7 @@ func TestList_AddAllAt(t *testing.T) {
 func TestList_RemoveIfAndCopySemantics(t *testing.T) {
 	t.Parallel()
 
-	l := NewList(1, 2, 3, 4, 5, 6)
+	l := list.NewList(1, 2, 3, 4, 5, 6)
 	removed := l.RemoveIf(func(item int) bool {
 		return item%2 == 0
 	})
@@ -60,7 +61,7 @@ func TestList_RemoveIfAndCopySemantics(t *testing.T) {
 func TestList_OptionAPIs(t *testing.T) {
 	t.Parallel()
 
-	l := NewList("a", "b")
+	l := list.NewList("a", "b")
 
 	opt := l.GetOption(0)
 	require.True(t, opt.IsPresent())
@@ -81,8 +82,8 @@ func TestList_OptionAPIs(t *testing.T) {
 func TestList_Merge(t *testing.T) {
 	t.Parallel()
 
-	left := NewList(1, 2)
-	right := NewList(3, 4)
+	left := list.NewList(1, 2)
+	right := list.NewList(3, 4)
 
 	left.Merge(right).MergeSlice([]int{5, 6})
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6}, left.Values())
@@ -91,8 +92,9 @@ func TestList_Merge(t *testing.T) {
 func TestNewListWithCapacity(t *testing.T) {
 	t.Parallel()
 
-	l := NewListWithCapacity[int](8, 1, 2, 3)
+	l := list.NewListWithCapacity[int](8, 1, 2, 3)
 
 	require.Equal(t, []int{1, 2, 3}, l.Values())
-	require.GreaterOrEqual(t, cap(l.items), 8)
+	l.Add(4, 5, 6, 7, 8)
+	require.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8}, l.Values())
 }

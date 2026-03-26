@@ -1,16 +1,17 @@
-package list
+package list_test
 
 import (
 	"sync"
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrentDeque_Basic(t *testing.T) {
 	t.Parallel()
 
-	d := NewConcurrentDeque[int]()
+	d := list.NewConcurrentDeque[int]()
 	d.PushBack(2, 3)
 	d.PushFront(1)
 
@@ -30,7 +31,7 @@ func TestConcurrentDeque_Basic(t *testing.T) {
 func TestConcurrentDeque_ParallelPushBack(t *testing.T) {
 	t.Parallel()
 
-	d := NewConcurrentDeque[int]()
+	d := list.NewConcurrentDeque[int]()
 
 	const workers = 16
 	const each = 120
@@ -38,12 +39,11 @@ func TestConcurrentDeque_ParallelPushBack(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
-	for worker := 0; worker < workers; worker++ {
-		worker := worker
+	for worker := range workers {
 		go func() {
 			defer wg.Done()
 			base := worker * each
-			for i := 0; i < each; i++ {
+			for i := range each {
 				d.PushBack(base + i)
 			}
 		}()
@@ -56,7 +56,7 @@ func TestConcurrentDeque_ParallelPushBack(t *testing.T) {
 func TestConcurrentDeque_SnapshotIsolation(t *testing.T) {
 	t.Parallel()
 
-	d := NewConcurrentDeque[int](1, 2)
+	d := list.NewConcurrentDeque[int](1, 2)
 	snapshot := d.Snapshot()
 
 	d.PushBack(3)

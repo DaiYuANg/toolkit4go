@@ -1,16 +1,17 @@
-package list
+package list_test
 
 import (
 	"sync"
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrentList_ParallelAdd(t *testing.T) {
 	t.Parallel()
 
-	var l ConcurrentList[int]
+	var l list.ConcurrentList[int]
 
 	const workers = 24
 	const each = 150
@@ -18,12 +19,11 @@ func TestConcurrentList_ParallelAdd(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
-	for worker := 0; worker < workers; worker++ {
-		worker := worker
+	for worker := range workers {
 		go func() {
 			defer wg.Done()
 			base := worker * each
-			for i := 0; i < each; i++ {
+			for i := range each {
 				l.Add(base + i)
 			}
 		}()
@@ -36,7 +36,7 @@ func TestConcurrentList_ParallelAdd(t *testing.T) {
 func TestConcurrentList_InsertRemoveAndSnapshot(t *testing.T) {
 	t.Parallel()
 
-	l := NewConcurrentList(1, 3)
+	l := list.NewConcurrentList(1, 3)
 	require.True(t, l.AddAt(1, 2))
 	require.Equal(t, []int{1, 2, 3}, l.Values())
 
@@ -52,7 +52,7 @@ func TestConcurrentList_InsertRemoveAndSnapshot(t *testing.T) {
 func TestConcurrentList_OptionAPIs(t *testing.T) {
 	t.Parallel()
 
-	var l ConcurrentList[string]
+	var l list.ConcurrentList[string]
 	l.Add("a", "b")
 
 	opt := l.GetOption(0)
@@ -73,9 +73,9 @@ func TestConcurrentList_OptionAPIs(t *testing.T) {
 func TestConcurrentList_Merge(t *testing.T) {
 	t.Parallel()
 
-	left := NewConcurrentList(1, 2)
-	right := NewList(3, 4)
-	otherConcurrent := NewConcurrentList(5, 6)
+	left := list.NewConcurrentList(1, 2)
+	right := list.NewList(3, 4)
+	otherConcurrent := list.NewConcurrentList(5, 6)
 
 	left.Merge(right).MergeConcurrent(otherConcurrent).MergeSlice([]int{7, 8})
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8}, left.Values())
@@ -84,9 +84,9 @@ func TestConcurrentList_Merge(t *testing.T) {
 func TestNewConcurrentListWithCapacity(t *testing.T) {
 	t.Parallel()
 
-	l := NewConcurrentListWithCapacity[int](8, 1, 2, 3)
+	l := list.NewConcurrentListWithCapacity[int](8, 1, 2, 3)
 
 	require.Equal(t, []int{1, 2, 3}, l.Values())
-	require.NotNil(t, l.core)
-	require.GreaterOrEqual(t, cap(l.core.items), 8)
+	l.Add(4, 5, 6, 7, 8)
+	require.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8}, l.Values())
 }

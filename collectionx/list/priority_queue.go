@@ -5,6 +5,7 @@ import (
 	"errors"
 )
 
+// ErrNilPriorityQueueComparator reports that NewPriorityQueue received a nil comparator.
 var ErrNilPriorityQueueComparator = errors.New("list: priority queue comparator cannot be nil")
 
 // PriorityQueue is a generic heap-based queue.
@@ -122,11 +123,11 @@ func (h *priorityQueueHeap[T]) Len() int {
 	return len(h.items)
 }
 
-func (h *priorityQueueHeap[T]) Less(i int, j int) bool {
+func (h *priorityQueueHeap[T]) Less(i, j int) bool {
 	return h.less(h.items[i], h.items[j])
 }
 
-func (h *priorityQueueHeap[T]) Swap(i int, j int) {
+func (h *priorityQueueHeap[T]) Swap(i, j int) {
 	h.items[i], h.items[j] = h.items[j], h.items[i]
 }
 

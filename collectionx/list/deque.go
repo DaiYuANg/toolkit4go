@@ -109,7 +109,7 @@ func (d *Deque[T]) IsEmpty() bool {
 // Clear removes all items.
 func (d *Deque[T]) Clear() {
 	var zero T
-	for i := 0; i < d.size; i++ {
+	for i := range d.size {
 		d.buf[d.physicalIndex(i)] = zero
 	}
 	d.head = 0
@@ -122,7 +122,7 @@ func (d *Deque[T]) Values() []T {
 		return nil
 	}
 	out := make([]T, d.size)
-	for i := 0; i < d.size; i++ {
+	for i := range d.size {
 		out[i] = d.buf[d.physicalIndex(i)]
 	}
 	return out
@@ -133,7 +133,7 @@ func (d *Deque[T]) Range(fn func(index int, item T) bool) {
 	if fn == nil {
 		return
 	}
-	for i := 0; i < d.size; i++ {
+	for i := range d.size {
 		if !fn(i, d.buf[d.physicalIndex(i)]) {
 			return
 		}
@@ -176,15 +176,13 @@ func (d *Deque[T]) ensureCapacity(extra int) {
 	}
 
 	newCap := len(d.buf) * 2
-	if newCap < 4 {
-		newCap = 4
-	}
+	newCap = max(newCap, 4)
 	for newCap < need {
 		newCap *= 2
 	}
 
 	newBuf := make([]T, newCap)
-	for i := 0; i < d.size; i++ {
+	for i := range d.size {
 		newBuf[i] = d.buf[d.physicalIndex(i)]
 	}
 	d.buf = newBuf

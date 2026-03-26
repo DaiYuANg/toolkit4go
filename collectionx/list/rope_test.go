@@ -1,15 +1,16 @@
-package list
+package list_test
 
 import (
 	"testing"
 
+	list "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRopeList_Basic(t *testing.T) {
 	t.Parallel()
 
-	r := NewRopeList[int](1, 2, 3)
+	r := list.NewRopeList[int](1, 2, 3)
 	require.Equal(t, 3, r.Len())
 	v, ok := r.Get(1)
 	require.True(t, ok)
@@ -28,7 +29,7 @@ func TestRopeList_Basic(t *testing.T) {
 func TestRopeList_InsertAt(t *testing.T) {
 	t.Parallel()
 
-	r := NewRopeList[int]()
+	r := list.NewRopeList[int]()
 	r.Add(1, 2, 3)
 	require.True(t, r.InsertAt(0, 0))
 	require.Equal(t, []int{0, 1, 2, 3}, r.Values())
@@ -41,7 +42,7 @@ func TestRopeList_InsertAt(t *testing.T) {
 func TestRopeList_RemoveIf(t *testing.T) {
 	t.Parallel()
 
-	r := NewRopeList[int](1, 2, 3, 4, 5)
+	r := list.NewRopeList[int](1, 2, 3, 4, 5)
 	n := r.RemoveIf(func(x int) bool { return x%2 == 0 })
 	require.Equal(t, 2, n)
 	require.Equal(t, []int{1, 3, 5}, r.Values())
@@ -50,7 +51,7 @@ func TestRopeList_RemoveIf(t *testing.T) {
 func TestRopeList_Clone(t *testing.T) {
 	t.Parallel()
 
-	r := NewRopeList[int](1, 2, 3)
+	r := list.NewRopeList[int](1, 2, 3)
 	c := r.Clone()
 	require.Equal(t, r.Values(), c.Values())
 	c.Add(4)
