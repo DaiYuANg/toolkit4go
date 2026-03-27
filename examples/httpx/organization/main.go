@@ -1,3 +1,4 @@
+// Package main demonstrates organizing httpx docs, security, and group defaults.
 package main
 
 import (
@@ -36,8 +37,27 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer closeLogger()
+	server := newOrganizationServer()
+	registerOrganizationRoutes(server)
 
+	port := randomport.MustFind()
+	addr := fmt.Sprintf(":%d", port)
+	logger.Info("example server starting",
+		slog.String("example", "organization"),
+		slog.String("address", addr),
+		slog.String("openapi", fmt.Sprintf("http://localhost%s/spec.json", addr)),
+		slog.String("docs", fmt.Sprintf("http://localhost%s/reference", addr)),
+	)
+
+	if err := server.ListenPort(port); err != nil {
+		logger.Error("server exited with error", slog.String("error", err.Error()))
+		closeLogger()
+		os.Exit(1)
+	}
+	closeLogger()
+}
+
+func newOrganizationServer() httpx.ServerRuntime {
 	stdAdapter := std.New(nil, adapter.HumaOptions{
 		DocsPath:     "/reference",
 		OpenAPIPath:  "/spec",
@@ -45,7 +65,7 @@ func main() {
 		DocsRenderer: httpx.DocsRendererScalar,
 	})
 
-	server := httpx.New(
+	return httpx.New(
 		httpx.WithAdapter(stdAdapter),
 		httpx.WithBasePath("/api"),
 		httpx.WithOpenAPIInfo("httpx organization example", "1.0.0", "Docs, security, and group defaults"),
@@ -61,7 +81,9 @@ func main() {
 			},
 		}),
 	)
+}
 
+func registerOrganizationRoutes(server httpx.ServerRuntime) {
 	server.RegisterGlobalHeader(&huma.Param{
 		Name:        "X-Request-Id",
 		In:          "header",
@@ -69,13 +91,25 @@ func main() {
 		Schema:      &huma.Schema{Type: "string"},
 	})
 
-	httpx.MustGet(server, "/health", func(ctx context.Context, input *struct{}) (*healthOutput, error) {
+	httpx.MustGet(server, "/health", func(_ context.Context, _ *struct{}) (*healthOutput, error) {
 		out := &healthOutput{}
 		out.Body.Status = "ok"
 		return out, nil
 	}, huma.OperationTags("system"))
 
 	admin := server.Group("/admin")
+	configureAdminGroup(admin)
+	httpx.MustGroupGet(admin, "/tenants/{id}", func(_ context.Context, input *tenantInput) (*tenantOutput, error) {
+		out := &tenantOutput{}
+		out.Body.ID = input.ID
+		out.Body.Name = "tenant-" + input.ID
+		return out, nil
+	}, func(op *huma.Operation) {
+		op.Summary = "Get tenant"
+	})
+}
+
+func configureAdminGroup(admin *httpx.Group) {
 	admin.RegisterTags(
 		&huma.Tag{Name: "admin", Description: "Administrative APIs"},
 		&huma.Tag{Name: "tenants", Description: "Tenant management"},
@@ -97,27 +131,4 @@ func main() {
 	admin.DefaultExtensions(map[string]any{
 		"x-owner": "platform",
 	})
-
-	httpx.MustGroupGet(admin, "/tenants/{id}", func(ctx context.Context, input *tenantInput) (*tenantOutput, error) {
-		out := &tenantOutput{}
-		out.Body.ID = input.ID
-		out.Body.Name = "tenant-" + input.ID
-		return out, nil
-	}, func(op *huma.Operation) {
-		op.Summary = "Get tenant"
-	})
-
-	port := randomport.MustFind()
-	addr := fmt.Sprintf(":%d", port)
-	logger.Info("example server starting",
-		slog.String("example", "organization"),
-		slog.String("address", addr),
-		slog.String("openapi", fmt.Sprintf("http://localhost%s/spec.json", addr)),
-		slog.String("docs", fmt.Sprintf("http://localhost%s/reference", addr)),
-	)
-
-	if err := server.ListenPort(port); err != nil {
-		logger.Error("server exited with error", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
 }
