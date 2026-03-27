@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/DaiYuANg/arcgo/configx"
 	"github.com/DaiYuANg/arcgo/httpx"
@@ -18,6 +19,12 @@ type appConfig struct {
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	prom := promobs.New(promobs.WithNamespace("configx_example"))
 	obs := observabilityx.Multi(otelobs.New(), prom)
 
@@ -30,12 +37,10 @@ func main() {
 		configx.WithValidateLevel(configx.ValidateLevelStruct),
 	)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	if _, printErr := fmt.Printf("loaded config: %+v\n", cfg); printErr != nil {
-		panic(printErr)
-	}
+	log.Printf("loaded config: %+v", cfg)
 
 	stdAdapter := std.New(nil, adapter.HumaOptions{DisableDocsRoutes: true})
 	metricsServer := httpx.New(
@@ -43,12 +48,9 @@ func main() {
 	)
 	stdAdapter.Router().Handle("/metrics", prom.Handler())
 
-	if _, printErr := fmt.Println("httpx metrics route registered: GET /metrics"); printErr != nil {
-		panic(printErr)
+	log.Println("httpx metrics route registered: GET /metrics")
+	if err := metricsServer.ListenAndServe(":8080"); err != nil {
+		return fmt.Errorf("serve metrics: %w", err)
 	}
-	_ = metricsServer
-	err = metricsServer.ListenAndServe(":8080")
-	if err != nil {
-		panic(err)
-	}
+	return nil
 }

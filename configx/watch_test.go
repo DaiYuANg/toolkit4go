@@ -146,7 +146,7 @@ func TestWatcher_HotReload_MultipleReloads(t *testing.T) {
 	require.NoError(t, err)
 
 	var reloadCount atomic.Int32
-	w.OnChange(func(cfg *configx.Config, err error) {
+	w.OnChange(func(_ *configx.Config, err error) {
 		if err == nil {
 			reloadCount.Add(1)
 		}
@@ -394,7 +394,7 @@ func TestWatcher_OnChange_CalledWithErrorOnReloadFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	errCh := make(chan error, 1)
-	w.OnChange(func(cfg *configx.Config, err error) {
+	w.OnChange(func(_ *configx.Config, err error) {
 		if err != nil {
 			errCh <- err
 		}
