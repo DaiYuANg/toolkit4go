@@ -55,7 +55,7 @@ func TestInspectTable(t *testing.T) {
 	ctx := context.Background()
 	db := openSQLiteDB(t)
 
-	execSQLiteStatements(t, ctx, db,
+	execSQLiteStatements(ctx, t, db,
 		"PRAGMA foreign_keys = ON",
 		`CREATE TABLE roles (id INTEGER PRIMARY KEY)`,
 		`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, email_address TEXT NOT NULL, role_id INTEGER NOT NULL, status INTEGER NOT NULL, CONSTRAINT fk_users_role_id FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE, CONSTRAINT ck_users_status CHECK (status >= 0))`,
@@ -97,7 +97,7 @@ func openSQLiteDB(tb testing.TB) *sql.DB {
 	return db
 }
 
-func execSQLiteStatements(tb testing.TB, ctx context.Context, db *sql.DB, statements ...string) {
+func execSQLiteStatements(ctx context.Context, tb testing.TB, db *sql.DB, statements ...string) {
 	tb.Helper()
 
 	for _, statement := range statements {
