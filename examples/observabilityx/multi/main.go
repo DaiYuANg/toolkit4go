@@ -1,8 +1,9 @@
+// Package main demonstrates combining multiple observability backends in one application.
 package main
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/httpx"
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
@@ -28,6 +29,6 @@ func main() {
 	)
 	stdAdapter.Router().Handle("/metrics", prom.Handler())
 
-	fmt.Println("httpx metrics route registered: GET /metrics")
+	slog.Info("httpx metrics route registered", "route", "GET /metrics")
 	_ = metricsServer
 }
