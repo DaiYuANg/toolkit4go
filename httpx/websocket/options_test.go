@@ -1,13 +1,16 @@
-package websocket
+// Package websocket_test contains tests for websocket.
+package websocket_test
 
 import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/DaiYuANg/arcgo/httpx/websocket"
 )
 
 func TestDefaultOptions(t *testing.T) {
-	opts := DefaultOptions()
+	opts := websocket.DefaultOptions()
 	if opts.HandshakeTimeout <= 0 {
 		t.Fatalf("expected handshake timeout > 0, got %v", opts.HandshakeTimeout)
 	}
@@ -18,15 +21,18 @@ func TestDefaultOptions(t *testing.T) {
 
 func TestApplyOptions(t *testing.T) {
 	checkOrigin := func(*http.Request) bool { return true }
-	opts := applyOptions([]Option{
-		WithHandshakeTimeout(2 * time.Second),
-		WithReadTimeout(3 * time.Second),
-		WithWriteTimeout(4 * time.Second),
-		WithIdleTimeout(5 * time.Second),
-		WithMaxMessageSize(128),
-		WithCompression(true),
-		WithCheckOrigin(checkOrigin),
-	})
+	opts := websocket.DefaultOptions()
+	for _, option := range []websocket.Option{
+		websocket.WithHandshakeTimeout(2 * time.Second),
+		websocket.WithReadTimeout(3 * time.Second),
+		websocket.WithWriteTimeout(4 * time.Second),
+		websocket.WithIdleTimeout(5 * time.Second),
+		websocket.WithMaxMessageSize(128),
+		websocket.WithCompression(true),
+		websocket.WithCheckOrigin(checkOrigin),
+	} {
+		option(&opts)
+	}
 
 	if opts.HandshakeTimeout != 2*time.Second {
 		t.Fatalf("unexpected handshake timeout: %v", opts.HandshakeTimeout)
@@ -52,10 +58,9 @@ func TestApplyOptions(t *testing.T) {
 }
 
 func TestApplyOptionsFallback(t *testing.T) {
-	opts := applyOptions([]Option{
-		WithHandshakeTimeout(0),
-		WithMaxMessageSize(0),
-	})
+	opts := websocket.DefaultOptions()
+	websocket.WithHandshakeTimeout(0)(&opts)
+	websocket.WithMaxMessageSize(0)(&opts)
 	if opts.HandshakeTimeout <= 0 {
 		t.Fatalf("expected fallback handshake timeout, got %v", opts.HandshakeTimeout)
 	}

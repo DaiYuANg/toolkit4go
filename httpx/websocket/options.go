@@ -6,8 +6,10 @@ import (
 	"time"
 )
 
+// Context aliases context.Context for WebSocket handlers and connections.
 type Context = context.Context
 
+// Options configures WebSocket upgrade and connection behavior.
 type Options struct {
 	HandshakeTimeout  time.Duration
 	ReadTimeout       time.Duration
@@ -18,8 +20,10 @@ type Options struct {
 	CheckOrigin       func(*http.Request) bool
 }
 
+// Option mutates WebSocket options before upgrade.
 type Option func(*Options)
 
+// DefaultOptions returns the default WebSocket server options.
 func DefaultOptions() Options {
 	return Options{
 		HandshakeTimeout: 5 * time.Second,
@@ -27,30 +31,45 @@ func DefaultOptions() Options {
 	}
 }
 
+// WithHandshakeTimeout sets the WebSocket handshake timeout when positive.
 func WithHandshakeTimeout(timeout time.Duration) Option {
-	return func(o *Options) { o.HandshakeTimeout = timeout }
+	return func(o *Options) {
+		if timeout > 0 {
+			o.HandshakeTimeout = timeout
+		}
+	}
 }
 
+// WithReadTimeout sets the per-read timeout.
 func WithReadTimeout(timeout time.Duration) Option {
 	return func(o *Options) { o.ReadTimeout = timeout }
 }
 
+// WithWriteTimeout sets the per-write timeout.
 func WithWriteTimeout(timeout time.Duration) Option {
 	return func(o *Options) { o.WriteTimeout = timeout }
 }
 
+// WithIdleTimeout sets the idle timeout applied to the connection.
 func WithIdleTimeout(timeout time.Duration) Option {
 	return func(o *Options) { o.IdleTimeout = timeout }
 }
 
+// WithMaxMessageSize sets the maximum accepted message size when positive.
 func WithMaxMessageSize(n int) Option {
-	return func(o *Options) { o.MaxMessageSize = n }
+	return func(o *Options) {
+		if n > 0 {
+			o.MaxMessageSize = n
+		}
+	}
 }
 
+// WithCompression enables or disables per-message compression.
 func WithCompression(enabled bool) Option {
 	return func(o *Options) { o.EnableCompression = enabled }
 }
 
+// WithCheckOrigin overrides the default origin validator.
 func WithCheckOrigin(fn func(*http.Request) bool) Option {
 	return func(o *Options) { o.CheckOrigin = fn }
 }
