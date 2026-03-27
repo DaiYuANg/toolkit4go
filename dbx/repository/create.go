@@ -10,6 +10,7 @@ import (
 	"github.com/samber/lo"
 )
 
+// Create inserts a single entity.
 func (r *Base[E, S]) Create(ctx context.Context, entity *E) error {
 	if r == nil || r.session == nil {
 		return dbx.ErrNilDB
@@ -18,7 +19,7 @@ func (r *Base[E, S]) Create(ctx context.Context, entity *E) error {
 		return &ValidationError{Message: "entity is nil"}
 	}
 	dbx.LogRuntimeNode(r.session, "repository.create.start", "table", r.schema.TableName())
-	assignments, err := r.mapper.InsertAssignments(r.session, r.schema, entity)
+	assignments, err := r.insertAssignments(entity)
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.create.error", "table", r.schema.TableName(), "stage", "assignments", "error", err)
 		return err
@@ -33,6 +34,7 @@ func (r *Base[E, S]) Create(ctx context.Context, entity *E) error {
 	return nil
 }
 
+// CreateMany inserts multiple entities in one statement.
 func (r *Base[E, S]) CreateMany(ctx context.Context, entities ...*E) error {
 	if r == nil || r.session == nil {
 		return dbx.ErrNilDB
@@ -46,7 +48,7 @@ func (r *Base[E, S]) CreateMany(ctx context.Context, entities ...*E) error {
 		if entity == nil {
 			return &ValidationError{Message: fmt.Sprintf("entity at index %d is nil", index)}
 		}
-		assignments, err := r.mapper.InsertAssignments(r.session, r.schema, entity)
+		assignments, err := r.insertAssignments(entity)
 		if err != nil {
 			dbx.LogRuntimeNode(r.session, "repository.create_many.error", "table", r.schema.TableName(), "stage", "assignments", "index", index, "error", err)
 			return err
@@ -63,6 +65,7 @@ func (r *Base[E, S]) CreateMany(ctx context.Context, entities ...*E) error {
 	return nil
 }
 
+// Upsert inserts an entity or updates the conflicting row.
 func (r *Base[E, S]) Upsert(ctx context.Context, entity *E, conflictColumns ...string) error {
 	if r == nil || r.session == nil {
 		return dbx.ErrNilDB
@@ -71,7 +74,7 @@ func (r *Base[E, S]) Upsert(ctx context.Context, entity *E, conflictColumns ...s
 		return &ValidationError{Message: "entity is nil"}
 	}
 	dbx.LogRuntimeNode(r.session, "repository.upsert.start", "table", r.schema.TableName(), "conflict_columns", conflictColumns)
-	assignments, err := r.mapper.InsertAssignments(r.session, r.schema, entity)
+	assignments, err := r.insertAssignments(entity)
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.upsert.error", "table", r.schema.TableName(), "stage", "assignments", "error", err)
 		return err
@@ -100,7 +103,16 @@ func (r *Base[E, S]) Upsert(ctx context.Context, entity *E, conflictColumns ...s
 	return nil
 }
 
-func normalizeConflictColumns(columns []string, fallback []string) []string {
+func (r *Base[E, S]) insertAssignments(entity *E) ([]dbx.Assignment, error) {
+	assignments, err := r.mapper.InsertAssignments(r.session, r.schema, entity)
+	if err != nil {
+		return nil, fmt.Errorf("build insert assignments: %w", err)
+	}
+
+	return assignments, nil
+}
+
+func normalizeConflictColumns(columns, fallback []string) []string {
 	if len(columns) == 0 {
 		columns = fallback
 	}

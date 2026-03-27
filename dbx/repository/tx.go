@@ -3,10 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"github.com/DaiYuANg/arcgo/dbx"
 )
 
+// InTx executes fn within a database transaction and binds the repository to it.
 func (r *Base[E, S]) InTx(ctx context.Context, opts *sql.TxOptions, fn func(tx *dbx.Tx, repo *Base[E, S]) error) error {
 	if r == nil || r.db == nil {
 		return dbx.ErrNilDB
@@ -16,7 +19,7 @@ func (r *Base[E, S]) InTx(ctx context.Context, opts *sql.TxOptions, fn func(tx *
 	}
 	tx, err := r.db.BeginTx(ctx, opts)
 	if err != nil {
-		return err
+		return fmt.Errorf("begin tx: %w", err)
 	}
 	txRepo := &Base[E, S]{
 		db:                  r.db,
@@ -27,9 +30,13 @@ func (r *Base[E, S]) InTx(ctx context.Context, opts *sql.TxOptions, fn func(tx *
 	}
 	runErr := fn(tx, txRepo)
 	if runErr != nil {
-		_ = tx.Rollback()
+		if rollbackErr := tx.RollbackContext(ctx); rollbackErr != nil {
+			return errors.Join(runErr, fmt.Errorf("rollback tx: %w", rollbackErr))
+		}
 		return runErr
 	}
-	return tx.Commit()
+	if err := tx.CommitContext(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
 }
-

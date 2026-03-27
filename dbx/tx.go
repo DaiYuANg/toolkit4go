@@ -119,11 +119,20 @@ func (tx *Tx) ExecBoundContext(ctx context.Context, bound BoundQuery) (sql.Resul
 	return tx.execContext(ctx, bound.Name, bound.SQL, bound.Args...)
 }
 
+// Commit commits the transaction using a background context.
 func (tx *Tx) Commit() error {
+	return tx.CommitContext(context.Background())
+}
+
+// CommitContext commits the transaction using the provided context.
+func (tx *Tx) CommitContext(ctx context.Context) error {
 	if tx == nil || tx.raw == nil {
 		return ErrNilSQLDB
 	}
-	ctx, event, err := tx.observe.before(context.Background(), HookEvent{Operation: OperationCommitTx})
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, event, err := tx.observe.before(ctx, HookEvent{Operation: OperationCommitTx})
 	if err != nil {
 		tx.observe.after(ctx, event)
 		return err
@@ -134,11 +143,20 @@ func (tx *Tx) Commit() error {
 	return commitErr
 }
 
+// Rollback rolls the transaction back using a background context.
 func (tx *Tx) Rollback() error {
+	return tx.RollbackContext(context.Background())
+}
+
+// RollbackContext rolls the transaction back using the provided context.
+func (tx *Tx) RollbackContext(ctx context.Context) error {
 	if tx == nil || tx.raw == nil {
 		return ErrNilSQLDB
 	}
-	ctx, event, err := tx.observe.before(context.Background(), HookEvent{Operation: OperationRollbackTx})
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, event, err := tx.observe.before(ctx, HookEvent{Operation: OperationRollbackTx})
 	if err != nil {
 		tx.observe.after(ctx, event)
 		return err

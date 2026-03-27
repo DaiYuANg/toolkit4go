@@ -7,14 +7,17 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx"
 )
 
+// Key identifies a row by one or more column/value pairs.
 type Key map[string]any
 
+// GetByID returns the entity identified by the repository primary key.
 func (r *Base[E, S]) GetByID(ctx context.Context, id any) (E, error) {
 	pk := r.primaryColumnName()
 	query := r.defaultSelect().Where(dbx.NamedColumn[any](r.schema, pk).Eq(id))
 	return r.First(ctx, query)
 }
 
+// GetByKey returns the entity identified by the provided key columns.
 func (r *Base[E, S]) GetByKey(ctx context.Context, key Key) (E, error) {
 	if len(key) == 0 {
 		var zero E
@@ -23,6 +26,7 @@ func (r *Base[E, S]) GetByKey(ctx context.Context, key Key) (E, error) {
 	return r.First(ctx, r.defaultSelect().Where(keyPredicate(r.schema, key)))
 }
 
+// UpdateByKey updates rows matched by the provided key.
 func (r *Base[E, S]) UpdateByKey(ctx context.Context, key Key, assignments ...dbx.Assignment) (sql.Result, error) {
 	if len(key) == 0 {
 		return nil, &ValidationError{Message: "key is empty"}
@@ -40,6 +44,7 @@ func (r *Base[E, S]) UpdateByKey(ctx context.Context, key Key, assignments ...db
 	return result, nil
 }
 
+// DeleteByKey deletes rows matched by the provided key.
 func (r *Base[E, S]) DeleteByKey(ctx context.Context, key Key) (sql.Result, error) {
 	if len(key) == 0 {
 		return nil, &ValidationError{Message: "key is empty"}
@@ -53,4 +58,3 @@ func (r *Base[E, S]) DeleteByKey(ctx context.Context, key Key) (sql.Result, erro
 	}
 	return result, nil
 }
-

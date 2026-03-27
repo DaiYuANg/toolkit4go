@@ -1,13 +1,14 @@
-package repository
+package repository_test
 
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dbx"
 	sqlitedialect "github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	repository "github.com/DaiYuANg/arcgo/dbx/repository"
+	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 )
 
@@ -63,505 +64,344 @@ type VersionedUserSchema struct {
 func TestNewUsesSchemaAsMetadataSource(t *testing.T) {
 	core := dbx.New((*sql.DB)(nil), sqlitedialect.New())
 	users := dbx.MustSchema("users", UserSchema{})
-	repo := New[User](core, users)
+	repo := repository.New[User](core, users)
 
-	if repo.DB() != core {
-		t.Fatal("expected repository to hold db core")
-	}
-	if repo.Schema().TableName() != "users" {
-		t.Fatalf("unexpected schema table: %q", repo.Schema().TableName())
-	}
-	if _, ok := repo.Mapper().FieldByColumn("name"); !ok {
-		t.Fatal("expected mapper to expose name column")
-	}
+	require.Same(t, core, repo.DB())
+	require.Equal(t, "users", repo.Schema().TableName())
+
+	_, ok := repo.Mapper().FieldByColumn("name")
+	require.True(t, ok)
 }
 
 func TestBaseCreateListAndFirst(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_crud_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
+	repo, users, ctx := newUserRepo(t, "file:repository_crud_test?mode=memory&cache=shared")
+	seedUsers(t, ctx, repo, "alice")
 
-	if err := repo.Create(ctx, &User{Name: "alice"}); err != nil {
-		t.Fatalf("create: %v", err)
-	}
 	items, err := repo.List(ctx, nil)
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(items) != 1 || items[0].Name != "alice" {
-		t.Fatalf("unexpected items: %+v", items)
-	}
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "alice", items[0].Name)
+
 	item, err := repo.First(ctx, dbx.Select(users.AllColumns()...).From(users).Where(users.Name.Eq("alice")))
-	if err != nil {
-		t.Fatalf("first: %v", err)
-	}
-	if item.Name != "alice" {
-		t.Fatalf("unexpected first item: %+v", item)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "alice", item.Name)
 }
 
 func TestBaseFirstNotFound(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_not_found_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-	_, err = repo.First(ctx, dbx.Select(users.AllColumns()...).From(users).Where(users.Name.Eq("nobody")))
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected ErrNotFound, got: %v", err)
-	}
+	repo, users, ctx := newUserRepo(t, "file:repository_not_found_test?mode=memory&cache=shared")
+
+	_, err := repo.First(ctx, dbx.Select(users.AllColumns()...).From(users).Where(users.Name.Eq("nobody")))
+	require.ErrorIs(t, err, repository.ErrNotFound)
 }
 
 func TestBaseGetByIDCountExistsUpdateDeleteByIDAndListPage(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_features_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-
-	if err := repo.Create(ctx, &User{Name: "alice"}); err != nil {
-		t.Fatalf("create alice: %v", err)
-	}
-	if err := repo.Create(ctx, &User{Name: "bob"}); err != nil {
-		t.Fatalf("create bob: %v", err)
-	}
+	repo, users, ctx := newSeededUserRepo(t, "file:repository_features_test?mode=memory&cache=shared", "alice", "bob")
 
 	total, err := repo.Count(ctx, nil)
-	if err != nil || total != 2 {
-		t.Fatalf("count got total=%d err=%v", total, err)
-	}
+	require.NoError(t, err)
+	require.EqualValues(t, 2, total)
+
 	exists, err := repo.Exists(ctx, dbx.Select(users.AllColumns()...).From(users).Where(users.Name.Eq("alice")))
-	if err != nil || !exists {
-		t.Fatalf("exists got exists=%v err=%v", exists, err)
-	}
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	alice, err := repo.First(ctx, dbx.Select(users.AllColumns()...).From(users).Where(users.Name.Eq("alice")))
-	if err != nil {
-		t.Fatalf("first alice: %v", err)
-	}
-	got, err := repo.GetByID(ctx, alice.ID)
-	if err != nil || got.Name != "alice" {
-		t.Fatalf("get by id got=%+v err=%v", got, err)
-	}
+	require.NoError(t, err)
 
-	if _, err := repo.UpdateByID(ctx, alice.ID, users.Name.Set("alice-updated")); err != nil {
-		t.Fatalf("update by id: %v", err)
-	}
+	got, err := repo.GetByID(ctx, alice.ID)
+	require.NoError(t, err)
+	require.Equal(t, "alice", got.Name)
+
+	_, err = repo.UpdateByID(ctx, alice.ID, users.Name.Set("alice-updated"))
+	require.NoError(t, err)
+
 	updated, err := repo.GetByID(ctx, alice.ID)
-	if err != nil || updated.Name != "alice-updated" {
-		t.Fatalf("updated get got=%+v err=%v", updated, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "alice-updated", updated.Name)
 
 	page, err := repo.ListPage(ctx, dbx.Select(users.AllColumns()...).From(users).OrderBy(users.Name.Asc()), 1, 1)
-	if err != nil {
-		t.Fatalf("list page: %v", err)
-	}
-	if page.Total != 2 || page.Page != 1 || page.PageSize != 1 || len(page.Items) != 1 {
-		t.Fatalf("unexpected page result: %+v", page)
-	}
+	require.NoError(t, err)
+	require.EqualValues(t, 2, page.Total)
+	require.Equal(t, 1, page.Page)
+	require.Equal(t, 1, page.PageSize)
+	require.Len(t, page.Items, 1)
 
-	if _, err := repo.DeleteByID(ctx, alice.ID); err != nil {
-		t.Fatalf("delete by id: %v", err)
-	}
+	_, err = repo.DeleteByID(ctx, alice.ID)
+	require.NoError(t, err)
+
 	afterDelete, err := repo.Count(ctx, nil)
-	if err != nil || afterDelete != 1 {
-		t.Fatalf("count after delete total=%d err=%v", afterDelete, err)
-	}
+	require.NoError(t, err)
+	require.EqualValues(t, 1, afterDelete)
 }
 
 func TestBaseByIDUsesPrimaryKeyColumnFromSchema(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_pk_column_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	devices := dbx.MustSchema("devices", DeviceSchema{})
-	if _, err := core.AutoMigrate(ctx, devices); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[Device](core, devices)
+	repo, devices, ctx := newDeviceRepo(t, "file:repository_pk_column_test?mode=memory&cache=shared")
+	require.NoError(t, repo.Create(ctx, &Device{DeviceID: "dev-1", Name: "sensor"}))
 
-	if err := repo.Create(ctx, &Device{DeviceID: "dev-1", Name: "sensor"}); err != nil {
-		t.Fatalf("create: %v", err)
-	}
 	item, err := repo.GetByID(ctx, "dev-1")
-	if err != nil || item.Name != "sensor" {
-		t.Fatalf("get by pk got=%+v err=%v", item, err)
-	}
-	if _, err := repo.UpdateByID(ctx, "dev-1", devices.Name.Set("sensor-v2")); err != nil {
-		t.Fatalf("update by pk: %v", err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "sensor", item.Name)
+
+	_, err = repo.UpdateByID(ctx, "dev-1", devices.Name.Set("sensor-v2"))
+	require.NoError(t, err)
+
 	updated, err := repo.GetByID(ctx, "dev-1")
-	if err != nil || updated.Name != "sensor-v2" {
-		t.Fatalf("updated by pk got=%+v err=%v", updated, err)
-	}
-	if _, err := repo.DeleteByID(ctx, "dev-1"); err != nil {
-		t.Fatalf("delete by pk: %v", err)
-	}
-	if _, err := repo.GetByID(ctx, "dev-1"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected ErrNotFound, got: %v", err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "sensor-v2", updated.Name)
+
+	_, err = repo.DeleteByID(ctx, "dev-1")
+	require.NoError(t, err)
+
+	_, err = repo.GetByID(ctx, "dev-1")
+	require.ErrorIs(t, err, repository.ErrNotFound)
 }
 
 func TestBaseByIDNotFoundAsErrorOption(t *testing.T) {
 	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_not_found_option_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
+	core := openRepositoryCore(t, "file:repository_not_found_option_test?mode=memory&cache=shared")
 	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
+	mustAutoMigrate(t, ctx, core, users)
 
-	defaultRepo := New[User](core, users)
-	if _, err := defaultRepo.DeleteByID(ctx, int64(404)); err != nil {
-		t.Fatalf("default delete should not error on not found: %v", err)
-	}
-	if _, err := defaultRepo.UpdateByID(ctx, int64(404), users.Name.Set("missing")); err != nil {
-		t.Fatalf("default update should not error on not found: %v", err)
-	}
+	defaultRepo := repository.New[User](core, users)
+	_, err := defaultRepo.DeleteByID(ctx, int64(404))
+	require.NoError(t, err)
+	_, err = defaultRepo.UpdateByID(ctx, int64(404), users.Name.Set("missing"))
+	require.NoError(t, err)
 
-	strictRepo := NewWithOptions[User](core, users, WithByIDNotFoundAsError(true))
-	if _, err := strictRepo.DeleteByID(ctx, int64(404)); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("strict delete expected ErrNotFound, got: %v", err)
-	}
-	if _, err := strictRepo.UpdateByID(ctx, int64(404), users.Name.Set("missing")); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("strict update expected ErrNotFound, got: %v", err)
-	}
+	strictRepo := repository.NewWithOptions[User](core, users, repository.WithByIDNotFoundAsError(true))
+	_, err = strictRepo.DeleteByID(ctx, int64(404))
+	require.ErrorIs(t, err, repository.ErrNotFound)
+	_, err = strictRepo.UpdateByID(ctx, int64(404), users.Name.Set("missing"))
+	require.ErrorIs(t, err, repository.ErrNotFound)
 }
 
 func TestBaseCreateManyAndUpsert(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_create_many_upsert_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
+	userRepo, _, userCtx := newUserRepo(t, "file:repository_create_many_users_test?mode=memory&cache=shared")
+	require.NoError(t, userRepo.CreateMany(userCtx, &User{Name: "alice"}, &User{Name: "bob"}))
 
-	if err := repo.CreateMany(ctx, &User{Name: "alice"}, &User{Name: "bob"}); err != nil {
-		t.Fatalf("create many: %v", err)
-	}
-	total, err := repo.Count(ctx, nil)
-	if err != nil || total != 2 {
-		t.Fatalf("count after create many total=%d err=%v", total, err)
-	}
+	total, err := userRepo.Count(userCtx, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, total)
 
-	devices := dbx.MustSchema("devices", DeviceSchema{})
-	if _, err := core.AutoMigrate(ctx, devices); err != nil {
-		t.Fatalf("auto migrate devices: %v", err)
-	}
-	deviceRepo := New[Device](core, devices)
-	if err := deviceRepo.Create(ctx, &Device{DeviceID: "dev-1", Name: "sensor"}); err != nil {
-		t.Fatalf("seed device: %v", err)
-	}
-	if err := deviceRepo.Upsert(ctx, &Device{DeviceID: "dev-1", Name: "sensor-v2"}); err != nil {
-		t.Fatalf("upsert by pk: %v", err)
-	}
-	first, err := deviceRepo.GetByID(ctx, "dev-1")
-	if err != nil || first.Name != "sensor-v2" {
-		t.Fatalf("upsert result got=%+v err=%v", first, err)
-	}
+	deviceRepo, _, deviceCtx := newDeviceRepo(t, "file:repository_upsert_devices_test?mode=memory&cache=shared")
+	require.NoError(t, deviceRepo.Create(deviceCtx, &Device{DeviceID: "dev-1", Name: "sensor"}))
+	require.NoError(t, deviceRepo.Upsert(deviceCtx, &Device{DeviceID: "dev-1", Name: "sensor-v2"}))
+
+	device, err := deviceRepo.GetByID(deviceCtx, "dev-1")
+	require.NoError(t, err)
+	require.Equal(t, "sensor-v2", device.Name)
 }
 
 func TestBaseCompositePrimaryKeyByKey(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_composite_key_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	memberships := dbx.MustSchema("memberships", MembershipSchema{})
-	if _, err := core.AutoMigrate(ctx, memberships); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[Membership](core, memberships)
+	repo, memberships, ctx := newMembershipRepo(t, "file:repository_composite_key_test?mode=memory&cache=shared")
+	require.NoError(t, repo.Create(ctx, &Membership{TenantID: 100, UserID: 200, Role: "viewer"}))
 
-	if err := repo.Create(ctx, &Membership{TenantID: 100, UserID: 200, Role: "viewer"}); err != nil {
-		t.Fatalf("create membership: %v", err)
-	}
+	key := repository.Key{"tenant_id": int64(100), "user_id": int64(200)}
 
-	key := Key{"tenant_id": int64(100), "user_id": int64(200)}
 	item, err := repo.GetByKey(ctx, key)
-	if err != nil || item.Role != "viewer" {
-		t.Fatalf("get by key got=%+v err=%v", item, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "viewer", item.Role)
 
-	if _, err := repo.UpdateByKey(ctx, key, memberships.Role.Set("admin")); err != nil {
-		t.Fatalf("update by key: %v", err)
-	}
+	_, err = repo.UpdateByKey(ctx, key, memberships.Role.Set("admin"))
+	require.NoError(t, err)
+
 	updated, err := repo.GetByKey(ctx, key)
-	if err != nil || updated.Role != "admin" {
-		t.Fatalf("updated by key got=%+v err=%v", updated, err)
-	}
-	if _, err := repo.DeleteByKey(ctx, key); err != nil {
-		t.Fatalf("delete by key: %v", err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "admin", updated.Role)
+
+	_, err = repo.DeleteByKey(ctx, key)
+	require.NoError(t, err)
+
 	_, err = repo.GetByKey(ctx, key)
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected ErrNotFound after delete by key, got: %v", err)
-	}
+	require.ErrorIs(t, err, repository.ErrNotFound)
 }
 
 func TestBaseSpecAPIs(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_spec_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-	if err := repo.CreateMany(ctx, &User{Name: "alice"}, &User{Name: "bob"}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	repo, users, ctx := newSeededUserRepo(t, "file:repository_spec_test?mode=memory&cache=shared", "alice", "bob")
 
-	items, err := repo.ListSpec(ctx, Where(users.Name.Eq("alice")))
-	if err != nil || len(items) != 1 {
-		t.Fatalf("list spec items=%d err=%v", len(items), err)
-	}
-	exists, err := repo.ExistsSpec(ctx, Where(users.Name.Eq("alice")))
-	if err != nil || !exists {
-		t.Fatalf("exists spec exists=%v err=%v", exists, err)
-	}
-	total, err := repo.CountSpec(ctx, Where(users.Name.Eq("alice")))
-	if err != nil || total != 1 {
-		t.Fatalf("count spec total=%d err=%v", total, err)
-	}
-	page, err := repo.ListPageSpec(ctx, 1, 1, OrderBy(users.Name.Asc()))
-	if err != nil || page.Total != 2 || len(page.Items) != 1 {
-		t.Fatalf("list page spec result=%+v err=%v", page, err)
-	}
+	items, err := repo.ListSpec(ctx, repository.Where(users.Name.Eq("alice")))
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+
+	exists, err := repo.ExistsSpec(ctx, repository.Where(users.Name.Eq("alice")))
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	total, err := repo.CountSpec(ctx, repository.Where(users.Name.Eq("alice")))
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+
+	page, err := repo.ListPageSpec(ctx, 1, 1, repository.OrderBy(users.Name.Asc()))
+	require.NoError(t, err)
+	require.EqualValues(t, 2, page.Total)
+	require.Len(t, page.Items, 1)
 }
 
 func TestBaseOptionAPIs(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_option_api_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-	if err := repo.Create(ctx, &User{Name: "alice"}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	repo, users, ctx := newSeededUserRepo(t, "file:repository_option_api_test?mode=memory&cache=shared", "alice")
 
 	noneByID, err := repo.GetByIDOption(ctx, int64(99999))
-	if err != nil {
-		t.Fatalf("get by id option: %v", err)
-	}
-	if noneByID.IsPresent() {
-		t.Fatal("expected absent option for missing id")
-	}
+	require.NoError(t, err)
+	require.False(t, noneByID.IsPresent())
 
-	someBySpec, err := repo.FirstSpecOption(ctx, Where(users.Name.Eq("alice")))
-	if err != nil {
-		t.Fatalf("first spec option: %v", err)
-	}
+	someBySpec, err := repo.FirstSpecOption(ctx, repository.Where(users.Name.Eq("alice")))
+	require.NoError(t, err)
+
 	item, ok := someBySpec.Get()
-	if !ok || item.Name != "alice" {
-		t.Fatalf("expected alice from option, got ok=%v item=%+v", ok, item)
-	}
+	require.True(t, ok)
+	require.Equal(t, "alice", item.Name)
 
-	noneBySpec, err := repo.FirstSpecOption(ctx, Where(users.Name.Eq("nobody")))
-	if err != nil {
-		t.Fatalf("first spec none option: %v", err)
-	}
-	if noneBySpec.IsPresent() {
-		t.Fatal("expected absent option for missing record")
-	}
+	noneBySpec, err := repo.FirstSpecOption(ctx, repository.Where(users.Name.Eq("nobody")))
+	require.NoError(t, err)
+	require.False(t, noneBySpec.IsPresent())
 }
 
 func TestBaseUpdateByVersion(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_version_conflict_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("versioned_users", VersionedUserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[VersionedUser](core, users)
-	if err := repo.Create(ctx, &VersionedUser{Name: "alice", Version: 1}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	repo, users, ctx := newVersionedUserRepo(t, "file:repository_version_conflict_test?mode=memory&cache=shared")
+	require.NoError(t, repo.Create(ctx, &VersionedUser{Name: "alice", Version: 1}))
+
 	item, err := repo.First(ctx, dbx.Select(users.AllColumns()...).From(users))
-	if err != nil {
-		t.Fatalf("first: %v", err)
-	}
-	key := Key{"id": item.ID}
-	if _, err := repo.UpdateByVersion(ctx, key, 1, users.Name.Set("alice-v2")); err != nil {
-		t.Fatalf("update by version: %v", err)
-	}
-	if _, err := repo.UpdateByVersion(ctx, key, 1, users.Name.Set("alice-stale")); !errors.Is(err, ErrVersionConflict) {
-		t.Fatalf("expected ErrVersionConflict, got: %v", err)
-	}
+	require.NoError(t, err)
+
+	key := repository.Key{"id": item.ID}
+	_, err = repo.UpdateByVersion(ctx, key, 1, users.Name.Set("alice-v2"))
+	require.NoError(t, err)
+
+	_, err = repo.UpdateByVersion(ctx, key, 1, users.Name.Set("alice-stale"))
+	require.ErrorIs(t, err, repository.ErrVersionConflict)
 }
 
 func TestBaseFirstDoesNotMutateQuery(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_first_immutable_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-	if err := repo.Create(ctx, &User{Name: "alice"}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	repo, users, ctx := newSeededUserRepo(t, "file:repository_first_immutable_test?mode=memory&cache=shared", "alice")
 
 	query := dbx.Select(users.AllColumns()...).From(users).Where(users.Name.Eq("alice"))
-	if _, err := repo.First(ctx, query); err != nil {
-		t.Fatalf("first: %v", err)
-	}
-	if query.LimitN != nil {
-		t.Fatalf("expected First to leave query limit unchanged, got: %d", *query.LimitN)
-	}
-	if query.OffsetN != nil {
-		t.Fatalf("expected First to leave query offset unchanged, got: %d", *query.OffsetN)
-	}
+	_, err := repo.First(ctx, query)
+	require.NoError(t, err)
+	require.Nil(t, query.LimitN)
+	require.Nil(t, query.OffsetN)
 }
 
 func TestBaseListDoesNotMutateQuery(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_list_immutable_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-	if err := repo.CreateMany(ctx, &User{Name: "alice"}, &User{Name: "bob"}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	repo, users, ctx := newSeededUserRepo(t, "file:repository_list_immutable_test?mode=memory&cache=shared", "alice", "bob")
 
-	query := dbx.Select(users.AllColumns()...).From(users).OrderBy(users.Name.Asc()).Limit(10).Offset(5)
-	if _, err := repo.List(ctx, query); err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if query.LimitN == nil || *query.LimitN != 10 {
-		t.Fatalf("expected List to preserve query limit, got: %v", query.LimitN)
-	}
-	if query.OffsetN == nil || *query.OffsetN != 5 {
-		t.Fatalf("expected List to preserve query offset, got: %v", query.OffsetN)
-	}
-	if len(query.Orders) != 1 {
-		t.Fatalf("expected List to preserve query order clauses, got: %d", len(query.Orders))
-	}
+	query := newOrderedUserQuery(users)
+	_, err := repo.List(ctx, query)
+	require.NoError(t, err)
+	assertOrderedUserQueryUnchanged(t, query)
 }
 
 func TestBaseCountDoesNotMutateQuery(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_count_immutable_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-	if err := repo.CreateMany(ctx, &User{Name: "alice"}, &User{Name: "bob"}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	repo, users, ctx := newSeededUserRepo(t, "file:repository_count_immutable_test?mode=memory&cache=shared", "alice", "bob")
 
-	query := dbx.Select(users.AllColumns()...).From(users).OrderBy(users.Name.Asc()).Limit(10).Offset(5)
-	if _, err := repo.Count(ctx, query); err != nil {
-		t.Fatalf("count: %v", err)
-	}
-	if query.LimitN == nil || *query.LimitN != 10 {
-		t.Fatalf("expected Count to preserve query limit, got: %v", query.LimitN)
-	}
-	if query.OffsetN == nil || *query.OffsetN != 5 {
-		t.Fatalf("expected Count to preserve query offset, got: %v", query.OffsetN)
-	}
-	if len(query.Orders) != 1 {
-		t.Fatalf("expected Count to preserve query order clauses, got: %d", len(query.Orders))
-	}
+	query := newOrderedUserQuery(users)
+	_, err := repo.Count(ctx, query)
+	require.NoError(t, err)
+	assertOrderedUserQueryUnchanged(t, query)
 }
 
 func TestBaseListPageDoesNotMutateQuery(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:repository_page_immutable_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	repo := New[User](core, users)
-	if err := repo.CreateMany(ctx, &User{Name: "alice"}, &User{Name: "bob"}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	repo, users, ctx := newSeededUserRepo(t, "file:repository_page_immutable_test?mode=memory&cache=shared", "alice", "bob")
 
 	query := dbx.Select(users.AllColumns()...).From(users).OrderBy(users.Name.Asc())
-	if _, err := repo.ListPage(ctx, query, 2, 1); err != nil {
-		t.Fatalf("list page: %v", err)
+	_, err := repo.ListPage(ctx, query, 2, 1)
+	require.NoError(t, err)
+	require.Nil(t, query.LimitN)
+	require.Nil(t, query.OffsetN)
+}
+
+func newUserRepo(t *testing.T, dsn string) (*repository.Base[User, UserSchema], UserSchema, context.Context) {
+	t.Helper()
+
+	ctx := context.Background()
+	core := openRepositoryCore(t, dsn)
+	users := dbx.MustSchema("users", UserSchema{})
+	mustAutoMigrate(t, ctx, core, users)
+
+	return repository.New[User](core, users), users, ctx
+}
+
+func newDeviceRepo(t *testing.T, dsn string) (*repository.Base[Device, DeviceSchema], DeviceSchema, context.Context) {
+	t.Helper()
+
+	ctx := context.Background()
+	core := openRepositoryCore(t, dsn)
+	devices := dbx.MustSchema("devices", DeviceSchema{})
+	mustAutoMigrate(t, ctx, core, devices)
+
+	return repository.New[Device](core, devices), devices, ctx
+}
+
+func newMembershipRepo(t *testing.T, dsn string) (*repository.Base[Membership, MembershipSchema], MembershipSchema, context.Context) {
+	t.Helper()
+
+	ctx := context.Background()
+	core := openRepositoryCore(t, dsn)
+	memberships := dbx.MustSchema("memberships", MembershipSchema{})
+	mustAutoMigrate(t, ctx, core, memberships)
+
+	return repository.New[Membership](core, memberships), memberships, ctx
+}
+
+func newVersionedUserRepo(t *testing.T, dsn string) (*repository.Base[VersionedUser, VersionedUserSchema], VersionedUserSchema, context.Context) {
+	t.Helper()
+
+	ctx := context.Background()
+	core := openRepositoryCore(t, dsn)
+	users := dbx.MustSchema("versioned_users", VersionedUserSchema{})
+	mustAutoMigrate(t, ctx, core, users)
+
+	return repository.New[VersionedUser](core, users), users, ctx
+}
+
+func newSeededUserRepo(t *testing.T, dsn string, names ...string) (*repository.Base[User, UserSchema], UserSchema, context.Context) {
+	t.Helper()
+
+	repo, users, ctx := newUserRepo(t, dsn)
+	seedUsers(t, ctx, repo, names...)
+
+	return repo, users, ctx
+}
+
+func openRepositoryCore(t *testing.T, dsn string) *dbx.DB {
+	t.Helper()
+
+	raw, err := sql.Open("sqlite", dsn)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		if closeErr := raw.Close(); closeErr != nil {
+			t.Errorf("close sqlite: %v", closeErr)
+		}
+	})
+
+	return dbx.MustNewWithOptions(raw, sqlitedialect.New())
+}
+
+func mustAutoMigrate(t *testing.T, ctx context.Context, core *dbx.DB, schemas ...dbx.SchemaResource) {
+	t.Helper()
+
+	_, err := core.AutoMigrate(ctx, schemas...)
+	require.NoError(t, err)
+}
+
+func seedUsers(t *testing.T, ctx context.Context, repo *repository.Base[User, UserSchema], names ...string) {
+	t.Helper()
+
+	for _, name := range names {
+		require.NoError(t, repo.Create(ctx, &User{Name: name}))
 	}
-	if query.LimitN != nil {
-		t.Fatalf("expected ListPage to leave query limit unchanged, got: %d", *query.LimitN)
-	}
-	if query.OffsetN != nil {
-		t.Fatalf("expected ListPage to leave query offset unchanged, got: %d", *query.OffsetN)
-	}
+}
+
+func newOrderedUserQuery(users UserSchema) *dbx.SelectQuery {
+	return dbx.Select(users.AllColumns()...).From(users).OrderBy(users.Name.Asc()).Limit(10).Offset(5)
+}
+
+func assertOrderedUserQueryUnchanged(t *testing.T, query *dbx.SelectQuery) {
+	t.Helper()
+
+	require.NotNil(t, query.LimitN)
+	require.Equal(t, 10, *query.LimitN)
+	require.NotNil(t, query.OffsetN)
+	require.Equal(t, 5, *query.OffsetN)
+	require.Len(t, query.Orders, 1)
 }

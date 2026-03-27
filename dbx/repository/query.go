@@ -7,6 +7,7 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx"
 )
 
+// List returns every entity matched by the query.
 func (r *Base[E, S]) List(ctx context.Context, query *dbx.SelectQuery) ([]E, error) {
 	if r == nil || r.session == nil {
 		return nil, dbx.ErrNilDB
@@ -22,10 +23,12 @@ func (r *Base[E, S]) List(ctx context.Context, query *dbx.SelectQuery) ([]E, err
 	return items, nil
 }
 
+// ListSpec returns every entity matched by the provided specs.
 func (r *Base[E, S]) ListSpec(ctx context.Context, specs ...Spec) ([]E, error) {
 	return r.List(ctx, r.applySpecs(specs...))
 }
 
+// First returns the first entity matched by the query.
 func (r *Base[E, S]) First(ctx context.Context, query *dbx.SelectQuery) (E, error) {
 	var zero E
 	if r == nil || r.session == nil {
@@ -46,10 +49,12 @@ func (r *Base[E, S]) First(ctx context.Context, query *dbx.SelectQuery) (E, erro
 	return items[0], nil
 }
 
+// FirstSpec returns the first entity matched by the provided specs.
 func (r *Base[E, S]) FirstSpec(ctx context.Context, specs ...Spec) (E, error) {
 	return r.First(ctx, r.applySpecs(specs...))
 }
 
+// Count returns the number of rows matched by the query.
 func (r *Base[E, S]) Count(ctx context.Context, query *dbx.SelectQuery) (int64, error) {
 	if r == nil || r.session == nil {
 		return 0, dbx.ErrNilDB
@@ -73,10 +78,12 @@ func (r *Base[E, S]) Count(ctx context.Context, query *dbx.SelectQuery) (int64, 
 	return rows[0].Count, nil
 }
 
+// CountSpec returns the number of rows matched by the provided specs.
 func (r *Base[E, S]) CountSpec(ctx context.Context, specs ...Spec) (int64, error) {
 	return r.Count(ctx, r.applySpecs(specs...))
 }
 
+// Exists reports whether the query matches at least one row.
 func (r *Base[E, S]) Exists(ctx context.Context, query *dbx.SelectQuery) (bool, error) {
 	_, err := r.First(ctx, query)
 	if err == nil {
@@ -88,11 +95,13 @@ func (r *Base[E, S]) Exists(ctx context.Context, query *dbx.SelectQuery) (bool, 
 	return false, err
 }
 
+// ExistsSpec reports whether the provided specs match at least one row.
 func (r *Base[E, S]) ExistsSpec(ctx context.Context, specs ...Spec) (bool, error) {
 	return r.Exists(ctx, r.applySpecs(specs...))
 }
 
-func (r *Base[E, S]) ListPage(ctx context.Context, query *dbx.SelectQuery, page int, pageSize int) (PageResult[E], error) {
+// ListPage returns one page of results together with the total row count.
+func (r *Base[E, S]) ListPage(ctx context.Context, query *dbx.SelectQuery, page, pageSize int) (PageResult[E], error) {
 	if page < 1 {
 		page = 1
 	}
@@ -116,6 +125,7 @@ func (r *Base[E, S]) ListPage(ctx context.Context, query *dbx.SelectQuery, page 
 	return PageResult[E]{Items: items, Total: total, Page: page, PageSize: pageSize}, nil
 }
 
-func (r *Base[E, S]) ListPageSpec(ctx context.Context, page int, pageSize int, specs ...Spec) (PageResult[E], error) {
+// ListPageSpec returns one page of results for the provided specs.
+func (r *Base[E, S]) ListPageSpec(ctx context.Context, page, pageSize int, specs ...Spec) (PageResult[E], error) {
 	return r.ListPage(ctx, r.applySpecs(specs...), page, pageSize)
 }
