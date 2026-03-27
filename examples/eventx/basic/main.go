@@ -1,3 +1,4 @@
+// Package main demonstrates basic eventx publish and subscribe flows.
 package main
 
 import (
@@ -8,97 +9,103 @@ import (
 	"github.com/DaiYuANg/arcgo/eventx"
 )
 
-// OrderCreatedEvent 表示订单创建事件
-type OrderCreatedEvent struct {
+type orderCreatedEvent struct {
 	OrderID   string
 	UserID    string
 	Amount    float64
 	CreatedAt time.Time
 }
 
-func (e OrderCreatedEvent) Name() string {
+func (e orderCreatedEvent) Name() string {
 	return "order.created"
 }
 
-// OrderPaidEvent 表示订单支付事件
-type OrderPaidEvent struct {
+type orderPaidEvent struct {
 	OrderID string
 	PaidAt  time.Time
 }
 
-func (e OrderPaidEvent) Name() string {
+func (e orderPaidEvent) Name() string {
 	return "order.paid"
 }
 
 func main() {
-	// 创建事件总线
 	bus := eventx.New(
-		eventx.WithAntsPool(4), // 使用 4 个协程的协程池
+		eventx.WithAntsPool(4),
 		eventx.WithParallelDispatch(true),
 	)
 	defer func() {
-		_ = bus.Close()
+		if err := bus.Close(); err != nil {
+			panic(err)
+		}
 	}()
 
-	// 订阅订单创建事件 - 发送欢迎邮件
-	_, err := eventx.Subscribe[OrderCreatedEvent](bus, func(ctx context.Context, event OrderCreatedEvent) error {
-		fmt.Printf("📧 发送欢迎邮件给用户 %s (订单：%s)\n", event.UserID, event.OrderID)
-		time.Sleep(100 * time.Millisecond) // 模拟发送邮件
+	_, err := eventx.Subscribe[orderCreatedEvent](bus, func(_ context.Context, event orderCreatedEvent) error {
+		mustPrintf("send welcome email to %s (order: %s)\n", event.UserID, event.OrderID)
+		time.Sleep(100 * time.Millisecond)
 		return nil
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	// 订阅订单创建事件 - 初始化订单数据
-	_, err = eventx.Subscribe[OrderCreatedEvent](bus, func(ctx context.Context, event OrderCreatedEvent) error {
-		fmt.Printf("📊 初始化订单数据：%s, 金额：%.2f\n", event.OrderID, event.Amount)
+	_, err = eventx.Subscribe[orderCreatedEvent](bus, func(_ context.Context, event orderCreatedEvent) error {
+		mustPrintf("init order analytics: %s, amount: %.2f\n", event.OrderID, event.Amount)
 		return nil
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	// 订阅订单支付事件 - 更新库存
-	_, err = eventx.Subscribe[OrderPaidEvent](bus, func(ctx context.Context, event OrderPaidEvent) error {
-		fmt.Printf("📦 更新库存，订单：%s\n", event.OrderID)
+	_, err = eventx.Subscribe[orderPaidEvent](bus, func(_ context.Context, event orderPaidEvent) error {
+		mustPrintf("update inventory for order: %s\n", event.OrderID)
 		return nil
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	// 订阅订单支付事件 - 发送支付成功通知
-	_, err = eventx.Subscribe[OrderPaidEvent](bus, func(ctx context.Context, event OrderPaidEvent) error {
-		fmt.Printf("📱 发送支付成功通知，订单：%s\n", event.OrderID)
+	_, err = eventx.Subscribe[orderPaidEvent](bus, func(_ context.Context, event orderPaidEvent) error {
+		mustPrintf("send payment confirmation for order: %s\n", event.OrderID)
 		return nil
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("=== 发布订单创建事件（同步） ===")
-	err = bus.Publish(context.Background(), OrderCreatedEvent{
+	mustPrintln("=== publish order created event (sync) ===")
+	err = bus.Publish(context.Background(), orderCreatedEvent{
 		OrderID:   "ORD-001",
 		UserID:    "USER-123",
 		Amount:    299.99,
 		CreatedAt: time.Now(),
 	})
 	if err != nil {
-		fmt.Printf("发布事件失败：%v\n", err)
+		mustPrintf("publish event failed: %v\n", err)
 	}
 
-	fmt.Println("\n=== 发布订单支付事件（异步） ===")
-	err = bus.PublishAsync(context.Background(), OrderPaidEvent{
+	mustPrintln("\n=== publish order paid event (async) ===")
+	err = bus.PublishAsync(context.Background(), orderPaidEvent{
 		OrderID: "ORD-001",
 		PaidAt:  time.Now(),
 	})
 	if err != nil {
-		fmt.Printf("发布异步事件失败：%v\n", err)
+		mustPrintf("publish async event failed: %v\n", err)
 	}
 
-	// 等待异步事件处理完成
 	time.Sleep(500 * time.Millisecond)
 
-	fmt.Println("\n=== 当前订阅者数量:", bus.SubscriberCount(), "===")
+	mustPrintln("\n=== subscriber count:", bus.SubscriberCount(), "===")
+}
+
+func mustPrintln(args ...any) {
+	if _, err := fmt.Println(args...); err != nil {
+		panic(err)
+	}
+}
+
+func mustPrintf(format string, args ...any) {
+	if _, err := fmt.Printf(format, args...); err != nil {
+		panic(err)
+	}
 }

@@ -1,3 +1,4 @@
+// Package main demonstrates eventx observability integration.
 package main
 
 import (
@@ -28,13 +29,16 @@ func main() {
 	bus := eventx.New(
 		eventx.WithObservability(obs),
 		eventx.WithAntsPool(2),
-		eventx.WithAsyncQueueSize(16),
 		eventx.WithMiddleware(eventx.RecoverMiddleware()),
 	)
-	defer func() { _ = bus.Close() }()
+	defer func() {
+		if err := bus.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
-	unsubscribe, err := eventx.Subscribe(bus, func(ctx context.Context, evt userCreated) error {
-		fmt.Println("user created:", evt.ID)
+	unsubscribe, err := eventx.Subscribe(bus, func(_ context.Context, evt userCreated) error {
+		mustPrintln("user created:", evt.ID)
 		return nil
 	})
 	if err != nil {
@@ -55,6 +59,12 @@ func main() {
 	)
 	stdAdapter.Router().Handle("/metrics", prom.Handler())
 
-	fmt.Println("httpx metrics route registered: GET /metrics")
+	mustPrintln("httpx metrics route registered: GET /metrics")
 	_ = metricsServer
+}
+
+func mustPrintln(args ...any) {
+	if _, err := fmt.Println(args...); err != nil {
+		panic(err)
+	}
 }
