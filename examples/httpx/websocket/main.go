@@ -1,3 +1,4 @@
+// Package main demonstrates combining httpx HTTP routes with a websocket echo endpoint.
 package main
 
 import (
@@ -26,7 +27,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer closeLogger()
 
 	router := chi.NewRouter()
 	a := std.New(router, adapter.HumaOptions{
@@ -38,23 +38,13 @@ func main() {
 	})
 	s := httpx.New(httpx.WithAdapter(a))
 
-	httpx.MustGet(s, "/health", func(ctx context.Context, input *struct{}) (*healthOutput, error) {
+	httpx.MustGet(s, "/health", func(_ context.Context, _ *struct{}) (*healthOutput, error) {
 		out := &healthOutput{}
 		out.Body.Status = "ok"
 		return out, nil
 	})
 
-	router.HandleFunc("/ws/echo", websocket.HandlerFunc(func(ctx context.Context, conn websocket.Conn) error {
-		for {
-			msg, err := conn.Read(ctx)
-			if err != nil {
-				return err
-			}
-			if err := conn.Write(msg); err != nil {
-				return err
-			}
-		}
-	}, websocket.WithCompression(true)))
+	router.HandleFunc("/ws/echo", websocket.HandlerFunc(echoWebSocket, websocket.WithCompression(true)))
 
 	port := randomport.MustFind()
 	addr := fmt.Sprintf(":%d", port)
@@ -69,6 +59,20 @@ func main() {
 
 	if err := s.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
+		closeLogger()
 		os.Exit(1)
+	}
+	closeLogger()
+}
+
+func echoWebSocket(ctx context.Context, conn websocket.Conn) error {
+	for {
+		msg, err := conn.Read(ctx)
+		if err != nil {
+			return fmt.Errorf("read websocket message: %w", err)
+		}
+		if err := conn.Write(msg); err != nil {
+			return fmt.Errorf("write websocket message: %w", err)
+		}
 	}
 }

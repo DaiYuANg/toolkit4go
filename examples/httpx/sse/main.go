@@ -1,3 +1,4 @@
+// Package main demonstrates httpx server-sent events with typed messages.
 package main
 
 import (
@@ -33,7 +34,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer closeLogger()
 
 	a := std.New(nil, adapter.HumaOptions{
 		Title:       "httpx SSE example",
@@ -48,31 +48,7 @@ func main() {
 	httpx.MustRouteSSEWithPolicies(s, httpx.MethodGet, "/events", map[string]any{
 		"tick": tickEvent{},
 		"done": doneEvent{},
-	}, func(ctx context.Context, input *streamInput, send httpx.SSESender) {
-		count := input.Count
-		if count <= 0 {
-			count = 3
-		}
-
-		for i := 1; i <= count; i++ {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			if err := send(httpx.SSEMessage{
-				ID:   i,
-				Data: tickEvent{Index: i, At: time.Now().UTC().Format(time.RFC3339Nano)},
-			}); err != nil {
-				return
-			}
-		}
-
-		_ = send(httpx.SSEMessage{
-			ID:   count + 1,
-			Data: doneEvent{Message: "stream completed"},
-		})
-	}, httpx.SSEPolicyOperation[streamInput](huma.OperationTags("streaming")))
+	}, streamEvents, httpx.SSEPolicyOperation[streamInput](huma.OperationTags("streaming")))
 
 	port := randomport.MustFind()
 	addr := fmt.Sprintf(":%d", port)
@@ -87,6 +63,44 @@ func main() {
 
 	if err := s.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
+		closeLogger()
 		os.Exit(1)
 	}
+	closeLogger()
+}
+
+func streamEvents(ctx context.Context, input *streamInput, send httpx.SSESender) {
+	count := input.Count
+	if count <= 0 {
+		count = 3
+	}
+
+	for i := 1; i <= count; i++ {
+		if stopped := sendTick(ctx, send, i); stopped {
+			return
+		}
+	}
+
+	if err := send(httpx.SSEMessage{
+		ID:   count + 1,
+		Data: doneEvent{Message: "stream completed"},
+	}); err != nil {
+		return
+	}
+}
+
+func sendTick(ctx context.Context, send httpx.SSESender, index int) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+	}
+
+	if err := send(httpx.SSEMessage{
+		ID:   index,
+		Data: tickEvent{Index: index, At: time.Now().UTC().Format(time.RFC3339Nano)},
+	}); err != nil {
+		return true
+	}
+	return false
 }
