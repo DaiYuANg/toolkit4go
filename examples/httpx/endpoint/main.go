@@ -1,3 +1,4 @@
+// Package main demonstrates the httpx endpoint registration pattern.
 package main
 
 import (
@@ -5,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/DaiYuANg/arcgo/examples/httpx/shared"
 	"github.com/DaiYuANg/arcgo/httpx"
@@ -18,13 +20,14 @@ import (
 
 // ==================== User Endpoint ====================
 
+// UserEndpoint registers demo user routes.
 type UserEndpoint struct {
 	httpx.BaseEndpoint
 }
 
 type createUserInput struct {
 	Body struct {
-		Name  string `json:"name" validate:"required,min=2,max=64"`
+		Name  string `json:"name"  validate:"required,min=2,max=64"`
 		Email string `json:"email" validate:"required,email"`
 	} `json:"body"`
 }
@@ -54,23 +57,24 @@ type listUsersOutput struct {
 	} `json:"body"`
 }
 
+// RegisterRoutes registers the user routes on the server.
 func (e *UserEndpoint) RegisterRoutes(server httpx.ServerRuntime) {
 	api := server.Group("/api/v1/users")
 
-	httpx.MustGroupGet(api, "", func(ctx context.Context, input *struct{}) (*listUsersOutput, error) {
+	httpx.MustGroupGet(api, "", func(_ context.Context, _ *struct{}) (*listUsersOutput, error) {
 		out := &listUsersOutput{}
 		out.Body.Users = []string{"Alice", "Bob", "Charlie"}
 		return out, nil
 	})
 
-	httpx.MustGroupGet(api, "/{id}", func(ctx context.Context, input *getUserInput) (*getUserOutput, error) {
+	httpx.MustGroupGet(api, "/{id}", func(_ context.Context, input *getUserInput) (*getUserOutput, error) {
 		out := &getUserOutput{}
 		out.Body.ID = input.ID
-		out.Body.Name = "User-" + fmt.Sprint(input.ID)
+		out.Body.Name = "User-" + strconv.Itoa(input.ID)
 		return out, nil
 	})
 
-	httpx.MustGroupPost(api, "", func(ctx context.Context, input *createUserInput) (*createUserOutput, error) {
+	httpx.MustGroupPost(api, "", func(_ context.Context, input *createUserInput) (*createUserOutput, error) {
 		out := &createUserOutput{}
 		out.Body.ID = 1001
 		out.Body.Name = input.Body.Name
@@ -81,6 +85,7 @@ func (e *UserEndpoint) RegisterRoutes(server httpx.ServerRuntime) {
 
 // ==================== Health Endpoint ====================
 
+// HealthEndpoint registers the health check route.
 type HealthEndpoint struct {
 	httpx.BaseEndpoint
 }
@@ -91,8 +96,9 @@ type healthOutput struct {
 	} `json:"body"`
 }
 
+// RegisterRoutes registers the health route on the server.
 func (e *HealthEndpoint) RegisterRoutes(server httpx.ServerRuntime) {
-	httpx.MustGet(server, "/health", func(ctx context.Context, input *struct{}) (*healthOutput, error) {
+	httpx.MustGet(server, "/health", func(_ context.Context, _ *struct{}) (*healthOutput, error) {
 		out := &healthOutput{}
 		out.Body.Status = "ok"
 		return out, nil
@@ -101,6 +107,7 @@ func (e *HealthEndpoint) RegisterRoutes(server httpx.ServerRuntime) {
 
 // ==================== Order Endpoint (with hooks) ====================
 
+// OrderEndpoint registers demo order routes.
 type OrderEndpoint struct {
 	httpx.BaseEndpoint
 }
@@ -108,7 +115,7 @@ type OrderEndpoint struct {
 type createOrderInput struct {
 	Body struct {
 		ProductID int `json:"product_id" validate:"required,min=1"`
-		Quantity  int `json:"quantity" validate:"required,min=1"`
+		Quantity  int `json:"quantity"   validate:"required,min=1"`
 	} `json:"body"`
 }
 
@@ -120,10 +127,11 @@ type createOrderOutput struct {
 	} `json:"body"`
 }
 
+// RegisterRoutes registers the order routes on the server.
 func (e *OrderEndpoint) RegisterRoutes(server httpx.ServerRuntime) {
 	api := server.Group("/api/v1/orders")
 
-	httpx.MustGroupPost(api, "", func(ctx context.Context, input *createOrderInput) (*createOrderOutput, error) {
+	httpx.MustGroupPost(api, "", func(_ context.Context, input *createOrderInput) (*createOrderOutput, error) {
 		out := &createOrderOutput{}
 		out.Body.OrderID = 5001
 		out.Body.ProductID = input.Body.ProductID
@@ -137,7 +145,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer closeLogger()
 
 	router := chi.NewMux()
 	router.Use(middleware.Logger, middleware.Recoverer)
@@ -190,6 +197,8 @@ func main() {
 
 	if err := server.ListenPort(port); err != nil {
 		logger.Error("server exited with error", slog.String("error", err.Error()))
+		closeLogger()
 		os.Exit(1)
 	}
+	closeLogger()
 }
