@@ -1,9 +1,11 @@
+// Package main demonstrates the edge HTTP preset client.
 package main
 
 import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"time"
@@ -19,7 +21,9 @@ func main() {
 			return
 		}
 		w.WriteHeader(stdhttp.StatusOK)
-		_, _ = w.Write([]byte("pong"))
+		if _, err := w.Write([]byte("pong")); err != nil {
+			return
+		}
 	}))
 	defer srv.Close()
 
@@ -32,7 +36,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() {
+		if closeErr := client.Close(); closeErr != nil {
+			log.Printf("close edge HTTP client: %v", closeErr)
+		}
+	}()
 
 	resp, err := client.Execute(context.Background(), nil, stdhttp.MethodGet, "/ping")
 	if err != nil {
@@ -42,5 +50,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("status=%d body=%q\n", resp.StatusCode(), string(body))
+	if _, err = fmt.Printf("status=%d body=%q\n", resp.StatusCode(), string(body)); err != nil {
+		log.Printf("print edge HTTP result: %v", err)
+	}
 }
