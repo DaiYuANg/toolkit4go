@@ -1,3 +1,4 @@
+// Package main demonstrates precompiled sqltmplx templates.
 package main
 
 import (
@@ -35,7 +36,13 @@ ORDER BY id DESC
 			panic(err)
 		}
 
-		fmt.Println(bound.Query)
-		fmt.Println(bound.Args)
+		mustPrintln(bound.Query)
+		mustPrintln(bound.Args)
+	}
+}
+
+func mustPrintln(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
 	}
 }

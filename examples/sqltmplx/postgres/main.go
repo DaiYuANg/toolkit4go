@@ -1,3 +1,4 @@
+// Package main demonstrates sqltmplx rendering with PostgreSQL syntax.
 package main
 
 import (
@@ -9,6 +10,7 @@ import (
 	_ "github.com/DaiYuANg/arcgo/dbx/sqltmplx/validate/postgresparser"
 )
 
+// Query contains the parameters rendered into the PostgreSQL template.
 type Query struct {
 	Tenant string `db:"tenant"`
 	Name   string `json:"name"`
@@ -47,6 +49,12 @@ ORDER BY id DESC
 		panic(err)
 	}
 
-	fmt.Println(bound.Query)
-	fmt.Println(bound.Args)
+	mustPrintln(bound.Query)
+	mustPrintln(bound.Args)
+}
+
+func mustPrintln(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
 }

@@ -1,3 +1,4 @@
+// Package main demonstrates sqltmplx update rendering with SQLite syntax.
 package main
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx"
 )
 
+// UpdateCommand contains the fields used by the SQLite update template.
 type UpdateCommand struct {
 	ID     int
 	Name   string `db:"name"`
@@ -38,6 +40,12 @@ WHERE id = /* ID */1
 		panic(err)
 	}
 
-	fmt.Println(bound.Query)
-	fmt.Println(bound.Args)
+	mustPrintln(bound.Query)
+	mustPrintln(bound.Args)
+}
+
+func mustPrintln(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
 }
