@@ -52,7 +52,7 @@ func New(opts ...Option) *Loader {
 func (l *Loader) Load(out any) error {
 	cfg, err := l.loadInternal()
 	if err != nil {
-		return fmt.Errorf("%w config: %v", ErrLoad, err)
+		return fmt.Errorf("config: %w", errors.Join(ErrLoad, err))
 	}
 	if err := cfg.k.Unmarshal("", out); err != nil {
 		return fmt.Errorf("config output: %w", errors.Join(ErrUnmarshal, err))
@@ -74,15 +74,15 @@ func (l *Loader) LoadConfig() (*Config, error) {
 //
 // Call [Watcher.Start] (typically in a goroutine) to begin watching.
 func (l *Loader) NewWatcher() (*Watcher, error) {
-	return newWatcherFromOptions(l.opts)
+	return newWatcherFromOptions(context.Background(), l.opts)
 }
 
 // Watch is a convenience wrapper around [Loader.NewWatcher] + [Watcher.Start].
 // It registers onChange as a [ChangeHandler] and then blocks until ctx is
-// cancelled.  onChange may be nil if the caller only needs the side-effect of
+// canceled. onChange may be nil if the caller only needs the side-effect of
 // keeping w.Config() up-to-date.
 func (l *Loader) Watch(ctx context.Context, onChange ChangeHandler) error {
-	w, err := newWatcherFromOptions(l.opts)
+	w, err := newWatcherFromOptions(ctx, l.opts)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (l *Loader) Watch(ctx context.Context, onChange ChangeHandler) error {
 }
 
 func (l *Loader) loadInternal() (*Config, error) {
-	return loadConfigFromOptions(l.opts)
+	return loadConfigFromOptions(context.Background(), l.opts)
 }
 
 // ─── LoaderT ──────────────────────────────────────────────────────────────────
@@ -153,20 +153,20 @@ func (l *LoaderT[T]) LoadConfig() (*Config, error) {
 //
 // Call [Watcher.Start] (typically in a goroutine) to begin watching.
 func (l *LoaderT[T]) NewWatcher() (*Watcher, error) {
-	return newWatcherFromOptions(l.opts)
+	return newWatcherFromOptions(context.Background(), l.opts)
 }
 
 // NewWatcherT performs the initial load and returns a typed watcher that
 // publishes validated T snapshots on every successful reload.
 func (l *LoaderT[T]) NewWatcherT() (*WatcherT[T], error) {
-	return newWatcherTFromOptions[T](l.opts)
+	return newWatcherTFromOptions[T](context.Background(), l.opts)
 }
 
 // Watch is a convenience wrapper around [LoaderT.NewWatcher] + [Watcher.Start].
 // It registers onChange as a [ChangeHandler] and then blocks until ctx is
-// cancelled.
+// canceled.
 func (l *LoaderT[T]) Watch(ctx context.Context, onChange ChangeHandler) error {
-	w, err := newWatcherFromOptions(l.opts)
+	w, err := newWatcherFromOptions(ctx, l.opts)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (l *LoaderT[T]) Watch(ctx context.Context, onChange ChangeHandler) error {
 
 // WatchT is the typed convenience wrapper around NewWatcherT + Start.
 func (l *LoaderT[T]) WatchT(ctx context.Context, onChange ChangeHandlerT[T]) error {
-	w, err := l.NewWatcherT()
+	w, err := newWatcherTFromOptions[T](ctx, l.opts)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (l *LoaderT[T]) WatchT(ctx context.Context, onChange ChangeHandlerT[T]) err
 }
 
 func (l *LoaderT[T]) loadInternal() (*Config, error) {
-	return loadConfigFromOptions(l.opts)
+	return loadConfigFromOptions(context.Background(), l.opts)
 }
 
 // ─── package-level helpers ────────────────────────────────────────────────────
@@ -216,11 +216,12 @@ func LoadT[T any](opts ...Option) mo.Result[T] {
 // (value, error) pair.
 func LoadTErr[T any](opts ...Option) (T, error) {
 	result := LoadT[T](opts...)
-	if result.IsError() {
-		var zero T
-		return zero, result.Error()
+	value, err := result.Get()
+	if err != nil {
+		return value, fmt.Errorf("load typed config: %w", err)
 	}
-	return result.Get()
+
+	return value, nil
 }
 
 // LoadConfig is a one-shot helper that returns a raw *Config.
@@ -244,10 +245,8 @@ func NewWatcherT[T any](opts ...Option) (*WatcherT[T], error) {
 // loadConfigFromOptions is the single authoritative code path that builds a
 // koanf instance from an *Options and wraps it in a *Config.  All exported
 // load functions ultimately call this.
-func loadConfigFromOptions(opts *Options) (*Config, error) {
-	if opts == nil {
-		opts = NewOptions()
-	}
+func loadConfigFromOptions(ctx context.Context, opts *Options) (_ *Config, err error) {
+	opts = normalizeLoadOptions(opts)
 	logDebug(opts,
 		"configx load started",
 		"files", len(opts.files),
@@ -256,99 +255,152 @@ func loadConfigFromOptions(opts *Options) (*Config, error) {
 		"env_prefix", opts.envPrefix,
 	)
 
-	obs := observabilityx.Normalize(opts.observability, nil)
-	ctx, span := obs.StartSpan(context.Background(), "configx.load")
-	defer span.End()
-
-	start := time.Now()
-	result := "success"
+	ctx, obs, finish := beginConfigLoad(ctx, opts)
 	defer func() {
+		finish(err)
+	}()
+
+	k := koanf.New(".")
+	if err := loadConfiguredDefaults(k, opts); err != nil {
+		return nil, err
+	}
+	if err := loadConfiguredSources(ctx, obs, k, opts); err != nil {
+		return nil, err
+	}
+
+	return newConfig(k, opts), nil
+}
+
+func normalizeLoadOptions(opts *Options) *Options {
+	if opts == nil {
+		return NewOptions()
+	}
+
+	return opts
+}
+
+func beginConfigLoad(
+	ctx context.Context,
+	opts *Options,
+) (context.Context, observabilityx.Observability, func(error)) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	obs := observabilityx.Normalize(opts.observability, nil)
+	ctx, span := obs.StartSpan(ctx, "configx.load")
+	start := time.Now()
+
+	return ctx, obs, func(err error) {
+		result := "success"
+		if err != nil {
+			result = "error"
+			span.RecordError(err)
+			logError(opts, "configx load failed", "error", err)
+		} else {
+			logDebug(opts, "configx load completed", "result", result)
+		}
+
 		obs.AddCounter(ctx, metricConfigLoadTotal, 1,
 			observabilityx.String("result", result),
 		)
 		obs.RecordHistogram(ctx, metricConfigLoadDurationMS, float64(time.Since(start).Milliseconds()),
 			observabilityx.String("result", result),
 		)
-	}()
+		span.End()
+	}
+}
 
-	k := koanf.New(".")
-
-	// 1. In-memory defaults (map form) – loaded first so every other source
-	//    can override them.
-	if opts.typedDefaults.IsPresent() {
-		defaults, _ := opts.typedDefaults.Get()
-		if errMsg, bad := defaults["__configx_invalid_typed_defaults__"].(string); bad {
-			err := fmt.Errorf("typed defaults: %w", errors.Join(ErrDefaults, errors.New(errMsg)))
-			result = "error"
-			span.RecordError(err)
-			logError(opts, "configx load failed", "stage", "typed_defaults", "error", err)
-			return nil, err
-		}
-		if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
-			result = "error"
-			span.RecordError(err)
-			logError(opts, "configx load failed", "stage", "typed_defaults", "error", err)
-			return nil, fmt.Errorf("typed defaults map: %w", errors.Join(ErrDefaults, err))
-		}
-		logDebug(opts, "configx typed defaults loaded")
+func loadConfiguredDefaults(k *koanf.Koanf, opts *Options) error {
+	if err := loadTypedDefaults(k, opts); err != nil {
+		return err
 	}
 
-	if opts.defaults.IsPresent() {
-		defaults, _ := opts.defaults.Get()
-		if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
-			result = "error"
-			span.RecordError(err)
-			logError(opts, "configx load failed", "stage", "defaults", "error", err)
-			return nil, fmt.Errorf("defaults map: %w", errors.Join(ErrDefaults, err))
-		}
-		logDebug(opts, "configx defaults loaded")
+	if !opts.defaults.IsPresent() {
+		return nil
 	}
 
-	// 2. External sources in priority order (later = higher precedence).
+	defaults, _ := opts.defaults.Get()
+	if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
+		return fmt.Errorf("defaults map: %w", errors.Join(ErrDefaults, err))
+	}
+
+	logDebug(opts, "configx defaults loaded")
+	return nil
+}
+
+func loadTypedDefaults(k *koanf.Koanf, opts *Options) error {
+	if !opts.typedDefaults.IsPresent() {
+		return nil
+	}
+
+	defaults, _ := opts.typedDefaults.Get()
+	if errMsg, bad := defaults["__configx_invalid_typed_defaults__"].(string); bad {
+		return fmt.Errorf("typed defaults: %w", errors.Join(ErrDefaults, errors.New(errMsg)))
+	}
+
+	if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
+		return fmt.Errorf("typed defaults map: %w", errors.Join(ErrDefaults, err))
+	}
+
+	logDebug(opts, "configx typed defaults loaded")
+	return nil
+}
+
+func loadConfiguredSources(
+	ctx context.Context,
+	obs observabilityx.Observability,
+	k *koanf.Koanf,
+	opts *Options,
+) error {
 	for _, src := range opts.priority {
-		switch src {
-		case SourceDotenv:
-			logDebug(opts, "configx source loading", "source", src.String())
-			if err := loadSourceWithObservability(ctx, obs, src, func() error {
-				return loadDotenv(opts.dotenvFiles, opts.ignoreDotenvErr)
-			}); err != nil {
-				result = "error"
-				span.RecordError(err)
-				logError(opts, "configx source load failed", "source", src.String(), "error", err)
-				return nil, fmt.Errorf("dotenv source: %w", errors.Join(ErrLoad, err))
-			}
-			logDebug(opts, "configx source loaded", "source", src.String())
-
-		case SourceFile:
-			logDebug(opts, "configx source loading", "source", src.String(), "files", len(opts.files))
-			if err := loadSourceWithObservability(ctx, obs, src, func() error {
-				return loadFiles(k, opts.files)
-			}); err != nil {
-				result = "error"
-				span.RecordError(err)
-				logError(opts, "configx source load failed", "source", src.String(), "error", err)
-				return nil, fmt.Errorf("file source: %w", errors.Join(ErrLoad, err))
-			}
-			logDebug(opts, "configx source loaded", "source", src.String())
-
-		case SourceEnv:
-			logDebug(opts, "configx source loading", "source", src.String(), "env_prefix", opts.envPrefix)
-			if err := loadSourceWithObservability(ctx, obs, src, func() error {
-				// envSeparator is resolved inside loadEnv; passing it here
-				// makes the behaviour explicit and testable.
-				return loadEnv(k, opts.envPrefix, opts.envSeparator)
-			}); err != nil {
-				result = "error"
-				span.RecordError(err)
-				logError(opts, "configx source load failed", "source", src.String(), "error", err)
-				return nil, fmt.Errorf("env source: %w", errors.Join(ErrLoad, err))
-			}
-			logDebug(opts, "configx source loaded", "source", src.String())
+		if err := loadConfiguredSource(ctx, obs, k, opts, src); err != nil {
+			return err
 		}
 	}
 
-	logDebug(opts, "configx load completed", "result", result)
-	return newConfig(k, opts), nil
+	return nil
+}
+
+func loadConfiguredSource(
+	ctx context.Context,
+	obs observabilityx.Observability,
+	k *koanf.Koanf,
+	opts *Options,
+	src Source,
+) error {
+	switch src {
+	case SourceDotenv:
+		logDebug(opts, "configx source loading", "source", src.String())
+		if err := loadSourceWithObservability(ctx, obs, src, func() error {
+			return loadDotenv(opts.dotenvFiles, opts.ignoreDotenvErr)
+		}); err != nil {
+			return fmt.Errorf("dotenv source: %w", errors.Join(ErrLoad, err))
+		}
+		logDebug(opts, "configx source loaded", "source", src.String())
+
+	case SourceFile:
+		logDebug(opts, "configx source loading", "source", src.String(), "files", len(opts.files))
+		if err := loadSourceWithObservability(ctx, obs, src, func() error {
+			return loadFiles(k, opts.files)
+		}); err != nil {
+			return fmt.Errorf("file source: %w", errors.Join(ErrLoad, err))
+		}
+		logDebug(opts, "configx source loaded", "source", src.String())
+
+	case SourceEnv:
+		logDebug(opts, "configx source loading", "source", src.String(), "env_prefix", opts.envPrefix)
+		if err := loadSourceWithObservability(ctx, obs, src, func() error {
+			// envSeparator is resolved inside loadEnv; passing it here
+			// makes the behavior explicit and testable.
+			return loadEnv(k, opts.envPrefix, opts.envSeparator)
+		}); err != nil {
+			return fmt.Errorf("env source: %w", errors.Join(ErrLoad, err))
+		}
+		logDebug(opts, "configx source loaded", "source", src.String())
+	}
+
+	return nil
 }
 
 // loadSourceWithObservability wraps fn with a child span and per-source

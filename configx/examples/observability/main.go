@@ -33,7 +33,9 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("loaded config: %+v\n", cfg)
+	if _, printErr := fmt.Printf("loaded config: %+v\n", cfg); printErr != nil {
+		panic(printErr)
+	}
 
 	stdAdapter := std.New(nil, adapter.HumaOptions{DisableDocsRoutes: true})
 	metricsServer := httpx.New(
@@ -41,7 +43,9 @@ func main() {
 	)
 	stdAdapter.Router().Handle("/metrics", prom.Handler())
 
-	fmt.Println("httpx metrics route registered: GET /metrics")
+	if _, printErr := fmt.Println("httpx metrics route registered: GET /metrics"); printErr != nil {
+		panic(printErr)
+	}
 	_ = metricsServer
 	err = metricsServer.ListenAndServe(":8080")
 	if err != nil {

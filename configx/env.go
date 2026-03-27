@@ -15,23 +15,31 @@ import (
 // errors.
 func loadDotenv(files []string, ignoreErr bool) error {
 	for _, f := range files {
-		if _, err := os.Stat(f); err != nil {
-			if ignoreErr {
-				continue
-			}
-			if os.IsNotExist(err) {
-				return fmt.Errorf("configx: dotenv file %q not found: %w", f, err)
-			}
-			return fmt.Errorf("configx: stat dotenv file %q: %w", f, err)
-		}
-
-		if err := godotenv.Load(f); err != nil {
-			if ignoreErr {
-				continue
-			}
-			return fmt.Errorf("configx: load dotenv file %q: %w", f, err)
+		if err := loadDotenvFile(f, ignoreErr); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+func loadDotenvFile(path string, ignoreErr bool) error {
+	if _, err := os.Stat(path); err != nil {
+		if ignoreErr {
+			return nil
+		}
+		if os.IsNotExist(err) {
+			return fmt.Errorf("configx: dotenv file %q not found: %w", path, err)
+		}
+		return fmt.Errorf("configx: stat dotenv file %q: %w", path, err)
+	}
+
+	if err := godotenv.Load(path); err != nil {
+		if ignoreErr {
+			return nil
+		}
+		return fmt.Errorf("configx: load dotenv file %q: %w", path, err)
+	}
+
 	return nil
 }
 

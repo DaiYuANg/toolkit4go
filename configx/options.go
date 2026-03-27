@@ -2,6 +2,7 @@ package configx
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -145,7 +146,7 @@ func WithEnvSeparator(sep string) Option {
 
 // WithFiles sets the config files to load. Supported formats: .yaml/.yml,
 // .json, .toml. Files are loaded in order; later files override earlier ones.
-// Files with unrecognised extensions return ErrUnsupportedFileFormat.
+// Files with unrecognized extensions return ErrUnsupportedFileFormat.
 func WithFiles(files ...string) Option {
 	return func(o *Options) { o.files = files }
 }
@@ -192,11 +193,11 @@ func WithTypedDefaults[T any](cfg T) Option {
 func typedDefaultsToMap(v any) (map[string]any, error) {
 	raw, err := json.Marshal(v)
 	if err != nil {
-		return nil, fmt.Errorf("%w: marshal typed defaults: %v", ErrDefaults, err)
+		return nil, fmt.Errorf("marshal typed defaults: %w", errors.Join(ErrDefaults, err))
 	}
 	var out map[string]any
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, fmt.Errorf("%w: unmarshal typed defaults: %v", ErrDefaults, err)
+		return nil, fmt.Errorf("unmarshal typed defaults: %w", errors.Join(ErrDefaults, err))
 	}
 	if out == nil {
 		return nil, fmt.Errorf("%w: typed defaults must be an object-like value", ErrDefaults)
@@ -261,6 +262,7 @@ func WithObservability(obs observabilityx.Observability) Option {
 	}
 }
 
+// WithLogger sets the logger used for configx diagnostic output.
 func WithLogger(logger *slog.Logger) Option {
 	return func(o *Options) {
 		if logger != nil {
@@ -269,6 +271,7 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
+// WithDebug enables or disables configx debug logging.
 func WithDebug(enabled bool) Option {
 	return func(o *Options) {
 		o.debug = enabled

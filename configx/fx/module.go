@@ -2,6 +2,8 @@ package fx
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 
 	"go.uber.org/fx"
 
@@ -36,7 +38,7 @@ type ConfigResult struct {
 func NewConfig(params ConfigParams) (ConfigResult, error) {
 	cfg, err := configx.NewConfig(params.Options...)
 	if err != nil {
-		return ConfigResult{}, err
+		return ConfigResult{}, fmt.Errorf("new config: %w", err)
 	}
 	return ConfigResult{Config: cfg}, nil
 }
@@ -106,14 +108,14 @@ type WatcherResult struct {
 // It integrates with the fxx lifecycle so that:
 //
 //   - OnStart: the Watcher's watch loop is launched in a background goroutine.
-//   - OnStop:  the context is cancelled and Close is called, stopping all
+//   - OnStop:  the context is canceled and Close is called, stopping all
 //     fsnotify goroutines cleanly.
 //
 // It is wired up automatically by [NewConfigxWatcherModule].
 func NewFxWatcher(lc fx.Lifecycle, params WatcherParams) (WatcherResult, error) {
 	w, err := configx.NewWatcher(params.Options...)
 	if err != nil {
-		return WatcherResult{}, err
+		return WatcherResult{}, fmt.Errorf("new watcher: %w", err)
 	}
 
 	// A dedicated context lets OnStop cancel the watch loop independently of
@@ -123,11 +125,13 @@ func NewFxWatcher(lc fx.Lifecycle, params WatcherParams) (WatcherResult, error) 
 	lc.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
 			go func() {
-				// Start blocks until ctx is cancelled or w.Close() is called.
+				// Start blocks until ctx is canceled or w.Close() is called.
 				// Errors are forwarded to the handler registered with
 				// configx.WithWatchErrHandler; we do not surface them here
 				// because they would crash the fxx app after startup.
-				_ = w.Start(ctx)
+				if err := w.Start(ctx); err != nil {
+					slog.Error("configx watcher stopped with error", "error", err)
+				}
 			}()
 			return nil
 		},
@@ -170,7 +174,6 @@ func provideGroupOptions(opts []configx.Option) fx.Option {
 
 	providers := make([]fx.Option, 0, len(opts))
 	for _, opt := range opts {
-		opt := opt // capture
 		providers = append(providers, fx.Provide(
 			fx.Annotate(
 				func() configx.Option { return opt },

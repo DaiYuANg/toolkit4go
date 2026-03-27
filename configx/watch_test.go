@@ -1,4 +1,4 @@
-package configx
+package configx_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	configx "github.com/DaiYuANg/arcgo/configx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,21 +35,30 @@ func tempYAML(t *testing.T, content string) string {
 
 // startWatcher starts w.Start in a background goroutine with a cancellable
 // context and registers t.Cleanup to cancel the context and close the watcher.
-func startWatcher(t *testing.T, w *Watcher) context.CancelFunc {
+func startWatcher(t *testing.T, w *configx.Watcher) context.CancelFunc {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
+	startErr := make(chan error, 1)
 	t.Cleanup(func() {
 		cancel()
-		_ = w.Close()
+		require.NoError(t, w.Close())
+		select {
+		case err := <-startErr:
+			require.NoError(t, err)
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for watcher shutdown")
+		}
 	})
-	go func() { _ = w.Start(ctx) }()
+	go func() {
+		startErr <- w.Start(ctx)
+	}()
 	// Give fsnotify a moment to register its directory watch before we write.
 	time.Sleep(50 * time.Millisecond)
 	return cancel
 }
 
 // waitForChange waits up to timeout for the next value on ch.
-func waitForChange(t *testing.T, ch <-chan *Config, timeout time.Duration) *Config {
+func waitForChange(t *testing.T, ch <-chan *configx.Config, timeout time.Duration) *configx.Config {
 	t.Helper()
 	select {
 	case cfg := <-ch:
@@ -64,7 +74,7 @@ func waitForChange(t *testing.T, ch <-chan *Config, timeout time.Duration) *Conf
 func TestNewWatcher_InitialLoad(t *testing.T) {
 	path := tempYAML(t, "name: arcgo\nport: 8080\n")
 
-	w, err := NewWatcher(WithFiles(path))
+	w, err := configx.NewWatcher(configx.WithFiles(path))
 	require.NoError(t, err)
 
 	assert.Equal(t, "arcgo", w.Config().GetString("name"))
@@ -72,8 +82,8 @@ func TestNewWatcher_InitialLoad(t *testing.T) {
 }
 
 func TestNewWatcher_WithDefaults(t *testing.T) {
-	w, err := NewWatcher(
-		WithDefaults(map[string]any{
+	w, err := configx.NewWatcher(
+		configx.WithDefaults(map[string]any{
 			"name": "default-app",
 			"port": 9090,
 		}),
@@ -84,15 +94,15 @@ func TestNewWatcher_WithDefaults(t *testing.T) {
 }
 
 func TestNewWatcher_NoFiles_InitialConfigStillWorks(t *testing.T) {
-	w, err := NewWatcher(
-		WithDefaults(map[string]any{"key": "val"}),
+	w, err := configx.NewWatcher(
+		configx.WithDefaults(map[string]any{"key": "val"}),
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "val", w.Config().GetString("key"))
 }
 
 func TestNewWatcher_BadFile_ReturnsError(t *testing.T) {
-	_, err := NewWatcher(WithFiles("/nonexistent/path/config.yaml"))
+	_, err := configx.NewWatcher(configx.WithFiles("/nonexistent/path/config.yaml"))
 	// loadConfigFromOptions → loadFiles → file.Provider.Load returns an error
 	assert.Error(t, err)
 }
@@ -102,14 +112,14 @@ func TestNewWatcher_BadFile_ReturnsError(t *testing.T) {
 func TestWatcher_HotReload_ValueChanges(t *testing.T) {
 	path := tempYAML(t, "name: before\nport: 1111\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
-	changed := make(chan *Config, 1)
-	w.OnChange(func(cfg *Config, err error) {
+	changed := make(chan *configx.Config, 1)
+	w.OnChange(func(cfg *configx.Config, err error) {
 		require.NoError(t, err)
 		changed <- cfg
 	})
@@ -129,14 +139,14 @@ func TestWatcher_HotReload_ValueChanges(t *testing.T) {
 func TestWatcher_HotReload_MultipleReloads(t *testing.T) {
 	path := tempYAML(t, "version: 1\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
 	var reloadCount atomic.Int32
-	w.OnChange(func(cfg *Config, err error) {
+	w.OnChange(func(cfg *configx.Config, err error) {
 		if err == nil {
 			reloadCount.Add(1)
 		}
@@ -163,15 +173,15 @@ func TestWatcher_HotReload_MultipleReloads(t *testing.T) {
 func TestWatcher_Debounce_CollapsesRapidWrites(t *testing.T) {
 	path := tempYAML(t, "counter: 0\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
 		// Large debounce so all rapid writes are collapsed.
-		WithWatchDebounce(300*time.Millisecond),
+		configx.WithWatchDebounce(300*time.Millisecond),
 	)
 	require.NoError(t, err)
 
 	var reloadCount atomic.Int32
-	w.OnChange(func(cfg *Config, _ error) {
+	w.OnChange(func(cfg *configx.Config, _ error) {
 		if cfg != nil {
 			reloadCount.Add(1)
 		}
@@ -197,22 +207,39 @@ func TestWatcher_Debounce_CollapsesRapidWrites(t *testing.T) {
 // ── OnChange ──────────────────────────────────────────────────────────────────
 
 func TestWatcher_OnChange_NilHandlerIsIgnored(t *testing.T) {
-	w, err := NewWatcher(
-		WithDefaults(map[string]any{"x": 1}),
+	path := tempYAML(t, "x: 1\n")
+
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
-	// Should not panic.
 	w.OnChange(nil)
-	assert.Len(t, w.loadSubscribers(), 0)
+	changed := make(chan int, 1)
+	w.OnChange(func(cfg *configx.Config, err error) {
+		if err == nil {
+			changed <- cfg.GetInt("x")
+		}
+	})
+
+	startWatcher(t, w)
+	writeYAML(t, path, "x: 2\n")
+
+	select {
+	case got := <-changed:
+		assert.Equal(t, 2, got)
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for config reload")
+	}
 }
 
 func TestWatcher_OnChange_MultipleSubscribers(t *testing.T) {
 	path := tempYAML(t, "val: 10\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -222,7 +249,7 @@ func TestWatcher_OnChange_MultipleSubscribers(t *testing.T) {
 		ch := make(chan int, 1)
 		channels[i] = ch
 		capturedCh := ch // capture for closure
-		w.OnChange(func(cfg *Config, err error) {
+		w.OnChange(func(cfg *configx.Config, err error) {
 			if err == nil {
 				capturedCh <- cfg.GetInt("val")
 			}
@@ -247,9 +274,9 @@ func TestWatcher_OnChange_MultipleSubscribers(t *testing.T) {
 func TestWatcher_OnChange_OrderIsPreserved(t *testing.T) {
 	path := tempYAML(t, "n: 0\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -257,8 +284,7 @@ func TestWatcher_OnChange_OrderIsPreserved(t *testing.T) {
 	order := make([]int, 0, 3)
 
 	for i := range 3 {
-		i := i
-		w.OnChange(func(_ *Config, _ error) {
+		w.OnChange(func(_ *configx.Config, _ error) {
 			mu.Lock()
 			order = append(order, i)
 			mu.Unlock()
@@ -276,8 +302,11 @@ func TestWatcher_OnChange_OrderIsPreserved(t *testing.T) {
 }
 
 func TestWatcher_OnChange_RegisterDuringNotify_AppliesOnNextNotify(t *testing.T) {
-	w, err := NewWatcher(
-		WithDefaults(map[string]any{"n": 1}),
+	path := tempYAML(t, "n: 1\n")
+
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -285,12 +314,12 @@ func TestWatcher_OnChange_RegisterDuringNotify_AppliesOnNextNotify(t *testing.T)
 	lateCalls := make(chan int, 1)
 	var registerOnce sync.Once
 
-	w.OnChange(func(_ *Config, err error) {
+	w.OnChange(func(_ *configx.Config, err error) {
 		if err != nil {
 			return
 		}
 		registerOnce.Do(func() {
-			w.OnChange(func(cfg *Config, err error) {
+			w.OnChange(func(cfg *configx.Config, err error) {
 				if err == nil {
 					lateCalls <- cfg.GetInt("n")
 				}
@@ -299,17 +328,24 @@ func TestWatcher_OnChange_RegisterDuringNotify_AppliesOnNextNotify(t *testing.T)
 		})
 	})
 
-	w.notify(w.Config(), nil)
-	assert.True(t, registered)
+	startWatcher(t, w)
+	writeYAML(t, path, "n: 2\n")
+	time.Sleep(200 * time.Millisecond)
 
+	assert.True(t, registered)
 	select {
 	case got := <-lateCalls:
-		t.Fatalf("late subscriber should not run on the same notify, got %d", got)
+		t.Fatalf("late subscriber should not run on the first notify, got %d", got)
 	default:
 	}
 
-	w.notify(w.Config(), nil)
-	assert.Equal(t, 1, <-lateCalls)
+	writeYAML(t, path, "n: 3\n")
+	select {
+	case got := <-lateCalls:
+		assert.Equal(t, 3, got)
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for late subscriber")
+	}
 }
 
 // ── error handling ────────────────────────────────────────────────────────────
@@ -321,10 +357,10 @@ func TestWatcher_WatchErrHandler_CalledOnReloadError(t *testing.T) {
 	var handledErr atomic.Value
 	errCh := make(chan error, 1)
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
-		WithWatchErrHandler(func(e error) {
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
+		configx.WithWatchErrHandler(func(e error) {
 			if handledErr.CompareAndSwap(nil, e) {
 				errCh <- e
 			}
@@ -351,14 +387,14 @@ func TestWatcher_WatchErrHandler_CalledOnReloadError(t *testing.T) {
 func TestWatcher_OnChange_CalledWithErrorOnReloadFailure(t *testing.T) {
 	path := tempYAML(t, "healthy: true\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
 	errCh := make(chan error, 1)
-	w.OnChange(func(cfg *Config, err error) {
+	w.OnChange(func(cfg *configx.Config, err error) {
 		if err != nil {
 			errCh <- err
 		}
@@ -381,26 +417,27 @@ func TestWatcher_OnChange_CalledWithErrorOnReloadFailure(t *testing.T) {
 func TestWatcher_Close_StopsReloads(t *testing.T) {
 	path := tempYAML(t, "active: true\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
 	)
 	require.NoError(t, err)
 
 	var reloadCount atomic.Int32
-	w.OnChange(func(cfg *Config, _ error) {
+	w.OnChange(func(cfg *configx.Config, _ error) {
 		if cfg != nil {
 			reloadCount.Add(1)
 		}
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	started := make(chan struct{})
+	startErr := make(chan error, 1)
 	go func() {
 		close(started)
-		_ = w.Start(ctx)
+		startErr <- w.Start(ctx)
 	}()
 
 	<-started
@@ -408,6 +445,12 @@ func TestWatcher_Close_StopsReloads(t *testing.T) {
 
 	// Close the watcher before any file change.
 	require.NoError(t, w.Close())
+	select {
+	case err := <-startErr:
+		assert.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for watcher shutdown")
+	}
 
 	// Write after close – should NOT trigger a reload.
 	writeYAML(t, path, "active: false\n")
@@ -417,7 +460,7 @@ func TestWatcher_Close_StopsReloads(t *testing.T) {
 }
 
 func TestWatcher_Close_IsIdempotent(t *testing.T) {
-	w, err := NewWatcher(WithDefaults(map[string]any{"x": 1}))
+	w, err := configx.NewWatcher(configx.WithDefaults(map[string]any{"x": 1}))
 	require.NoError(t, err)
 
 	require.NoError(t, w.Close())
@@ -427,10 +470,10 @@ func TestWatcher_Close_IsIdempotent(t *testing.T) {
 func TestWatcher_Start_ReturnsWhenContextCancelled(t *testing.T) {
 	path := tempYAML(t, "x: 1\n")
 
-	w, err := NewWatcher(WithFiles(path))
+	w, err := configx.NewWatcher(configx.WithFiles(path))
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	done := make(chan error, 1)
@@ -445,10 +488,10 @@ func TestWatcher_Start_ReturnsWhenContextCancelled(t *testing.T) {
 }
 
 func TestWatcher_Start_NoFiles_ReturnsOnContextCancel(t *testing.T) {
-	w, err := NewWatcher(WithDefaults(map[string]any{"k": "v"}))
+	w, err := configx.NewWatcher(configx.WithDefaults(map[string]any{"k": "v"}))
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 80*time.Millisecond)
 	defer cancel()
 
 	done := make(chan error, 1)
@@ -468,10 +511,10 @@ func TestWatcher_EnvSeparator_DoubleUnderscore(t *testing.T) {
 	t.Setenv("APP_DB__HOST", "localhost")
 	t.Setenv("APP_MAX_RETRY", "5")
 
-	w, err := NewWatcher(
-		WithEnvPrefix("APP"),
-		WithEnvSeparator("__"),
-		WithPriority(SourceEnv),
+	w, err := configx.NewWatcher(
+		configx.WithEnvPrefix("APP"),
+		configx.WithEnvSeparator("__"),
+		configx.WithPriority(configx.SourceEnv),
 	)
 	require.NoError(t, err)
 
@@ -488,9 +531,9 @@ func TestNewWatcher_UnsupportedFileFormat_ReturnsError(t *testing.T) {
 	iniPath := filepath.Join(dir, "config.ini")
 	require.NoError(t, os.WriteFile(iniPath, []byte("[section]\nkey=value\n"), 0o600))
 
-	_, err := NewWatcher(WithFiles(iniPath))
+	_, err := configx.NewWatcher(configx.WithFiles(iniPath))
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, ErrUnsupportedFileFormat))
+	assert.True(t, errors.Is(err, configx.ErrUnsupportedFileFormat))
 }
 
 // ── concurrent safety ─────────────────────────────────────────────────────────
@@ -498,9 +541,9 @@ func TestNewWatcher_UnsupportedFileFormat_ReturnsError(t *testing.T) {
 func TestWatcher_ConcurrentConfigReads(t *testing.T) {
 	path := tempYAML(t, "counter: 0\n")
 
-	w, err := NewWatcher(
-		WithFiles(path),
-		WithWatchDebounce(20*time.Millisecond),
+	w, err := configx.NewWatcher(
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(20*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -510,27 +553,23 @@ func TestWatcher_ConcurrentConfigReads(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Writer goroutine: update the file several times.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for i := 1; i <= 5; i++ {
 			writeYAML(t, path, fmt.Sprintf("counter: %d\n", i))
 			time.Sleep(80 * time.Millisecond)
 		}
-	}()
+	})
 
 	// Reader goroutines: call w.Config() concurrently with reloads.
 	for range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range 20 {
 				cfg := w.Config()
 				// cfg must never be nil – panics here are caught as test failures.
 				_ = cfg.GetInt("counter")
 				time.Sleep(5 * time.Millisecond)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -543,10 +582,10 @@ func TestWatcherT_HotReload_TypedValueChanges(t *testing.T) {
 	}
 
 	path := tempYAML(t, "name: before\nport: 1111\n")
-	w, err := NewWatcherT[typedCfg](
-		WithFiles(path),
-		WithWatchDebounce(30*time.Millisecond),
-		WithValidateLevel(ValidateLevelStruct),
+	w, err := configx.NewWatcherT[typedCfg](
+		configx.WithFiles(path),
+		configx.WithWatchDebounce(30*time.Millisecond),
+		configx.WithValidateLevel(configx.ValidateLevelStruct),
 	)
 	require.NoError(t, err)
 
@@ -556,12 +595,21 @@ func TestWatcherT_HotReload_TypedValueChanges(t *testing.T) {
 		changed <- cfg
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
+	startErr := make(chan error, 1)
 	t.Cleanup(func() {
 		cancel()
-		_ = w.Close()
+		require.NoError(t, w.Close())
+		select {
+		case err := <-startErr:
+			require.NoError(t, err)
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for typed watcher shutdown")
+		}
 	})
-	go func() { _ = w.Start(ctx) }()
+	go func() {
+		startErr <- w.Start(ctx)
+	}()
 	time.Sleep(50 * time.Millisecond)
 
 	writeYAML(t, path, "name: after\nport: 2222\n")

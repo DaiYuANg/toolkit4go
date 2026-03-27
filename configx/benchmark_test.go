@@ -1,6 +1,10 @@
-package configx
+package configx_test
 
-import "testing"
+import (
+	"testing"
+
+	configx "github.com/DaiYuANg/arcgo/configx"
+)
 
 type benchmarkServiceConfig struct {
 	Name string
@@ -13,10 +17,10 @@ var benchmarkDefaults = map[string]any{
 	"feature.x":    true,
 }
 
-func benchmarkLoadedConfig(b *testing.B) *Config {
+func benchmarkLoadedConfig(b *testing.B) *configx.Config {
 	b.Helper()
 
-	cfg, err := LoadConfig(WithDefaults(benchmarkDefaults))
+	cfg, err := configx.LoadConfig(configx.WithDefaults(benchmarkDefaults))
 	if err != nil {
 		b.Fatalf("load config: %v", err)
 	}
@@ -27,8 +31,8 @@ func BenchmarkLoadConfigDefaults(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		cfg, err := LoadConfig(WithDefaults(benchmarkDefaults))
+	for range b.N {
+		cfg, err := configx.LoadConfig(configx.WithDefaults(benchmarkDefaults))
 		if err != nil {
 			b.Fatalf("load config: %v", err)
 		}
@@ -44,7 +48,7 @@ func BenchmarkConfigGetters(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = cfg.GetString("service.name")
 		_ = cfg.GetInt("service.port")
 		_ = cfg.GetBool("feature.x")
@@ -57,8 +61,8 @@ func BenchmarkGetAsStruct(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		value, err := GetAs[benchmarkServiceConfig](cfg, "service")
+	for range b.N {
+		value, err := configx.GetAs[benchmarkServiceConfig](cfg, "service")
 		if err != nil {
 			b.Fatalf("GetAs failed: %v", err)
 		}

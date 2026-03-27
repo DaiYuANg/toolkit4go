@@ -1,10 +1,11 @@
-package configx
+package configx_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
+	configx "github.com/DaiYuANg/arcgo/configx"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,8 +15,8 @@ type SimpleConfig struct {
 }
 
 func TestNewConfig_Basic(t *testing.T) {
-	cfg, err := NewConfig(
-		WithDefaults(map[string]any{
+	cfg, err := configx.NewConfig(
+		configx.WithDefaults(map[string]any{
 			"name": "test",
 			"port": 8080,
 		}),
@@ -26,8 +27,8 @@ func TestNewConfig_Basic(t *testing.T) {
 }
 
 func TestWithDefaultsTyped(t *testing.T) {
-	cfg, err := LoadConfig(
-		WithDefaultsTyped(map[string]int{
+	cfg, err := configx.LoadConfig(
+		configx.WithDefaultsTyped(map[string]int{
 			"port": 7001,
 		}),
 	)
@@ -36,8 +37,8 @@ func TestWithDefaultsTyped(t *testing.T) {
 }
 
 func TestLoadT_Generic(t *testing.T) {
-	result := LoadT[SimpleConfig](
-		WithDefaults(map[string]any{
+	result := configx.LoadT[SimpleConfig](
+		configx.WithDefaults(map[string]any{
 			"name": "gen",
 			"port": 9000,
 		}),
@@ -50,8 +51,8 @@ func TestLoadT_Generic(t *testing.T) {
 }
 
 func TestLoadTErr_Generic(t *testing.T) {
-	cfg, err := LoadTErr[SimpleConfig](
-		WithDefaults(map[string]any{
+	cfg, err := configx.LoadTErr[SimpleConfig](
+		configx.WithDefaults(map[string]any{
 			"name": "tuple",
 			"port": 9100,
 		}),
@@ -67,9 +68,9 @@ func TestWithTypedDefaults_Generic(t *testing.T) {
 		Port int    `validate:"gte=1"`
 	}
 
-	cfg, err := LoadTErr[AppConfig](
-		WithTypedDefaults(AppConfig{Name: "typed-default", Port: 8081}),
-		WithValidateLevel(ValidateLevelStruct),
+	cfg, err := configx.LoadTErr[AppConfig](
+		configx.WithTypedDefaults(AppConfig{Name: "typed-default", Port: 8081}),
+		configx.WithValidateLevel(configx.ValidateLevelStruct),
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, "typed-default", cfg.Name)
@@ -77,12 +78,12 @@ func TestWithTypedDefaults_Generic(t *testing.T) {
 }
 
 func TestSnapshot_ReturnsSortedKeys(t *testing.T) {
-	cfg, err := LoadConfig(
-		WithDefaults(map[string]any{
+	cfg, err := configx.LoadConfig(
+		configx.WithDefaults(map[string]any{
 			"b.key": 2,
 			"a.key": 1,
 		}),
-		WithPriority(),
+		configx.WithPriority(),
 	)
 	assert.NoError(t, err)
 	snapshot := cfg.Snapshot()
@@ -92,12 +93,12 @@ func TestSnapshot_ReturnsSortedKeys(t *testing.T) {
 }
 
 func TestValidate_Required(t *testing.T) {
-	result := LoadT[SimpleConfig](
-		WithDefaults(map[string]any{
+	result := configx.LoadT[SimpleConfig](
+		configx.WithDefaults(map[string]any{
 			"name": "", // empty → required fails
 			"port": 8080,
 		}),
-		WithValidateLevel(ValidateLevelStruct),
+		configx.WithValidateLevel(configx.ValidateLevelStruct),
 	)
 	assert.True(t, result.IsError())
 	err := result.Error()
@@ -105,20 +106,20 @@ func TestValidate_Required(t *testing.T) {
 }
 
 func TestValidate_Range(t *testing.T) {
-	result := LoadT[SimpleConfig](
-		WithDefaults(map[string]any{
+	result := configx.LoadT[SimpleConfig](
+		configx.WithDefaults(map[string]any{
 			"name": "ok",
 			"port": 500, // < 1000 → gte fails
 		}),
-		WithValidateLevel(ValidateLevelStruct),
+		configx.WithValidateLevel(configx.ValidateLevelStruct),
 	)
 	assert.True(t, result.IsError())
 	assert.Error(t, result.Error())
 }
 
 func TestGetters(t *testing.T) {
-	cfg, err := LoadConfig(
-		WithDefaults(map[string]any{
+	cfg, err := configx.LoadConfig(
+		configx.WithDefaults(map[string]any{
 			"app.name":    "getter-test",
 			"app.port":    1234,
 			"app.debug":   true,
@@ -144,19 +145,19 @@ func TestGetters(t *testing.T) {
 
 func TestWithIgnoreDotenvError(t *testing.T) {
 	var cfg SimpleConfig
-	err := Load(&cfg,
-		WithDotenv("not-exists.env"),
-		WithIgnoreDotenvError(false),
-		WithPriority(SourceDotenv),
+	err := configx.Load(&cfg,
+		configx.WithDotenv("not-exists.env"),
+		configx.WithIgnoreDotenvError(false),
+		configx.WithPriority(configx.SourceDotenv),
 	)
 	assert.Error(t, err)
 }
 
 func TestDotenvDefaultModeIsOptional(t *testing.T) {
 	var cfg SimpleConfig
-	err := Load(&cfg,
-		WithDotenv("not-exists.env"),
-		WithPriority(SourceDotenv),
+	err := configx.Load(&cfg,
+		configx.WithDotenv("not-exists.env"),
+		configx.WithPriority(configx.SourceDotenv),
 	)
 	assert.NoError(t, err)
 }
@@ -167,10 +168,10 @@ func TestWithIgnoreDotenvError_IgnoreParseError(t *testing.T) {
 	assert.NoError(t, writeErr)
 
 	var cfg SimpleConfig
-	err := Load(&cfg,
-		WithDotenv(envFile),
-		WithIgnoreDotenvError(true),
-		WithPriority(SourceDotenv),
+	err := configx.Load(&cfg,
+		configx.WithDotenv(envFile),
+		configx.WithIgnoreDotenvError(true),
+		configx.WithPriority(configx.SourceDotenv),
 	)
 	assert.NoError(t, err)
 }
@@ -181,10 +182,10 @@ func TestWithIgnoreDotenvError_StrictParseError(t *testing.T) {
 	assert.NoError(t, writeErr)
 
 	var cfg SimpleConfig
-	err := Load(&cfg,
-		WithDotenv(envFile),
-		WithIgnoreDotenvError(false),
-		WithPriority(SourceDotenv),
+	err := configx.Load(&cfg,
+		configx.WithDotenv(envFile),
+		configx.WithIgnoreDotenvError(false),
+		configx.WithPriority(configx.SourceDotenv),
 	)
 	assert.Error(t, err)
 }
@@ -193,9 +194,9 @@ func TestEnvPrefixWithoutTrailingUnderscore(t *testing.T) {
 	t.Setenv("APP_NAME", "env-app")
 	t.Setenv("APP_PORT", "8088")
 
-	result := LoadT[SimpleConfig](
-		WithEnvPrefix("APP"),
-		WithPriority(SourceEnv),
+	result := configx.LoadT[SimpleConfig](
+		configx.WithEnvPrefix("APP"),
+		configx.WithPriority(configx.SourceEnv),
 	)
 	assert.True(t, result.IsOk())
 
@@ -206,33 +207,33 @@ func TestEnvPrefixWithoutTrailingUnderscore(t *testing.T) {
 }
 
 func TestGetAs_GenericValue(t *testing.T) {
-	cfg, err := LoadConfig(
-		WithDefaults(map[string]any{
+	cfg, err := configx.LoadConfig(
+		configx.WithDefaults(map[string]any{
 			"service.port": 9090,
 			"service.name": "arcgo",
 		}),
 	)
 	assert.NoError(t, err)
 
-	port, err := GetAs[int](cfg, "service.port")
+	port, err := configx.GetAs[int](cfg, "service.port")
 	assert.NoError(t, err)
 	assert.Equal(t, 9090, port)
 
-	name, err := GetAs[string](cfg, "service.name")
+	name, err := configx.GetAs[string](cfg, "service.name")
 	assert.NoError(t, err)
 	assert.Equal(t, "arcgo", name)
 }
 
 func TestGetAsOr_And_MustGetAs(t *testing.T) {
-	cfg, err := LoadConfig(
-		WithDefaults(map[string]any{
+	cfg, err := configx.LoadConfig(
+		configx.WithDefaults(map[string]any{
 			"service.port": 9090,
 		}),
 	)
 	assert.NoError(t, err)
 
-	got := GetAsOr[int](cfg, "service.missing", 8080)
+	got := configx.GetAsOr[int](cfg, "service.missing", 8080)
 	assert.Equal(t, 8080, got)
 
-	assert.Equal(t, 9090, MustGetAs[int](cfg, "service.port"))
+	assert.Equal(t, 9090, configx.MustGetAs[int](cfg, "service.port"))
 }

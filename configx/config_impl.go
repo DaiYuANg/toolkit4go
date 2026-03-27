@@ -35,7 +35,10 @@ func (c *Config) validateStruct(out any) error {
 	case ValidateLevelNone:
 		return nil
 	case ValidateLevelStruct:
-		return c.validate.Struct(out)
+		if err := c.validate.Struct(out); err != nil {
+			return fmt.Errorf("validate struct: %w", err)
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -101,7 +104,7 @@ func (c *Config) UnmarshalWithValidate(path string, out any) error {
 	if err := c.k.Unmarshal(path, out); err != nil {
 		return fmt.Errorf("unmarshal %q: %w", path, errors.Join(ErrUnmarshal, err))
 	}
-	if err := c.validate.Struct(out); err != nil {
+	if err := c.validateStruct(out); err != nil {
 		return fmt.Errorf("validate %q: %w", path, errors.Join(ErrValidate, err))
 	}
 	return nil
@@ -119,7 +122,7 @@ func (c *Config) All() map[string]any {
 
 // Validate documents related behavior.
 func (c *Config) Validate(out any) error {
-	if err := c.validate.Struct(out); err != nil {
+	if err := c.validateStruct(out); err != nil {
 		return fmt.Errorf("validate: %w", errors.Join(ErrValidate, err))
 	}
 	return nil

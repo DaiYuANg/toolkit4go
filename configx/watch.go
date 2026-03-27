@@ -86,14 +86,14 @@ func NewWatcher(opts ...Option) (*Watcher, error) {
 			opt(options)
 		}
 	}
-	return newWatcherFromOptions(options)
+	return newWatcherFromOptions(context.Background(), options)
 }
 
 // newWatcherFromOptions is the internal constructor shared by NewWatcher and
 // Loader.NewWatcher so that the options pointer is reused without re-applying
 // functional options a second time.
-func newWatcherFromOptions(opts *Options) (*Watcher, error) {
-	cfg, err := loadConfigFromOptions(opts)
+func newWatcherFromOptions(ctx context.Context, opts *Options) (*Watcher, error) {
+	cfg, err := loadConfigFromOptions(ctx, opts)
 	if err != nil {
 		logError(opts, "configx watcher initial load failed", "error", err)
 		return nil, fmt.Errorf("configx: watcher initial load: %w", err)
@@ -139,7 +139,7 @@ func (w *Watcher) OnChange(fn ChangeHandler) {
 }
 
 // Start begins watching config files for changes and blocks until ctx is
-// cancelled or [Watcher.Close] is called.
+// canceled or [Watcher.Close] is called.
 //
 // If no files are configured Start simply waits for the context to be done, so
 // it is always safe to run in a goroutine regardless of the option set.
@@ -148,76 +148,93 @@ func (w *Watcher) OnChange(fn ChangeHandler) {
 // with [WithWatchErrHandler]; Start itself only returns a non-nil error when
 // it cannot set up an fsnotify watcher for a file.
 func (w *Watcher) Start(ctx context.Context) error {
-	// Nothing to watch – block until signalled.
+	ctx = normalizeWatcherContext(ctx)
+
+	// Nothing to watch - block until signaled.
 	if len(w.providers) == 0 {
 		logDebug(w.opts, "configx watcher started without providers")
-		select {
-		case <-ctx.Done():
-		case <-w.stopCh:
-		}
-		return nil
+		return w.waitForStop(ctx)
 	}
 
-	debounce := w.opts.watchDebounce
-	if debounce <= 0 {
-		debounce = 100 * time.Millisecond
-	}
-
-	// reloadCh carries a single pending reload signal. If the channel is
-	// already full (a reload is already queued) the event is dropped; the
-	// existing pending signal will trigger the reload anyway.
+	debounce := normalizeWatchDebounce(w.opts.watchDebounce)
 	reloadCh := make(chan struct{}, 1)
-
-	trigger := func() {
-		select {
-		case reloadCh <- struct{}{}:
-		default:
-		}
+	if err := w.startProviders(func() {
+		queueWatcherReload(reloadCh)
+	}); err != nil {
+		return err
 	}
 
-	// Attach fsnotify callbacks to every file provider.
+	logDebug(w.opts, "configx watcher started", "providers", len(w.providers), "debounce_ms", debounce.Milliseconds())
+	return w.run(ctx, debounce, reloadCh)
+}
+
+func normalizeWatcherContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+
+	return ctx
+}
+
+func normalizeWatchDebounce(debounce time.Duration) time.Duration {
+	if debounce <= 0 {
+		return 100 * time.Millisecond
+	}
+
+	return debounce
+}
+
+func queueWatcherReload(reloadCh chan<- struct{}) {
+	select {
+	case reloadCh <- struct{}{}:
+	default:
+	}
+}
+
+func (w *Watcher) startProviders(trigger func()) error {
 	for i, fp := range w.providers {
-		fp := fp // capture
-		if err := fp.Watch(func(_ any, err error) {
-			if err != nil {
-				logError(w.opts, "configx watcher provider error", "index", i, "error", err)
-				w.handleErr(fmt.Errorf("configx: fsnotify error on file %d: %w", i, err))
-				return
-			}
-			logDebug(w.opts, "configx watcher change detected", "index", i)
-			trigger()
-		}); err != nil {
-			// Clean up watchers that started successfully before returning.
-			for j := 0; j < i; j++ {
-				_ = w.providers[j].Unwatch()
-			}
+		if err := fp.Watch(w.watchProvider(i, trigger)); err != nil {
+			w.cleanupStartedProviders(i)
 			logError(w.opts, "configx watcher start failed", "index", i, "error", err)
 			return fmt.Errorf("configx: start file watcher: %w", err)
 		}
 	}
-	logDebug(w.opts, "configx watcher started", "providers", len(w.providers), "debounce_ms", debounce.Milliseconds())
 
-	// Debounced reload loop.
-	var (
-		timerMu sync.Mutex
-		timer   *time.Timer
-	)
+	return nil
+}
 
-	resetTimer := func() {
-		timerMu.Lock()
-		defer timerMu.Unlock()
-		if timer != nil {
-			timer.Stop()
+func (w *Watcher) watchProvider(index int, trigger func()) func(_ any, err error) {
+	return func(_ any, err error) {
+		if err != nil {
+			logError(w.opts, "configx watcher provider error", "index", index, "error", err)
+			w.handleErr(fmt.Errorf("configx: fsnotify error on file %d: %w", index, err))
+			return
 		}
-		timer = time.AfterFunc(debounce, func() {
-			w.reload()
-		})
-	}
 
+		logDebug(w.opts, "configx watcher change detected", "index", index)
+		trigger()
+	}
+}
+
+func (w *Watcher) cleanupStartedProviders(count int) {
+	for i := range count {
+		if err := w.providers[i].Unwatch(); err != nil {
+			w.handleErr(fmt.Errorf("configx: cleanup file watcher %d: %w", i, err))
+		}
+	}
+}
+
+func (w *Watcher) run(ctx context.Context, debounce time.Duration, reloadCh <-chan struct{}) error {
+	resetTimer, stopTimer := newDebounceTimer(debounce, func() {
+		w.reload(ctx)
+	})
+	defer stopTimer()
 	for {
 		select {
 		case <-ctx.Done():
-			_ = w.Close()
+			if err := w.Close(); err != nil {
+				w.handleErr(fmt.Errorf("configx: close watcher: %w", err))
+			}
 			return nil
 
 		case <-w.stopCh:
@@ -228,6 +245,41 @@ func (w *Watcher) Start(ctx context.Context) error {
 			resetTimer()
 		}
 	}
+}
+
+func newDebounceTimer(debounce time.Duration, fn func()) (reset, stop func()) {
+	var (
+		timer   *time.Timer
+		timerMu sync.Mutex
+	)
+
+	reset = func() {
+		timerMu.Lock()
+		defer timerMu.Unlock()
+		if timer != nil {
+			timer.Stop()
+		}
+		timer = time.AfterFunc(debounce, fn)
+	}
+
+	stop = func() {
+		timerMu.Lock()
+		defer timerMu.Unlock()
+		if timer != nil {
+			timer.Stop()
+		}
+	}
+
+	return reset, stop
+}
+
+func (w *Watcher) waitForStop(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+	case <-w.stopCh:
+	}
+
+	return nil
 }
 
 // Close stops all file watchers and unblocks [Watcher.Start].
@@ -253,9 +305,9 @@ func (w *Watcher) Close() error {
 // ─── internal helpers ─────────────────────────────────────────────────────────
 
 // reload performs a full config reload and notifies subscribers.
-func (w *Watcher) reload() {
+func (w *Watcher) reload(ctx context.Context) {
 	logDebug(w.opts, "configx watcher reload started")
-	newCfg, err := loadConfigFromOptions(w.opts)
+	newCfg, err := loadConfigFromOptions(ctx, w.opts)
 	if err != nil {
 		wrapped := fmt.Errorf("configx: reload failed: %w", err)
 		logError(w.opts, "configx watcher reload failed", "error", wrapped)
@@ -314,18 +366,18 @@ type WatcherT[T any] struct {
 	current atomic.Pointer[T]
 }
 
-func newWatcherTFromOptions[T any](opts *Options) (*WatcherT[T], error) {
-	base, err := newWatcherFromOptions(opts)
+func newWatcherTFromOptions[T any](ctx context.Context, opts *Options) (*WatcherT[T], error) {
+	base, err := newWatcherFromOptions(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
 	var initial T
 	if err := base.Config().Unmarshal("", &initial); err != nil {
-		return nil, fmt.Errorf("%w initial typed watcher unmarshal: %v", ErrUnmarshal, err)
+		return nil, fmt.Errorf("initial typed watcher unmarshal: %w", errors.Join(ErrUnmarshal, err))
 	}
 	if err := base.Config().validateStruct(initial); err != nil {
-		return nil, fmt.Errorf("%w initial typed watcher value: %v", ErrValidate, err)
+		return nil, fmt.Errorf("initial typed watcher value: %w", errors.Join(ErrValidate, err))
 	}
 
 	w := &WatcherT[T]{base: base}
@@ -362,13 +414,13 @@ func (w *WatcherT[T]) OnChange(fn ChangeHandlerT[T]) {
 		}
 		var out T
 		if err := cfg.Unmarshal("", &out); err != nil {
-			wrapped := fmt.Errorf("%w watcher typed callback decode: %v", ErrUnmarshal, err)
+			wrapped := fmt.Errorf("watcher typed callback decode: %w", errors.Join(ErrUnmarshal, err))
 			w.base.handleErr(wrapped)
 			fn(zero, wrapped)
 			return
 		}
 		if err := cfg.validateStruct(out); err != nil {
-			wrapped := fmt.Errorf("%w watcher typed callback value: %v", ErrValidate, err)
+			wrapped := fmt.Errorf("watcher typed callback value: %w", errors.Join(ErrValidate, err))
 			w.base.handleErr(wrapped)
 			fn(zero, wrapped)
 			return
