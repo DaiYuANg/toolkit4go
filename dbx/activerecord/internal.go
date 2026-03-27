@@ -63,24 +63,44 @@ func primaryKeyColumns[S dbx.TableSource](schema S) []string {
 func mappedFieldValue(root reflect.Value, field dbx.MappedField) (reflect.Value, error) {
 	value := root
 	for _, index := range field.Path {
-		if value.Kind() == reflect.Ptr {
-			if value.IsNil() {
-				return reflect.Value{}, fmt.Errorf("dbx: nil pointer for field %s", field.Name)
-			}
-			value = value.Elem()
+		next, err := mappedStructField(value, field.Name, index)
+		if err != nil {
+			return reflect.Value{}, err
 		}
-		if value.Kind() != reflect.Struct {
-			return reflect.Value{}, fmt.Errorf("dbx: field %s path reaches non-struct", field.Name)
-		}
-		value = value.Field(index)
+		value = next
 	}
-	for value.Kind() == reflect.Ptr {
+	return dereferenceMappedValue(value), nil
+}
+
+func mappedStructField(value reflect.Value, fieldName string, index int) (reflect.Value, error) {
+	structValue, err := requireStructValue(value, fieldName)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	return structValue.Field(index), nil
+}
+
+func requireStructValue(value reflect.Value, fieldName string) (reflect.Value, error) {
+	if value.Kind() == reflect.Ptr {
 		if value.IsNil() {
-			return reflect.Zero(value.Type().Elem()), nil
+			return reflect.Value{}, fmt.Errorf("dbx: nil pointer for field %s", fieldName)
 		}
 		value = value.Elem()
 	}
+	if value.Kind() != reflect.Struct {
+		return reflect.Value{}, fmt.Errorf("dbx: field %s path reaches non-struct", fieldName)
+	}
 	return value, nil
+}
+
+func dereferenceMappedValue(value reflect.Value) reflect.Value {
+	for value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return reflect.Zero(value.Type().Elem())
+		}
+		value = value.Elem()
+	}
+	return value
 }
 
 func cloneKey(key repository.Key) repository.Key {
@@ -92,23 +112,31 @@ func cloneKey(key repository.Key) repository.Key {
 
 func hasZeroKeyValue(key repository.Key) bool {
 	for _, value := range key {
-		if value == nil {
-			return true
-		}
-		rv := reflect.ValueOf(value)
-		if !rv.IsValid() {
-			return true
-		}
-		switch rv.Kind() {
-		case reflect.Ptr, reflect.Interface:
-			if rv.IsNil() {
-				return true
-			}
-		}
-		if rv.IsZero() {
+		if isZeroKeyValue(value) {
 			return true
 		}
 	}
 	return false
 }
 
+func isZeroKeyValue(value any) bool {
+	if value == nil {
+		return true
+	}
+
+	rv := reflect.ValueOf(value)
+	if !rv.IsValid() {
+		return true
+	}
+
+	if isNilKeyValue(rv) {
+		return true
+	}
+
+	return rv.IsZero()
+}
+
+func isNilKeyValue(value reflect.Value) bool {
+	kind := value.Kind()
+	return (kind == reflect.Ptr || kind == reflect.Interface) && value.IsNil()
+}

@@ -1,4 +1,4 @@
-package activerecord
+package activerecord_test
 
 import (
 	"context"
@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	activerecord "github.com/DaiYuANg/arcgo/dbx/activerecord"
 	sqlitedialect "github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
+	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 )
 
@@ -24,100 +26,72 @@ type UserSchema struct {
 }
 
 func TestModelSaveReloadDelete(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:activerecord_model_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
+	ctx, store := openUserStore(t, "file:activerecord_model_test?mode=memory&cache=shared")
 
-	store := New[User](core, users)
 	model := store.Wrap(&User{Name: "alice"})
-	if err := model.Save(ctx); err != nil {
-		t.Fatalf("save create: %v", err)
-	}
-	if model.Entity().ID == 0 {
-		t.Fatal("expected id generated after save")
-	}
+	require.NoError(t, model.Save(ctx))
+	require.NotZero(t, model.Entity().ID)
 
 	model.Entity().Name = "alice-v2"
-	if err := model.Save(ctx); err != nil {
-		t.Fatalf("save update: %v", err)
-	}
+	require.NoError(t, model.Save(ctx))
 
 	found, err := store.FindByID(ctx, model.Entity().ID)
-	if err != nil {
-		t.Fatalf("find by id: %v", err)
-	}
-	if found.Entity().Name != "alice-v2" {
-		t.Fatalf("unexpected found entity: %+v", found.Entity())
-	}
+	require.NoError(t, err)
+	require.Equal(t, "alice-v2", found.Entity().Name)
 
 	model.Entity().Name = "stale"
-	if err := model.Reload(ctx); err != nil {
-		t.Fatalf("reload: %v", err)
-	}
-	if model.Entity().Name != "alice-v2" {
-		t.Fatalf("reload did not refresh entity: %+v", model.Entity())
-	}
+	require.NoError(t, model.Reload(ctx))
+	require.Equal(t, "alice-v2", model.Entity().Name)
 
-	if err := model.Delete(ctx); err != nil {
-		t.Fatalf("delete: %v", err)
-	}
+	require.NoError(t, model.Delete(ctx))
+
 	_, err = store.FindByID(ctx, model.Entity().ID)
-	if !errors.Is(err, repository.ErrNotFound) {
-		t.Fatalf("expected repository.ErrNotFound, got: %v", err)
-	}
+	require.True(t, errors.Is(err, repository.ErrNotFound))
 }
 
 func TestStoreFindOptionAPIs(t *testing.T) {
-	ctx := context.Background()
-	raw, err := sql.Open("sqlite", "file:activerecord_option_test?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	defer raw.Close()
-	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
-	if _, err := core.AutoMigrate(ctx, users); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
+	ctx, store := openUserStore(t, "file:activerecord_option_test?mode=memory&cache=shared")
 
-	store := New[User](core, users)
 	model := store.Wrap(&User{Name: "alice"})
-	if err := model.Save(ctx); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	require.NoError(t, model.Save(ctx))
 
 	noneByID, err := store.FindByIDOption(ctx, int64(99999))
-	if err != nil {
-		t.Fatalf("find by id option: %v", err)
-	}
-	if noneByID.IsPresent() {
-		t.Fatal("expected absent option for missing id")
-	}
+	require.NoError(t, err)
+	require.False(t, noneByID.IsPresent())
 
 	byID, err := store.FindByIDOption(ctx, model.Entity().ID)
-	if err != nil {
-		t.Fatalf("find by id option existing: %v", err)
-	}
-	found, ok := byID.Get()
-	if !ok || found.Entity().Name != "alice" {
-		t.Fatalf("expected alice from option, got ok=%v model=%+v", ok, found)
-	}
+	require.NoError(t, err)
 
-	key := found.Key()
-	byKey, err := store.FindByKeyOption(ctx, key)
-	if err != nil {
-		t.Fatalf("find by key option existing: %v", err)
-	}
+	found, ok := byID.Get()
+	require.True(t, ok)
+	require.Equal(t, "alice", found.Entity().Name)
+
+	byKey, err := store.FindByKeyOption(ctx, found.Key())
+	require.NoError(t, err)
+
 	again, ok := byKey.Get()
-	if !ok || again.Entity().ID != model.Entity().ID {
-		t.Fatalf("expected same model by key, ok=%v model=%+v", ok, again)
-	}
+	require.True(t, ok)
+	require.Equal(t, model.Entity().ID, again.Entity().ID)
+}
+
+func openUserStore(tb testing.TB, dsn string) (context.Context, *activerecord.Store[User, UserSchema]) {
+	tb.Helper()
+
+	ctx := context.Background()
+	raw, err := sql.Open("sqlite", dsn)
+	require.NoError(tb, err)
+
+	tb.Cleanup(func() {
+		if closeErr := raw.Close(); closeErr != nil {
+			tb.Errorf("close sqlite: %v", closeErr)
+		}
+	})
+
+	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
+	users := dbx.MustSchema("users", UserSchema{})
+
+	_, err = core.AutoMigrate(ctx, users)
+	require.NoError(tb, err)
+
+	return ctx, activerecord.New[User, UserSchema](core, users)
 }
