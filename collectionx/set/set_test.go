@@ -1,15 +1,16 @@
-package set
+package set_test
 
 import (
 	"testing"
 
+	set "github.com/DaiYuANg/arcgo/collectionx/set"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSet_ZeroValueAndBasicOps(t *testing.T) {
 	t.Parallel()
 
-	var s Set[int]
+	var s set.Set[int]
 
 	s.Add(1, 2, 2, 3)
 
@@ -28,8 +29,8 @@ func TestSet_ZeroValueAndBasicOps(t *testing.T) {
 func TestSet_MathOperations(t *testing.T) {
 	t.Parallel()
 
-	left := NewSet(1, 2, 3)
-	right := NewSet(3, 4, 5)
+	left := set.NewSet(1, 2, 3)
+	right := set.NewSet(3, 4, 5)
 
 	require.ElementsMatch(t, []int{1, 2, 3, 4, 5}, left.Union(right).Values())
 	require.ElementsMatch(t, []int{3}, left.Intersect(right).Values())
@@ -39,7 +40,7 @@ func TestSet_MathOperations(t *testing.T) {
 func TestSet_RangeStop(t *testing.T) {
 	t.Parallel()
 
-	s := NewSet("a", "b", "c")
+	s := set.NewSet("a", "b", "c")
 	visited := 0
 
 	s.Range(func(item string) bool {
@@ -60,8 +61,8 @@ func TestSet_RangeStop(t *testing.T) {
 func TestSet_Merge(t *testing.T) {
 	t.Parallel()
 
-	left := NewSet(1, 2)
-	right := NewSet(2, 3)
+	left := set.NewSet(1, 2)
+	right := set.NewSet(2, 3)
 
 	left.Merge(right).MergeSlice([]int{3, 4, 5})
 	require.ElementsMatch(t, []int{1, 2, 3, 4, 5}, left.Values())
@@ -70,7 +71,7 @@ func TestSet_Merge(t *testing.T) {
 func TestNewSetWithCapacity(t *testing.T) {
 	t.Parallel()
 
-	s := NewSetWithCapacity(8, 1, 2, 2, 3)
+	s := set.NewSetWithCapacity(8, 1, 2, 2, 3)
 
 	require.Equal(t, 3, s.Len())
 	require.True(t, s.Contains(1))

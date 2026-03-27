@@ -1,15 +1,16 @@
-package set
+package set_test
 
 import (
 	"testing"
 
+	set "github.com/DaiYuANg/arcgo/collectionx/set"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOrderedSet_OrderAndDedupe(t *testing.T) {
 	t.Parallel()
 
-	var s OrderedSet[int]
+	var s set.OrderedSet[int]
 	s.Add(1, 2, 2, 3, 1)
 
 	require.Equal(t, []int{1, 2, 3}, s.Values())
@@ -19,7 +20,7 @@ func TestOrderedSet_OrderAndDedupe(t *testing.T) {
 func TestOrderedSet_RemoveReindex(t *testing.T) {
 	t.Parallel()
 
-	s := NewOrderedSet("a", "b", "c")
+	s := set.NewOrderedSet("a", "b", "c")
 	require.True(t, s.Remove("b"))
 	require.Equal(t, []string{"a", "c"}, s.Values())
 
@@ -31,7 +32,7 @@ func TestOrderedSet_RemoveReindex(t *testing.T) {
 func TestNewOrderedSetWithCapacity(t *testing.T) {
 	t.Parallel()
 
-	s := NewOrderedSetWithCapacity(8, "a", "b", "a", "c")
+	s := set.NewOrderedSetWithCapacity(8, "a", "b", "a", "c")
 
 	require.Equal(t, []string{"a", "b", "c"}, s.Values())
 }

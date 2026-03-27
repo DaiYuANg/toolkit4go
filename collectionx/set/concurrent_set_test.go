@@ -1,16 +1,17 @@
-package set
+package set_test
 
 import (
 	"sync"
 	"testing"
 
+	set "github.com/DaiYuANg/arcgo/collectionx/set"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrentSet_ParallelAdd(t *testing.T) {
 	t.Parallel()
 
-	var s ConcurrentSet[int]
+	var s set.ConcurrentSet[int]
 
 	const workers = 24
 	const each = 200
@@ -18,12 +19,11 @@ func TestConcurrentSet_ParallelAdd(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
-	for worker := 0; worker < workers; worker++ {
-		worker := worker
+	for worker := range workers {
 		go func() {
 			defer wg.Done()
 			base := worker * each
-			for i := 0; i < each; i++ {
+			for i := range each {
 				s.Add(base + i)
 			}
 		}()
@@ -39,7 +39,7 @@ func TestConcurrentSet_ParallelAdd(t *testing.T) {
 func TestConcurrentSet_SnapshotIsIndependent(t *testing.T) {
 	t.Parallel()
 
-	s := NewConcurrentSet(1, 2, 3)
+	s := set.NewConcurrentSet(1, 2, 3)
 	snap := s.Snapshot()
 
 	require.True(t, snap.Contains(1))
@@ -51,9 +51,9 @@ func TestConcurrentSet_SnapshotIsIndependent(t *testing.T) {
 func TestConcurrentSet_Merge(t *testing.T) {
 	t.Parallel()
 
-	left := NewConcurrentSet(1, 2)
-	right := NewSet(2, 3)
-	otherConcurrent := NewConcurrentSet(4, 5)
+	left := set.NewConcurrentSet(1, 2)
+	right := set.NewSet(2, 3)
+	otherConcurrent := set.NewConcurrentSet(4, 5)
 
 	left.Merge(right).MergeConcurrent(otherConcurrent).MergeSlice([]int{5, 6})
 	require.ElementsMatch(t, []int{1, 2, 3, 4, 5, 6}, left.Values())
@@ -62,7 +62,7 @@ func TestConcurrentSet_Merge(t *testing.T) {
 func TestNewConcurrentSetWithCapacity(t *testing.T) {
 	t.Parallel()
 
-	s := NewConcurrentSetWithCapacity(8, 1, 2, 2, 3)
+	s := set.NewConcurrentSetWithCapacity(8, 1, 2, 2, 3)
 
 	require.Equal(t, 3, s.Len())
 	require.True(t, s.Contains(1))

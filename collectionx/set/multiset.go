@@ -64,10 +64,7 @@ func (s *MultiSet[T]) RemoveN(item T, n int) int {
 		return 0
 	}
 
-	removed := n
-	if removed > current {
-		removed = current
-	}
+	removed := min(n, current)
 
 	remain := current - removed
 	if remain == 0 {
@@ -138,7 +135,7 @@ func (s *MultiSet[T]) Elements() []T {
 	}
 	out := make([]T, 0, s.size)
 	s.counts.Range(func(item T, count int) bool {
-		for i := 0; i < count; i++ {
+		for range count {
 			out = append(out, item)
 		}
 		return true

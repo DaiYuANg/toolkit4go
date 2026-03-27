@@ -1,42 +1,46 @@
-package set
+package set_test
 
-import "testing"
+import (
+	"testing"
+
+	set "github.com/DaiYuANg/arcgo/collectionx/set"
+)
 
 const benchSetKeySpace = 1 << 12
 
 func BenchmarkSetContains(b *testing.B) {
-	s := NewSet[int]()
-	for i := 0; i < benchSetKeySpace; i++ {
+	s := set.NewSet[int]()
+	for i := range benchSetKeySpace {
 		s.Add(i)
 	}
 
 	mask := benchSetKeySpace - 1
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = s.Contains(i & mask)
 	}
 }
 
 func BenchmarkSetAddRemove(b *testing.B) {
-	s := NewSet[int]()
+	s := set.NewSet[int]()
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		s.Add(i)
 		s.Remove(i)
 	}
 }
 
 func BenchmarkSetClone(b *testing.B) {
-	s := NewSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	s := set.NewSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		s.Add(i)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		clone := s.Clone()
 		if clone.Len() != benchSetKeySpace {
 			b.Fatalf("unexpected clone length: %d", clone.Len())
@@ -45,39 +49,39 @@ func BenchmarkSetClone(b *testing.B) {
 }
 
 func BenchmarkOrderedSetContains(b *testing.B) {
-	s := NewOrderedSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	s := set.NewOrderedSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		s.Add(i)
 	}
 
 	mask := benchSetKeySpace - 1
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = s.Contains(i & mask)
 	}
 }
 
 func BenchmarkOrderedSetValues(b *testing.B) {
-	s := NewOrderedSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	s := set.NewOrderedSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		s.Add(i)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = s.Values()
 	}
 }
 
 func BenchmarkMultiSetAddCount(b *testing.B) {
-	s := NewMultiSetWithCapacity[int](benchSetKeySpace)
+	s := set.NewMultiSetWithCapacity[int](benchSetKeySpace)
 	mask := benchSetKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		item := i & mask
 		s.Add(item)
 		_ = s.Count(item)
@@ -85,21 +89,21 @@ func BenchmarkMultiSetAddCount(b *testing.B) {
 }
 
 func BenchmarkMultiSetElements(b *testing.B) {
-	s := NewMultiSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	s := set.NewMultiSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		s.AddN(i, 4)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = s.Elements()
 	}
 }
 
 func BenchmarkConcurrentSetContainsParallel(b *testing.B) {
-	s := NewConcurrentSet[int]()
-	for i := 0; i < benchSetKeySpace; i++ {
+	s := set.NewConcurrentSet[int]()
+	for i := range benchSetKeySpace {
 		s.Add(i)
 	}
 
@@ -116,7 +120,7 @@ func BenchmarkConcurrentSetContainsParallel(b *testing.B) {
 }
 
 func BenchmarkConcurrentSetAddParallel(b *testing.B) {
-	s := NewConcurrentSet[int]()
+	s := set.NewConcurrentSet[int]()
 	mask := benchSetKeySpace - 1
 
 	b.ReportAllocs()
@@ -132,69 +136,69 @@ func BenchmarkConcurrentSetAddParallel(b *testing.B) {
 
 func BenchmarkSetAddBulk(b *testing.B) {
 	items := make([]int, benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	for i := range benchSetKeySpace {
 		items[i] = i
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s := NewSet[int]()
+	for range b.N {
+		s := set.NewSet[int]()
 		s.Add(items...)
 	}
 }
 
 func BenchmarkSetMerge(b *testing.B) {
-	other := NewSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	other := set.NewSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		other.Add(i)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s := NewSet[int]()
+	for range b.N {
+		s := set.NewSet[int]()
 		s.Merge(other)
 	}
 }
 
 func BenchmarkSetUnion(b *testing.B) {
-	left := NewSetWithCapacity[int](benchSetKeySpace)
-	right := NewSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	left := set.NewSetWithCapacity[int](benchSetKeySpace)
+	right := set.NewSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		left.Add(i)
 		right.Add(i + benchSetKeySpace/2)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = left.Union(right)
 	}
 }
 
 func BenchmarkSetIntersect(b *testing.B) {
-	left := NewSetWithCapacity[int](benchSetKeySpace)
-	right := NewSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	left := set.NewSetWithCapacity[int](benchSetKeySpace)
+	right := set.NewSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		left.Add(i)
 		right.Add(i + benchSetKeySpace/2)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = left.Intersect(right)
 	}
 }
 
 func BenchmarkOrderedSetAddRemove(b *testing.B) {
-	s := NewOrderedSet[int]()
+	s := set.NewOrderedSet[int]()
 	mask := benchSetKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		item := i & mask
 		s.Add(item)
 		s.Remove(item)
@@ -202,15 +206,15 @@ func BenchmarkOrderedSetAddRemove(b *testing.B) {
 }
 
 func BenchmarkMultiSetRemove(b *testing.B) {
-	s := NewMultiSetWithCapacity[int](benchSetKeySpace)
-	for i := 0; i < benchSetKeySpace; i++ {
+	s := set.NewMultiSetWithCapacity[int](benchSetKeySpace)
+	for i := range benchSetKeySpace {
 		s.AddN(i, 4)
 	}
 	mask := benchSetKeySpace - 1
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		item := i & mask
 		s.Remove(item)
 		s.AddN(item, 4)
