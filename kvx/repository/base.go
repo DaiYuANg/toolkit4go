@@ -20,12 +20,14 @@ type repositoryBase[T any] struct {
 }
 
 func (b repositoryBase[T]) metadata(entity *T) (*mapping.EntityMetadata, error) {
-	return b.tagParser.ParseType(entity)
+	metadata, err := b.tagParser.ParseType(entity)
+	return wrapRepositoryResult(metadata, err, "parse entity metadata")
 }
 
 func (b repositoryBase[T]) metadataForType() (*mapping.EntityMetadata, error) {
 	var zero T
-	return b.tagParser.ParseType(&zero)
+	metadata, err := b.tagParser.ParseType(&zero)
+	return wrapRepositoryResult(metadata, err, "parse repository metadata")
 }
 
 func (b repositoryBase[T]) keyFromID(id string) string {
@@ -51,7 +53,7 @@ func (b repositoryBase[T]) idsByField(ctx context.Context, fieldName, fieldValue
 }
 
 func (b repositoryBase[T]) hydrateEntityID(entity *T, metadata *mapping.EntityMetadata, key string) error {
-	return metadata.SetEntityID(entity, extractIDFromKey(key))
+	return wrapRepositoryError(metadata.SetEntityID(entity, extractIDFromKey(key)), "hydrate entity ID")
 }
 
 func (b repositoryBase[T]) scanAllKeys(ctx context.Context, kv kvx.KV) ([]string, error) {
@@ -61,7 +63,7 @@ func (b repositoryBase[T]) scanAllKeys(ctx context.Context, kv kvx.KV) ([]string
 	for {
 		keys, next, err := kv.Scan(ctx, b.keyFromID("*"), cursor, scanBatchSize)
 		if err != nil {
-			return nil, err
+			return nil, wrapRepositoryError(err, "scan repository keys")
 		}
 
 		seen.Add(keys...)
@@ -86,10 +88,6 @@ func intersectStringSlices(groups ...[]string) []string {
 	}
 
 	return intersection.Values()
-}
-
-func stringSliceIntersection(a, b []string) []string {
-	return intersectStringSlices(a, b)
 }
 
 func collectPresentMap[K comparable, T any](items []K, load func(K) (*T, error)) (map[K]*T, error) {
@@ -130,7 +128,7 @@ func loadPresent[T any](entity *T, err error) (mo.Option[*T], error) {
 	return mo.None[*T](), err
 }
 
-func mapExistsResults(ids []string, keys []string, existsMap map[string]bool) map[string]bool {
+func mapExistsResults(ids, keys []string, existsMap map[string]bool) map[string]bool {
 	results := make(map[string]bool, len(ids))
 	for i, id := range ids {
 		results[id] = existsMap[keys[i]]

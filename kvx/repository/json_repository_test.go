@@ -1,81 +1,12 @@
-package repository
+package repository_test
 
 import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
-	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/DaiYuANg/arcgo/kvx/repository"
 )
-
-type mockJSON struct {
-	data map[string][]byte
-}
-
-func newMockJSON() *mockJSON {
-	return &mockJSON{
-		data: make(map[string][]byte),
-	}
-}
-
-func (m *mockJSON) JSONSet(ctx context.Context, key string, path string, value []byte, expiration time.Duration) error {
-	m.data[key] = append([]byte(nil), value...)
-	return nil
-}
-
-func (m *mockJSON) JSONGet(ctx context.Context, key string, path string) ([]byte, error) {
-	if value, ok := m.data[key]; ok {
-		return append([]byte(nil), value...), nil
-	}
-	return nil, nil
-}
-
-func (m *mockJSON) JSONSetField(ctx context.Context, key string, path string, value []byte) error {
-	current, ok := m.data[key]
-	if !ok {
-		return kvx.ErrNil
-	}
-
-	var document map[string]any
-	if err := json.Unmarshal(current, &document); err != nil {
-		return err
-	}
-
-	var fieldValue any
-	if err := json.Unmarshal(value, &fieldValue); err != nil {
-		return err
-	}
-
-	document[extractFieldNameFromPath(path)] = fieldValue
-
-	encoded, err := json.Marshal(document)
-	if err != nil {
-		return err
-	}
-
-	m.data[key] = encoded
-	return nil
-}
-
-func (m *mockJSON) JSONGetField(ctx context.Context, key string, path string) ([]byte, error) {
-	current, ok := m.data[key]
-	if !ok {
-		return nil, nil
-	}
-
-	var document map[string]json.RawMessage
-	if err := json.Unmarshal(current, &document); err != nil {
-		return nil, err
-	}
-
-	return document[extractFieldNameFromPath(path)], nil
-}
-
-func (m *mockJSON) JSONDelete(ctx context.Context, key string, path string) error {
-	delete(m.data, key)
-	return nil
-}
 
 func TestJSONRepository_ExistsBatch_UsesKVExists(t *testing.T) {
 	ctx := context.Background()
@@ -84,7 +15,7 @@ func TestJSONRepository_ExistsBatch_UsesKVExists(t *testing.T) {
 	kv.data["user:user1"] = []byte("exists")
 	kv.data["user:user3"] = []byte("exists")
 
-	repo := NewJSONRepository[TestUser](client, kv, "user")
+	repo := repository.NewJSONRepository[TestUser](client, kv, "user")
 
 	results, err := repo.ExistsBatch(ctx, []string{"user1", "user2", "user3"})
 	if err != nil {
@@ -112,7 +43,7 @@ func TestJSONRepository_FindAll_ScansAllPagesAndDeduplicates(t *testing.T) {
 		{"user:user1", "user:user2"},
 		{"user:user2", "user:user3"},
 	}
-	repo := NewJSONRepository[TestUser](client, kv, "user")
+	repo := repository.NewJSONRepository[TestUser](client, kv, "user")
 
 	for _, user := range []*TestUser{
 		{ID: "user1", Name: "John Doe", Email: "john@example.com", Age: 30},
@@ -155,7 +86,7 @@ func TestJSONRepository_Count_ScansAllPagesAndDeduplicates(t *testing.T) {
 		{"user:user1", "user:user2"},
 		{"user:user2", "user:user3"},
 	}
-	repo := NewJSONRepository[TestUser](client, kv, "user")
+	repo := repository.NewJSONRepository[TestUser](client, kv, "user")
 
 	count, err := repo.Count(ctx)
 	if err != nil {
@@ -171,7 +102,7 @@ func TestJSONRepository_Save_ReplacesStaleIndexes(t *testing.T) {
 	ctx := context.Background()
 	client := newMockJSON()
 	kv := newMockKV()
-	repo := NewJSONRepository[TestUser](client, kv, "user")
+	repo := repository.NewJSONRepository[TestUser](client, kv, "user")
 
 	original := &TestUser{ID: "user1", Name: "John Doe", Email: "old@example.com", Age: 30}
 	updated := &TestUser{ID: "user1", Name: "John Doe", Email: "new@example.com", Age: 31}
@@ -206,7 +137,7 @@ func TestJSONRepository_UpdateField_ReplacesIndexedFieldEntry(t *testing.T) {
 	ctx := context.Background()
 	client := newMockJSON()
 	kv := newMockKV()
-	repo := NewJSONRepository[TestUser](client, kv, "user")
+	repo := repository.NewJSONRepository[TestUser](client, kv, "user")
 
 	user := &TestUser{ID: "user1", Name: "John Doe", Email: "old@example.com", Age: 30}
 	payload, err := json.Marshal(user)

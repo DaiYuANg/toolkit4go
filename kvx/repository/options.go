@@ -30,12 +30,31 @@ type jsonRepositoryConfig[T any] struct {
 	debug      bool
 }
 
+// HashRepositoryOption applies configuration to a hash repository.
 type HashRepositoryOption[T any] interface {
 	applyHash(*hashRepositoryConfig[T])
 }
+
+// JSONRepositoryOption applies configuration to a JSON repository.
 type JSONRepositoryOption[T any] interface {
 	applyJSON(*jsonRepositoryConfig[T])
 }
+
+// Option applies configuration to both hash and JSON repositories.
+type Option[T any] interface {
+	HashRepositoryOption[T]
+	JSONRepositoryOption[T]
+}
+
+var (
+	_ HashRepositoryOption[struct{}] = hashOptionFunc[struct{}](nil)
+	_ JSONRepositoryOption[struct{}] = jsonOptionFunc[struct{}](nil)
+	_ Option[struct{}]               = dualOption[struct{}]{}
+	_                                = hashOptionFunc[struct{}](nil).applyHash
+	_                                = jsonOptionFunc[struct{}](nil).applyJSON
+	_                                = dualOption[struct{}]{}.applyHash
+	_                                = dualOption[struct{}]{}.applyJSON
+)
 
 type hashOptionFunc[T any] func(*hashRepositoryConfig[T])
 
@@ -67,11 +86,13 @@ type OptionSet[T any] struct {
 	JSON []JSONRepositoryOption[T]
 }
 
+// HashOptions returns hash repository options plus any extra options.
 func (s OptionSet[T]) HashOptions(extra ...HashRepositoryOption[T]) []HashRepositoryOption[T] {
 	result := append([]HashRepositoryOption[T]{}, s.Hash...)
 	return append(result, extra...)
 }
 
+// JSONOptions returns JSON repository options plus any extra options.
 func (s OptionSet[T]) JSONOptions(extra ...JSONRepositoryOption[T]) []JSONRepositoryOption[T] {
 	result := append([]JSONRepositoryOption[T]{}, s.JSON...)
 	return append(result, extra...)
@@ -83,11 +104,13 @@ type Preset[T any] struct {
 	JSON []JSONRepositoryOption[T]
 }
 
+// HashOptions returns preset hash repository options plus any extra options.
 func (p Preset[T]) HashOptions(extra ...HashRepositoryOption[T]) []HashRepositoryOption[T] {
 	result := append([]HashRepositoryOption[T]{}, p.Hash...)
 	return append(result, extra...)
 }
 
+// JSONOptions returns preset JSON repository options plus any extra options.
 func (p Preset[T]) JSONOptions(extra ...JSONRepositoryOption[T]) []JSONRepositoryOption[T] {
 	result := append([]JSONRepositoryOption[T]{}, p.JSON...)
 	return append(result, extra...)
@@ -133,14 +156,16 @@ func applyJSONOptions[T any](cfg *jsonRepositoryConfig[T], options ...JSONReposi
 	}
 }
 
-func WithPipeline[T any](provider pipelineProvider) dualOption[T] {
+// WithPipeline configures pipeline support for both repository backends.
+func WithPipeline[T any](provider pipelineProvider) Option[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) { cfg.pipeline = mo.Some[pipelineProvider](provider) },
 		json: func(cfg *jsonRepositoryConfig[T]) { cfg.pipeline = mo.Some[pipelineProvider](provider) },
 	}
 }
 
-func WithScript[T any](script kvx.Script) dualOption[T] {
+// WithScript configures Lua script support for both repository backends.
+func WithScript[T any](script kvx.Script) Option[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) {
 			if script != nil {
@@ -155,7 +180,8 @@ func WithScript[T any](script kvx.Script) dualOption[T] {
 	}
 }
 
-func WithKeyBuilder[T any](builder *mapping.KeyBuilder) dualOption[T] {
+// WithKeyBuilder configures a custom key builder for both repository backends.
+func WithKeyBuilder[T any](builder *mapping.KeyBuilder) Option[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) {
 			if builder != nil {
@@ -170,7 +196,8 @@ func WithKeyBuilder[T any](builder *mapping.KeyBuilder) dualOption[T] {
 	}
 }
 
-func WithTagParser[T any](parser *mapping.TagParser) dualOption[T] {
+// WithTagParser configures a custom tag parser for both repository backends.
+func WithTagParser[T any](parser *mapping.TagParser) Option[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) {
 			if parser != nil {
@@ -185,7 +212,8 @@ func WithTagParser[T any](parser *mapping.TagParser) dualOption[T] {
 	}
 }
 
-func WithIndexer[T any](indexer *Indexer[T]) dualOption[T] {
+// WithIndexer configures a custom secondary indexer for both repository backends.
+func WithIndexer[T any](indexer *Indexer[T]) Option[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) {
 			if indexer != nil {
@@ -200,6 +228,7 @@ func WithIndexer[T any](indexer *Indexer[T]) dualOption[T] {
 	}
 }
 
+// WithHashCodec configures a custom hash codec for hash repositories.
 func WithHashCodec[T any](codec *mapping.HashCodec) HashRepositoryOption[T] {
 	return hashOptionFunc[T](func(cfg *hashRepositoryConfig[T]) {
 		if codec != nil {
@@ -208,6 +237,7 @@ func WithHashCodec[T any](codec *mapping.HashCodec) HashRepositoryOption[T] {
 	})
 }
 
+// WithSerializer configures a custom serializer for JSON repositories.
 func WithSerializer[T any](serializer mapping.Serializer) JSONRepositoryOption[T] {
 	return jsonOptionFunc[T](func(cfg *jsonRepositoryConfig[T]) {
 		if serializer != nil {
@@ -216,7 +246,8 @@ func WithSerializer[T any](serializer mapping.Serializer) JSONRepositoryOption[T
 	})
 }
 
-func NewPreset[T any](options ...dualOption[T]) Preset[T] {
+// NewPreset creates a reusable repository preset from shared repository options.
+func NewPreset[T any](options ...Option[T]) Preset[T] {
 	hashOptions := make([]HashRepositoryOption[T], 0, len(options))
 	jsonOptions := make([]JSONRepositoryOption[T], 0, len(options))
 	for _, option := range options {
@@ -226,7 +257,8 @@ func NewPreset[T any](options ...dualOption[T]) Preset[T] {
 	return Preset[T]{Hash: hashOptions, JSON: jsonOptions}
 }
 
-func WithLogger[T any](logger *slog.Logger) dualOption[T] {
+// WithLogger configures structured logging for both repository backends.
+func WithLogger[T any](logger *slog.Logger) Option[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) {
 			if logger != nil {
@@ -241,7 +273,8 @@ func WithLogger[T any](logger *slog.Logger) dualOption[T] {
 	}
 }
 
-func WithDebug[T any](enabled bool) dualOption[T] {
+// WithDebug enables or disables debug logging for both repository backends.
+func WithDebug[T any](enabled bool) Option[T] {
 	return dualOption[T]{
 		hash: func(cfg *hashRepositoryConfig[T]) { cfg.debug = enabled },
 		json: func(cfg *jsonRepositoryConfig[T]) { cfg.debug = enabled },

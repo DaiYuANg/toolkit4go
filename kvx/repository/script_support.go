@@ -99,7 +99,7 @@ end
 return 1
 `
 
-func execHashUpsertScript(ctx context.Context, script kvx.Script, key string, hashData map[string][]byte, expiration time.Duration, removeEntries []string, addEntries []string) error {
+func execHashUpsertScript(ctx context.Context, script kvx.Script, key string, hashData map[string][]byte, expiration time.Duration, removeEntries, addEntries []string) error {
 	keys := append([]string{key}, removeEntries...)
 	keys = append(keys, addEntries...)
 
@@ -111,11 +111,10 @@ func execHashUpsertScript(ctx context.Context, script kvx.Script, key string, ha
 	)
 	args = append(args, encodeHashData(hashData)...)
 
-	_, err := script.Eval(ctx, hashUpsertScript, keys, args)
-	return err
+	return evalScript(ctx, script, hashUpsertScript, keys, args, "execute hash upsert script")
 }
 
-func execJSONUpsertScript(ctx context.Context, script kvx.Script, key string, payload []byte, expiration time.Duration, removeEntries []string, addEntries []string) error {
+func execJSONUpsertScript(ctx context.Context, script kvx.Script, key string, payload []byte, expiration time.Duration, removeEntries, addEntries []string) error {
 	keys := append([]string{key}, removeEntries...)
 	keys = append(keys, addEntries...)
 	args := [][]byte{
@@ -123,31 +122,27 @@ func execJSONUpsertScript(ctx context.Context, script kvx.Script, key string, pa
 		[]byte(strconv.FormatInt(expiration.Milliseconds(), 10)),
 		payload,
 	}
-	_, err := script.Eval(ctx, jsonUpsertScript, keys, args)
-	return err
+	return evalScript(ctx, script, jsonUpsertScript, keys, args, "execute JSON upsert script")
 }
 
 func execDeleteScript(ctx context.Context, script kvx.Script, key string, removeEntries []string) error {
 	keys := append([]string{key}, removeEntries...)
-	_, err := script.Eval(ctx, deleteScript, keys, nil)
-	return err
+	return evalScript(ctx, script, deleteScript, keys, nil, "execute delete script")
 }
 
-func execHashFieldUpdateScript(ctx context.Context, script kvx.Script, key string, field string, value []byte, removeEntries []string, addEntries []string) error {
+func execHashFieldUpdateScript(ctx context.Context, script kvx.Script, key, field string, value []byte, removeEntries, addEntries []string) error {
 	keys := buildFieldUpdateKeys(key, removeEntries, addEntries)
 	args := [][]byte{[]byte(field), value}
-	_, err := script.Eval(ctx, hashFieldUpdateScript, keys, args)
-	return err
+	return evalScript(ctx, script, hashFieldUpdateScript, keys, args, "execute hash field update script")
 }
 
-func execJSONFieldUpdateScript(ctx context.Context, script kvx.Script, key string, path string, value []byte, removeEntries []string, addEntries []string) error {
+func execJSONFieldUpdateScript(ctx context.Context, script kvx.Script, key, path string, value []byte, removeEntries, addEntries []string) error {
 	keys := buildFieldUpdateKeys(key, removeEntries, addEntries)
 	args := [][]byte{[]byte(path), value}
-	_, err := script.Eval(ctx, jsonFieldUpdateScript, keys, args)
-	return err
+	return evalScript(ctx, script, jsonFieldUpdateScript, keys, args, "execute JSON field update script")
 }
 
-func buildFieldUpdateKeys(key string, removeEntries []string, addEntries []string) []string {
+func buildFieldUpdateKeys(key string, removeEntries, addEntries []string) []string {
 	keys := []string{key}
 	if len(removeEntries) > 0 {
 		keys = append(keys, removeEntries[0])
@@ -156,4 +151,9 @@ func buildFieldUpdateKeys(key string, removeEntries []string, addEntries []strin
 		keys = append(keys, addEntries[0])
 	}
 	return keys
+}
+
+func evalScript(ctx context.Context, script kvx.Script, source string, keys []string, args [][]byte, action string) error {
+	_, err := script.Eval(ctx, source, keys, args)
+	return wrapRepositoryError(err, action)
 }

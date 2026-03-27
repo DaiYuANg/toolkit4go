@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx/set"
@@ -55,7 +56,7 @@ func (i *Indexer[T]) RemoveEntityFromIndexes(ctx context.Context, entity *T, met
 	v := reflect.Indirect(reflect.ValueOf(entity))
 	entityKey, err := i.keyBuilder.Build(entity, metadata)
 	if err != nil {
-		return err
+		return wrapRepositoryError(err, "build entity key for index removal")
 	}
 	entityID := extractIDFromKey(entityKey)
 
@@ -105,8 +106,7 @@ func (i *Indexer[T]) EntityIndexEntries(entity *T, metadata *mapping.EntityMetad
 }
 
 // ReplaceEntityIndexEntries calculates the index diff for replacing one entity with another.
-func (i *Indexer[T]) ReplaceEntityIndexEntries(ctx context.Context, oldEntity *T, newEntity *T, metadata *mapping.EntityMetadata, entityKey string) ([]string, []string, error) {
-	_ = ctx
+func (i *Indexer[T]) ReplaceEntityIndexEntries(_ context.Context, oldEntity, newEntity *T, metadata *mapping.EntityMetadata, entityKey string) ([]string, []string, error) {
 	oldEntries, err := i.EntityIndexEntries(oldEntity, metadata, entityKey)
 	if err != nil {
 		return nil, nil, err
@@ -119,7 +119,7 @@ func (i *Indexer[T]) ReplaceEntityIndexEntries(ctx context.Context, oldEntity *T
 }
 
 // ReplaceFieldIndexEntries calculates the index diff for updating one indexed field.
-func (i *Indexer[T]) ReplaceFieldIndexEntries(metadata *mapping.EntityMetadata, fieldName string, entityKey string, entity *T, newValue interface{}) ([]string, []string, error) {
+func (i *Indexer[T]) ReplaceFieldIndexEntries(metadata *mapping.EntityMetadata, fieldName, entityKey string, entity *T, newValue any) ([]string, []string, error) {
 	resolvedField, fieldTag, exists := metadata.ResolveField(fieldName)
 	if !exists || !fieldTag.Index || entity == nil {
 		return nil, nil, nil
@@ -149,52 +149,52 @@ func (i *Indexer[T]) ReplaceFieldIndexEntries(metadata *mapping.EntityMetadata, 
 }
 
 // ApplyIndexDiff removes stale index entries and writes the new ones.
-func (i *Indexer[T]) ApplyIndexDiff(ctx context.Context, removeEntries []string, addEntries []string) error {
+func (i *Indexer[T]) ApplyIndexDiff(ctx context.Context, removeEntries, addEntries []string) error {
 	for _, entry := range removeEntries {
 		if err := i.kv.Delete(ctx, entry); err != nil {
-			return err
+			return wrapRepositoryError(err, "remove stale index entry")
 		}
 	}
 	for _, entry := range addEntries {
 		if err := i.kv.Set(ctx, entry, []byte("1"), 0); err != nil {
-			return err
+			return wrapRepositoryError(err, "write index entry")
 		}
 	}
 	return nil
 }
 
 // GetEntityIDsByField returns entity IDs that have the specified field value.
-func (i *Indexer[T]) GetEntityIDsByField(ctx context.Context, fieldName string, fieldValue string) ([]string, error) {
+func (i *Indexer[T]) GetEntityIDsByField(ctx context.Context, fieldName, fieldValue string) ([]string, error) {
 	return i.getIndexMembers(ctx, i.buildIndexKey(fieldName, fieldValue))
 }
 
 func (i *Indexer[T]) buildIndexKey(fieldName, fieldValue string) string {
 	prefix := strings.TrimSuffix(i.keyBuilder.BuildWithID(""), ":")
 	if prefix == "" {
-		return fmt.Sprintf("idx:%s:%s", fieldName, fieldValue)
+		return "idx:" + fieldName + ":" + fieldValue
 	}
-	return fmt.Sprintf("%s:idx:%s:%s", prefix, fieldName, fieldValue)
+	return prefix + ":idx:" + fieldName + ":" + fieldValue
 }
 
-func (i *Indexer[T]) indexEntryKey(fieldName, fieldValue string, entityID string) string {
+func (i *Indexer[T]) indexEntryKey(fieldName, fieldValue, entityID string) string {
 	if fieldValue == "" || entityID == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s:%s", i.buildIndexKey(fieldName, fieldValue), entityID)
+	return i.buildIndexKey(fieldName, fieldValue) + ":" + entityID
 }
 
-func (i *Indexer[T]) addToIndex(ctx context.Context, indexKey string, entityID string) error {
-	return i.kv.Set(ctx, fmt.Sprintf("%s:%s", indexKey, entityID), []byte("1"), 0)
+func (i *Indexer[T]) addToIndex(ctx context.Context, indexKey, entityID string) error {
+	return wrapRepositoryError(i.kv.Set(ctx, indexKey+":"+entityID, []byte("1"), 0), "write index entry")
 }
 
-func (i *Indexer[T]) removeFromIndex(ctx context.Context, indexKey string, entityID string) error {
-	return i.kv.Delete(ctx, fmt.Sprintf("%s:%s", indexKey, entityID))
+func (i *Indexer[T]) removeFromIndex(ctx context.Context, indexKey, entityID string) error {
+	return wrapRepositoryError(i.kv.Delete(ctx, indexKey+":"+entityID), "delete index entry")
 }
 
 func (i *Indexer[T]) getIndexMembers(ctx context.Context, indexKey string) ([]string, error) {
 	keys, err := i.kv.Keys(ctx, indexKey+":*")
 	if err != nil {
-		return nil, err
+		return nil, wrapRepositoryError(err, "list index members")
 	}
 	results := make([]string, 0, len(keys))
 	prefixLen := len(indexKey) + 1
@@ -216,24 +216,22 @@ func formatIndexValue(v reflect.Value) string {
 		}
 		v = v.Elem()
 	}
-	switch v.Kind() {
-	case reflect.String:
+	if v.Kind() == reflect.String {
 		return v.String()
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return fmt.Sprintf("%d", v.Int())
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return fmt.Sprintf("%d", v.Uint())
-	case reflect.Bool:
-		if v.Bool() {
-			return "true"
-		}
-		return "false"
-	default:
-		return fmt.Sprintf("%v", v.Interface())
 	}
+	if isSignedIndexKind(v.Kind()) {
+		return strconv.FormatInt(v.Int(), 10)
+	}
+	if isUnsignedIndexKind(v.Kind()) {
+		return strconv.FormatUint(v.Uint(), 10)
+	}
+	if v.Kind() == reflect.Bool {
+		return strconv.FormatBool(v.Bool())
+	}
+	return fmt.Sprint(v.Interface())
 }
 
-func diffIndexEntries(left []string, right []string) []string {
+func diffIndexEntries(left, right []string) []string {
 	if len(left) == 0 {
 		return nil
 	}
@@ -250,4 +248,12 @@ func extractIDFromKey(key string) string {
 		}
 	}
 	return key
+}
+
+func isSignedIndexKind(kind reflect.Kind) bool {
+	return kind >= reflect.Int && kind <= reflect.Int64
+}
+
+func isUnsignedIndexKind(kind reflect.Kind) bool {
+	return kind >= reflect.Uint && kind <= reflect.Uintptr
 }

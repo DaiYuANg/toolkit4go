@@ -1,17 +1,14 @@
 package repository
 
 import (
-	"context"
-	"errors"
 	"log/slog"
-	"time"
 
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/DaiYuANg/arcgo/kvx/mapping"
 	"github.com/samber/mo"
 )
 
-// HashRepository provides repository operations for hash-based entities.
+// HashRepository provides repository operations for hash-backed entities.
 type HashRepository[T any] struct {
 	base     repositoryBase[T]
 	client   kvx.Hash
@@ -23,7 +20,7 @@ type HashRepository[T any] struct {
 	debug    bool
 }
 
-// NewHashRepository creates a new HashRepository.
+// NewHashRepository creates a hash-backed repository for entity type T.
 func NewHashRepository[T any](client kvx.Hash, kv kvx.KV, keyPrefix string, options ...HashRepositoryOption[T]) *HashRepository[T] {
 	cfg := defaultHashConfig[T](kv, keyPrefix)
 	applyHashOptions(&cfg, options...)
@@ -46,295 +43,15 @@ func NewHashRepository[T any](client kvx.Hash, kv kvx.KV, keyPrefix string, opti
 	return repo
 }
 
-// NewHashRepositoryWithClient creates a new HashRepository with full client (for pipeline support).
+// NewHashRepositoryWithClient creates a hash-backed repository using a full kvx client.
 func NewHashRepositoryWithClient[T any](client kvx.Client, keyPrefix string, options ...HashRepositoryOption[T]) *HashRepository[T] {
 	options = append([]HashRepositoryOption[T]{WithPipeline[T](client), WithScript[T](client)}, options...)
 	return NewHashRepository[T](client, client, keyPrefix, options...)
 }
 
-// NewHashRepositoryWithCodec creates a new HashRepository with custom codec.
+// NewHashRepositoryWithCodec creates a hash-backed repository with a custom hash codec.
 func NewHashRepositoryWithCodec[T any](client kvx.Hash, kv kvx.KV, keyPrefix string, codec *mapping.HashCodec, options ...HashRepositoryOption[T]) *HashRepository[T] {
 	return NewHashRepository[T](client, kv, keyPrefix, append([]HashRepositoryOption[T]{WithHashCodec[T](codec)}, options...)...)
-}
-
-func (r *HashRepository[T]) Save(ctx context.Context, entity *T) error {
-	return r.SaveWithExpiration(ctx, entity, 0)
-}
-
-func (r *HashRepository[T]) SaveWithExpiration(ctx context.Context, entity *T, expiration time.Duration) error {
-	r.logDebug("kvx hash save started", "expiration_ms", expiration.Milliseconds())
-	metadata, err := r.base.metadata(entity)
-	if err != nil {
-		r.logError("kvx hash save failed", "stage", "metadata", "error", err)
-		return err
-	}
-	key, err := r.base.keyBuilder.Build(entity, metadata)
-	if err != nil {
-		r.logError("kvx hash save failed", "stage", "key", "error", err)
-		return err
-	}
-	hashData, err := r.codec.Encode(entity, metadata)
-	if err != nil {
-		r.logError("kvx hash save failed", "stage", "encode", "key", key, "error", err)
-		return err
-	}
-	previous, err := r.findByKey(ctx, key)
-	if err != nil && !errors.Is(err, ErrNotFound) {
-		r.logError("kvx hash save failed", "stage", "load_previous", "key", key, "error", err)
-		return err
-	}
-	if errors.Is(err, ErrNotFound) {
-		previous = nil
-	}
-
-	oldEntries, newEntries, err := r.base.indexer.ReplaceEntityIndexEntries(ctx, previous, entity, metadata, key)
-	if err != nil {
-		r.logError("kvx hash save failed", "stage", "index_diff", "key", key, "error", err)
-		return err
-	}
-
-	if script, ok := r.script.Get(); ok {
-		err := execHashUpsertScript(ctx, script, key, hashData, expiration, oldEntries, newEntries)
-		if err != nil {
-			r.logError("kvx hash save failed", "stage", "script_upsert", "key", key, "error", err)
-			return err
-		}
-		r.logDebug("kvx hash save completed", "key", key, "indexed", len(newEntries))
-		return nil
-	}
-
-	if err := r.client.HSet(ctx, key, hashData); err != nil {
-		r.logError("kvx hash save failed", "stage", "hset", "key", key, "error", err)
-		return err
-	}
-	if expiration > 0 {
-		if err := r.kv.Expire(ctx, key, expiration); err != nil {
-			r.logError("kvx hash save failed", "stage", "expire", "key", key, "error", err)
-			return err
-		}
-	}
-	if err := r.base.indexer.ApplyIndexDiff(ctx, oldEntries, newEntries); err != nil {
-		r.logError("kvx hash save failed", "stage", "apply_index_diff", "key", key, "error", err)
-		return err
-	}
-	r.logDebug("kvx hash save completed", "key", key, "indexed", len(newEntries))
-	return nil
-}
-
-func (r *HashRepository[T]) SaveBatch(ctx context.Context, entities []*T) error {
-	return r.SaveBatchWithExpiration(ctx, entities, 0)
-}
-
-func (r *HashRepository[T]) SaveBatchWithExpiration(ctx context.Context, entities []*T, expiration time.Duration) error {
-	if len(entities) == 0 {
-		return nil
-	}
-	for _, entity := range entities {
-		if err := r.SaveWithExpiration(ctx, entity, expiration); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *HashRepository[T]) FindByID(ctx context.Context, id string) (*T, error) {
-	return r.findByKey(ctx, r.base.keyFromID(id))
-}
-
-func (r *HashRepository[T]) FindByIDs(ctx context.Context, ids []string) (map[string]*T, error) {
-	return collectPresentMap(ids, func(id string) (*T, error) {
-		return r.FindByID(ctx, id)
-	})
-}
-
-func (r *HashRepository[T]) Exists(ctx context.Context, id string) (bool, error) {
-	return r.kv.Exists(ctx, r.base.keyFromID(id))
-}
-
-func (r *HashRepository[T]) ExistsBatch(ctx context.Context, ids []string) (map[string]bool, error) {
-	keys := r.base.keysFromIDs(ids)
-	existsMap, err := r.kv.ExistsMulti(ctx, keys)
-	if err != nil {
-		return nil, err
-	}
-	return mapExistsResults(ids, keys, existsMap), nil
-}
-
-func (r *HashRepository[T]) Delete(ctx context.Context, id string) error {
-	key := r.base.keyFromID(id)
-	r.logDebug("kvx hash delete started", "key", key)
-	entity, err := r.findByKey(ctx, key)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			r.logDebug("kvx hash delete skipped", "key", key, "reason", "not_found")
-			return nil
-		}
-		r.logError("kvx hash delete failed", "stage", "find", "key", key, "error", err)
-		return err
-	}
-	metadata, err := r.base.metadata(entity)
-	if err != nil {
-		r.logError("kvx hash delete failed", "stage", "metadata", "key", key, "error", err)
-		return err
-	}
-	oldEntries, err := r.base.indexer.EntityIndexEntries(entity, metadata, key)
-	if err != nil {
-		r.logError("kvx hash delete failed", "stage", "index_entries", "key", key, "error", err)
-		return err
-	}
-	if script, ok := r.script.Get(); ok {
-		err := execDeleteScript(ctx, script, key, oldEntries)
-		if err != nil {
-			r.logError("kvx hash delete failed", "stage", "script_delete", "key", key, "error", err)
-			return err
-		}
-		r.logDebug("kvx hash delete completed", "key", key)
-		return nil
-	}
-	fields, err := r.client.HKeys(ctx, key)
-	if err != nil {
-		r.logError("kvx hash delete failed", "stage", "hkeys", "key", key, "error", err)
-		return err
-	}
-	if len(fields) > 0 {
-		if err := r.client.HDel(ctx, key, fields...); err != nil {
-			r.logError("kvx hash delete failed", "stage", "hdel", "key", key, "error", err)
-			return err
-		}
-	}
-	if err := r.kv.Delete(ctx, key); err != nil {
-		r.logError("kvx hash delete failed", "stage", "delete", "key", key, "error", err)
-		return err
-	}
-	if err := r.base.indexer.ApplyIndexDiff(ctx, oldEntries, nil); err != nil {
-		r.logError("kvx hash delete failed", "stage", "apply_index_diff", "key", key, "error", err)
-		return err
-	}
-	r.logDebug("kvx hash delete completed", "key", key)
-	return nil
-}
-
-func (r *HashRepository[T]) DeleteBatch(ctx context.Context, ids []string) error {
-	return runAll(ids, func(id string) error {
-		return r.Delete(ctx, id)
-	})
-}
-
-func (r *HashRepository[T]) FindAll(ctx context.Context) ([]*T, error) {
-	keys, err := r.base.scanAllKeys(ctx, r.kv)
-	if err != nil {
-		return nil, err
-	}
-	return collectPresentSlice(keys, func(key string) (*T, error) {
-		return r.findByKey(ctx, key)
-	})
-}
-
-func (r *HashRepository[T]) Count(ctx context.Context) (int64, error) {
-	keys, err := r.base.scanAllKeys(ctx, r.kv)
-	if err != nil {
-		return 0, err
-	}
-	return int64(len(keys)), nil
-}
-
-func (r *HashRepository[T]) FindByField(ctx context.Context, fieldName string, fieldValue string) ([]*T, error) {
-	entityIDs, err := r.base.idsByField(ctx, fieldName, fieldValue)
-	if err != nil {
-		return nil, err
-	}
-	return r.findManyByIDs(ctx, entityIDs)
-}
-
-func (r *HashRepository[T]) FindByFields(ctx context.Context, fields map[string]string) ([]*T, error) {
-	if len(fields) == 0 {
-		return r.FindAll(ctx)
-	}
-	idGroups := make([][]string, 0, len(fields))
-	for fieldName, fieldValue := range fields {
-		entityIDs, err := r.base.idsByField(ctx, fieldName, fieldValue)
-		if err != nil {
-			return nil, err
-		}
-		idGroups = append(idGroups, entityIDs)
-	}
-	intersection := intersectStringSlices(idGroups...)
-	if len(intersection) == 0 {
-		return []*T{}, nil
-	}
-	return r.findManyByIDs(ctx, intersection)
-}
-
-func (r *HashRepository[T]) UpdateField(ctx context.Context, id string, fieldName string, value interface{}) error {
-	key := r.base.keyFromID(id)
-	entity, err := r.findByKey(ctx, key)
-	if err != nil {
-		return err
-	}
-	metadata, err := r.base.metadata(entity)
-	if err != nil {
-		return err
-	}
-	resolvedField, fieldTag, exists := metadata.ResolveField(fieldName)
-	if !exists {
-		return ErrFieldNotFound
-	}
-	data, err := r.codec.EncodeSingleValue(value)
-	if err != nil {
-		return err
-	}
-	oldEntries, newEntries, err := r.base.indexer.ReplaceFieldIndexEntries(metadata, resolvedField, key, entity, value)
-	if err != nil {
-		return err
-	}
-	if script, ok := r.script.Get(); ok {
-		return execHashFieldUpdateScript(ctx, script, key, fieldTag.StorageName(), data, oldEntries, newEntries)
-	}
-	if err := r.client.HSet(ctx, key, map[string][]byte{fieldTag.StorageName(): data}); err != nil {
-		return err
-	}
-	return r.base.indexer.ApplyIndexDiff(ctx, oldEntries, newEntries)
-}
-
-func (r *HashRepository[T]) IncrementField(ctx context.Context, id string, fieldName string, increment int64) (int64, error) {
-	metadata, err := r.base.metadataForType()
-	if err != nil {
-		return 0, err
-	}
-	_, fieldTag, exists := metadata.ResolveField(fieldName)
-	if !exists {
-		return 0, ErrFieldNotFound
-	}
-	return r.client.HIncrBy(ctx, r.base.keyFromID(id), fieldTag.StorageName(), increment)
-}
-
-func (r *HashRepository[T]) findByKey(ctx context.Context, key string) (*T, error) {
-	r.logDebug("kvx hash find_by_key started", "key", key)
-	hashData, err := r.client.HGetAll(ctx, key)
-	if err != nil {
-		r.logError("kvx hash find_by_key failed", "stage", "hgetall", "key", key, "error", err)
-		return nil, err
-	}
-	if len(hashData) == 0 {
-		r.logDebug("kvx hash find_by_key not found", "key", key)
-		return nil, ErrNotFound
-	}
-	var entity T
-	metadata, err := r.base.metadataForType()
-	if err != nil {
-		r.logError("kvx hash find_by_key failed", "stage", "metadata", "key", key, "error", err)
-		return nil, err
-	}
-	if err := r.codec.Decode(hashData, &entity, metadata); err != nil {
-		r.logError("kvx hash find_by_key failed", "stage", "decode", "key", key, "error", err)
-		return nil, err
-	}
-	if err := r.base.hydrateEntityID(&entity, metadata, key); err != nil {
-		r.logError("kvx hash find_by_key failed", "stage", "hydrate_id", "key", key, "error", err)
-		return nil, err
-	}
-	r.logDebug("kvx hash find_by_key completed", "key", key)
-	return &entity, nil
 }
 
 func (r *HashRepository[T]) logDebug(msg string, attrs ...any) {
@@ -344,31 +61,3 @@ func (r *HashRepository[T]) logDebug(msg string, attrs ...any) {
 func (r *HashRepository[T]) logError(msg string, attrs ...any) {
 	kvx.LogError(r.logger, msg, attrs...)
 }
-
-func (r *HashRepository[T]) findManyByIDs(ctx context.Context, ids []string) ([]*T, error) {
-	return collectPresentSlice(ids, func(id string) (*T, error) {
-		return r.FindByID(ctx, id)
-	})
-}
-
-func encodeHashData(data map[string][]byte) [][]byte {
-	capacity := len(data) * 2
-	if capacity < 0 || capacity/2 != len(data) { // overflow check
-		capacity = len(data)
-	}
-	result := make([][]byte, 0, capacity)
-	for k, v := range data {
-		result = append(result, []byte(k), v)
-	}
-	return result
-}
-
-var (
-	ErrNotFound              = &repositoryError{"not found"}
-	ErrOperationNotSupported = &repositoryError{"operation not supported"}
-	ErrFieldNotFound         = &repositoryError{"field not found"}
-)
-
-type repositoryError struct{ msg string }
-
-func (e *repositoryError) Error() string { return "kvx: " + e.msg }

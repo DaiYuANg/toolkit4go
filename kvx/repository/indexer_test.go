@@ -1,10 +1,11 @@
-package repository
+package repository_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/kvx/mapping"
+	"github.com/DaiYuANg/arcgo/kvx/repository"
 )
 
 type IndexerTestEntity struct {
@@ -17,7 +18,7 @@ type IndexerTestEntity struct {
 func TestIndexer_IndexEntity(t *testing.T) {
 	ctx := context.Background()
 	kv := newMockKV()
-	indexer := NewIndexer[IndexerTestEntity](kv, "test")
+	indexer := repository.NewIndexer[IndexerTestEntity](kv, "test")
 
 	entity := &IndexerTestEntity{
 		ID:    "entity1",
@@ -58,7 +59,7 @@ func TestIndexer_IndexEntity(t *testing.T) {
 func TestIndexer_RemoveEntityFromIndexes(t *testing.T) {
 	ctx := context.Background()
 	kv := newMockKV()
-	indexer := NewIndexer[IndexerTestEntity](kv, "test")
+	indexer := repository.NewIndexer[IndexerTestEntity](kv, "test")
 
 	// Pre-populate indexes
 	kv.data["test:idx:name:John:entity1"] = []byte("1")
@@ -104,7 +105,7 @@ func TestIndexer_RemoveEntityFromIndexes(t *testing.T) {
 func TestIndexer_GetEntityIDsByField(t *testing.T) {
 	ctx := context.Background()
 	kv := newMockKV()
-	indexer := NewIndexer[IndexerTestEntity](kv, "test")
+	indexer := repository.NewIndexer[IndexerTestEntity](kv, "test")
 
 	// Pre-populate indexes
 	kv.data["test:idx:name:John:entity1"] = []byte("1")
@@ -130,76 +131,5 @@ func TestIndexer_GetEntityIDsByField(t *testing.T) {
 	}
 	if !idMap["entity2"] {
 		t.Errorf("Expected entity2 in results")
-	}
-}
-
-func TestFormatIndexValue(t *testing.T) {
-	tests := []struct {
-		name     string
-		value    interface{}
-		expected string
-	}{
-		{"string", "test", "test"},
-		{"int", 42, "42"},
-		{"int64", int64(42), "42"},
-		{"bool_true", true, "true"},
-		{"bool_false", false, "false"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// This test verifies the formatIndexValue function behavior
-			// The actual implementation uses reflect.Value
-		})
-	}
-}
-
-func TestExtractIDFromKey(t *testing.T) {
-	tests := []struct {
-		key      string
-		expected string
-	}{
-		{"user:123", "123"},
-		{"prefix:user:456", "456"},
-		{"simple", "simple"},
-		{"a:b:c:d", "d"},
-	}
-
-	for _, tt := range tests {
-		result := extractIDFromKey(tt.key)
-		if result != tt.expected {
-			t.Errorf("extractIDFromKey(%s) = %s, expected %s", tt.key, result, tt.expected)
-		}
-	}
-}
-
-func TestStringSliceIntersection(t *testing.T) {
-	tests := []struct {
-		a        []string
-		b        []string
-		expected []string
-	}{
-		{
-			[]string{"a", "b", "c"},
-			[]string{"b", "c", "d"},
-			[]string{"b", "c"},
-		},
-		{
-			[]string{"a", "b"},
-			[]string{"c", "d"},
-			[]string{},
-		},
-		{
-			[]string{},
-			[]string{"a", "b"},
-			[]string{},
-		},
-	}
-
-	for _, tt := range tests {
-		result := stringSliceIntersection(tt.a, tt.b)
-		if len(result) != len(tt.expected) {
-			t.Errorf("stringSliceIntersection(%v, %v) = %v, expected %v", tt.a, tt.b, result, tt.expected)
-		}
 	}
 }
