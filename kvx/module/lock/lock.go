@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -103,7 +104,7 @@ func (l *Lock) TryAcquire(ctx context.Context, timeout time.Duration) error {
 		// Wait a bit before retrying
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("lock acquisition canceled: %w", ctx.Err())
 		case <-time.After(100 * time.Millisecond):
 			continue
 		}
@@ -139,15 +140,16 @@ func (l *Lock) Extend(ctx context.Context, ttl time.Duration) error {
 // IsHeld checks if the lock is still held.
 func (l *Lock) IsHeld(ctx context.Context) (bool, error) {
 	// Try to extend with 0 TTL - this will only succeed if we hold the lock
-	return l.client.Extend(ctx, l.key, l.identifier, l.ttl)
+	held, err := l.client.Extend(ctx, l.key, l.identifier, l.ttl)
+	if err != nil {
+		return false, fmt.Errorf("check lock state: %w", err)
+	}
+	return held, nil
 }
 
 // startAutoExtend starts the auto-extend goroutine.
 func (l *Lock) startAutoExtend(ctx context.Context) {
-	l.extendWG.Add(1)
-	go func() {
-		defer l.extendWG.Done()
-
+	l.extendWG.Go(func() {
 		// Extend at 1/3 of TTL intervals
 		ticker := time.NewTicker(l.ttl / 3)
 		defer ticker.Stop()
@@ -166,7 +168,7 @@ func (l *Lock) startAutoExtend(ctx context.Context) {
 				}
 			}
 		}
-	}()
+	})
 }
 
 // stopAutoExtend stops the auto-extend goroutine.
@@ -180,8 +182,14 @@ func (l *Lock) stopAutoExtend() {
 // generateIdentifier generates a unique identifier for this lock instance.
 func generateIdentifier() string {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return fallbackIdentifier()
+	}
 	return hex.EncodeToString(b)
+}
+
+func fallbackIdentifier() string {
+	return hex.EncodeToString([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 }
 
 // Manager manages multiple locks.
@@ -250,136 +258,34 @@ func (m *Manager) IsHeld(ctx context.Context, key string) (bool, error) {
 }
 
 // WithLock executes a function while holding a lock.
-func WithLock(ctx context.Context, client kvx.Lock, key string, opts *Options, fn func() error) error {
+func WithLock(ctx context.Context, client kvx.Lock, key string, opts *Options, fn func() error) (err error) {
 	lock := New(client, key, opts)
-	if err := lock.Acquire(ctx); err != nil {
-		return err
+	if acquireErr := lock.Acquire(ctx); acquireErr != nil {
+		return acquireErr
 	}
-	defer func() { _ = lock.Release(ctx) }()
+	defer func() {
+		err = errors.Join(err, releaseLockOnExit(ctx, lock))
+	}()
 
 	return fn()
 }
 
 // WithTryLock executes a function while holding a lock, with a timeout for acquisition.
-func WithTryLock(ctx context.Context, client kvx.Lock, key string, timeout time.Duration, opts *Options, fn func() error) error {
+func WithTryLock(ctx context.Context, client kvx.Lock, key string, timeout time.Duration, opts *Options, fn func() error) (err error) {
 	lock := New(client, key, opts)
-	if err := lock.TryAcquire(ctx, timeout); err != nil {
-		return err
+	if acquireErr := lock.TryAcquire(ctx, timeout); acquireErr != nil {
+		return acquireErr
 	}
-	defer func() { _ = lock.Release(ctx) }()
+	defer func() {
+		err = errors.Join(err, releaseLockOnExit(ctx, lock))
+	}()
 
 	return fn()
 }
 
-// RWLock provides a read-write lock implementation using Redis.
-type RWLock struct {
-	client     kvx.KV
-	readKey    string
-	writeKey   string
-	identifier string
-}
-
-// NewRWLock creates a new RWLock.
-func NewRWLock(client kvx.KV, key string) *RWLock {
-	return &RWLock{
-		client:     client,
-		readKey:    fmt.Sprintf("%s:read", key),
-		writeKey:   fmt.Sprintf("%s:write", key),
-		identifier: generateIdentifier(),
+func releaseLockOnExit(ctx context.Context, lock *Lock) error {
+	if err := lock.Release(ctx); err != nil {
+		return fmt.Errorf("release lock %q: %w", lock.key, err)
 	}
-}
-
-// RLock acquires a read lock.
-func (rw *RWLock) RLock(ctx context.Context, ttl time.Duration) error {
-	// Check if write lock is held
-	exists, err := rw.client.Exists(ctx, rw.writeKey)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return ErrLockNotAcquired
-	}
-
-	// Increment read counter
-	// This is a simplified implementation
-	// Full implementation would use Lua script for atomicity
-	return rw.client.Set(ctx, fmt.Sprintf("%s:%s", rw.readKey, rw.identifier), []byte("1"), ttl)
-}
-
-// RUnlock releases a read lock.
-func (rw *RWLock) RUnlock(ctx context.Context) error {
-	return rw.client.Delete(ctx, fmt.Sprintf("%s:%s", rw.readKey, rw.identifier))
-}
-
-// Lock acquires a write lock.
-func (rw *RWLock) Lock(ctx context.Context, ttl time.Duration) error {
-	// Check if any read locks exist
-	// This is a simplified implementation
-	return rw.client.Set(ctx, rw.writeKey, []byte(rw.identifier), ttl)
-}
-
-// Unlock releases a write lock.
-func (rw *RWLock) Unlock(ctx context.Context) error {
-	return rw.client.Delete(ctx, rw.writeKey)
-}
-
-// Semaphore provides a distributed semaphore implementation.
-type Semaphore struct {
-	client kvx.KV
-	key    string
-	max    int
-}
-
-// NewSemaphore creates a new Semaphore.
-func NewSemaphore(client kvx.KV, key string, max int) *Semaphore {
-	return &Semaphore{
-		client: client,
-		key:    key,
-		max:    max,
-	}
-}
-
-// Acquire acquires a permit.
-func (s *Semaphore) Acquire(ctx context.Context, ttl time.Duration) error {
-	// This is a simplified implementation
-	// Full implementation would use Lua script for atomicity
-	// Get current count
-	data, err := s.client.Get(ctx, s.key)
-	if err != nil && !errors.Is(err, kvx.ErrNil) {
-		return err
-	}
-
-	count := 0
-	if data != nil {
-		_, _ = fmt.Sscanf(string(data), "%d", &count)
-	}
-
-	if count >= s.max {
-		return ErrLockNotAcquired
-	}
-
-	// Increment count
-	count++
-	return s.client.Set(ctx, s.key, []byte(fmt.Sprintf("%d", count)), ttl)
-}
-
-// Release releases a permit.
-func (s *Semaphore) Release(ctx context.Context) error {
-	// This is a simplified implementation
-	// Full implementation would use Lua script for atomicity
-	data, err := s.client.Get(ctx, s.key)
-	if err != nil {
-		return err
-	}
-
-	count := 0
-	if data != nil {
-		_, _ = fmt.Sscanf(string(data), "%d", &count)
-	}
-
-	if count > 0 {
-		count--
-	}
-
-	return s.client.Set(ctx, s.key, []byte(fmt.Sprintf("%d", count)), 0)
+	return nil
 }

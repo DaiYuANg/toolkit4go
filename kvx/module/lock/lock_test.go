@@ -1,9 +1,12 @@
-package lock
+package lock_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
+
+	lock "github.com/DaiYuANg/arcgo/kvx/module/lock"
 )
 
 type mockLockClient struct {
@@ -14,7 +17,7 @@ func newMockLockClient() *mockLockClient {
 	return &mockLockClient{owners: make(map[string]string)}
 }
 
-func (m *mockLockClient) Acquire(ctx context.Context, key string, token string, ttl time.Duration) (bool, error) {
+func (m *mockLockClient) Acquire(ctx context.Context, key, token string, ttl time.Duration) (bool, error) {
 	_ = ctx
 	_ = ttl
 	if _, exists := m.owners[key]; exists {
@@ -24,7 +27,7 @@ func (m *mockLockClient) Acquire(ctx context.Context, key string, token string, 
 	return true, nil
 }
 
-func (m *mockLockClient) Release(ctx context.Context, key string, token string) (bool, error) {
+func (m *mockLockClient) Release(ctx context.Context, key, token string) (bool, error) {
 	_ = ctx
 	if owner, exists := m.owners[key]; exists && owner == token {
 		delete(m.owners, key)
@@ -33,7 +36,7 @@ func (m *mockLockClient) Release(ctx context.Context, key string, token string) 
 	return false, nil
 }
 
-func (m *mockLockClient) Extend(ctx context.Context, key string, token string, ttl time.Duration) (bool, error) {
+func (m *mockLockClient) Extend(ctx context.Context, key, token string, ttl time.Duration) (bool, error) {
 	_ = ctx
 	_ = ttl
 	owner, exists := m.owners[key]
@@ -43,8 +46,8 @@ func (m *mockLockClient) Extend(ctx context.Context, key string, token string, t
 func TestLock_UsesOwnershipTokenForRelease(t *testing.T) {
 	ctx := context.Background()
 	client := newMockLockClient()
-	lock1 := New(client, "resource", &Options{TTL: time.Second, AutoExtend: false})
-	lock2 := New(client, "resource", &Options{TTL: time.Second, AutoExtend: false})
+	lock1 := lock.New(client, "resource", &lock.Options{TTL: time.Second, AutoExtend: false})
+	lock2 := lock.New(client, "resource", &lock.Options{TTL: time.Second, AutoExtend: false})
 
 	if err := lock1.Acquire(ctx); err != nil {
 		t.Fatalf("Acquire failed: %v", err)
@@ -56,7 +59,7 @@ func TestLock_UsesOwnershipTokenForRelease(t *testing.T) {
 		t.Fatalf("wrong token should not release the lock")
 	}
 
-	if err := lock2.Acquire(ctx); err != ErrLockNotAcquired {
+	if err := lock2.Acquire(ctx); !errors.Is(err, lock.ErrLockNotAcquired) {
 		t.Fatalf("second lock should still be blocked, got %v", err)
 	}
 
@@ -72,9 +75,9 @@ func TestLock_UsesOwnershipTokenForRelease(t *testing.T) {
 func TestLock_ExtendRequiresOwnershipToken(t *testing.T) {
 	ctx := context.Background()
 	client := newMockLockClient()
-	lock := New(client, "resource", &Options{TTL: time.Second, AutoExtend: false})
+	distLock := lock.New(client, "resource", &lock.Options{TTL: time.Second, AutoExtend: false})
 
-	if err := lock.Acquire(ctx); err != nil {
+	if err := distLock.Acquire(ctx); err != nil {
 		t.Fatalf("Acquire failed: %v", err)
 	}
 
@@ -84,7 +87,7 @@ func TestLock_ExtendRequiresOwnershipToken(t *testing.T) {
 		t.Fatalf("wrong token should not extend the lock")
 	}
 
-	if err := lock.Extend(ctx, time.Second); err != nil {
+	if err := distLock.Extend(ctx, time.Second); err != nil {
 		t.Fatalf("owner extend failed: %v", err)
 	}
 }
