@@ -72,11 +72,14 @@ func isEmpty(v any) bool {
 	if !ok {
 		return true
 	}
-	switch rv.Kind() {
-	case reflect.String, reflect.Array, reflect.Slice, reflect.Map:
+	if isLengthValue(rv.Kind()) {
 		return rv.Len() == 0
 	}
 	return false
+}
+
+func isLengthValue(kind reflect.Kind) bool {
+	return kind == reflect.String || kind == reflect.Array || kind == reflect.Slice || kind == reflect.Map
 }
 
 func isBlank(v any) bool {

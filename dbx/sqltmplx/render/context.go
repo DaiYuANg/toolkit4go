@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
-	"github.com/samber/lo"
 )
 
 type state struct {
@@ -37,29 +36,39 @@ func envMap(params any) map[string]any {
 		return map[string]any{}
 	}
 	if v.Kind() == reflect.Map {
-		out := make(map[string]any, v.Len())
-		iter := v.MapRange()
-		for iter.Next() {
-			k := iter.Key()
-			if k.Kind() == reflect.String {
-				out[k.String()] = iter.Value().Interface()
-			}
-		}
-		return out
+		return mapEnv(v)
 	}
 	if v.Kind() == reflect.Struct {
-		meta := cachedStructMetadata(v.Type())
-		return lo.Assign(lo.Map(meta.fields, func(field structFieldMetadata, _ int) map[string]any {
-			val := v.Field(field.index).Interface()
-			out := map[string]any{
-				field.name:       val,
-				field.foldedName: val,
-			}
-			for _, alias := range field.aliases {
-				out[alias] = val
-			}
-			return out
-		})...)
+		return structEnv(v)
 	}
 	return map[string]any{}
+}
+
+func mapEnv(value reflect.Value) map[string]any {
+	out := make(map[string]any, value.Len())
+	iter := value.MapRange()
+	for iter.Next() {
+		key := iter.Key()
+		if key.Kind() == reflect.String {
+			out[key.String()] = iter.Value().Interface()
+		}
+	}
+	return out
+}
+
+func structEnv(value reflect.Value) map[string]any {
+	meta := cachedStructMetadata(value.Type())
+	out := make(map[string]any, len(meta.fields)*2)
+	for _, field := range meta.fields {
+		assignStructField(out, field, value.Field(field.index).Interface())
+	}
+	return out
+}
+
+func assignStructField(out map[string]any, field structFieldMetadata, value any) {
+	out[field.name] = value
+	out[field.foldedName] = value
+	for _, alias := range field.aliases {
+		out[alias] = value
+	}
 }

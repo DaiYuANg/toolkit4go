@@ -1,9 +1,12 @@
-package render
+package render_test
 
 import (
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dbx/dialect/postgres"
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/parse"
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/render"
+	"github.com/stretchr/testify/require"
 )
 
 type bindQuery struct {
@@ -12,15 +15,10 @@ type bindQuery struct {
 }
 
 func TestBindCommentPlaceholderWithStructTags(t *testing.T) {
-	st := newState(bindQuery{Name: "alice", IDs: []int{10, 20}}, postgres.New())
-	out, err := bindText("name = /* name */'bob' AND id IN (/* ids */(1, 2))", st)
-	if err != nil {
-		t.Fatalf("bindText returned error: %v", err)
-	}
-	if out != "name = $1 AND id IN ($2, $3)" {
-		t.Fatalf("unexpected bind output: %q", out)
-	}
-	if len(st.args) != 3 {
-		t.Fatalf("unexpected args length: %d", len(st.args))
-	}
+	result, err := render.Render([]parse.Node{
+		parse.TextNode{Text: "name = /* name */'bob' AND id IN (/* ids */(1, 2))"},
+	}, bindQuery{Name: "alice", IDs: []int{10, 20}}, postgres.New())
+	require.NoError(t, err)
+	require.Equal(t, "name = $1 AND id IN ($2, $3)", result.Query)
+	require.Equal(t, []any{"alice", 10, 20}, result.Args)
 }

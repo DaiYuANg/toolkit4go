@@ -1,6 +1,7 @@
 package render
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,9 @@ import (
 	"github.com/expr-lang/expr/vm"
 )
 
+var errIfExpressionNotBool = errors.New("sqltmplx: if expression must return bool")
+
+// Render renders parsed template nodes into SQL.
 func Render(nodes []parse.Node, params any, d dialect.Contract) (Result, error) {
 	st := newState(params, d)
 	query, err := renderNodes(nodes, st)
@@ -20,53 +24,52 @@ func Render(nodes []parse.Node, params any, d dialect.Contract) (Result, error) 
 
 func renderNodes(nodes []parse.Node, st *state) (string, error) {
 	var sb strings.Builder
-	for _, node := range nodes {
-		switch n := node.(type) {
-		case parse.TextNode:
-			text, err := bindText(n.Text, st)
-			if err != nil {
-				return "", err
-			}
-			sb.WriteString(text)
-		case *parse.IfNode:
-			ok, err := evalIf(n.Program, st.params)
-			if err != nil {
-				return "", err
-			}
-			if ok {
-				text, err := renderNodes(n.Body, st)
-				if err != nil {
-					return "", err
-				}
-				sb.WriteString(text)
-			}
-		case *parse.WhereNode:
-			text, err := renderNodes(n.Body, st)
-			if err != nil {
-				return "", err
-			}
-			cleaned := cleanupWhere(text)
-			if cleaned != "" {
-				sb.WriteByte(' ')
-				sb.WriteString(cleaned)
-				sb.WriteByte(' ')
-			}
-		case *parse.SetNode:
-			text, err := renderNodes(n.Body, st)
-			if err != nil {
-				return "", err
-			}
-			cleaned := cleanupSet(text)
-			if cleaned != "" {
-				sb.WriteByte(' ')
-				sb.WriteString(cleaned)
-				sb.WriteByte(' ')
-			}
-		default:
-			return "", fmt.Errorf("sqltmplx: unsupported node %T", node)
+	for i := range nodes {
+		text, err := renderNode(nodes[i], st)
+		if err != nil {
+			return "", err
 		}
+		writeBuilderString(&sb, text)
 	}
 	return sb.String(), nil
+}
+
+func renderNode(node parse.Node, st *state) (string, error) {
+	switch typed := node.(type) {
+	case parse.TextNode:
+		return bindText(typed.Text, st)
+	case *parse.IfNode:
+		return renderIfNode(typed, st)
+	case *parse.WhereNode:
+		return renderCleanedBlock(typed.Body, st, cleanupWhere)
+	case *parse.SetNode:
+		return renderCleanedBlock(typed.Body, st, cleanupSet)
+	default:
+		return "", fmt.Errorf("sqltmplx: unsupported node %T", node)
+	}
+}
+
+func renderIfNode(node *parse.IfNode, st *state) (string, error) {
+	ok, err := evalIf(node.Program, st.params)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", nil
+	}
+	return renderNodes(node.Body, st)
+}
+
+func renderCleanedBlock(body []parse.Node, st *state, cleanup func(string) string) (string, error) {
+	text, err := renderNodes(body, st)
+	if err != nil {
+		return "", err
+	}
+	cleaned := cleanup(text)
+	if cleaned == "" {
+		return "", nil
+	}
+	return " " + cleaned + " ", nil
 }
 
 func evalIf(program *vm.Program, params any) (bool, error) {
@@ -76,7 +79,13 @@ func evalIf(program *vm.Program, params any) (bool, error) {
 	}
 	b, ok := out.(bool)
 	if !ok {
-		return false, fmt.Errorf("sqltmplx: if expression must return bool")
+		return false, errIfExpressionNotBool
 	}
 	return b, nil
+}
+
+func writeBuilderString(builder *strings.Builder, value string) {
+	if _, err := builder.WriteString(value); err != nil {
+		panic(err)
+	}
 }

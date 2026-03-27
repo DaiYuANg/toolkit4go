@@ -1,6 +1,13 @@
-package render
+package render_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/DaiYuANg/arcgo/dbx/dialect/postgres"
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/parse"
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/render"
+	"github.com/stretchr/testify/require"
+)
 
 type nestedFilter struct {
 	IDs []int `json:"ids"`
@@ -19,16 +26,10 @@ func TestLookupPrefersFieldThenTag(t *testing.T) {
 		Filter: nestedFilter{IDs: []int{1, 2, 3}},
 	}
 
-	if got := lookup(params, "Name"); got.IsAbsent() || got.MustGet() != "alice" {
-		t.Fatalf("expected field lookup to resolve Name")
-	}
-	if got := lookup(params, "name"); got.IsAbsent() || got.MustGet() != "alice" {
-		t.Fatalf("expected tag lookup to resolve db tag name")
-	}
-	if got := lookup(params, "status"); got.IsAbsent() || got.MustGet() != "ACTIVE" {
-		t.Fatalf("expected tag lookup to resolve json tag status")
-	}
-	if got := lookup(params, "filter.ids"); got.IsAbsent() {
-		t.Fatalf("expected nested tag lookup to resolve filter.ids")
-	}
+	result, err := render.Render([]parse.Node{
+		parse.TextNode{Text: "name = /* Name */'x' AND alias = /* name */'x' AND status = /* status */'x' AND id IN (/* filter.ids */(1, 2, 3))"},
+	}, params, postgres.New())
+	require.NoError(t, err)
+	require.Equal(t, "name = $1 AND alias = $2 AND status = $3 AND id IN ($4, $5, $6)", result.Query)
+	require.Equal(t, []any{"alice", "alice", "ACTIVE", 1, 2, 3}, result.Args)
 }

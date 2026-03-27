@@ -1,9 +1,11 @@
-package render
+package render_test
 
 import (
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dbx/dialect/postgres"
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/parse"
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/render"
 )
 
 type benchmarkNestedFilter struct {
@@ -16,42 +18,46 @@ type benchmarkParams struct {
 	Filter benchmarkNestedFilter `json:"filter"`
 }
 
-var benchmarkLookupParams = benchmarkParams{
-	Tenant: "acme",
-	Status: "active",
-	Filter: benchmarkNestedFilter{IDs: []int{1, 2, 3}},
-}
+var (
+	benchmarkLookupParams = benchmarkParams{
+		Tenant: "acme",
+		Status: "active",
+		Filter: benchmarkNestedFilter{IDs: []int{1, 2, 3}},
+	}
+	benchmarkLookupNodes = []parse.Node{
+		parse.TextNode{Text: "tenant = /* tenant */'acme' AND status = /* status */'active' AND id IN (/* filter.ids */(1, 2, 3))"},
+	}
+)
 
-func BenchmarkLookupStruct(b *testing.B) {
+func BenchmarkRenderLookupStruct(b *testing.B) {
 	for b.Loop() {
-		if value := lookup(benchmarkLookupParams, "tenant"); value.IsAbsent() {
-			b.Fatal("expected tenant")
+		if _, err := render.Render(benchmarkLookupNodes, benchmarkLookupParams, postgres.New()); err != nil {
+			b.Fatal(err)
 		}
 	}
 }
 
-func BenchmarkLookupNestedStruct(b *testing.B) {
+func BenchmarkRenderLookupMap(b *testing.B) {
+	params := map[string]any{
+		"tenant": "acme",
+		"status": "active",
+		"filter": map[string]any{"ids": []int{1, 2, 3}},
+	}
+
 	for b.Loop() {
-		if value := lookup(benchmarkLookupParams, "filter.ids"); value.IsAbsent() {
-			b.Fatal("expected ids")
+		if _, err := render.Render(benchmarkLookupNodes, params, postgres.New()); err != nil {
+			b.Fatal(err)
 		}
 	}
 }
 
-func BenchmarkEnvMapStruct(b *testing.B) {
-	for b.Loop() {
-		if env := envMap(benchmarkLookupParams); len(env) == 0 {
-			b.Fatal("expected env")
-		}
+func BenchmarkRenderTextStruct(b *testing.B) {
+	textNodes := []parse.Node{
+		parse.TextNode{Text: "tenant = /* tenant */'acme' AND id IN (/* filter.ids */(1, 2, 3))"},
 	}
-}
-
-func BenchmarkBindTextStruct(b *testing.B) {
-	text := "tenant = /* tenant */'acme' AND id IN (/* filter.ids */(1, 2, 3))"
 
 	for b.Loop() {
-		st := newState(benchmarkLookupParams, postgres.New())
-		if _, err := bindText(text, st); err != nil {
+		if _, err := render.Render(textNodes, benchmarkLookupParams, postgres.New()); err != nil {
 			b.Fatal(err)
 		}
 	}
