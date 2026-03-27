@@ -1,6 +1,7 @@
 package sqltmplx
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -11,6 +12,7 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/validate"
 )
 
+// Template stores a compiled SQL template.
 type Template struct {
 	name      string
 	nodes     []parse.Node
@@ -18,18 +20,19 @@ type Template struct {
 	validator validate.Validator
 }
 
-func compileTemplate(name string, tpl string, d dialect.Contract, cfg config) (*Template, error) {
+func compileTemplate(name, tpl string, d dialect.Contract, cfg config) (*Template, error) {
 	tokens, err := scan.Scan(tpl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scan template: %w", err)
 	}
 	nodes, err := parse.Build(tokens)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build template nodes: %w", err)
 	}
 	return &Template{name: name, nodes: nodes, dialect: d, validator: cfg.validator}, nil
 }
 
+// StatementName returns the template statement name.
 func (t *Template) StatementName() string {
 	if t == nil {
 		return ""
@@ -37,19 +40,21 @@ func (t *Template) StatementName() string {
 	return t.name
 }
 
+// Render renders the template into SQL and bind arguments.
 func (t *Template) Render(params any) (BoundSQL, error) {
 	bound, err := render.Render(t.nodes, params, t.dialect)
 	if err != nil {
-		return BoundSQL{}, err
+		return BoundSQL{}, fmt.Errorf("render template: %w", err)
 	}
 	if t.validator != nil {
 		if err := t.validator.Validate(bound.Query); err != nil {
-			return BoundSQL{}, err
+			return BoundSQL{}, fmt.Errorf("validate rendered sql: %w", err)
 		}
 	}
 	return BoundSQL{Query: bound.Query, Args: bound.Args}, nil
 }
 
+// Bind renders the template into a dbx bound query.
 func (t *Template) Bind(params any) (dbx.BoundQuery, error) {
 	if t == nil {
 		return dbx.BoundQuery{}, dbx.ErrNilStatement
@@ -57,7 +62,7 @@ func (t *Template) Bind(params any) (dbx.BoundQuery, error) {
 
 	bound, err := t.Render(params)
 	if err != nil {
-		return dbx.BoundQuery{}, err
+		return dbx.BoundQuery{}, fmt.Errorf("render bound query: %w", err)
 	}
 	return dbx.BoundQuery{
 		Name: t.name,

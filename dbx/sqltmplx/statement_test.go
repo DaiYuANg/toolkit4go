@@ -1,39 +1,35 @@
-package sqltmplx
+package sqltmplx_test
 
 import (
 	"testing"
 	"testing/fstest"
 
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	sqltmplx "github.com/DaiYuANg/arcgo/dbx/sqltmplx"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTemplateBindReturnsDBXBoundQuery(t *testing.T) {
-	engine := New(sqlite.New())
+	engine := sqltmplx.New(sqlite.New())
 	template, err := engine.CompileNamed("user/find_active.sql", `
 select id, username
 from users
 where status = /* status */1
 `)
-	if err != nil {
-		t.Fatalf("CompileNamed returned error: %v", err)
-	}
+	require.NoError(t, err)
 
 	bound, err := template.Bind(struct {
 		Status int
 	}{Status: 1})
-	if err != nil {
-		t.Fatalf("Bind returned error: %v", err)
-	}
-	if bound.Name != "user/find_active.sql" {
-		t.Fatalf("unexpected bound name: %q", bound.Name)
-	}
-	if bound.SQL == "" || len(bound.Args) != 1 || bound.Args[0] != 1 {
-		t.Fatalf("unexpected bound query: %+v", bound)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "user/find_active.sql", bound.Name)
+	require.Equal(t, 1, len(bound.Args))
+	require.Equal(t, 1, bound.Args[0])
+	require.NotEmpty(t, bound.SQL)
 }
 
 func TestRegistryLoadsAndCachesTemplates(t *testing.T) {
-	registry := NewRegistry(fstest.MapFS{
+	registry := sqltmplx.NewRegistry(fstest.MapFS{
 		"sql/user/find_active.sql": {
 			Data: []byte(`
 select id, username
@@ -45,27 +41,16 @@ order by id
 	}, sqlite.New())
 
 	first, err := registry.Template("sql/user/find_active.sql")
-	if err != nil {
-		t.Fatalf("Template returned error: %v", err)
-	}
+	require.NoError(t, err)
+
 	second, err := registry.Statement("/sql/user/find_active.sql")
-	if err != nil {
-		t.Fatalf("Statement returned error: %v", err)
-	}
-	if first != second {
-		t.Fatal("expected registry to reuse cached template instance")
-	}
+	require.NoError(t, err)
+	require.Same(t, first, second)
 
 	bound, err := second.Bind(struct {
 		Status int
 	}{Status: 2})
-	if err != nil {
-		t.Fatalf("Bind returned error: %v", err)
-	}
-	if bound.Name != "sql/user/find_active.sql" {
-		t.Fatalf("unexpected statement name: %q", bound.Name)
-	}
-	if len(bound.Args) != 1 || bound.Args[0] != 2 {
-		t.Fatalf("unexpected statement args: %#v", bound.Args)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "sql/user/find_active.sql", bound.Name)
+	require.Equal(t, []any{2}, bound.Args)
 }

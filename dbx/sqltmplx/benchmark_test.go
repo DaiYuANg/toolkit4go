@@ -1,9 +1,10 @@
-package sqltmplx
+package sqltmplx_test
 
 import (
 	"testing"
 
 	mysqlDialect "github.com/DaiYuANg/arcgo/dbx/dialect/mysql"
+	sqltmplx "github.com/DaiYuANg/arcgo/dbx/sqltmplx"
 )
 
 var benchmarkTemplateText = `
@@ -30,7 +31,7 @@ type benchmarkQuery struct {
 }
 
 func BenchmarkCompile(b *testing.B) {
-	engine := New(mysqlDialect.Dialect{})
+	engine := sqltmplx.New(mysqlDialect.New())
 
 	for b.Loop() {
 		if _, err := engine.Compile(benchmarkTemplateText); err != nil {
@@ -40,7 +41,7 @@ func BenchmarkCompile(b *testing.B) {
 }
 
 func BenchmarkEngineRenderStruct(b *testing.B) {
-	engine := New(mysqlDialect.Dialect{})
+	engine := sqltmplx.New(mysqlDialect.New())
 	params := benchmarkQuery{Tenant: "acme", Status: "active", IDs: []int{1, 2, 3}}
 
 	b.ResetTimer()
@@ -52,7 +53,7 @@ func BenchmarkEngineRenderStruct(b *testing.B) {
 }
 
 func BenchmarkEngineRenderMap(b *testing.B) {
-	engine := New(mysqlDialect.Dialect{})
+	engine := sqltmplx.New(mysqlDialect.New())
 	params := map[string]any{"Tenant": "acme", "Status": "active", "IDs": []int{1, 2, 3}}
 
 	b.ResetTimer()
@@ -64,7 +65,7 @@ func BenchmarkEngineRenderMap(b *testing.B) {
 }
 
 func BenchmarkTemplateRenderReuse(b *testing.B) {
-	engine := New(mysqlDialect.Dialect{})
+	engine := sqltmplx.New(mysqlDialect.New())
 	tpl, err := engine.Compile(benchmarkTemplateText)
 	if err != nil {
 		b.Fatal(err)
@@ -80,7 +81,7 @@ func BenchmarkTemplateRenderReuse(b *testing.B) {
 }
 
 func BenchmarkTemplateRenderReuseParallel(b *testing.B) {
-	engine := New(mysqlDialect.Dialect{})
+	engine := sqltmplx.New(mysqlDialect.New())
 	tpl, err := engine.Compile(benchmarkTemplateText)
 	if err != nil {
 		b.Fatal(err)
