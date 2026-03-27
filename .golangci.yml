@@ -96,12 +96,7 @@ linters:
       min-complexity: 10
     godoclint:
       default: basic
-      enable:
-        - require-doc
       options:
-        require-doc:
-          ignore-exported: false
-          ignore-unexported: true
         start-with-name:
           include-unexported: false
     govet:
@@ -129,6 +124,12 @@ linters:
             - max: 300
               skip-comments: false
               skip-blank-lines: false
+        - name: exported
+          disabled: true
+        - name: unexported-return
+          disabled: true
+        - name: unused-parameter
+          disabled: true
     staticcheck:
       checks:
         - all

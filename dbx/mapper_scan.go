@@ -29,12 +29,12 @@ func (m StructMapper[E]) scanRowsWithCapacity(rows *sql.Rows, capacityHint int) 
 		return nil, ErrNilMapper
 	}
 	if rows == nil {
-		return nil, fmt.Errorf("dbx: rows is nil")
+		return nil, errors.New("dbx: rows is nil")
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return nil, wrapDBError("read row columns", err)
 	}
 	plan, err := m.scanPlan(columns)
 	if err != nil {
@@ -43,24 +43,27 @@ func (m StructMapper[E]) scanRowsWithCapacity(rows *sql.Rows, capacityHint int) 
 	if capacityHint > 0 {
 		return m.collectRowsWithCapacity(context.Background(), plan, rows, capacityHint)
 	}
-	return scanlib.AllFromRows[E](context.Background(), m.scanMapper(plan), rows)
+	items, err := scanlib.AllFromRows[E](context.Background(), m.scanMapper(plan), rows)
+	return items, wrapDBError("scan all rows", err)
 }
 
-func (m StructMapper[E]) collectRowsWithCapacity(ctx context.Context, plan *scanPlan, rows *sql.Rows, capacityHint int) ([]E, error) {
+func (m StructMapper[E]) collectRowsWithCapacity(ctx context.Context, plan *scanPlan, rows *sql.Rows, capacityHint int) (_ []E, err error) {
 	cursor, err := scanlib.CursorFromRows(ctx, m.scanMapper(plan), rows)
 	if err != nil {
-		return nil, err
+		return nil, wrapDBError("open scan cursor", err)
 	}
-	defer cursor.Close()
+	defer func() {
+		err = errors.Join(err, wrapDBError("close scan cursor", cursor.Close()))
+	}()
 	result := make([]E, 0, capacityHint)
 	for cursor.Next() {
-		v, err := cursor.Get()
-		if err != nil {
-			return nil, err
+		value, getErr := cursor.Get()
+		if getErr != nil {
+			return nil, wrapDBError("get scan cursor value", getErr)
 		}
-		result = append(result, v)
+		result = append(result, value)
 	}
-	return result, cursor.Err()
+	return result, wrapDBError("read scan cursor error", cursor.Err())
 }
 
 func (m StructMapper[E]) scanOneRows(ctx context.Context, rows *sql.Rows) (E, bool, error) {
@@ -70,13 +73,13 @@ func (m StructMapper[E]) scanOneRows(ctx context.Context, rows *sql.Rows) (E, bo
 	}
 	if rows == nil {
 		var zero E
-		return zero, false, fmt.Errorf("dbx: rows is nil")
+		return zero, false, errors.New("dbx: rows is nil")
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
 		var zero E
-		return zero, false, err
+		return zero, false, wrapDBError("read row columns", err)
 	}
 	plan, err := m.scanPlan(columns)
 	if err != nil {
@@ -91,7 +94,7 @@ func (m StructMapper[E]) scanOneRows(ctx context.Context, rows *sql.Rows) (E, bo
 			return zero, false, nil
 		}
 		var zero E
-		return zero, false, err
+		return zero, false, wrapDBError("scan one row", err)
 	}
 
 	if rows.Next() {
@@ -100,7 +103,7 @@ func (m StructMapper[E]) scanOneRows(ctx context.Context, rows *sql.Rows) (E, bo
 	}
 	if err := rows.Err(); err != nil {
 		var zero E
-		return zero, false, err
+		return zero, false, wrapDBError("iterate rows", err)
 	}
 
 	return value, true, nil
@@ -111,12 +114,12 @@ func (m StructMapper[E]) scanCursor(ctx context.Context, rows *sql.Rows) (Cursor
 		return nil, ErrNilMapper
 	}
 	if rows == nil {
-		return nil, fmt.Errorf("dbx: rows is nil")
+		return nil, errors.New("dbx: rows is nil")
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return nil, wrapDBError("read row columns", err)
 	}
 	plan, err := m.scanPlan(columns)
 	if err != nil {
@@ -125,7 +128,7 @@ func (m StructMapper[E]) scanCursor(ctx context.Context, rows *sql.Rows) (Cursor
 
 	cursor, err := scanlib.CursorFromRows(ctx, m.scanMapper(plan), rows)
 	if err != nil {
-		return nil, err
+		return nil, wrapDBError("open scan cursor", err)
 	}
 	return scanCursor[E]{cursor: cursor}, nil
 }
@@ -178,7 +181,11 @@ func (m StructMapper[E]) scanMapper(plan *scanPlan) scanlib.Mapper[E] {
 				}
 				return state, nil
 			}, func(state any) (E, error) {
-				current := state.(rowScanState)
+				current, ok := state.(rowScanState)
+				if !ok {
+					var zero E
+					return zero, fmt.Errorf("dbx: unexpected scan state %T", state)
+				}
 				for i, field := range plan.fields {
 					if field.codec == nil {
 						continue
@@ -190,10 +197,15 @@ func (m StructMapper[E]) scanMapper(plan *scanPlan) scanlib.Mapper[E] {
 					}
 					if err := field.codec.Decode(current.codecSources[i], fieldValue); err != nil {
 						var zero E
-						return zero, err
+						return zero, wrapDBError("decode mapped field", err)
 					}
 				}
-				return current.value.Interface().(E), nil
+				value, ok := current.value.Interface().(E)
+				if !ok {
+					var zero E
+					return zero, fmt.Errorf("dbx: scanned value type %T does not match target", current.value.Interface())
+				}
+				return value, nil
 			}
 	}
 }

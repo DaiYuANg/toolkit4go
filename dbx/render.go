@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -35,9 +36,59 @@ type selectItemRenderer interface {
 }
 
 type renderState struct {
-	dialect dialect.Dialect
-	buf     strings.Builder
-	args    []any
+	dialect  dialect.Dialect
+	buf      strings.Builder
+	args     []any
+	writeErr error
+}
+
+func (s *renderState) writeString(text string) {
+	if s.writeErr != nil {
+		return
+	}
+
+	_, s.writeErr = s.buf.WriteString(text)
+}
+
+func (s *renderState) writeByte(value byte) {
+	if s.writeErr != nil {
+		return
+	}
+
+	s.writeErr = s.buf.WriteByte(value)
+}
+
+func (s *renderState) err() error {
+	return wrapDBError("write rendered SQL", s.writeErr)
+}
+
+type renderBuffer struct {
+	buf strings.Builder
+	err error
+}
+
+func (b *renderBuffer) writeString(text string) {
+	if b.err != nil {
+		return
+	}
+
+	_, b.err = b.buf.WriteString(text)
+}
+
+func (b *renderBuffer) writeByte(value byte) {
+	if b.err != nil {
+		return
+	}
+
+	b.err = b.buf.WriteByte(value)
+}
+
+func (b *renderBuffer) String() string {
+	return b.buf.String()
+}
+
+func (b *renderBuffer) Err(op string) error {
+	return wrapDBError(op, b.err)
 }
 
 func (s *renderState) bind(value any) string {
@@ -46,13 +97,13 @@ func (s *renderState) bind(value any) string {
 }
 
 func (s *renderState) writeQuotedIdent(name string) {
-	s.buf.WriteString(s.dialect.QuoteIdent(name))
+	s.writeString(s.dialect.QuoteIdent(name))
 }
 
 func (s *renderState) writeQualifiedIdent(table, column string) {
 	if table != "" {
 		s.writeQuotedIdent(table)
-		s.buf.WriteByte('.')
+		s.writeByte('.')
 	}
 	s.writeQuotedIdent(column)
 }
@@ -68,7 +119,7 @@ func (s *renderState) renderColumn(meta ColumnMeta) {
 func (s *renderState) renderTable(table Table) {
 	s.writeQuotedIdent(table.Name())
 	if alias := table.Alias(); alias != "" && alias != table.Name() {
-		s.buf.WriteString(" AS ")
+		s.writeString(" AS ")
 		s.writeQuotedIdent(alias)
 	}
 }
@@ -81,17 +132,20 @@ func (s *renderState) BoundQuery() BoundQuery {
 
 func (q *SelectQuery) Build(d dialect.Dialect) (BoundQuery, error) {
 	if q == nil {
-		return BoundQuery{}, fmt.Errorf("dbx: select query is nil")
+		return BoundQuery{}, errors.New("dbx: select query is nil")
 	}
 	if q.FromItem.Name() == "" {
-		return BoundQuery{}, fmt.Errorf("dbx: select query requires FROM")
+		return BoundQuery{}, errors.New("dbx: select query requires FROM")
 	}
 	if len(q.Items) == 0 {
-		return BoundQuery{}, fmt.Errorf("dbx: select query requires at least one item")
+		return BoundQuery{}, errors.New("dbx: select query requires at least one item")
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, 8)}
 	if err := renderSelectStatement(state, q); err != nil {
+		return BoundQuery{}, err
+	}
+	if err := state.err(); err != nil {
 		return BoundQuery{}, err
 	}
 	bound := state.BoundQuery()
@@ -118,12 +172,12 @@ func renderSelectSet(state *renderState, q *SelectQuery) error {
 	}
 	for _, union := range q.Unions {
 		if union.Query == nil {
-			return fmt.Errorf("dbx: union query is nil")
+			return errors.New("dbx: union query is nil")
 		}
 		if union.All {
-			state.buf.WriteString(" UNION ALL ")
+			state.writeString(" UNION ALL ")
 		} else {
-			state.buf.WriteString(" UNION ")
+			state.writeString(" UNION ")
 		}
 		if err := renderUnionQuery(state, union.Query); err != nil {
 			return err
@@ -136,35 +190,35 @@ func renderCTEs(state *renderState, ctes []CTE) error {
 	if len(ctes) == 0 {
 		return nil
 	}
-	state.buf.WriteString("WITH ")
+	state.writeString("WITH ")
 	for index, cte := range ctes {
 		if strings.TrimSpace(cte.Name) == "" {
-			return fmt.Errorf("dbx: cte name cannot be empty")
+			return errors.New("dbx: cte name cannot be empty")
 		}
 		if cte.Query == nil {
 			return fmt.Errorf("dbx: cte %s requires query", cte.Name)
 		}
 		if index > 0 {
-			state.buf.WriteString(", ")
+			state.writeString(", ")
 		}
 		state.writeQuotedIdent(strings.TrimSpace(cte.Name))
-		state.buf.WriteString(" AS (")
+		state.writeString(" AS (")
 		if err := renderSelectStatement(state, cte.Query); err != nil {
 			return err
 		}
-		state.buf.WriteByte(')')
+		state.writeByte(')')
 	}
-	state.buf.WriteByte(' ')
+	state.writeByte(' ')
 	return nil
 }
 
 func renderUnionQuery(state *renderState, q *SelectQuery) error {
 	if len(q.CTEs) > 0 || len(q.Unions) > 0 || len(q.Orders) > 0 || q.LimitN != nil || q.OffsetN != nil {
-		state.buf.WriteByte('(')
+		state.writeByte('(')
 		if err := renderSelectStatement(state, q); err != nil {
 			return err
 		}
-		state.buf.WriteByte(')')
+		state.writeByte(')')
 		return nil
 	}
 	return renderSelectQueryWithoutTail(state, q)
@@ -178,54 +232,54 @@ func renderSelectQuery(state *renderState, q *SelectQuery) error {
 }
 
 func renderSelectQueryWithoutTail(state *renderState, q *SelectQuery) error {
-	state.buf.WriteString("SELECT ")
+	state.writeString("SELECT ")
 	if q.Distinct {
-		state.buf.WriteString("DISTINCT ")
+		state.writeString("DISTINCT ")
 	}
 	for i, item := range q.Items {
 		if i > 0 {
-			state.buf.WriteString(", ")
+			state.writeString(", ")
 		}
 		if err := renderSelectItem(state, item); err != nil {
 			return err
 		}
 	}
 
-	state.buf.WriteString(" FROM ")
+	state.writeString(" FROM ")
 	state.renderTable(q.FromItem)
 	for _, join := range q.Joins {
-		state.buf.WriteByte(' ')
-		state.buf.WriteString(string(join.Type))
-		state.buf.WriteString(" JOIN ")
+		state.writeByte(' ')
+		state.writeString(string(join.Type))
+		state.writeString(" JOIN ")
 		state.renderTable(join.Table)
 		if join.Predicate != nil {
-			state.buf.WriteString(" ON ")
+			state.writeString(" ON ")
 			if err := renderPredicate(state, join.Predicate); err != nil {
 				return err
 			}
 		}
 	}
 	if q.WhereExp != nil {
-		state.buf.WriteString(" WHERE ")
+		state.writeString(" WHERE ")
 		if err := renderPredicate(state, q.WhereExp); err != nil {
 			return err
 		}
 	}
 	if len(q.Groups) > 0 {
-		state.buf.WriteString(" GROUP BY ")
+		state.writeString(" GROUP BY ")
 		for i, group := range q.Groups {
 			if i > 0 {
-				state.buf.WriteString(", ")
+				state.writeString(", ")
 			}
 			operand, err := renderOperandValue(state, group)
 			if err != nil {
 				return err
 			}
-			state.buf.WriteString(operand)
+			state.writeString(operand)
 		}
 	}
 	if q.HavingExp != nil {
-		state.buf.WriteString(" HAVING ")
+		state.writeString(" HAVING ")
 		if err := renderPredicate(state, q.HavingExp); err != nil {
 			return err
 		}
@@ -235,10 +289,10 @@ func renderSelectQueryWithoutTail(state *renderState, q *SelectQuery) error {
 
 func renderSelectTail(state *renderState, q *SelectQuery) error {
 	if len(q.Orders) > 0 {
-		state.buf.WriteString(" ORDER BY ")
+		state.writeString(" ORDER BY ")
 		for i, order := range q.Orders {
 			if i > 0 {
-				state.buf.WriteString(", ")
+				state.writeString(", ")
 			}
 			if err := renderOrder(state, order); err != nil {
 				return err
@@ -247,39 +301,39 @@ func renderSelectTail(state *renderState, q *SelectQuery) error {
 	}
 	clause, err := state.dialect.RenderLimitOffset(q.LimitN, q.OffsetN)
 	if err != nil {
-		return err
+		return fmt.Errorf("dbx: render limit offset: %w", err)
 	}
 	if clause != "" {
-		state.buf.WriteByte(' ')
-		state.buf.WriteString(clause)
+		state.writeByte(' ')
+		state.writeString(clause)
 	}
 	return nil
 }
 
 func (q *InsertQuery) Build(d dialect.Dialect) (BoundQuery, error) {
 	if q == nil {
-		return BoundQuery{}, fmt.Errorf("dbx: insert query is nil")
+		return BoundQuery{}, errors.New("dbx: insert query is nil")
 	}
 	if q.Into.Name() == "" {
-		return BoundQuery{}, fmt.Errorf("dbx: insert query requires target table")
+		return BoundQuery{}, errors.New("dbx: insert query requires target table")
 	}
 	rows := normalizedInsertRows(q)
 	if len(rows) == 0 && q.Source == nil {
-		return BoundQuery{}, fmt.Errorf("dbx: insert query requires values or source query")
+		return BoundQuery{}, errors.New("dbx: insert query requires values or source query")
 	}
 	if len(rows) > 0 && q.Source != nil {
-		return BoundQuery{}, fmt.Errorf("dbx: insert query cannot combine values and source query")
+		return BoundQuery{}, errors.New("dbx: insert query cannot combine values and source query")
 	}
 	if q.Source != nil && len(q.TargetColumns) == 0 {
-		return BoundQuery{}, fmt.Errorf("dbx: insert-select requires target columns")
+		return BoundQuery{}, errors.New("dbx: insert-select requires target columns")
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, len(rows)*4)}
 	features := dialectFeatures(d)
 	if features.InsertIgnoreForUpsertNothing && q.Upsert != nil && q.Upsert.DoNothing {
-		state.buf.WriteString("INSERT IGNORE INTO ")
+		state.writeString("INSERT IGNORE INTO ")
 	} else {
-		state.buf.WriteString("INSERT INTO ")
+		state.writeString("INSERT INTO ")
 	}
 	if err := renderInsertBody(state, q, rows); err != nil {
 		return BoundQuery{}, err
@@ -288,6 +342,9 @@ func (q *InsertQuery) Build(d dialect.Dialect) (BoundQuery, error) {
 		return BoundQuery{}, err
 	}
 	if err := renderReturning(state, q.ReturningItems); err != nil {
+		return BoundQuery{}, err
+	}
+	if err := state.err(); err != nil {
 		return BoundQuery{}, err
 	}
 	return state.BoundQuery(), nil
@@ -300,71 +357,71 @@ func renderInsertBody(state *renderState, q *InsertQuery, rows [][]Assignment) e
 		return err
 	}
 	if len(columns) > 0 {
-		state.buf.WriteString(" (")
+		state.writeString(" (")
 		for i, column := range columns {
 			if i > 0 {
-				state.buf.WriteString(", ")
+				state.writeString(", ")
 			}
 			state.writeQuotedIdent(column.Name)
 		}
-		state.buf.WriteByte(')')
+		state.writeByte(')')
 	}
 	if q.Source != nil {
-		state.buf.WriteByte(' ')
+		state.writeByte(' ')
 		return renderSelectQuery(state, q.Source)
 	}
 	orderedRows, err := orderInsertRows(columns, rows)
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(" VALUES ")
+	state.writeString(" VALUES ")
 	for rowIndex, row := range orderedRows {
 		if rowIndex > 0 {
-			state.buf.WriteString(", ")
+			state.writeString(", ")
 		}
-		state.buf.WriteByte('(')
+		state.writeByte('(')
 		for colIndex, assignment := range row {
 			renderer, ok := assignment.(insertAssignmentRenderer)
 			if !ok {
 				return fmt.Errorf("dbx: unsupported insert assignment %T", assignment)
 			}
 			if colIndex > 0 {
-				state.buf.WriteString(", ")
+				state.writeString(", ")
 			}
 			if err := renderer.renderAssignmentValue(state); err != nil {
 				return err
 			}
 		}
-		state.buf.WriteByte(')')
+		state.writeByte(')')
 	}
 	return nil
 }
 
 func (q *UpdateQuery) Build(d dialect.Dialect) (BoundQuery, error) {
 	if q == nil {
-		return BoundQuery{}, fmt.Errorf("dbx: update query is nil")
+		return BoundQuery{}, errors.New("dbx: update query is nil")
 	}
 	if q.Table.Name() == "" {
-		return BoundQuery{}, fmt.Errorf("dbx: update query requires target table")
+		return BoundQuery{}, errors.New("dbx: update query requires target table")
 	}
 	if len(q.Assignments) == 0 {
-		return BoundQuery{}, fmt.Errorf("dbx: update query requires assignments")
+		return BoundQuery{}, errors.New("dbx: update query requires assignments")
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, len(q.Assignments))}
-	state.buf.WriteString("UPDATE ")
+	state.writeString("UPDATE ")
 	state.renderTable(q.Table)
-	state.buf.WriteString(" SET ")
+	state.writeString(" SET ")
 	for i, assignment := range q.Assignments {
 		if i > 0 {
-			state.buf.WriteString(", ")
+			state.writeString(", ")
 		}
 		if err := renderAssignment(state, assignment); err != nil {
 			return BoundQuery{}, err
 		}
 	}
 	if q.WhereExp != nil {
-		state.buf.WriteString(" WHERE ")
+		state.writeString(" WHERE ")
 		if err := renderPredicate(state, q.WhereExp); err != nil {
 			return BoundQuery{}, err
 		}
@@ -372,27 +429,33 @@ func (q *UpdateQuery) Build(d dialect.Dialect) (BoundQuery, error) {
 	if err := renderReturning(state, q.ReturningItems); err != nil {
 		return BoundQuery{}, err
 	}
+	if err := state.err(); err != nil {
+		return BoundQuery{}, err
+	}
 	return state.BoundQuery(), nil
 }
 
 func (q *DeleteQuery) Build(d dialect.Dialect) (BoundQuery, error) {
 	if q == nil {
-		return BoundQuery{}, fmt.Errorf("dbx: delete query is nil")
+		return BoundQuery{}, errors.New("dbx: delete query is nil")
 	}
 	if q.From.Name() == "" {
-		return BoundQuery{}, fmt.Errorf("dbx: delete query requires target table")
+		return BoundQuery{}, errors.New("dbx: delete query requires target table")
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, 4)}
-	state.buf.WriteString("DELETE FROM ")
+	state.writeString("DELETE FROM ")
 	state.renderTable(q.From)
 	if q.WhereExp != nil {
-		state.buf.WriteString(" WHERE ")
+		state.writeString(" WHERE ")
 		if err := renderPredicate(state, q.WhereExp); err != nil {
 			return BoundQuery{}, err
 		}
 	}
 	if err := renderReturning(state, q.ReturningItems); err != nil {
+		return BoundQuery{}, err
+	}
+	if err := state.err(); err != nil {
 		return BoundQuery{}, err
 	}
 	return state.BoundQuery(), nil
@@ -436,15 +499,15 @@ func renderOrder(state *renderState, order Order) error {
 
 func (c Column[E, T]) renderOperand(state *renderState) (string, error) {
 	meta := c.columnRef()
-	var builder strings.Builder
+	var builder renderBuffer
 	table := meta.Table
 	if meta.Alias != "" {
 		table = meta.Alias
 	}
-	builder.WriteString(state.dialect.QuoteIdent(table))
-	builder.WriteByte('.')
-	builder.WriteString(state.dialect.QuoteIdent(meta.Name))
-	return builder.String(), nil
+	builder.writeString(state.dialect.QuoteIdent(table))
+	builder.writeByte('.')
+	builder.writeString(state.dialect.QuoteIdent(meta.Name))
+	return builder.String(), builder.Err("render column operand")
 }
 
 func (o valueOperand[T]) renderOperand(state *renderState) (string, error) {
@@ -453,15 +516,15 @@ func (o valueOperand[T]) renderOperand(state *renderState) (string, error) {
 
 func (o columnOperand[T]) renderOperand(state *renderState) (string, error) {
 	meta := o.Column.columnRef()
-	var builder strings.Builder
+	var builder renderBuffer
 	table := meta.Table
 	if meta.Alias != "" {
 		table = meta.Alias
 	}
-	builder.WriteString(state.dialect.QuoteIdent(table))
-	builder.WriteByte('.')
-	builder.WriteString(state.dialect.QuoteIdent(meta.Name))
-	return builder.String(), nil
+	builder.writeString(state.dialect.QuoteIdent(table))
+	builder.writeByte('.')
+	builder.writeString(state.dialect.QuoteIdent(meta.Name))
+	return builder.String(), builder.Err("render column operand")
 }
 
 func (p comparisonPredicate) renderPredicate(state *renderState) error {
@@ -469,64 +532,64 @@ func (p comparisonPredicate) renderPredicate(state *renderState) error {
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(left)
+	state.writeString(left)
 	if p.Op == OpIs || p.Op == OpIsNot {
-		state.buf.WriteByte(' ')
-		state.buf.WriteString(string(p.Op))
-		state.buf.WriteString(" NULL")
+		state.writeByte(' ')
+		state.writeString(string(p.Op))
+		state.writeString(" NULL")
 		return nil
 	}
 	operand, err := renderOperandValue(state, p.Right)
 	if err != nil {
 		return err
 	}
-	state.buf.WriteByte(' ')
-	state.buf.WriteString(string(p.Op))
-	state.buf.WriteByte(' ')
-	state.buf.WriteString(operand)
+	state.writeByte(' ')
+	state.writeString(string(p.Op))
+	state.writeByte(' ')
+	state.writeString(operand)
 	return nil
 }
 
 func (p logicalPredicate) renderPredicate(state *renderState) error {
 	if len(p.Predicates) == 0 {
-		return fmt.Errorf("dbx: logical predicate requires nested predicates")
+		return errors.New("dbx: logical predicate requires nested predicates")
 	}
-	state.buf.WriteByte('(')
+	state.writeByte('(')
 	for i, predicate := range p.Predicates {
 		if i > 0 {
-			state.buf.WriteByte(' ')
-			state.buf.WriteString(string(p.Op))
-			state.buf.WriteByte(' ')
+			state.writeByte(' ')
+			state.writeString(string(p.Op))
+			state.writeByte(' ')
 		}
 		if err := renderPredicate(state, predicate); err != nil {
 			return err
 		}
 	}
-	state.buf.WriteByte(')')
+	state.writeByte(')')
 	return nil
 }
 
 func (p notPredicate) renderPredicate(state *renderState) error {
 	if p.Predicate == nil {
-		return fmt.Errorf("dbx: NOT predicate requires nested predicate")
+		return errors.New("dbx: NOT predicate requires nested predicate")
 	}
-	state.buf.WriteString("NOT (")
+	state.writeString("NOT (")
 	if err := renderPredicate(state, p.Predicate); err != nil {
 		return err
 	}
-	state.buf.WriteByte(')')
+	state.writeByte(')')
 	return nil
 }
 
 func (p existsPredicate) renderPredicate(state *renderState) error {
 	if p.Query == nil {
-		return fmt.Errorf("dbx: EXISTS predicate requires subquery")
+		return errors.New("dbx: EXISTS predicate requires subquery")
 	}
-	state.buf.WriteString("EXISTS (")
+	state.writeString("EXISTS (")
 	if err := renderSelectStatement(state, p.Query); err != nil {
 		return err
 	}
-	state.buf.WriteByte(')')
+	state.writeByte(')')
 	return nil
 }
 
@@ -536,12 +599,12 @@ func (a columnAssignment[E, T]) assignmentColumn() ColumnMeta {
 
 func (a columnAssignment[E, T]) renderAssignment(state *renderState) error {
 	state.writeQuotedIdent(a.Column.Name())
-	state.buf.WriteString(" = ")
+	state.writeString(" = ")
 	operand, err := renderOperandValue(state, a.Value)
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(operand)
+	state.writeString(operand)
 	return nil
 }
 
@@ -550,17 +613,17 @@ func (a columnAssignment[E, T]) renderAssignmentValue(state *renderState) error 
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(operand)
+	state.writeString(operand)
 	return nil
 }
 
 func (o columnOrder[E, T]) renderOrder(state *renderState) error {
 	state.renderColumn(o.Column.columnRef())
 	if o.Descending {
-		state.buf.WriteString(" DESC")
+		state.writeString(" DESC")
 		return nil
 	}
-	state.buf.WriteString(" ASC")
+	state.writeString(" ASC")
 	return nil
 }
 
@@ -569,24 +632,24 @@ func (o expressionOrder) renderOrder(state *renderState) error {
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(operand)
+	state.writeString(operand)
 	if o.Descending {
-		state.buf.WriteString(" DESC")
+		state.writeString(" DESC")
 		return nil
 	}
-	state.buf.WriteString(" ASC")
+	state.writeString(" ASC")
 	return nil
 }
 
 func (a Aggregate[T]) renderOperand(state *renderState) (string, error) {
-	var builder strings.Builder
-	builder.WriteString(string(a.Function))
-	builder.WriteByte('(')
+	var builder renderBuffer
+	builder.writeString(string(a.Function))
+	builder.writeByte('(')
 	if a.Distinct {
-		builder.WriteString("DISTINCT ")
+		builder.writeString("DISTINCT ")
 	}
 	if a.star {
-		builder.WriteByte('*')
+		builder.writeByte('*')
 	} else {
 		if a.Expr == nil {
 			return "", fmt.Errorf("dbx: aggregate %s requires expression", a.Function)
@@ -595,10 +658,10 @@ func (a Aggregate[T]) renderOperand(state *renderState) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		builder.WriteString(operand)
+		builder.writeString(operand)
 	}
-	builder.WriteByte(')')
-	return builder.String(), nil
+	builder.writeByte(')')
+	return builder.String(), builder.Err("render aggregate operand")
 }
 
 func (a Aggregate[T]) renderSelectItem(state *renderState) error {
@@ -606,44 +669,44 @@ func (a Aggregate[T]) renderSelectItem(state *renderState) error {
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(operand)
+	state.writeString(operand)
 	return nil
 }
 
 func (c CaseExpression[T]) renderOperand(state *renderState) (string, error) {
 	if len(c.Branches) == 0 {
-		return "", fmt.Errorf("dbx: CASE expression requires at least one WHEN branch")
+		return "", errors.New("dbx: CASE expression requires at least one WHEN branch")
 	}
 
-	var builder strings.Builder
-	builder.WriteString("CASE")
+	var builder renderBuffer
+	builder.writeString("CASE")
 	for _, branch := range c.Branches {
 		if branch.Predicate == nil {
-			return "", fmt.Errorf("dbx: CASE branch requires predicate")
+			return "", errors.New("dbx: CASE branch requires predicate")
 		}
-		builder.WriteString(" WHEN ")
+		builder.writeString(" WHEN ")
 		predicateSQL, err := renderPredicateValue(state, branch.Predicate)
 		if err != nil {
 			return "", err
 		}
-		builder.WriteString(predicateSQL)
-		builder.WriteString(" THEN ")
+		builder.writeString(predicateSQL)
+		builder.writeString(" THEN ")
 		valueSQL, err := renderOperandValue(state, branch.Value)
 		if err != nil {
 			return "", err
 		}
-		builder.WriteString(valueSQL)
+		builder.writeString(valueSQL)
 	}
 	if c.Else != nil {
-		builder.WriteString(" ELSE ")
+		builder.writeString(" ELSE ")
 		elseSQL, err := renderOperandValue(state, c.Else)
 		if err != nil {
 			return "", err
 		}
-		builder.WriteString(elseSQL)
+		builder.writeString(elseSQL)
 	}
-	builder.WriteString(" END")
-	return builder.String(), nil
+	builder.writeString(" END")
+	return builder.String(), builder.Err("render case operand")
 }
 
 func (c CaseExpression[T]) renderSelectItem(state *renderState) error {
@@ -651,7 +714,7 @@ func (c CaseExpression[T]) renderSelectItem(state *renderState) error {
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(operand)
+	state.writeString(operand)
 	return nil
 }
 
@@ -670,23 +733,24 @@ func (o excludedColumnOperand[T]) renderOperand(state *renderState) (string, err
 
 func (a aliasedSelectItem) renderSelectItem(state *renderState) error {
 	if a.Item == nil {
-		return fmt.Errorf("dbx: aliased select item requires value")
+		return errors.New("dbx: aliased select item requires value")
 	}
-	if renderer, ok := a.Item.(selectItemRenderer); ok {
+	switch renderer := a.Item.(type) {
+	case selectItemRenderer:
 		if err := renderer.renderSelectItem(state); err != nil {
 			return err
 		}
-	} else if renderer, ok := a.Item.(operandRenderer); ok {
+	case operandRenderer:
 		operand, err := renderer.renderOperand(state)
 		if err != nil {
 			return err
 		}
-		state.buf.WriteString(operand)
-	} else {
+		state.writeString(operand)
+	default:
 		return fmt.Errorf("dbx: unsupported aliased select item %T", a.Item)
 	}
 	if strings.TrimSpace(a.Alias) != "" {
-		state.buf.WriteString(" AS ")
+		state.writeString(" AS ")
 		state.writeQuotedIdent(strings.TrimSpace(a.Alias))
 	}
 	return nil
@@ -700,7 +764,7 @@ func (subqueryOperand) expressionNode() {}
 
 func (s subqueryOperand) renderOperand(state *renderState) (string, error) {
 	if s.Query == nil {
-		return "", fmt.Errorf("dbx: subquery is nil")
+		return "", errors.New("dbx: subquery is nil")
 	}
 	original := state.buf
 	var builder strings.Builder
@@ -739,18 +803,18 @@ func renderOperandValue(state *renderState, value any) (string, error) {
 
 func renderAnySliceOperand(state *renderState, values []any) (string, error) {
 	if len(values) == 0 {
-		return "", fmt.Errorf("dbx: IN operand cannot be empty")
+		return "", errors.New("dbx: IN operand cannot be empty")
 	}
-	var builder strings.Builder
-	builder.WriteByte('(')
+	var builder renderBuffer
+	builder.writeByte('(')
 	for i, value := range values {
 		if i > 0 {
-			builder.WriteString(", ")
+			builder.writeString(", ")
 		}
-		builder.WriteString(state.bind(value))
+		builder.writeString(state.bind(value))
 	}
-	builder.WriteByte(')')
-	return builder.String(), nil
+	builder.writeByte(')')
+	return builder.String(), builder.Err("render slice operand")
 }
 
 func normalizedInsertRows(q *InsertQuery) [][]Assignment {
@@ -824,12 +888,12 @@ func renderUpsert(state *renderState, q *InsertQuery) error {
 	f := dialectFeatures(state.dialect)
 	switch f.UpsertVariant {
 	case "on_conflict":
-		state.buf.WriteString(" ON CONFLICT")
+		state.writeString(" ON CONFLICT")
 		if len(q.Upsert.Targets) > 0 {
-			state.buf.WriteString(" (")
+			state.writeString(" (")
 			for i, target := range q.Upsert.Targets {
 				if i > 0 {
-					state.buf.WriteString(", ")
+					state.writeString(", ")
 				}
 				if column, ok := target.(columnAccessor); ok {
 					state.writeQuotedIdent(column.columnRef().Name)
@@ -839,24 +903,24 @@ func renderUpsert(state *renderState, q *InsertQuery) error {
 				if err != nil {
 					return err
 				}
-				state.buf.WriteString(operand)
+				state.writeString(operand)
 			}
-			state.buf.WriteByte(')')
+			state.writeByte(')')
 		}
 		if q.Upsert.DoNothing {
-			state.buf.WriteString(" DO NOTHING")
+			state.writeString(" DO NOTHING")
 			return nil
 		}
 		if len(q.Upsert.Assignments) == 0 {
-			return fmt.Errorf("dbx: upsert update requires assignments")
+			return errors.New("dbx: upsert update requires assignments")
 		}
 		if len(q.Upsert.Targets) == 0 {
-			return fmt.Errorf("dbx: upsert update requires conflict targets")
+			return errors.New("dbx: upsert update requires conflict targets")
 		}
-		state.buf.WriteString(" DO UPDATE SET ")
+		state.writeString(" DO UPDATE SET ")
 		for i, assignment := range q.Upsert.Assignments {
 			if i > 0 {
-				state.buf.WriteString(", ")
+				state.writeString(", ")
 			}
 			if err := renderAssignment(state, assignment); err != nil {
 				return err
@@ -868,12 +932,12 @@ func renderUpsert(state *renderState, q *InsertQuery) error {
 			return nil
 		}
 		if len(q.Upsert.Assignments) == 0 {
-			return fmt.Errorf("dbx: upsert update requires assignments")
+			return errors.New("dbx: upsert update requires assignments")
 		}
-		state.buf.WriteString(" ON DUPLICATE KEY UPDATE ")
+		state.writeString(" ON DUPLICATE KEY UPDATE ")
 		for i, assignment := range q.Upsert.Assignments {
 			if i > 0 {
-				state.buf.WriteString(", ")
+				state.writeString(", ")
 			}
 			if err := renderAssignment(state, assignment); err != nil {
 				return err
@@ -899,10 +963,10 @@ func renderReturning(state *renderState, items []SelectItem) error {
 	if !dialectFeatures(state.dialect).SupportsReturning {
 		return fmt.Errorf("dbx: RETURNING is not supported for dialect %s", state.dialect.Name())
 	}
-	state.buf.WriteString(" RETURNING ")
+	state.writeString(" RETURNING ")
 	for i, item := range items {
 		if i > 0 {
-			state.buf.WriteString(", ")
+			state.writeString(", ")
 		}
 		if err := renderSelectItem(state, item); err != nil {
 			return err

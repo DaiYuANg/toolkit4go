@@ -88,5 +88,9 @@ func boundFieldValue(field MappedField, value reflect.Value) (any, error) {
 	if field.codec == nil {
 		return normalizeFieldValue(value), nil
 	}
-	return field.codec.Encode(value)
+	encoded, err := field.codec.Encode(value)
+	if err != nil {
+		return nil, fmt.Errorf("dbx: encode field %s: %w", field.Name, err)
+	}
+	return encoded, nil
 }

@@ -26,66 +26,71 @@ func schemaFingerprint(schemas []SchemaResource) string {
 	if len(schemas) == 0 {
 		return ""
 	}
-	var b strings.Builder
+	var buffer renderBuffer
 	for _, s := range schemas {
 		spec := buildTableSpec(s.schemaRef())
-		b.WriteString("T:")
-		b.WriteString(spec.Name)
-		b.WriteString("|")
+		buffer.writeString("T:")
+		buffer.writeString(spec.Name)
+		buffer.writeString("|")
 		for _, c := range spec.Columns {
-			b.WriteString("C:")
-			b.WriteString(c.Name)
-			b.WriteString(":")
+			buffer.writeString("C:")
+			buffer.writeString(c.Name)
+			buffer.writeString(":")
 			if c.SQLType != "" {
-				b.WriteString(c.SQLType)
+				buffer.writeString(c.SQLType)
 			} else {
-				b.WriteString(inferTypeName(c))
+				buffer.writeString(inferTypeName(c))
 			}
-			b.WriteString(":")
-			b.WriteString(strconv.FormatBool(c.Nullable))
-			b.WriteString(":")
-			b.WriteString(c.DefaultValue)
-			b.WriteString(":")
-			b.WriteString(strconv.FormatBool(c.PrimaryKey))
-			b.WriteString(":")
-			b.WriteString(strconv.FormatBool(c.AutoIncrement))
+			buffer.writeString(":")
+			buffer.writeString(strconv.FormatBool(c.Nullable))
+			buffer.writeString(":")
+			buffer.writeString(c.DefaultValue)
+			buffer.writeString(":")
+			buffer.writeString(strconv.FormatBool(c.PrimaryKey))
+			buffer.writeString(":")
+			buffer.writeString(strconv.FormatBool(c.AutoIncrement))
 			if c.References != nil {
-				b.WriteString(":ref:")
-				b.WriteString(c.References.TargetTable)
-				b.WriteString(".")
-				b.WriteString(c.References.TargetColumn)
+				buffer.writeString(":ref:")
+				buffer.writeString(c.References.TargetTable)
+				buffer.writeString(".")
+				buffer.writeString(c.References.TargetColumn)
 			}
-			b.WriteString("|")
+			buffer.writeString("|")
 		}
 		for _, idx := range spec.Indexes {
-			b.WriteString("I:")
-			b.WriteString(idx.Name)
-			b.WriteString(":")
-			b.WriteString(strings.Join(idx.Columns, ","))
-			b.WriteString(":")
-			b.WriteString(strconv.FormatBool(idx.Unique))
-			b.WriteString("|")
+			buffer.writeString("I:")
+			buffer.writeString(idx.Name)
+			buffer.writeString(":")
+			buffer.writeString(strings.Join(idx.Columns, ","))
+			buffer.writeString(":")
+			buffer.writeString(strconv.FormatBool(idx.Unique))
+			buffer.writeString("|")
 		}
 		if spec.PrimaryKey != nil {
-			b.WriteString("PK:")
-			b.WriteString(strings.Join(spec.PrimaryKey.Columns, ","))
-			b.WriteString("|")
+			buffer.writeString("PK:")
+			buffer.writeString(strings.Join(spec.PrimaryKey.Columns, ","))
+			buffer.writeString("|")
 		}
 		for _, fk := range spec.ForeignKeys {
-			b.WriteString("FK:")
-			b.WriteString(foreignKeyKey(fk))
-			b.WriteString("|")
+			buffer.writeString("FK:")
+			buffer.writeString(foreignKeyKey(fk))
+			buffer.writeString("|")
 		}
 		for _, ck := range spec.Checks {
-			b.WriteString("CK:")
-			b.WriteString(ck.Name)
-			b.WriteString(":")
-			b.WriteString(checkKey(ck.Expression))
-			b.WriteString("|")
+			buffer.writeString("CK:")
+			buffer.writeString(ck.Name)
+			buffer.writeString(":")
+			buffer.writeString(checkKey(ck.Expression))
+			buffer.writeString("|")
 		}
 	}
+	if err := buffer.Err("build schema fingerprint"); err != nil {
+		return ""
+	}
 	h := fnv.New64a()
-	_, _ = h.Write([]byte(b.String()))
+	if _, err := h.Write([]byte(buffer.String())); err != nil {
+		return ""
+	}
 	return strconv.FormatUint(h.Sum64(), 16)
 }
 
@@ -138,14 +143,12 @@ func planSchemaChangesWithAtlas(ctx context.Context, session Session, schemas ..
 	dialectName := session.Dialect().Name()
 	cacheKey := dialectName + ":" + schemaName + ":" + schemaFingerprint(schemas)
 	var compiled *atlasCompiledSchema
-	if v, ok, _ := compiledSchemaCache.Get(cacheKey); ok {
+	if v, ok, cacheErr := compiledSchemaCache.Get(cacheKey); cacheErr != nil {
+		return MigrationPlan{}, true, wrapDBError("read compiled schema cache", cacheErr)
+	} else if ok {
 		compiled = v
 	} else {
-		var compileErr error
-		compiled, compileErr = compileAtlasSchema(dialectName, driver, schemaName, schemas)
-		if compileErr != nil {
-			return MigrationPlan{}, true, compileErr
-		}
+		compiled = compileAtlasSchema(dialectName, driver, schemaName, schemas)
 		compiledSchemaCache.Set(cacheKey, compiled)
 	}
 	if current == nil {
@@ -154,14 +157,14 @@ func planSchemaChangesWithAtlas(ctx context.Context, session Session, schemas ..
 
 	changes, err := driver.SchemaDiff(current, compiled.schema)
 	if err != nil {
-		return MigrationPlan{}, true, err
+		return MigrationPlan{}, true, wrapDBError("diff atlas schema", err)
 	}
 	if len(changes) == 0 {
 		report := atlasReportFromChanges(nil, compiled, current)
 		return MigrationPlan{Actions: nil, Report: report}, true, nil
 	}
 	report := atlasReportFromChanges(changes, compiled, current)
-	safeChanges, manualActions := atlasSplitChanges(changes, compiled, current)
+	safeChanges, manualActions := atlasSplitChanges(changes)
 	actions, err := atlasPlanActions(ctx, driver, safeChanges)
 	if err != nil {
 		return MigrationPlan{}, true, err
@@ -176,13 +179,13 @@ func atlasDriverForSession(session Session) (atlasmigrate.Driver, bool, error) {
 	switch strings.ToLower(strings.TrimSpace(session.Dialect().Name())) {
 	case "sqlite":
 		driver, err := atlassqlite.Open(session)
-		return driver, true, err
+		return driver, true, wrapDBError("open atlas sqlite driver", err)
 	case "mysql":
 		driver, err := atlasmysql.Open(session)
-		return driver, true, err
+		return driver, true, wrapDBError("open atlas mysql driver", err)
 	case "postgres":
 		driver, err := atlaspostgres.Open(session)
-		return driver, true, err
+		return driver, true, wrapDBError("open atlas postgres driver", err)
 	default:
 		return nil, false, nil
 	}
@@ -192,9 +195,10 @@ func atlasInspectCurrentSchema(ctx context.Context, driver atlasmigrate.Driver, 
 	current, err := driver.InspectSchema(ctx, "", &atlasschema.InspectOptions{Mode: atlasschema.InspectTables, Tables: tables})
 	if err != nil {
 		if atlasschema.IsNotExistError(err) {
-			return nil, nil
+			var empty *atlasschema.Schema
+			return empty, nil
 		}
-		return nil, err
+		return nil, wrapDBError("inspect current atlas schema", err)
 	}
 	return current, nil
 }
@@ -210,7 +214,7 @@ func atlasDefaultSchemaName(dialectName string) string {
 	}
 }
 
-func compileAtlasSchema(dialectName string, driver atlasmigrate.Driver, schemaName string, schemas []SchemaResource) (*atlasCompiledSchema, error) {
+func compileAtlasSchema(dialectName string, driver atlasmigrate.Driver, schemaName string, schemas []SchemaResource) *atlasCompiledSchema {
 	atlasSchema := atlasschema.New(schemaName)
 	compiled := &atlasCompiledSchema{
 		schema:    atlasSchema,
@@ -236,10 +240,7 @@ func compileAtlasSchema(dialectName string, driver atlasmigrate.Driver, schemaNa
 			checksByExpr:      collectionx.NewMapWithCapacity[string, CheckMeta](len(spec.Checks)),
 		}
 		for _, column := range spec.Columns {
-			atlasColumn, err := compileAtlasColumn(dialectName, driver, column)
-			if err != nil {
-				return nil, err
-			}
+			atlasColumn := compileAtlasColumn(dialectName, driver, column)
 			table.AddColumns(atlasColumn)
 			compiledTable.columnsByName.Set(column.Name, column)
 		}
@@ -281,10 +282,10 @@ func compileAtlasSchema(dialectName string, driver atlasmigrate.Driver, schemaNa
 		return true
 	})
 
-	return compiled, nil
+	return compiled
 }
 
-func compileAtlasColumn(dialectName string, driver atlasmigrate.Driver, column ColumnMeta) (*atlasschema.Column, error) {
+func compileAtlasColumn(dialectName string, driver atlasmigrate.Driver, column ColumnMeta) *atlasschema.Column {
 	rawType := atlasColumnRawType(dialectName, column)
 	atlasColumn := atlasschema.NewColumn(column.Name)
 	atlasColumn.Type = &atlasschema.ColumnType{
@@ -299,7 +300,7 @@ func compileAtlasColumn(dialectName string, driver atlasmigrate.Driver, column C
 	if column.AutoIncrement {
 		atlasAddAutoIncrementAttr(dialectName, atlasColumn)
 	}
-	return atlasColumn, nil
+	return atlasColumn
 }
 
 func atlasColumnRawType(dialectName string, column ColumnMeta) string {
@@ -335,25 +336,22 @@ func atlasFallbackType(rawType string, column ColumnMeta) atlasschema.Type {
 		if typ.PkgPath() == "time" && typ.Name() == "Time" {
 			return &atlasschema.TimeType{T: rawType}
 		}
-		switch typ.Kind() {
-		case reflect.Bool:
+		switch kind := typ.Kind(); {
+		case kind == reflect.Bool:
 			return &atlasschema.BoolType{T: rawType}
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		case isSignedIntKind(kind) || kind == reflect.Int64:
 			return &atlasschema.IntegerType{T: rawType}
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		case isUnsignedIntKind(kind) || kind == reflect.Uint64:
 			return &atlasschema.IntegerType{T: rawType, Unsigned: true}
-		case reflect.Float32, reflect.Float64:
+		case kind == reflect.Float32 || kind == reflect.Float64:
 			return &atlasschema.FloatType{T: rawType}
-		case reflect.String:
+		case kind == reflect.String:
 			return &atlasschema.StringType{T: rawType}
-		case reflect.Slice:
-			if typ.Elem().Kind() == reflect.Uint8 {
-				return &atlasschema.BinaryType{T: rawType}
-			}
-			if strings.Contains(typeName, "json") {
-				return &atlasschema.JSONType{T: rawType}
-			}
-		case reflect.Map, reflect.Struct:
+		case isByteSliceType(typ):
+			return &atlasschema.BinaryType{T: rawType}
+		case kind == reflect.Slice && strings.Contains(typeName, "json"):
+			return &atlasschema.JSONType{T: rawType}
+		case kind == reflect.Map || kind == reflect.Struct:
 			if strings.Contains(typeName, "json") {
 				return &atlasschema.JSONType{T: rawType}
 			}
@@ -455,7 +453,7 @@ func (c *atlasCompiledSchema) referenceTable(schema *atlasschema.Schema, tableNa
 }
 
 func atlasReferenceAction(action ReferentialAction) atlasschema.ReferenceOption {
-	switch normalizeReferentialAction(action) {
+	switch normalized := normalizeReferentialAction(action); normalized {
 	case ReferentialCascade:
 		return atlasschema.Cascade
 	case ReferentialRestrict:
@@ -464,6 +462,8 @@ func atlasReferenceAction(action ReferentialAction) atlasschema.ReferenceOption 
 		return atlasschema.SetNull
 	case ReferentialSetDefault:
 		return atlasschema.SetDefault
+	case ReferentialNoAction:
+		return atlasschema.NoAction
 	default:
 		return atlasschema.NoAction
 	}
@@ -596,29 +596,21 @@ func atlasApplyTableChangeToDiff(diff *TableDiff, compiled *atlasCompiledTable, 
 	}
 }
 
-func atlasSplitChanges(changes []atlasschema.Change, compiled *atlasCompiledSchema, current *atlasschema.Schema) ([]atlasschema.Change, []MigrationAction) {
+func atlasSplitChanges(changes []atlasschema.Change) ([]atlasschema.Change, []MigrationAction) {
 	safeChanges := collectionx.NewList[atlasschema.Change]()
 	manualActions := collectionx.NewList[MigrationAction]()
-	currentTables := collectionx.NewMap[string, *atlasschema.Table]()
-	if current != nil {
-		for _, table := range current.Tables {
-			currentTables.Set(table.Name, table)
-		}
-	}
 
 	for _, change := range changes {
 		switch c := change.(type) {
 		case *atlasschema.AddTable:
 			safeChanges.Add(c)
 		case *atlasschema.ModifyTable:
-			compiledTable, _ := compiled.tables.Get(c.T.Name)
-			currentTable, _ := currentTables.Get(c.T.Name)
 			for _, tableChange := range c.Changes {
 				if atlasIsExecutableTableChange(tableChange) {
 					safeChanges.Add(&atlasschema.ModifyTable{T: c.T, Changes: []atlasschema.Change{tableChange}})
 					continue
 				}
-				manualActions.Add(atlasManualAction(c.T.Name, compiledTable, currentTable, tableChange))
+				manualActions.Add(atlasManualAction(c.T.Name, tableChange))
 			}
 		default:
 			manualActions.Add(MigrationAction{Kind: MigrationActionManual, Table: atlasChangeTableName(change), Summary: atlasManualSummary(change)})
@@ -644,7 +636,7 @@ func atlasPlanActions(ctx context.Context, driver atlasmigrate.Driver, changes [
 			if errors.Is(err, atlasmigrate.ErrNoPlan) {
 				continue
 			}
-			return nil, err
+			return nil, wrapDBError("plan atlas schema changes", err)
 		}
 		kind := atlasActionKind(change)
 		table := atlasChangeTableName(change)
@@ -712,7 +704,7 @@ func atlasActionSummary(change atlasschema.Change) string {
 	}
 }
 
-func atlasManualAction(table string, compiled *atlasCompiledTable, current *atlasschema.Table, change atlasschema.Change) MigrationAction {
+func atlasManualAction(table string, change atlasschema.Change) MigrationAction {
 	return MigrationAction{Kind: MigrationActionManual, Table: table, Summary: atlasManualSummary(change)}
 }
 

@@ -242,7 +242,7 @@ func TestLoadBelongsToChunksLargeINQueries(t *testing.T) {
 	defer cleanup()
 
 	for i := 1; i <= 950; i++ {
-		if _, err := sqlDB.Exec(`INSERT INTO "roles" ("id","name") VALUES (?, ?)`, i, fmt.Sprintf("role-%d", i)); err != nil {
+		if _, err := sqlDB.ExecContext(context.Background(), `INSERT INTO "roles" ("id","name") VALUES (?, ?)`, i, fmt.Sprintf("role-%d", i)); err != nil {
 			t.Fatalf("insert role %d: %v", i, err)
 		}
 	}
@@ -281,17 +281,17 @@ func TestLoadManyToManyChunksLargePairQueries(t *testing.T) {
 	sqlDB, cleanup := OpenTestSQLite(t, relationTestSchemaDDL)
 	defer cleanup()
 
-	if _, err := sqlDB.Exec(`INSERT INTO "roles" ("id","name") VALUES (1,'r')`); err != nil {
+	if _, err := sqlDB.ExecContext(context.Background(), `INSERT INTO "roles" ("id","name") VALUES (1,'r')`); err != nil {
 		t.Fatalf("insert role: %v", err)
 	}
-	if _, err := sqlDB.Exec(`INSERT INTO "tags" ("id","name") VALUES (1,'shared')`); err != nil {
+	if _, err := sqlDB.ExecContext(context.Background(), `INSERT INTO "tags" ("id","name") VALUES (1,'shared')`); err != nil {
 		t.Fatalf("insert tag: %v", err)
 	}
 	for i := 1; i <= 950; i++ {
-		if _, err := sqlDB.Exec(`INSERT INTO "users" ("id","name","role_id") VALUES (?,?,1)`, i, fmt.Sprintf("user-%d", i)); err != nil {
+		if _, err := sqlDB.ExecContext(context.Background(), `INSERT INTO "users" ("id","name","role_id") VALUES (?,?,1)`, i, fmt.Sprintf("user-%d", i)); err != nil {
 			t.Fatalf("insert user %d: %v", i, err)
 		}
-		if _, err := sqlDB.Exec(`INSERT INTO "user_tags" ("user_id","tag_id") VALUES (?,1)`, i); err != nil {
+		if _, err := sqlDB.ExecContext(context.Background(), `INSERT INTO "user_tags" ("user_id","tag_id") VALUES (?,1)`, i); err != nil {
 			t.Fatalf("insert pair %d: %v", i, err)
 		}
 	}

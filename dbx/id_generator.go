@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oklog/ulid/v2"
 	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 	"github.com/segmentio/ksuid"
 )
 
@@ -24,10 +24,10 @@ const (
 )
 
 type defaultIDGenerator struct {
-	mu             sync.Mutex
-	nodeID         uint16
-	lastUnixMs     int64
-	snowflakeSeq   int64
+	mu           sync.Mutex
+	nodeID       uint16
+	lastUnixMs   int64
+	snowflakeSeq int64
 }
 
 func NewSnowflakeGenerator(nodeID uint16) (IDGenerator, error) {
@@ -43,16 +43,14 @@ func ResolveNodeIDFromHostName() uint16 {
 		return DefaultNodeID
 	}
 	hasher := fnv.New32a()
-	_, _ = hasher.Write([]byte(hostName))
+	if _, err := hasher.Write([]byte(hostName)); err != nil {
+		return DefaultNodeID
+	}
 	id := uint16(hasher.Sum32() % (uint32(MaxNodeID) + 1))
 	if id < MinNodeID {
 		return MinNodeID
 	}
 	return id
-}
-
-func newDefaultIDGenerator(nodeID uint16) *defaultIDGenerator {
-	return &defaultIDGenerator{nodeID: nodeID}
 }
 
 func (g *defaultIDGenerator) GenerateID(_ context.Context, column ColumnMeta) (any, error) {
@@ -65,6 +63,8 @@ func (g *defaultIDGenerator) GenerateID(_ context.Context, column ColumnMeta) (a
 		return ulid.Make().String(), nil
 	case IDStrategyKSUID:
 		return ksuid.New().String(), nil
+	case IDStrategyUnset, IDStrategyDBAuto:
+		return nil, fmt.Errorf("dbx: unsupported id strategy %q", column.IDStrategy)
 	default:
 		return nil, fmt.Errorf("dbx: unsupported id strategy %q", column.IDStrategy)
 	}
@@ -75,7 +75,7 @@ func (g *defaultIDGenerator) nextUUID(version string) (string, error) {
 	case "", "v7":
 		id, err := uuid.NewV7()
 		if err != nil {
-			return "", err
+			return "", wrapDBError("generate uuid v7", err)
 		}
 		return id.String(), nil
 	case "v4":

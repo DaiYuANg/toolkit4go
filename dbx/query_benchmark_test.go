@@ -98,7 +98,7 @@ func benchmarkBuildWithDialects(b *testing.B, query QueryBuilder, dialects ...be
 	for _, item := range dialects {
 		b.Run(item.name, func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := query.Build(item.dialect); err != nil {
 					b.Fatalf("Build returned error: %v", err)
 				}

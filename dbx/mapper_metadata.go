@@ -64,8 +64,8 @@ func resolveEntityColumn(field reflect.StructField) (string, map[string]string) 
 	return name, options
 }
 
-func collectMappedFields(entityType reflect.Type, prefix []int, fields collectionx.List[MappedField], byColumn collectionx.Map[string, MappedField], byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
-	for i := 0; i < entityType.NumField(); i++ {
+func collectMappedFields(entityType reflect.Type, prefix []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
+	for i := range entityType.NumField() {
 		field := entityType.Field(i)
 		if !field.IsExported() {
 			continue
@@ -129,7 +129,8 @@ func collectMappedFields(entityType reflect.Type, prefix []int, fields collectio
 
 func resolveMappedFieldCodec(codecs *codecRegistry, name string) (Codec, error) {
 	if name == "" {
-		return nil, nil
+		var codec Codec
+		return codec, nil
 	}
 	codec, ok := codecs.get(name)
 	if !ok {

@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -94,15 +95,23 @@ func (o runtimeObserver) before(ctx context.Context, event HookEvent) (context.C
 	event.Args = copiedArgs
 	event.StartedAt = time.Now()
 
-	for _, hook := range o.hooks {
-		var err error
-		ctx, err = hook.Before(ctx, &event)
-		if err != nil {
-			event.Err = err
-			return ctx, &event, err
-		}
+	ctx, err := o.applyBeforeHooks(ctx, &event, 0)
+	if err != nil {
+		event.Err = err
+		return ctx, &event, err
 	}
 	return ctx, &event, nil
+}
+
+func (o runtimeObserver) applyBeforeHooks(ctx context.Context, event *HookEvent, index int) (context.Context, error) {
+	if index >= len(o.hooks) {
+		return ctx, nil
+	}
+	nextCtx, err := o.hooks[index].Before(ctx, event)
+	if err != nil {
+		return ctx, fmt.Errorf("dbx: before hook failed: %w", err)
+	}
+	return o.applyBeforeHooks(nextCtx, event, index+1)
 }
 
 func (o runtimeObserver) after(ctx context.Context, event *HookEvent) {

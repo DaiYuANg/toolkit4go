@@ -26,68 +26,38 @@ func (tx *Tx) Dialect() dialect.Dialect {
 	return tx.dialect
 }
 
-func (tx *Tx) Bound(sql string, args ...any) BoundQuery {
-	return BoundQuery{SQL: sql, Args: slices.Clone(args)}
+func (tx *Tx) Bound(rawSQL string, args ...any) BoundQuery {
+	return BoundQuery{SQL: rawSQL, Args: slices.Clone(args)}
 }
 
 func (tx *Tx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	return tx.queryContext(ctx, "", query, args...)
 }
 
-func (tx *Tx) queryContext(ctx context.Context, statement string, query string, args ...any) (*sql.Rows, error) {
+func (tx *Tx) queryContext(ctx context.Context, statement, query string, args ...any) (*sql.Rows, error) {
 	if tx == nil {
 		return nil, ErrNilDB
 	}
 	if tx.raw == nil {
 		return nil, ErrNilSQLDB
 	}
-	ctx, event, err := tx.observe.before(ctx, HookEvent{
-		Operation: OperationQuery,
-		Statement: statement,
-		SQL:       query,
-		Args:      args,
-	})
-	if err != nil {
-		tx.observe.after(ctx, event)
-		return nil, err
-	}
-	rows, queryErr := tx.raw.QueryContext(ctx, query, args...)
-	event.Err = queryErr
-	tx.observe.after(ctx, event)
-	return rows, queryErr
+
+	return observedQueryContext(ctx, tx.observe, statement, query, args, tx.raw.QueryContext)
 }
 
 func (tx *Tx) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	return tx.execContext(ctx, "", query, args...)
 }
 
-func (tx *Tx) execContext(ctx context.Context, statement string, query string, args ...any) (sql.Result, error) {
+func (tx *Tx) execContext(ctx context.Context, statement, query string, args ...any) (sql.Result, error) {
 	if tx == nil {
 		return nil, ErrNilDB
 	}
 	if tx.raw == nil {
 		return nil, ErrNilSQLDB
 	}
-	ctx, event, err := tx.observe.before(ctx, HookEvent{
-		Operation: OperationExec,
-		Statement: statement,
-		SQL:       query,
-		Args:      args,
-	})
-	if err != nil {
-		tx.observe.after(ctx, event)
-		return nil, err
-	}
-	result, execErr := tx.raw.ExecContext(ctx, query, args...)
-	if execErr == nil && result != nil {
-		if rowsAffected, rowsErr := result.RowsAffected(); rowsErr == nil {
-			event.RowsAffected = rowsAffected
-			event.HasRowsAffected = true
-		}
-	}
-	event.Err = execErr
-	tx.observe.after(ctx, event)
-	return result, execErr
+
+	return observedExecContext(ctx, tx.observe, statement, query, args, tx.raw.ExecContext)
 }
 
 func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *Row {
@@ -129,8 +99,9 @@ func (tx *Tx) CommitContext(ctx context.Context) error {
 	if tx == nil || tx.raw == nil {
 		return ErrNilSQLDB
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	ctx, err := requireContext(ctx, "commit transaction")
+	if err != nil {
+		return err
 	}
 	ctx, event, err := tx.observe.before(ctx, HookEvent{Operation: OperationCommitTx})
 	if err != nil {
@@ -138,9 +109,9 @@ func (tx *Tx) CommitContext(ctx context.Context) error {
 		return err
 	}
 	commitErr := tx.raw.Commit()
-	event.Err = commitErr
+	event.Err = wrapDBError("commit transaction", commitErr)
 	tx.observe.after(ctx, event)
-	return commitErr
+	return event.Err
 }
 
 // Rollback rolls the transaction back using a background context.
@@ -153,8 +124,9 @@ func (tx *Tx) RollbackContext(ctx context.Context) error {
 	if tx == nil || tx.raw == nil {
 		return ErrNilSQLDB
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	ctx, err := requireContext(ctx, "rollback transaction")
+	if err != nil {
+		return err
 	}
 	ctx, event, err := tx.observe.before(ctx, HookEvent{Operation: OperationRollbackTx})
 	if err != nil {
@@ -162,9 +134,9 @@ func (tx *Tx) RollbackContext(ctx context.Context) error {
 		return err
 	}
 	rollbackErr := tx.raw.Rollback()
-	event.Err = rollbackErr
+	event.Err = wrapDBError("rollback transaction", rollbackErr)
 	tx.observe.after(ctx, event)
-	return rollbackErr
+	return event.Err
 }
 
 func (tx *Tx) SQL() *SQLExecutor {

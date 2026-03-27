@@ -13,9 +13,9 @@ func BenchmarkCompileAtlasSchema(b *testing.B) {
 	schemas := []SchemaResource{roles, users}
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := compileAtlasSchema("sqlite", nil, "main", schemas); err != nil {
-			b.Fatalf("compileAtlasSchema returned error: %v", err)
+	for range b.N {
+		if compiled := compileAtlasSchema("sqlite", nil, "main", schemas); compiled == nil {
+			b.Fatal("compileAtlasSchema returned nil")
 		}
 	}
 }
@@ -26,10 +26,11 @@ func BenchmarkPlanSchemaChangesSQLiteAtlasEmpty(b *testing.B) {
 	users := MustSchema("users", UserSchema{})
 
 	run := func(b *testing.B, db *sql.DB) {
+		b.Helper()
 		core := New(db, testSQLiteDialect{})
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if _, err := core.PlanSchemaChanges(ctx, roles, users); err != nil {
 				b.Fatalf("PlanSchemaChanges returned error: %v", err)
 			}
@@ -50,13 +51,14 @@ func BenchmarkValidateSchemasSQLiteAtlasMatched(b *testing.B) {
 	users := MustSchema("users", UserSchema{})
 
 	run := func(b *testing.B, db *sql.DB) {
+		b.Helper()
 		core := New(db, testSQLiteDialect{})
 		if _, err := core.AutoMigrate(ctx, roles, users); err != nil {
 			b.Fatalf("AutoMigrate returned error: %v", err)
 		}
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if _, err := core.ValidateSchemas(ctx, roles, users); err != nil {
 				b.Fatalf("ValidateSchemas returned error: %v", err)
 			}
@@ -77,6 +79,7 @@ func BenchmarkMigrationPlanSQLPreview(b *testing.B) {
 	users := MustSchema("users", UserSchema{})
 
 	run := func(b *testing.B, db *sql.DB) {
+		b.Helper()
 		core := New(db, testSQLiteDialect{})
 		plan, err := core.PlanSchemaChanges(ctx, roles, users)
 		if err != nil {
@@ -84,7 +87,7 @@ func BenchmarkMigrationPlanSQLPreview(b *testing.B) {
 		}
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			preview := plan.SQLPreview()
 			if len(preview) == 0 || !strings.Contains(strings.ToLower(preview[0]), "create table") {
 				b.Fatalf("unexpected preview: %+v", preview)

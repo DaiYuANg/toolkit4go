@@ -340,7 +340,9 @@ func AutoMigrate(ctx context.Context, session Session, schemas ...SchemaResource
 		rollbackFn := rollback
 		defer func() {
 			if !committed {
-				_ = rollbackFn()
+				if rollbackErr := rollbackFn(); rollbackErr != nil {
+					logRuntimeNode(session, "schema.auto_migrate.error", "stage", "rollback", "error", rollbackErr)
+				}
 			}
 		}()
 	}
@@ -352,7 +354,7 @@ func AutoMigrate(ctx context.Context, session Session, schemas ...SchemaResource
 		logRuntimeNode(execSession, "schema.auto_migrate.exec_action", "kind", action.Kind, "table", action.Table, "summary", action.Summary)
 		if _, execErr := execSession.ExecBoundContext(ctx, action.Statement); execErr != nil {
 			logRuntimeNode(session, "schema.auto_migrate.error", "stage", "exec", "kind", action.Kind, "table", action.Table, "error", execErr)
-			return ValidationReport{}, execErr
+			return ValidationReport{}, wrapDBError("apply schema migration action", execErr)
 		}
 	}
 
@@ -396,7 +398,7 @@ func autoMigrateExecutionSession(ctx context.Context, session Session, needExec 
 	tx, err := starter.BeginTx(ctx, nil)
 	if err != nil {
 		logRuntimeNode(session, "schema.auto_migrate.execution_session.error", "error", err)
-		return nil, nil, nil, false, err
+		return nil, nil, nil, false, wrapDBError("begin schema migration transaction", err)
 	}
 	logRuntimeNode(session, "schema.auto_migrate.execution_session", "need_exec", true, "transactional", true)
 	return tx, tx.Commit, tx.Rollback, true, nil
@@ -497,7 +499,7 @@ func diffSchema(ctx context.Context, schemaDialect SchemaDialect, session Sessio
 	spec := buildTableSpec(schema.schemaRef())
 	actual, err := schemaDialect.InspectTable(ctx, session, spec.Name)
 	if err != nil {
-		return TableDiff{}, err
+		return TableDiff{}, wrapDBError("inspect schema table", err)
 	}
 
 	diff := TableDiff{
@@ -917,27 +919,25 @@ func inferTypeName(column ColumnMeta) string {
 	if typ.PkgPath() == "time" && typ.Name() == "Time" {
 		return "timestamp"
 	}
-	switch typ.Kind() {
-	case reflect.Bool:
+	switch kind := typ.Kind(); {
+	case kind == reflect.Bool:
 		return "boolean"
-	case reflect.Int, reflect.Int32:
+	case isSignedIntKind(kind):
 		return "integer"
-	case reflect.Int64:
+	case kind == reflect.Int64:
 		return "bigint"
-	case reflect.Uint, reflect.Uint32:
+	case isUnsignedIntKind(kind):
 		return "integer"
-	case reflect.Uint64:
+	case kind == reflect.Uint64:
 		return "bigint"
-	case reflect.Float32:
+	case kind == reflect.Float32:
 		return "real"
-	case reflect.Float64:
+	case kind == reflect.Float64:
 		return "double"
-	case reflect.String:
+	case kind == reflect.String:
 		return "text"
-	case reflect.Slice:
-		if typ.Elem().Kind() == reflect.Uint8 {
-			return "blob"
-		}
+	case isByteSliceType(typ):
+		return "blob"
 	}
 	return strings.ToLower(typ.Name())
 }

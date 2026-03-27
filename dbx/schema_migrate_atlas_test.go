@@ -12,10 +12,7 @@ import (
 
 func TestCompileAtlasSchemaIncludesDerivedMetadata(t *testing.T) {
 	users := MustSchema("users", advancedUserSchema{})
-	compiled, err := compileAtlasSchema("sqlite", nil, "main", []SchemaResource{users})
-	if err != nil {
-		t.Fatalf("compileAtlasSchema returned error: %v", err)
-	}
+	compiled := compileAtlasSchema("sqlite", nil, "main", []SchemaResource{users})
 	if compiled == nil || compiled.schema == nil {
 		t.Fatal("expected compiled atlas schema")
 	}
@@ -39,10 +36,7 @@ func TestCompileAtlasSchemaIncludesDerivedMetadata(t *testing.T) {
 
 func TestAtlasSplitChangesSeparatesExecutableAndManualChanges(t *testing.T) {
 	users := MustSchema("users", advancedUserSchema{})
-	compiled, err := compileAtlasSchema("sqlite", nil, "main", []SchemaResource{users})
-	if err != nil {
-		t.Fatalf("compileAtlasSchema returned error: %v", err)
-	}
+	compiled := compileAtlasSchema("sqlite", nil, "main", []SchemaResource{users})
 	compiledTable, ok := compiled.tables.Get("users")
 	if !ok {
 		t.Fatal("expected compiled users table")
@@ -53,8 +47,7 @@ func TestAtlasSplitChangesSeparatesExecutableAndManualChanges(t *testing.T) {
 			&atlasschema.AddPrimaryKey{P: atlasschema.NewPrimaryKey(atlasschema.NewColumn("id"))},
 		}},
 	}
-	current := atlasschema.New("main").AddTables(atlasschema.NewTable("users"))
-	safe, manual := atlasSplitChanges(changes, compiled, current)
+	safe, manual := atlasSplitChanges(changes)
 	if len(safe) != 1 {
 		t.Fatalf("expected one executable atlas change, got: %d", len(safe))
 	}
@@ -71,7 +64,11 @@ func TestPlanSchemaChangesWithAtlasIncludesSQLPreview(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sql.Open returned error: %v", err)
 	}
-	defer raw.Close()
+	defer func() {
+		if closeErr := raw.Close(); closeErr != nil {
+			t.Fatalf("raw.Close returned error: %v", closeErr)
+		}
+	}()
 
 	core := New(raw, testSQLiteDialect{})
 	users := MustSchema("users", UserSchema{})

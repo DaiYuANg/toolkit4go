@@ -50,7 +50,11 @@ func TestOpenSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Fatalf("db.Close returned error: %v", closeErr)
+		}
+	}()
 
 	if db.Dialect() == nil {
 		t.Error("expected dialect")

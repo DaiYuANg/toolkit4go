@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -43,7 +44,7 @@ func (d *fakeSchemaDialect) NormalizeType(value string) string {
 }
 
 func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (BoundQuery, error) {
-	sql := "create table " + spec.Name
+	stmt := "create table " + spec.Name
 	columns := make([]ColumnState, len(spec.Columns))
 	for i, column := range spec.Columns {
 		columns[i] = ColumnState{
@@ -66,7 +67,7 @@ func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (BoundQuery, error)
 	}
 	foreignKeys := append([]ForeignKeyState(nil), toForeignKeyStates(spec.ForeignKeys)...)
 	checks := append([]CheckState(nil), toCheckStates(spec.Checks)...)
-	d.actions[sql] = func() {
+	d.actions[stmt] = func() {
 		d.tables[spec.Name] = TableState{
 			Exists:      true,
 			Name:        spec.Name,
@@ -77,13 +78,13 @@ func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (BoundQuery, error)
 			Checks:      checks,
 		}
 	}
-	return BoundQuery{SQL: sql}, nil
+	return BoundQuery{SQL: stmt}, nil
 }
 
 func (d *fakeSchemaDialect) BuildAddColumn(table string, column ColumnMeta) (BoundQuery, error) {
-	sql := "alter table " + table + " add column " + column.Name
+	stmt := "alter table " + table + " add column " + column.Name
 	state := toColumnState(column)
-	d.actions[sql] = func() {
+	d.actions[stmt] = func() {
 		current := d.tables[table]
 		current.Columns = append(current.Columns, state)
 		if column.References != nil {
@@ -98,22 +99,22 @@ func (d *fakeSchemaDialect) BuildAddColumn(table string, column ColumnMeta) (Bou
 		}
 		d.tables[table] = current
 	}
-	return BoundQuery{SQL: sql}, nil
+	return BoundQuery{SQL: stmt}, nil
 }
 
 func (d *fakeSchemaDialect) BuildCreateIndex(index IndexMeta) (BoundQuery, error) {
-	sql := "create index " + index.Name + " on " + index.Table + "(" + strings.Join(index.Columns, ",") + ")"
+	stmt := "create index " + index.Name + " on " + index.Table + "(" + strings.Join(index.Columns, ",") + ")"
 	state := IndexState{Name: index.Name, Columns: append([]string(nil), index.Columns...), Unique: index.Unique}
-	d.actions[sql] = func() {
+	d.actions[stmt] = func() {
 		current := d.tables[index.Table]
 		current.Indexes = append(current.Indexes, state)
 		d.tables[index.Table] = current
 	}
-	return BoundQuery{SQL: sql}, nil
+	return BoundQuery{SQL: stmt}, nil
 }
 
 func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (BoundQuery, error) {
-	sql := "alter table " + table + " add constraint " + foreignKey.Name + " foreign key"
+	stmt := "alter table " + table + " add constraint " + foreignKey.Name + " foreign key"
 	state := ForeignKeyState{
 		Name:          foreignKey.Name,
 		Columns:       append([]string(nil), foreignKey.Columns...),
@@ -122,23 +123,23 @@ func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignK
 		OnDelete:      foreignKey.OnDelete,
 		OnUpdate:      foreignKey.OnUpdate,
 	}
-	d.actions[sql] = func() {
+	d.actions[stmt] = func() {
 		current := d.tables[table]
 		current.ForeignKeys = append(current.ForeignKeys, state)
 		d.tables[table] = current
 	}
-	return BoundQuery{SQL: sql}, nil
+	return BoundQuery{SQL: stmt}, nil
 }
 
 func (d *fakeSchemaDialect) BuildAddCheck(table string, check CheckMeta) (BoundQuery, error) {
-	sql := "alter table " + table + " add constraint " + check.Name + " check"
+	stmt := "alter table " + table + " add constraint " + check.Name + " check"
 	state := CheckState{Name: check.Name, Expression: check.Expression}
-	d.actions[sql] = func() {
+	d.actions[stmt] = func() {
 		current := d.tables[table]
 		current.Checks = append(current.Checks, state)
 		d.tables[table] = current
 	}
-	return BoundQuery{SQL: sql}, nil
+	return BoundQuery{SQL: stmt}, nil
 }
 
 func (d *fakeSchemaDialect) InspectTable(_ context.Context, _ Executor, table string) (TableState, error) {
@@ -161,7 +162,8 @@ func (s *fakeSession) Dialect() dialect.Dialect {
 }
 
 func (s *fakeSession) QueryContext(context.Context, string, ...any) (*sql.Rows, error) {
-	return nil, nil
+	var rows *sql.Rows
+	return rows, nil
 }
 
 func (s *fakeSession) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
@@ -173,7 +175,8 @@ func (s *fakeSession) QueryRowContext(context.Context, string, ...any) *Row {
 }
 
 func (s *fakeSession) QueryBoundContext(context.Context, BoundQuery) (*sql.Rows, error) {
-	return nil, nil
+	var rows *sql.Rows
+	return rows, nil
 }
 
 func (s *fakeSession) ExecBoundContext(_ context.Context, bound BoundQuery) (sql.Result, error) {
@@ -221,8 +224,8 @@ func TestValidateSchemasReportsMissingTable(t *testing.T) {
 
 func TestAutoMigrateCreatesTableAndIndexes(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
-	dialect := newFakeSchemaDialect()
-	session := &fakeSession{dialect: dialect}
+	schemaDialect := newFakeSchemaDialect()
+	session := &fakeSession{dialect: schemaDialect}
 
 	report, err := AutoMigrate(context.Background(), session, users)
 	if err != nil {
@@ -231,18 +234,18 @@ func TestAutoMigrateCreatesTableAndIndexes(t *testing.T) {
 	if !report.Valid() {
 		t.Fatalf("expected valid report after automigrate: %+v", report)
 	}
-	if len(dialect.executed) != 2 {
-		t.Fatalf("unexpected executed statement count: %d", len(dialect.executed))
+	if len(schemaDialect.executed) != 2 {
+		t.Fatalf("unexpected executed statement count: %d", len(schemaDialect.executed))
 	}
-	if _, ok := dialect.tables["users"]; !ok {
+	if _, ok := schemaDialect.tables["users"]; !ok {
 		t.Fatal("expected users table to be created")
 	}
 }
 
 func TestAutoMigrateReturnsDriftForIncompatibleColumn(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
-	dialect := newFakeSchemaDialect()
-	dialect.tables["users"] = TableState{
+	schemaDialect := newFakeSchemaDialect()
+	schemaDialect.tables["users"] = TableState{
 		Exists: true,
 		Name:   "users",
 		Columns: []ColumnState{
@@ -255,20 +258,21 @@ func TestAutoMigrateReturnsDriftForIncompatibleColumn(t *testing.T) {
 		Indexes:    toIndexStates(deriveIndexes(users.schemaRef())),
 		PrimaryKey: &PrimaryKeyState{Name: "pk_users", Columns: []string{"id"}},
 	}
-	session := &fakeSession{dialect: dialect}
+	session := &fakeSession{dialect: schemaDialect}
 
 	report, err := AutoMigrate(context.Background(), session, users)
 	if err == nil {
 		t.Fatal("expected schema drift error")
 	}
-	if _, ok := err.(SchemaDriftError); !ok {
+	var driftErr SchemaDriftError
+	if !errors.As(err, &driftErr) {
 		t.Fatalf("unexpected error type: %T", err)
 	}
 	if report.Valid() {
 		t.Fatalf("expected invalid report: %+v", report)
 	}
-	if len(dialect.executed) != 0 {
-		t.Fatalf("unexpected executed statements for incompatible drift: %#v", dialect.executed)
+	if len(schemaDialect.executed) != 0 {
+		t.Fatalf("unexpected executed statements for incompatible drift: %#v", schemaDialect.executed)
 	}
 }
 
@@ -306,8 +310,8 @@ type advancedUserSchema struct {
 
 func TestPlanSchemaChangesIncludesDerivedConstraints(t *testing.T) {
 	users := MustSchema("users", advancedUserSchema{})
-	dialect := newFakeSchemaDialect()
-	session := &fakeSession{dialect: dialect}
+	schemaDialect := newFakeSchemaDialect()
+	session := &fakeSession{dialect: schemaDialect}
 
 	plan, err := PlanSchemaChanges(context.Background(), session, users)
 	if err != nil {
@@ -337,8 +341,8 @@ func TestPlanSchemaChangesIncludesDerivedConstraints(t *testing.T) {
 
 func TestAutoMigrateAddsMissingForeignKeyAndCheck(t *testing.T) {
 	users := MustSchema("users", advancedUserSchema{})
-	dialect := newFakeSchemaDialect()
-	dialect.tables["users"] = TableState{
+	schemaDialect := newFakeSchemaDialect()
+	schemaDialect.tables["users"] = TableState{
 		Exists: true,
 		Name:   "users",
 		Columns: []ColumnState{
@@ -351,7 +355,7 @@ func TestAutoMigrateAddsMissingForeignKeyAndCheck(t *testing.T) {
 		Indexes:    toIndexStates(deriveIndexes(users.schemaRef())),
 		PrimaryKey: &PrimaryKeyState{Name: "pk_users", Columns: []string{"id", "tenant_id"}},
 	}
-	session := &fakeSession{dialect: dialect}
+	session := &fakeSession{dialect: schemaDialect}
 
 	report, err := AutoMigrate(context.Background(), session, users)
 	if err != nil {
@@ -360,11 +364,11 @@ func TestAutoMigrateAddsMissingForeignKeyAndCheck(t *testing.T) {
 	if !report.Valid() {
 		t.Fatalf("expected valid report: %+v", report)
 	}
-	if len(dialect.tables["users"].ForeignKeys) != 1 {
-		t.Fatalf("expected derived foreign key to be created: %+v", dialect.tables["users"].ForeignKeys)
+	if len(schemaDialect.tables["users"].ForeignKeys) != 1 {
+		t.Fatalf("expected derived foreign key to be created: %+v", schemaDialect.tables["users"].ForeignKeys)
 	}
-	if len(dialect.tables["users"].Checks) != 1 {
-		t.Fatalf("expected check constraint to be created: %+v", dialect.tables["users"].Checks)
+	if len(schemaDialect.tables["users"].Checks) != 1 {
+		t.Fatalf("expected check constraint to be created: %+v", schemaDialect.tables["users"].Checks)
 	}
 }
 
@@ -415,16 +419,18 @@ func (d failingIndexDialect) BuildAddForeignKey(table string, foreignKey Foreign
 func (d failingIndexDialect) BuildAddCheck(table string, check CheckMeta) (BoundQuery, error) {
 	return BoundQuery{}, fmt.Errorf("unexpected add check for test table %s check %s", table, check.Name)
 }
-func (d failingIndexDialect) InspectTable(ctx context.Context, executor Executor, table string) (TableState, error) {
+func (d failingIndexDialect) InspectTable(ctx context.Context, executor Executor, table string) (state TableState, err error) {
 	rows, err := executor.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", table)
 	if err != nil {
-		return TableState{}, err
+		return TableState{}, fmt.Errorf("inspect test table %s: %w", table, err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, closeRows(rows))
+	}()
 	if !rows.Next() {
 		return TableState{Name: table, Exists: false}, nil
 	}
-	return TableState{Name: table, Exists: true}, rows.Err()
+	return TableState{Name: table, Exists: true}, rowsIterError(rows)
 }
 
 func TestAutoMigrateRollsBackTransactionalDDLOnFailure(t *testing.T) {
@@ -441,7 +447,7 @@ func TestAutoMigrateRollsBackTransactionalDDLOnFailure(t *testing.T) {
 	}
 
 	var exists bool
-	if scanErr := raw.QueryRow(`SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?)`, "users").Scan(&exists); scanErr != nil {
+	if scanErr := raw.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?)`, "users").Scan(&exists); scanErr != nil {
 		t.Fatalf("inspect sqlite_master: %v", scanErr)
 	}
 	if exists {
@@ -451,8 +457,8 @@ func TestAutoMigrateRollsBackTransactionalDDLOnFailure(t *testing.T) {
 
 func TestAutoMigrateWarnsWhenTransactionSupportIsUnavailable(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
-	dialect := newFakeSchemaDialect()
-	session := &fakeSession{dialect: dialect}
+	schemaDialect := newFakeSchemaDialect()
+	session := &fakeSession{dialect: schemaDialect}
 
 	report, err := AutoMigrate(context.Background(), session, users)
 	if err != nil {

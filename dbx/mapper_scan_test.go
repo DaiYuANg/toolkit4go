@@ -196,7 +196,11 @@ func TestQueryCursorScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("QueryCursor returned error: %v", err)
 	}
-	defer cursor.Close()
+	defer func() {
+		if closeErr := cursor.Close(); closeErr != nil {
+			t.Fatalf("cursor.Close returned error: %v", closeErr)
+		}
+	}()
 
 	var items []accountRecord
 	for cursor.Next() {

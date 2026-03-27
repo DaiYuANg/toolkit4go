@@ -2,7 +2,7 @@ package dbx
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/samber/mo"
 )
@@ -29,7 +29,7 @@ func LoadManyToMany[S any, T any](ctx context.Context, session Session, sources 
 		return err
 	}
 	if assign == nil {
-		return fmt.Errorf("dbx: relation loader requires assign callback")
+		return errors.New("dbx: relation loader requires assign callback")
 	}
 	if len(sources) == 0 {
 		logRuntimeNode(session, "relation.load.many_to_many.done", "reason", "empty_sources")
@@ -91,7 +91,7 @@ func loadSingleRelation[S any, T any](ctx context.Context, session Session, sour
 		return err
 	}
 	if assign == nil {
-		return fmt.Errorf("dbx: relation loader requires assign callback")
+		return errors.New("dbx: relation loader requires assign callback")
 	}
 	if len(sources) == 0 {
 		logRuntimeNode(session, "relation.load.single.done", "reason", "empty_sources")
@@ -150,7 +150,7 @@ func loadMultiRelation[S any, T any](ctx context.Context, session Session, sourc
 		return err
 	}
 	if assign == nil {
-		return fmt.Errorf("dbx: relation loader requires assign callback")
+		return errors.New("dbx: relation loader requires assign callback")
 	}
 	if len(sources) == 0 {
 		logRuntimeNode(session, "relation.load.multi.done", "reason", "empty_sources")
@@ -197,9 +197,9 @@ func validateRelationLoadInputs[S any, T any](session Session, sourceSchema Sche
 	case session == nil:
 		return ErrNilDB
 	case sourceSchema == nil:
-		return fmt.Errorf("dbx: source schema is nil")
+		return errors.New("dbx: source schema is nil")
 	case targetSchema == nil:
-		return fmt.Errorf("dbx: target schema is nil")
+		return errors.New("dbx: target schema is nil")
 	case sourceMapper.meta == nil:
 		return ErrNilMapper
 	case targetMapper.meta == nil:

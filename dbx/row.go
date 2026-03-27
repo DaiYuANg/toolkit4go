@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sync"
 )
 
@@ -68,20 +69,21 @@ func scanSingleRow(rows *sql.Rows, dest ...any) error {
 		return sql.ErrNoRows
 	}
 	if !rows.Next() {
-		err := rows.Err()
-		_ = rows.Close()
+		err := errors.Join(rowsIterError(rows), closeRows(rows))
 		if err != nil {
 			return err
 		}
 		return sql.ErrNoRows
 	}
-	err := rows.Scan(dest...)
-	closeErr := rows.Close()
+	err := wrapDBError("scan row", rows.Scan(dest...))
+	closeErr := closeRows(rows)
+	rowsErr := rowsIterError(rows)
 	if err != nil {
-		return err
+		return errors.Join(err, rowsErr, closeErr)
 	}
 	if closeErr != nil {
-		return closeErr
+		return errors.Join(rowsErr, closeErr)
 	}
-	return rows.Err()
+
+	return rowsErr
 }

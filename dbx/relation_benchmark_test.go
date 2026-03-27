@@ -15,13 +15,14 @@ func BenchmarkLoadBelongsTo(b *testing.B) {
 	ddl := []string{relationTestSchemaDDL, `INSERT INTO "roles" ("id","name") VALUES (2,'admin')`}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		core := New(sqlDB, testSQLiteDialect{})
 		sourceMapper := MustMapper[relationUser](users)
 		targetMapper := MustMapper[relationRole](roles)
 		loaded := make([]mo.Option[relationRole], len(items))
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if err := LoadBelongsTo(context.Background(), core, items, users, sourceMapper, users.Role, roles, targetMapper, func(index int, _ *relationUser, value mo.Option[relationRole]) {
 				loaded[index] = value
 			}); err != nil {
@@ -54,13 +55,14 @@ func BenchmarkLoadHasMany(b *testing.B) {
 	}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		core := New(sqlDB, testSQLiteDialect{})
 		sourceMapper := MustMapper[relationUser](users)
 		targetMapper := MustMapper[relationPost](posts)
 		loaded := make([][]relationPost, len(items))
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if err := LoadHasMany(context.Background(), core, items, users, sourceMapper, users.Posts, posts, targetMapper, func(index int, _ *relationUser, value []relationPost) {
 				loaded[index] = value
 			}); err != nil {
@@ -94,13 +96,14 @@ func BenchmarkLoadManyToMany(b *testing.B) {
 	}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		core := New(sqlDB, testSQLiteDialect{})
 		sourceMapper := MustMapper[relationUser](users)
 		targetMapper := MustMapper[relationTag](tags)
 		loaded := make([][]relationTag, len(items))
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if err := LoadManyToMany(context.Background(), core, items, users, sourceMapper, users.Tags, tags, targetMapper, func(index int, _ *relationUser, value []relationTag) {
 				loaded[index] = value
 			}); err != nil {

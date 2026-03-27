@@ -73,6 +73,7 @@ func (r *hookRecorder) after(_ context.Context, event *HookEvent) {
 		r.queryCount++
 	case OperationExec:
 		r.execCount++
+	case OperationQueryRow, OperationBeginTx, OperationCommitTx, OperationRollbackTx, OperationAutoMigrate, OperationValidate:
 	}
 }
 
@@ -160,7 +161,11 @@ func TestQueryCursorAndEach(t *testing.T) {
 	if err != nil {
 		t.Fatalf("QueryCursor returned error: %v", err)
 	}
-	defer cursor.Close()
+	defer func() {
+		if closeErr := cursor.Close(); closeErr != nil {
+			t.Fatalf("cursor.Close returned error: %v", closeErr)
+		}
+	}()
 
 	var fromCursor []UserSummary
 	for cursor.Next() {
@@ -322,8 +327,9 @@ func TestBeginTxExecsWithinTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Exec returned error: %v", err)
 	}
-	if err := tx.Commit(); err != nil {
-		t.Fatalf("Commit returned error: %v", err)
+	commitErr := tx.Commit()
+	if commitErr != nil {
+		t.Fatalf("Commit returned error: %v", commitErr)
 	}
 
 	rowsAffected, err := result.RowsAffected()

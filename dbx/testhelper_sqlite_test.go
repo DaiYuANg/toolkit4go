@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	"context"
 	"database/sql"
 	"path/filepath"
 	"testing"
@@ -28,20 +29,20 @@ func OpenTestSQLite(tb testing.TB, ddl ...string) (*sql.DB, func()) {
 	if err != nil {
 		tb.Fatalf("sql.Open: %v", err)
 	}
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		_ = db.Close()
+	if _, err := db.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
+		closeTestSQLite(tb, db)
 		tb.Fatalf("PRAGMA foreign_keys: %v", err)
 	}
 	for _, s := range ddl {
 		if s == "" {
 			continue
 		}
-		if _, err := db.Exec(s); err != nil {
-			_ = db.Close()
+		if _, err := db.ExecContext(context.Background(), s); err != nil {
+			closeTestSQLite(tb, db)
 			tb.Fatalf("exec ddl %q: %v", s, err)
 		}
 	}
-	return db, func() { _ = db.Close() }
+	return db, func() { closeTestSQLite(tb, db) }
 }
 
 // OpenTestSQLiteWithSchema opens in-memory SQLite with the standard users/roles schema and optional data SQL.
@@ -62,20 +63,20 @@ func OpenBenchmarkSQLiteMemory(tb testing.TB, ddl ...string) (*sql.DB, func()) {
 		tb.Fatalf("sql.Open: %v", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		_ = db.Close()
+	if _, err := db.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
+		closeTestSQLite(tb, db)
 		tb.Fatalf("PRAGMA foreign_keys: %v", err)
 	}
 	for _, s := range ddl {
 		if s == "" {
 			continue
 		}
-		if _, err := db.Exec(s); err != nil {
-			_ = db.Close()
+		if _, err := db.ExecContext(context.Background(), s); err != nil {
+			closeTestSQLite(tb, db)
 			tb.Fatalf("exec ddl %q: %v", s, err)
 		}
 	}
-	return db, func() { _ = db.Close() }
+	return db, func() { closeTestSQLite(tb, db) }
 }
 
 // OpenBenchmarkSQLiteMemoryWithSchema opens in-memory SQLite with standard users/roles schema for benchmarks.
@@ -97,20 +98,20 @@ func OpenBenchmarkSQLite(tb testing.TB, ddl ...string) (*sql.DB, func()) {
 		tb.Fatalf("sql.Open: %v", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		_ = db.Close()
+	if _, err := db.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
+		closeTestSQLite(tb, db)
 		tb.Fatalf("PRAGMA foreign_keys: %v", err)
 	}
 	for _, s := range ddl {
 		if s == "" {
 			continue
 		}
-		if _, err := db.Exec(s); err != nil {
-			_ = db.Close()
+		if _, err := db.ExecContext(context.Background(), s); err != nil {
+			closeTestSQLite(tb, db)
 			tb.Fatalf("exec ddl %q: %v", s, err)
 		}
 	}
-	return db, func() { _ = db.Close() }
+	return db, func() { closeTestSQLite(tb, db) }
 }
 
 // OpenBenchmarkSQLiteWithSchema opens SQLite in temp dir with standard users/roles schema and optional data.
@@ -120,4 +121,14 @@ func OpenBenchmarkSQLiteWithSchema(tb testing.TB, dataSQL ...string) (*sql.DB, f
 	ddl = append(ddl, testSchemaDDL)
 	ddl = append(ddl, dataSQL...)
 	return OpenBenchmarkSQLite(tb, ddl...)
+}
+
+func closeTestSQLite(tb testing.TB, db *sql.DB) {
+	tb.Helper()
+	if db == nil {
+		return
+	}
+	if err := db.Close(); err != nil {
+		tb.Fatalf("db.Close: %v", err)
+	}
 }

@@ -10,7 +10,7 @@ import (
 
 func BenchmarkNewStructMapperCached(b *testing.B) {
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := NewStructMapper[auditedUser](); err != nil {
 			b.Fatalf("NewStructMapper returned error: %v", err)
 		}
@@ -22,7 +22,7 @@ func BenchmarkStructMapperScanPlanCached(b *testing.B) {
 	columns := []string{"id", "nickname", "bio", "label"}
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := mapper.scanPlan(columns); err != nil {
 			b.Fatalf("scanPlan returned error: %v", err)
 		}
@@ -34,7 +34,7 @@ func BenchmarkStructMapperScanPlanAliasFallback(b *testing.B) {
 	columns := []string{`"users"."id"`, `"CREATED_BY"`, `"UPDATED_BY"`}
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := mapper.scanPlan(columns); err != nil {
 			b.Fatalf("scanPlan returned error: %v", err)
 		}
@@ -49,7 +49,7 @@ func BenchmarkMapperInsertAssignments(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), accounts, entity); err != nil {
 			b.Fatalf("InsertAssignments returned error: %v", err)
 		}
@@ -104,7 +104,7 @@ func BenchmarkMapperInsertAssignmentsIDStrategy(b *testing.B) {
 
 	b.Run("DBAuto", func(b *testing.B) {
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			dbAutoEntity.ID = 0
 			if _, err := dbAutoMapper.InsertAssignments(New(nil, testSQLiteDialect{}), dbAutoSchema, dbAutoEntity); err != nil {
 				b.Fatalf("InsertAssignments returned error: %v", err)
@@ -114,7 +114,7 @@ func BenchmarkMapperInsertAssignmentsIDStrategy(b *testing.B) {
 
 	b.Run("Snowflake", func(b *testing.B) {
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			snowflakeEntity.ID = 0
 			if _, err := snowflakeMapper.InsertAssignments(New(nil, testSQLiteDialect{}), snowflakeSchema, snowflakeEntity); err != nil {
 				b.Fatalf("InsertAssignments returned error: %v", err)
@@ -124,7 +124,7 @@ func BenchmarkMapperInsertAssignmentsIDStrategy(b *testing.B) {
 
 	b.Run("UUIDv7", func(b *testing.B) {
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			uuidEntity.ID = ""
 			if _, err := uuidMapper.InsertAssignments(New(nil, testSQLiteDialect{}), uuidSchema, uuidEntity); err != nil {
 				b.Fatalf("InsertAssignments returned error: %v", err)
@@ -140,10 +140,11 @@ func BenchmarkQueryAllStructMapper(b *testing.B) {
 	ddl := []string{mapperScanAccountsDDL, `INSERT INTO "accounts" ("id","nickname","bio","label") VALUES (1,'ally','hello','admin'),(2,NULL,NULL,'reader')`}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		core := New(sqlDB, testSQLiteDialect{})
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if _, err := QueryAll(context.Background(), core, query, mapper); err != nil {
 				b.Fatalf("QueryAll returned error: %v", err)
 			}
@@ -169,10 +170,11 @@ func BenchmarkQueryAllStructMapperWithLimit(b *testing.B) {
 	ddl := []string{mapperScanAccountsDDL, `INSERT INTO "accounts" ("id","nickname","bio","label") VALUES (1,'ally','hello','admin'),(2,NULL,NULL,'reader')`}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		core := New(sqlDB, testSQLiteDialect{})
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if _, err := QueryAll(context.Background(), core, query, mapper); err != nil {
 				b.Fatalf("QueryAll returned error: %v", err)
 			}
@@ -198,22 +200,27 @@ func BenchmarkQueryCursorStructMapper(b *testing.B) {
 	ddl := []string{mapperScanAccountsDDL, `INSERT INTO "accounts" ("id","nickname","bio","label") VALUES (1,'ally','hello','admin'),(2,NULL,NULL,'reader')`}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		core := New(sqlDB, testSQLiteDialect{})
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			cursor, err := QueryCursor(context.Background(), core, query, mapper)
 			if err != nil {
 				b.Fatalf("QueryCursor returned error: %v", err)
 			}
 			for cursor.Next() {
 				if _, err := cursor.Get(); err != nil {
-					_ = cursor.Close()
+					if closeErr := cursor.Close(); closeErr != nil {
+						b.Fatalf("cursor.Get returned error: %v; cursor.Close returned error: %v", err, closeErr)
+					}
 					b.Fatalf("cursor.Get returned error: %v", err)
 				}
 			}
 			if err := cursor.Err(); err != nil {
-				_ = cursor.Close()
+				if closeErr := cursor.Close(); closeErr != nil {
+					b.Fatalf("cursor.Err returned error: %v; cursor.Close returned error: %v", err, closeErr)
+				}
 				b.Fatalf("cursor.Err returned error: %v", err)
 			}
 			if err := cursor.Close(); err != nil {
@@ -244,10 +251,11 @@ func BenchmarkSQLScalar(b *testing.B) {
 	}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		db := New(sqlDB, testSQLiteDialect{})
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if _, err := SQLScalar[int64](context.Background(), db, statement, nil); err != nil {
 				b.Fatalf("SQLScalar returned error: %v", err)
 			}
@@ -274,10 +282,11 @@ func BenchmarkQueryAllStructMapperJSONCodec(b *testing.B) {
 	ddl := []string{mapperCodecExtraDDL, `INSERT INTO "codec_accounts" ("id","preferences","tags") VALUES (1,'{"theme":"dark","flags":["alpha","beta"]}','go,dbx,orm')`}
 
 	run := func(b *testing.B, sqlDB *sql.DB) {
+		b.Helper()
 		core := New(sqlDB, testSQLiteDialect{})
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if _, err := QueryAll(context.Background(), core, query, mapper); err != nil {
 				b.Fatalf("QueryAll returned error: %v", err)
 			}
@@ -306,7 +315,7 @@ func BenchmarkMapperInsertAssignmentsCodec(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), accounts, entity); err != nil {
 			b.Fatalf("InsertAssignments returned error: %v", err)
 		}

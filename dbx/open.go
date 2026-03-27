@@ -95,7 +95,7 @@ func Open(opts ...OpenOption) (*DB, error) {
 	raw, err := sql.Open(config.driver, config.dsn)
 	if err != nil {
 		logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.error", "stage", "sql_open", "error", err)
-		return nil, err
+		return nil, wrapDBError("open database", err)
 	}
 	logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.sql_opened", "driver", config.driver)
 

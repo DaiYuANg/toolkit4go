@@ -122,21 +122,21 @@ func toSnakeCase(input string) string {
 		return ""
 	}
 
-	var out strings.Builder
-	out.Grow(len(input) + 4)
+	var out renderBuffer
+	out.buf.Grow(len(input) + 4)
 
 	for index, r := range input {
 		if unicode.IsUpper(r) {
 			if index > 0 {
 				prev := rune(input[index-1])
 				if prev != '_' && (!unicode.IsUpper(prev) || (index+1 < len(input) && unicode.IsLower(rune(input[index+1])))) {
-					out.WriteByte('_')
+					out.writeByte('_')
 				}
 			}
-			out.WriteRune(unicode.ToLower(r))
+			out.writeString(string(unicode.ToLower(r)))
 			continue
 		}
-		out.WriteRune(r)
+		out.writeString(string(r))
 	}
 
 	return out.String()

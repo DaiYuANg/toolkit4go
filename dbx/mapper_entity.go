@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -14,7 +15,7 @@ func (m Mapper[E]) InsertAssignments(session Session, schema SchemaResource, ent
 	}
 	carrier, ok := any(session).(interface{ IDGenerator() IDGenerator })
 	if !ok {
-		return nil, fmt.Errorf("dbx: session does not expose id generator")
+		return nil, errors.New("dbx: session does not expose id generator")
 	}
 	return m.InsertAssignmentsWithID(context.Background(), schema, entity, carrier.IDGenerator())
 }
@@ -138,7 +139,7 @@ func (m Mapper[E]) ensureGeneratedID(ctx context.Context, root reflect.Value, fi
 	}
 	generated, err := generator.GenerateID(ctx, column)
 	if err != nil {
-		return reflect.Value{}, false, err
+		return reflect.Value{}, false, fmt.Errorf("dbx: generate id for column %s: %w", column.Name, err)
 	}
 
 	targetField, err := ensureFieldValue(root, field)

@@ -2,7 +2,6 @@ package dbx
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
@@ -29,7 +28,10 @@ func collectSourceRelationKeys[E any](rt *relationRuntime, entities []E, mapper 
 
 	lookup := make([]relationLookupValue, len(entities))
 	keys := collectionx.NewListWithCapacity[any](len(entities))
-	seen := rt.seenSetPool.Get().(collectionx.Map[any, struct{}])
+	seen, err := relationSeenSet(rt)
+	if err != nil {
+		return nil, nil, err
+	}
 	defer func() {
 		seen.Clear()
 		rt.seenSetPool.Put(seen)
@@ -148,7 +150,11 @@ func buildRelationTargetsBoundQuery(session Session, rt *relationRuntime, schema
 	tableName := schema.tableRef().Name()
 	selectSig := strings.Join(lo.Map(def.columns, func(c ColumnMeta, _ int) string { return c.Name }), ",")
 	cacheKey := fmt.Sprintf("rel:%s:%s:%s:%s:%d", dialectName, tableName, selectSig, targetColumn.Name, len(keys))
-	if cachedSQL, ok, _ := rt.queryCache.Get(cacheKey); ok {
+	cachedSQL, ok, err := relationCachedQuery(rt, cacheKey)
+	if err != nil {
+		return BoundQuery{}, err
+	}
+	if ok {
 		logRuntimeNode(session, "relation.targets.bound.cache_hit", "table", tableName, "target_column", targetColumn.Name, "keys", len(keys))
 		args := make([]any, len(keys))
 		copy(args, keys)
@@ -178,7 +184,7 @@ func allSelectItems(def schemaDefinition) []SelectItem {
 	})
 }
 
-func indexRelationTargets[E any](targets []E, mapper Mapper[E], column string, relationName string, enforceUnique bool) (map[any]E, error) {
+func indexRelationTargets[E any](targets []E, mapper Mapper[E], column, relationName string, enforceUnique bool) (map[any]E, error) {
 	indexed := make(map[any]E, len(targets))
 	counts := make(map[any]int, len(targets))
 	for index := range targets {
@@ -199,7 +205,10 @@ func indexRelationTargets[E any](targets []E, mapper Mapper[E], column string, r
 }
 
 func groupRelationTargets[E any](rt *relationRuntime, targets []E, mapper Mapper[E], column string) (map[any][]E, error) {
-	counts := rt.countsMapPool.Get().(collectionx.Map[any, int])
+	counts, err := relationCountsMap(rt)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		counts.Clear()
 		rt.countsMapPool.Put(counts)
@@ -242,236 +251,4 @@ func relationKeyTypeForMeta(def schemaDefinition, column string) reflect.Type {
 		return nil
 	}
 	return columnMeta.GoType
-}
-
-func queryManyToManyPairs(ctx context.Context, session Session, rt *relationRuntime, meta RelationMeta, sourceKeys []any, sourceType, targetType reflect.Type) ([]relationKeyPair, error) {
-	if meta.ThroughTable == "" {
-		return nil, fmt.Errorf("dbx: many-to-many relation %s requires join table", meta.Name)
-	}
-	if meta.ThroughLocalColumn == "" || meta.ThroughTargetColumn == "" {
-		return nil, fmt.Errorf("dbx: many-to-many relation %s requires join_local and join_target", meta.Name)
-	}
-
-	pairs := collectionx.NewListWithCapacity[relationKeyPair](len(sourceKeys))
-	chunks := chunkRelationKeys(sourceKeys, relationChunkSize(session))
-	logRuntimeNode(session, "relation.m2m.pairs.start", "relation", meta.Name, "keys", len(sourceKeys), "chunks", len(chunks))
-	for index, chunk := range chunks {
-		logRuntimeNode(session, "relation.m2m.pairs.chunk", "relation", meta.Name, "index", index, "size", len(chunk))
-		bound, err := buildManyToManyPairsBoundQuery(session, rt, meta, chunk)
-		if err != nil {
-			logRuntimeNode(session, "relation.m2m.pairs.error", "stage", "build_bound", "relation", meta.Name, "error", err)
-			return nil, err
-		}
-		rows, err := session.QueryBoundContext(ctx, bound)
-		if err != nil {
-			logRuntimeNode(session, "relation.m2m.pairs.error", "stage", "query_rows", "relation", meta.Name, "index", index, "error", err)
-			return nil, err
-		}
-		scanned, scanErr := scanRelationPairs(rows, sourceType, targetType)
-		_ = rows.Close()
-		if scanErr != nil {
-			logRuntimeNode(session, "relation.m2m.pairs.error", "stage", "scan_rows", "relation", meta.Name, "index", index, "error", scanErr)
-			return nil, scanErr
-		}
-		pairs.Add(scanned...)
-	}
-	logRuntimeNode(session, "relation.m2m.pairs.done", "relation", meta.Name, "pairs", pairs.Len())
-	return pairs.Values(), nil
-}
-
-func buildManyToManyPairsBoundQuery(session Session, rt *relationRuntime, meta RelationMeta, sourceKeys []any) (BoundQuery, error) {
-	dialectName := session.Dialect().Name()
-	cacheKey := fmt.Sprintf("m2m:%s:%s:%s:%s:%d", dialectName, meta.ThroughTable, meta.ThroughLocalColumn, meta.ThroughTargetColumn, len(sourceKeys))
-	if cachedSQL, ok, _ := rt.queryCache.Get(cacheKey); ok {
-		logRuntimeNode(session, "relation.m2m.bound.cache_hit", "relation", meta.Name, "through", meta.ThroughTable, "keys", len(sourceKeys))
-		args := make([]any, len(sourceKeys))
-		copy(args, sourceKeys)
-		return BoundQuery{SQL: cachedSQL, Args: args}, nil
-	}
-	logRuntimeNode(session, "relation.m2m.bound.cache_miss", "relation", meta.Name, "through", meta.ThroughTable, "keys", len(sourceKeys))
-
-	through := Table{def: tableDefinition{name: meta.ThroughTable}}
-	localColumn := ColumnMeta{Name: meta.ThroughLocalColumn, Table: through.Name(), GoType: nil}
-	targetColumn := ColumnMeta{Name: meta.ThroughTargetColumn, Table: through.Name(), GoType: nil}
-	query := Select(
-		schemaSelectItem{meta: localColumn},
-		schemaSelectItem{meta: targetColumn},
-	).From(through).Where(metadataComparisonPredicate{
-		left:  localColumn,
-		op:    OpIn,
-		right: sourceKeys,
-	}).OrderBy(
-		NamedColumn[any](through, meta.ThroughLocalColumn).Asc(),
-		NamedColumn[any](through, meta.ThroughTargetColumn).Asc(),
-	)
-
-	bound, err := Build(session, query)
-	if err != nil {
-		logRuntimeNode(session, "relation.m2m.bound.error", "relation", meta.Name, "error", err)
-		return BoundQuery{}, err
-	}
-	rt.queryCache.Set(cacheKey, bound.SQL)
-	return bound, nil
-}
-
-func scanRelationPairs(rows *sql.Rows, sourceType, targetType reflect.Type) ([]relationKeyPair, error) {
-	pairs := collectionx.NewList[relationKeyPair]()
-	for rows.Next() {
-		sourceDest, sourceValue := relationScanDestination(sourceType)
-		targetDest, targetValue := relationScanDestination(targetType)
-		if err := rows.Scan(sourceDest, targetDest); err != nil {
-			return nil, err
-		}
-
-		sourceKey, err := normalizeRelationLookupValue(sourceValue())
-		if err != nil {
-			return nil, err
-		}
-		targetKey, err := normalizeRelationLookupValue(targetValue())
-		if err != nil {
-			return nil, err
-		}
-		if !sourceKey.present || !targetKey.present {
-			continue
-		}
-		pairs.Add(relationKeyPair{source: sourceKey.key, target: targetKey.key})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return pairs.Values(), nil
-}
-
-func relationScanDestination(typ reflect.Type) (any, func() any) {
-	baseType := typ
-	for baseType != nil && baseType.Kind() == reflect.Pointer {
-		baseType = baseType.Elem()
-	}
-	if baseType == nil {
-		var value any
-		return &value, func() any { return value }
-	}
-	holder := reflect.New(baseType)
-	return holder.Interface(), func() any { return holder.Elem().Interface() }
-}
-
-func uniqueRelationKeysFromPairs(rt *relationRuntime, pairs []relationKeyPair, useSource bool) []any {
-	keys := collectionx.NewListWithCapacity[any](len(pairs))
-	seen := rt.seenSetPool.Get().(collectionx.Map[any, struct{}])
-	defer func() {
-		seen.Clear()
-		rt.seenSetPool.Put(seen)
-	}()
-	for _, pair := range pairs {
-		key := pair.target
-		if useSource {
-			key = pair.source
-		}
-		if _, ok := seen.Get(key); ok {
-			continue
-		}
-		seen.Set(key, struct{}{})
-		keys.Add(key)
-	}
-	return keys.Values()
-}
-
-func groupManyToManyTargets[E any](rt *relationRuntime, pairs []relationKeyPair, indexed map[any]E) map[any][]E {
-	counts := rt.countsMapPool.Get().(collectionx.Map[any, int])
-	defer func() {
-		counts.Clear()
-		rt.countsMapPool.Put(counts)
-	}()
-	for _, pair := range pairs {
-		if _, ok := indexed[pair.target]; ok {
-			v, _ := counts.Get(pair.source)
-			counts.Set(pair.source, v+1)
-		}
-	}
-	grouped := groupedValuesFromCounts[E](counts)
-	for _, pair := range pairs {
-		target, ok := indexed[pair.target]
-		if !ok {
-			continue
-		}
-		grouped[pair.source] = append(grouped[pair.source], target)
-	}
-	return grouped
-}
-
-type presentRelationKey struct {
-	value any
-	ok    bool
-}
-
-func presentEntityRelationKey[E any](mapper Mapper[E], entity *E, column string) (presentRelationKey, error) {
-	key, err := entityRelationKey(mapper, entity, column)
-	if err != nil {
-		return presentRelationKey{}, err
-	}
-	if !key.present {
-		return presentRelationKey{}, nil
-	}
-	return presentRelationKey{value: key.key, ok: true}, nil
-}
-
-func groupedValuesFromCounts[E any](counts collectionx.Map[any, int]) map[any][]E {
-	grouped := make(map[any][]E, counts.Len())
-	counts.Range(func(key any, capacity int) bool {
-		grouped[key] = make([]E, 0, capacity)
-		return true
-	})
-	return grouped
-}
-
-func relationChunkSize(session Session) int {
-	if session == nil || session.Dialect() == nil {
-		return 256
-	}
-	switch strings.ToLower(strings.TrimSpace(session.Dialect().Name())) {
-	case "sqlite":
-		return 900
-	case "postgres", "mysql":
-		return 4096
-	default:
-		return 512
-	}
-}
-
-func chunkRelationKeys(keys []any, chunkSize int) [][]any {
-	if len(keys) == 0 {
-		return nil
-	}
-	if chunkSize <= 0 || len(keys) <= chunkSize {
-		return [][]any{keys}
-	}
-	chunks := make([][]any, 0, (len(keys)+chunkSize-1)/chunkSize)
-	for start := 0; start < len(keys); start += chunkSize {
-		end := start + chunkSize
-		if end > len(keys) {
-			end = len(keys)
-		}
-		chunks = append(chunks, keys[start:end])
-	}
-	return chunks
-}
-
-func relationTargetOrders(schema relationSchemaSource, targetColumn ColumnMeta) []Order {
-	orders := []Order{NamedColumn[any](schema, targetColumn.Name).Asc()}
-	if primaryKey := derivePrimaryKey(schema.schemaRef()); primaryKey != nil && len(primaryKey.Columns) == 1 && primaryKey.Columns[0] != targetColumn.Name {
-		orders = append(orders, NamedColumn[any](schema, primaryKey.Columns[0]).Asc())
-	}
-	return orders
-}
-
-type schemaAdapter[E any] struct {
-	def schemaDefinition
-}
-
-func (s schemaAdapter[E]) tableRef() Table {
-	return Table{def: s.def.table}
-}
-
-func (s schemaAdapter[E]) schemaRef() schemaDefinition {
-	return s.def
 }

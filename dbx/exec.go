@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
 )
@@ -46,7 +47,7 @@ func Build(session Session, query QueryBuilder) (BoundQuery, error) {
 	bound, err := query.Build(session.Dialect())
 	if err != nil {
 		logRuntimeNode(session, "build.error", "error", err)
-		return BoundQuery{}, err
+		return BoundQuery{}, wrapDBError("build query", err)
 	}
 	logRuntimeNode(session, "build.done", "sql_empty", bound.SQL == "", "args_count", len(bound.Args))
 	return bound, nil
@@ -68,7 +69,8 @@ func ExecBound(ctx context.Context, session Session, bound BoundQuery) (sql.Resu
 		return nil, ErrNilDB
 	}
 	logRuntimeNode(session, "exec_bound.start", "statement", bound.Name, "args_count", len(bound.Args))
-	return session.ExecBoundContext(ctx, bound)
+	result, err := session.ExecBoundContext(ctx, bound)
+	return result, wrapDBError("execute bound query", err)
 }
 
 func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) ([]E, error) {
@@ -96,16 +98,22 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery
 	rows, err := session.QueryBoundContext(ctx, bound)
 	if err != nil {
 		logRuntimeNode(session, "query_all_bound.query_error", "statement", bound.Name, "error", err)
-		return nil, err
+		return nil, wrapDBError("query bound rows", err)
 	}
-	defer rows.Close()
 	if bound.CapacityHint > 0 {
 		if withCap, ok := any(mapper).(CapacityHintScanner[E]); ok {
 			logRuntimeNode(session, "query_all_bound.scan_with_capacity", "capacity_hint", bound.CapacityHint)
 			items, scanErr := withCap.ScanRowsWithCapacity(rows, bound.CapacityHint)
+			scanErr = errors.Join(wrapDBError("scan rows with capacity", scanErr), rowsIterError(rows))
+			closeErr := closeRows(rows)
 			if scanErr != nil {
+				scanErr = errors.Join(scanErr, closeErr)
 				logRuntimeNode(session, "query_all_bound.scan_error", "error", scanErr)
 				return nil, scanErr
+			}
+			if closeErr != nil {
+				logRuntimeNode(session, "query_all_bound.scan_error", "error", closeErr)
+				return nil, closeErr
 			}
 			logRuntimeNode(session, "query_all_bound.scan_done", "items", len(items))
 			return items, nil
@@ -113,9 +121,16 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery
 	}
 	logRuntimeNode(session, "query_all_bound.scan")
 	items, scanErr := mapper.ScanRows(rows)
+	scanErr = errors.Join(wrapDBError("scan rows", scanErr), rowsIterError(rows))
+	closeErr := closeRows(rows)
 	if scanErr != nil {
+		scanErr = errors.Join(scanErr, closeErr)
 		logRuntimeNode(session, "query_all_bound.scan_error", "error", scanErr)
 		return nil, scanErr
+	}
+	if closeErr != nil {
+		logRuntimeNode(session, "query_all_bound.scan_error", "error", closeErr)
+		return nil, closeErr
 	}
 	logRuntimeNode(session, "query_all_bound.scan_done", "items", len(items))
 	return items, nil

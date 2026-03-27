@@ -32,10 +32,6 @@ func newMapperRegistry() *mapperRegistry {
 	}
 }
 
-func getOrBuildStructMapperMetadata[E any]() (*mapperMetadata, error) {
-	return getOrBuildMapperMetadata[E](defaultMapperRuntime)
-}
-
 func getOrBuildMapperMetadata[E any](runtime *mapperRuntime) (*mapperMetadata, error) {
 	entityType := reflect.TypeFor[E]()
 	if cached, ok := runtime.registry.structMappers.Peek(entityType); ok {

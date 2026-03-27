@@ -28,7 +28,10 @@ func TestSQLListScansStructMapperAndPropagatesStatementName(t *testing.T) {
 	}
 
 	statement := NewSQLStatement("user.find_active", func(actual any) (BoundQuery, error) {
-		value := actual.(params)
+		value, ok := actual.(params)
+		if !ok {
+			return BoundQuery{}, errors.New("dbx: sql statement params must be params")
+		}
 		return BoundQuery{
 			SQL:  `SELECT "id", "username" FROM "users" WHERE "status" = ?`,
 			Args: []any{value.Status},
@@ -204,7 +207,11 @@ func TestSQLCursorAndEach(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SQLCursor returned error: %v", err)
 	}
-	defer cursor.Close()
+	defer func() {
+		if closeErr := cursor.Close(); closeErr != nil {
+			t.Fatalf("cursor.Close returned error: %v", closeErr)
+		}
+	}()
 
 	var fromCursor []UserSummary
 	for cursor.Next() {

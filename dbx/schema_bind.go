@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,7 +12,7 @@ import (
 func bindSchema[S any](name, alias string, schema S) (S, error) {
 	value := reflect.ValueOf(&schema).Elem()
 	if value.Kind() != reflect.Struct {
-		return schema, fmt.Errorf("dbx: schema must be a struct")
+		return schema, errors.New("dbx: schema must be a struct")
 	}
 
 	var binder schemaBinder
@@ -28,7 +29,7 @@ func bindSchema[S any](name, alias string, schema S) (S, error) {
 	checks := collectionx.NewListWithCapacity[CheckMeta](value.NumField())
 	var primaryKey *PrimaryKeyMeta
 
-	for i := 0; i < value.NumField(); i++ {
+	for i := range value.NumField() {
 		fieldValue := value.Field(i)
 		fieldType := schemaType.Field(i)
 		if !fieldValue.CanSet() {

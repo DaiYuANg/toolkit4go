@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -26,16 +27,16 @@ func (q *SelectQuery) RightJoinRelation(source relationSchemaSource, relation re
 
 func (q *SelectQuery) joinRelation(joinType JoinType, source relationSchemaSource, relation relationAccessor, target TableSource) (*SelectQuery, error) {
 	if q == nil {
-		return nil, fmt.Errorf("dbx: select query is nil")
+		return nil, errors.New("dbx: select query is nil")
 	}
 	if source == nil {
-		return nil, fmt.Errorf("dbx: relation join requires source schema")
+		return nil, errors.New("dbx: relation join requires source schema")
 	}
 	if relation == nil {
-		return nil, fmt.Errorf("dbx: relation join requires relation")
+		return nil, errors.New("dbx: relation join requires relation")
 	}
 	if target == nil {
-		return nil, fmt.Errorf("dbx: relation join requires target table")
+		return nil, errors.New("dbx: relation join requires target table")
 	}
 
 	sourceTable := source.tableRef()

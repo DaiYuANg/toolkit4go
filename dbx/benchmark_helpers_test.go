@@ -1,6 +1,8 @@
+// Package dbx contains benchmarks for the dbx package.
 package dbx
 
 import (
+	"context"
 	"database/sql"
 	"path/filepath"
 	"testing"
@@ -16,7 +18,11 @@ func benchmarkOpenSQLiteDB(b *testing.B, name string) *sql.DB {
 		b.Fatalf("sql.Open returned error: %v", err)
 	}
 	db.SetMaxOpenConns(1)
-	b.Cleanup(func() { _ = db.Close() })
+	b.Cleanup(func() {
+		if closeErr := db.Close(); closeErr != nil {
+			b.Fatalf("db.Close returned error: %v", closeErr)
+		}
+	})
 	return db
 }
 
@@ -27,10 +33,16 @@ func benchmarkOpenSQLiteDBMemory(b *testing.B) *sql.DB {
 		b.Fatalf("sql.Open returned error: %v", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		_ = db.Close()
+	if _, err := db.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
+		if closeErr := db.Close(); closeErr != nil {
+			b.Fatalf("db.Close returned error after PRAGMA failure: %v", closeErr)
+		}
 		b.Fatalf("PRAGMA foreign_keys: %v", err)
 	}
-	b.Cleanup(func() { _ = db.Close() })
+	b.Cleanup(func() {
+		if closeErr := db.Close(); closeErr != nil {
+			b.Fatalf("db.Close returned error: %v", closeErr)
+		}
+	})
 	return db
 }

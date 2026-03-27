@@ -1,10 +1,6 @@
 package dbx
 
-import (
-	"strings"
-
-	"github.com/samber/lo"
-)
+import "github.com/samber/lo"
 
 type schemaSelectItem struct {
 	meta ColumnMeta
@@ -61,12 +57,12 @@ func (a metadataAssignment) assignmentColumn() ColumnMeta {
 
 func (a metadataAssignment) renderAssignment(state *renderState) error {
 	state.writeQuotedIdent(a.meta.Name)
-	state.buf.WriteString(" = ")
+	state.writeString(" = ")
 	operand, err := renderOperandValue(state, a.value)
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(operand)
+	state.writeString(operand)
 	return nil
 }
 
@@ -75,16 +71,16 @@ func (a metadataAssignment) renderAssignmentValue(state *renderState) error {
 	if err != nil {
 		return err
 	}
-	state.buf.WriteString(operand)
+	state.writeString(operand)
 	return nil
 }
 
 func (p metadataComparisonPredicate) renderPredicate(state *renderState) error {
 	state.renderColumn(p.left)
 	if p.op == OpIs || p.op == OpIsNot {
-		state.buf.WriteByte(' ')
-		state.buf.WriteString(string(p.op))
-		state.buf.WriteString(" NULL")
+		state.writeByte(' ')
+		state.writeString(string(p.op))
+		state.writeString(" NULL")
 		return nil
 	}
 
@@ -92,21 +88,21 @@ func (p metadataComparisonPredicate) renderPredicate(state *renderState) error {
 	if err != nil {
 		return err
 	}
-	state.buf.WriteByte(' ')
-	state.buf.WriteString(string(p.op))
-	state.buf.WriteByte(' ')
-	state.buf.WriteString(operand)
+	state.writeByte(' ')
+	state.writeString(string(p.op))
+	state.writeByte(' ')
+	state.writeString(operand)
 	return nil
 }
 
 func (o metadataColumnOperand) renderOperand(state *renderState) (string, error) {
-	var builder strings.Builder
+	var builder renderBuffer
 	table := o.meta.Table
 	if o.meta.Alias != "" {
 		table = o.meta.Alias
 	}
-	builder.WriteString(state.dialect.QuoteIdent(table))
-	builder.WriteByte('.')
-	builder.WriteString(state.dialect.QuoteIdent(o.meta.Name))
-	return builder.String(), nil
+	builder.writeString(state.dialect.QuoteIdent(table))
+	builder.writeByte('.')
+	builder.writeString(state.dialect.QuoteIdent(o.meta.Name))
+	return builder.String(), builder.Err("render metadata column operand")
 }

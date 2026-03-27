@@ -26,7 +26,7 @@ func (x *SQLExecutor) Bind(statement SQLStatementSource, params any) (BoundQuery
 	bound, err := statement.Bind(params)
 	if err != nil {
 		logRuntimeNode(x.session, "sql.bind.error", "statement", statement.StatementName(), "error", err)
-		return BoundQuery{}, err
+		return BoundQuery{}, wrapDBError("bind sql statement", err)
 	}
 	if bound.Name == "" {
 		bound.Name = statement.StatementName()
@@ -49,7 +49,8 @@ func (x *SQLExecutor) Exec(ctx context.Context, statement SQLStatementSource, pa
 		return nil, err
 	}
 	logRuntimeNode(session, "sql.exec.start", "statement", bound.Name, "args_count", len(bound.Args))
-	return session.ExecBoundContext(ctx, bound)
+	result, execErr := session.ExecBoundContext(ctx, bound)
+	return result, wrapDBError("execute sql statement", execErr)
 }
 
 func (x *SQLExecutor) Query(ctx context.Context, statement SQLStatementSource, params any) (*sql.Rows, error) {
@@ -63,7 +64,8 @@ func (x *SQLExecutor) Query(ctx context.Context, statement SQLStatementSource, p
 		return nil, err
 	}
 	logRuntimeNode(session, "sql.query.start", "statement", bound.Name, "args_count", len(bound.Args))
-	return session.QueryBoundContext(ctx, bound)
+	rows, queryErr := session.QueryBoundContext(ctx, bound)
+	return rows, wrapDBError("query sql statement", queryErr)
 }
 
 func (x *SQLExecutor) sessionOrErr() (Session, error) {
@@ -71,17 +73,6 @@ func (x *SQLExecutor) sessionOrErr() (Session, error) {
 		return nil, ErrNilDB
 	}
 	return x.session, nil
-}
-
-func sessionExecutor(session Session) (*SQLExecutor, error) {
-	if session == nil {
-		return nil, ErrNilDB
-	}
-	exec := session.SQL()
-	if exec == nil {
-		return nil, ErrNilDB
-	}
-	return exec, nil
 }
 
 func SQLList[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) ([]E, error) {
@@ -98,12 +89,17 @@ func SQLList[E any](ctx context.Context, session Session, statement SQLStatement
 		logRuntimeNode(session, "sql.list.error", "stage", "query_rows", "error", err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	items, scanErr := mapper.ScanRows(rows)
+	scanErr = errors.Join(wrapDBError("scan statement rows", scanErr), rowsIterError(rows))
+	closeErr := closeRows(rows)
 	if scanErr != nil {
 		logRuntimeNode(session, "sql.list.error", "stage", "scan_rows", "error", scanErr)
-		return nil, scanErr
+		return nil, errors.Join(scanErr, closeErr)
+	}
+	if closeErr != nil {
+		logRuntimeNode(session, "sql.list.error", "stage", "close_rows", "error", closeErr)
+		return nil, closeErr
 	}
 	logRuntimeNode(session, "sql.list.done", "items", len(items))
 	return items, nil
@@ -121,11 +117,11 @@ func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementS
 		return zero, err
 	}
 	if one, ok := mapper.(oneRowScanner[E]); ok {
-		value, found, err := scanStatementOne(ctx, exec, statement, params, one)
-		if err != nil {
-			logRuntimeNode(session, "sql.get.error", "stage", "scan_one", "error", err)
+		value, found, scanErr := scanStatementOne(ctx, exec, statement, params, one)
+		if scanErr != nil {
+			logRuntimeNode(session, "sql.get.error", "stage", "scan_one", "error", scanErr)
 			var zero E
-			return zero, err
+			return zero, scanErr
 		}
 		if !found {
 			logRuntimeNode(session, "sql.get.not_found")
@@ -167,10 +163,10 @@ func SQLFind[E any](ctx context.Context, session Session, statement SQLStatement
 		return mo.None[E](), err
 	}
 	if one, ok := mapper.(oneRowScanner[E]); ok {
-		value, found, err := scanStatementOne(ctx, exec, statement, params, one)
-		if err != nil {
-			logRuntimeNode(session, "sql.find.error", "stage", "scan_one", "error", err)
-			return mo.None[E](), err
+		value, found, scanErr := scanStatementOne(ctx, exec, statement, params, one)
+		if scanErr != nil {
+			logRuntimeNode(session, "sql.find.error", "stage", "scan_one", "error", scanErr)
+			return mo.None[E](), scanErr
 		}
 		logRuntimeNode(session, "sql.find.done", "found", found)
 		return mo.TupleToOption(value, found), nil
@@ -235,44 +231,33 @@ func sqlScalar[T any](ctx context.Context, session Session, statement SQLStateme
 		var zero T
 		return zero, false, err
 	}
-	defer rows.Close()
 
 	value, err := scanlib.OneFromRows[T](ctx, scanlib.SingleColumnMapper[T], rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			closeErr := closeRows(rows)
 			var zero T
-			return zero, false, nil
+			return zero, false, closeErr
 		}
+		closeErr := closeRows(rows)
 		var zero T
-		return zero, false, err
+		return zero, false, errors.Join(wrapDBError("scan scalar row", err), closeErr)
 	}
 
 	if rows.Next() {
+		closeErr := closeRows(rows)
 		var zero T
-		return zero, false, ErrTooManyRows
+		return zero, false, errors.Join(ErrTooManyRows, closeErr)
 	}
-	if err := rows.Err(); err != nil {
+	if err := rowsIterError(rows); err != nil {
+		closeErr := closeRows(rows)
 		var zero T
-		return zero, false, err
+		return zero, false, errors.Join(err, closeErr)
 	}
-
+	closeErr := closeRows(rows)
+	if closeErr != nil {
+		var zero T
+		return zero, false, closeErr
+	}
 	return value, true, nil
-}
-
-func scanStatementOne[E any](ctx context.Context, exec *SQLExecutor, statement SQLStatementSource, params any, mapper oneRowScanner[E]) (E, bool, error) {
-	rows, err := queryStatementRows(ctx, exec, statement, params)
-	if err != nil {
-		var zero E
-		return zero, false, err
-	}
-	defer rows.Close()
-
-	return mapper.scanOneRows(ctx, rows)
-}
-
-func queryStatementRows(ctx context.Context, executor *SQLExecutor, statement SQLStatementSource, params any) (*sql.Rows, error) {
-	if executor == nil {
-		return nil, ErrNilDB
-	}
-	return executor.Query(ctx, statement, params)
 }

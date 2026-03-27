@@ -3,6 +3,7 @@ package dbx
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -77,7 +78,7 @@ func (r *codecRegistry) register(codec Codec) error {
 
 	name := normalizeCodecName(codec.Name())
 	if name == "" {
-		return fmt.Errorf("dbx: codec name cannot be empty")
+		return errors.New("dbx: codec name cannot be empty")
 	}
 
 	r.mu.Lock()
@@ -120,7 +121,8 @@ func (c typedCodec[T]) Decode(src any, target reflect.Value) error {
 
 func (c typedCodec[T]) Encode(source reflect.Value) (any, error) {
 	if !source.IsValid() || isNilValue(source) {
-		return nil, nil
+		var encoded any
+		return encoded, nil
 	}
 
 	value, ok := codecValueAs[T](source)
@@ -153,16 +155,20 @@ func (jsonCodec) Decode(src any, target reflect.Value) error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(payload, destination.Interface())
+	if err := json.Unmarshal(payload, destination.Interface()); err != nil {
+		return fmt.Errorf("dbx: codec %q: %w", "json", err)
+	}
+	return nil
 }
 
 func (jsonCodec) Encode(source reflect.Value) (any, error) {
 	if !source.IsValid() || isNilValue(source) {
-		return nil, nil
+		var encoded any
+		return encoded, nil
 	}
 	payload, err := json.Marshal(source.Interface())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("dbx: codec %q: %w", "json", err)
 	}
 	return payload, nil
 }
@@ -195,9 +201,9 @@ func codecValueAs[T any](source reflect.Value) (T, bool) {
 	return zero, false
 }
 
-func assignDecodedValue(target reflect.Value, value reflect.Value) error {
+func assignDecodedValue(target, value reflect.Value) error {
 	if !target.CanSet() {
-		return fmt.Errorf("dbx: codec target is not settable")
+		return errors.New("dbx: codec target is not settable")
 	}
 	if !value.IsValid() {
 		resetFieldValue(target)
@@ -244,7 +250,7 @@ func assignDecodedValue(target reflect.Value, value reflect.Value) error {
 
 func codecDecodeTarget(target reflect.Value) (reflect.Value, error) {
 	if !target.CanSet() {
-		return reflect.Value{}, fmt.Errorf("dbx: codec target is not settable")
+		return reflect.Value{}, errors.New("dbx: codec target is not settable")
 	}
 	if target.Kind() == reflect.Pointer {
 		if target.IsNil() {
@@ -262,12 +268,11 @@ func resetFieldValue(target reflect.Value) {
 }
 
 func isNilValue(value reflect.Value) bool {
-	switch value.Kind() {
-	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface:
+	kind := value.Kind()
+	if kind == reflect.Pointer || kind == reflect.Map || kind == reflect.Slice || kind == reflect.Interface {
 		return value.IsNil()
-	default:
-		return false
 	}
+	return false
 }
 
 func normalizeJSONPayload(src any) ([]byte, error) {
