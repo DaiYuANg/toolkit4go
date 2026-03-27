@@ -1,3 +1,4 @@
+// Package main demonstrates overriding providers during dix module setup.
 package main
 
 import (
@@ -8,7 +9,7 @@ import (
 	"github.com/DaiYuANg/arcgo/logx"
 )
 
-type AppConfig struct {
+type appConfig struct {
 	Env string
 }
 
@@ -24,16 +25,17 @@ func main() {
 		dix.WithModule(
 			dix.NewModule("override",
 				dix.WithModuleProviders(
-					dix.Provider0(func() AppConfig { return AppConfig{Env: "dev"} }),
+					dix.Provider0(func() appConfig { return appConfig{Env: "dev"} }),
 				),
 				dix.WithModuleSetups(
-					dixadvanced.Override0(func() AppConfig { return AppConfig{Env: "prod"} }),
+					dixadvanced.Override0(func() appConfig { return appConfig{Env: "prod"} }),
 				),
 			),
 		),
 	)
 
-	if err := app.Validate(); err != nil {
+	err = app.Validate()
+	if err != nil {
 		panic(err)
 	}
 
@@ -42,11 +44,23 @@ func main() {
 		panic(err)
 	}
 
-	cfg, err := dix.ResolveAs[AppConfig](rt.Container())
+	cfg, err := dix.ResolveAs[appConfig](rt.Container())
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("override example")
-	fmt.Println("env:", cfg.Env)
+	printLine("override example")
+	printValues("env:", cfg.Env)
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
+}
+
+func printValues(values ...any) {
+	if _, err := fmt.Println(values...); err != nil {
+		panic(err)
+	}
 }

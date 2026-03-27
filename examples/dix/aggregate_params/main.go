@@ -1,3 +1,4 @@
+// Package main demonstrates grouping dix dependencies into an aggregate parameter object.
 package main
 
 import (
@@ -9,17 +10,17 @@ import (
 	"github.com/DaiYuANg/arcgo/logx"
 )
 
-type DBConfig struct {
+type dbConfig struct {
 	DSN string
 }
 
-type RepositoryParams struct {
+type repositoryParams struct {
 	Logger *slog.Logger
-	Cfg    DBConfig
+	Cfg    dbConfig
 }
 
-type Repository struct {
-	params RepositoryParams
+type repository struct {
+	params repositoryParams
 }
 
 func main() {
@@ -30,12 +31,12 @@ func main() {
 
 	module := dix.NewModule("repository",
 		dix.WithModuleProviders(
-			dix.Provider0(func() DBConfig { return DBConfig{DSN: "postgres://demo"} }),
-			dix.Provider2(func(logger *slog.Logger, cfg DBConfig) RepositoryParams {
-				return RepositoryParams{Logger: logger, Cfg: cfg}
+			dix.Provider0(func() dbConfig { return dbConfig{DSN: "postgres://demo"} }),
+			dix.Provider2(func(logger *slog.Logger, cfg dbConfig) repositoryParams {
+				return repositoryParams{Logger: logger, Cfg: cfg}
 			}),
-			dix.Provider1(func(params RepositoryParams) *Repository {
-				return &Repository{params: params}
+			dix.Provider1(func(params repositoryParams) *repository {
+				return &repository{params: params}
 			}),
 		),
 	)
@@ -45,16 +46,29 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := rt.Start(context.Background()); err != nil {
+	err = rt.Start(context.Background())
+	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = rt.Stop(context.Background()) }()
+	defer stopOrPanic(rt)
 
-	repo, err := dix.ResolveAs[*Repository](rt.Container())
+	repo, err := dix.ResolveAs[*repository](rt.Container())
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("aggregate params example")
-	fmt.Println(repo.params.Cfg.DSN)
+	printLine("aggregate params example")
+	printLine(repo.params.Cfg.DSN)
+}
+
+func stopOrPanic(rt *dix.Runtime) {
+	if err := rt.Stop(context.Background()); err != nil {
+		panic(err)
+	}
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
 }

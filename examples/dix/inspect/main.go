@@ -1,3 +1,4 @@
+// Package main demonstrates inspecting a built dix runtime.
 package main
 
 import (
@@ -42,8 +43,20 @@ func main() {
 	}
 
 	report := dixadvanced.InspectRuntime(rt, "tenant.default")
-	fmt.Println("inspect example")
-	fmt.Println("provided:", len(report.ProvidedServices))
-	fmt.Println("invoked:", len(report.InvokedServices))
-	fmt.Println("has tenant deps:", report.NamedDependencies["tenant.default"] != "")
+	printLine("inspect example")
+	printValues("provided:", len(report.ProvidedServices))
+	printValues("invoked:", len(report.InvokedServices))
+	printValues("has tenant deps:", report.NamedDependencies["tenant.default"] != "")
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
+}
+
+func printValues(values ...any) {
+	if _, err := fmt.Println(values...); err != nil {
+		panic(err)
+	}
 }

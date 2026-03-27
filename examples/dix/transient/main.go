@@ -1,3 +1,4 @@
+// Package main demonstrates transient provider behavior in dix.
 package main
 
 import (
@@ -44,8 +45,20 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("transient example")
-	fmt.Println("first:", first)
-	fmt.Println("second:", second)
-	fmt.Println("different:", first != second)
+	printLine("transient example")
+	printValues("first:", first)
+	printValues("second:", second)
+	printValues("different:", first != second)
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
+}
+
+func printValues(values ...any) {
+	if _, err := fmt.Println(values...); err != nil {
+		panic(err)
+	}
 }

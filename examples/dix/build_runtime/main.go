@@ -1,3 +1,4 @@
+// Package main demonstrates building multiple runtimes from one dix app definition.
 package main
 
 import (
@@ -8,7 +9,7 @@ import (
 	"github.com/DaiYuANg/arcgo/logx"
 )
 
-type Greeting struct {
+type greeting struct {
 	Message string
 }
 
@@ -20,8 +21,8 @@ func main() {
 
 	module := dix.NewModule("greeting",
 		dix.WithModuleProviders(
-			dix.Provider0(func() Greeting {
-				return Greeting{Message: "hello runtime"}
+			dix.Provider0(func() greeting {
+				return greeting{Message: "hello runtime"}
 			}),
 		),
 	)
@@ -42,20 +43,39 @@ func main() {
 		panic(err)
 	}
 
-	greeting, err := dix.ResolveAs[Greeting](first.Container())
+	greetingValue, err := dix.ResolveAs[greeting](first.Container())
 	if err != nil {
 		panic(err)
 	}
 
-	if err := first.Start(context.Background()); err != nil {
+	err = first.Start(context.Background())
+	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = first.Stop(context.Background()) }()
+	defer stopOrPanic(first)
 
-	fmt.Println("build runtime example")
-	fmt.Println("app name:", app.Name())
-	fmt.Println("first runtime started:", first.State() == dix.AppStateStarted)
-	fmt.Println("second runtime built:", second.State() == dix.AppStateBuilt)
-	fmt.Println("independent runtimes:", first != second)
-	fmt.Println(greeting.Message)
+	printLine("build runtime example")
+	printValues("app name:", app.Name())
+	printValues("first runtime started:", first.State() == dix.AppStateStarted)
+	printValues("second runtime built:", second.State() == dix.AppStateBuilt)
+	printValues("independent runtimes:", first != second)
+	printLine(greetingValue.Message)
+}
+
+func stopOrPanic(rt *dix.Runtime) {
+	if err := rt.Stop(context.Background()); err != nil {
+		panic(err)
+	}
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
+}
+
+func printValues(values ...any) {
+	if _, err := fmt.Println(values...); err != nil {
+		panic(err)
+	}
 }

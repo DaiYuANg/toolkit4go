@@ -1,3 +1,4 @@
+// Package main demonstrates dix validation and build failures.
 package main
 
 import (
@@ -7,11 +8,11 @@ import (
 	"github.com/DaiYuANg/arcgo/logx"
 )
 
-type MissingDependency struct {
+type missingDependency struct {
 	Name string
 }
 
-type NeedsMissingDependency struct {
+type needsMissingDependency struct {
 	Name string
 }
 
@@ -27,25 +28,38 @@ func main() {
 		dix.WithModule(
 			dix.NewModule("broken",
 				dix.WithModuleProviders(
-					dix.Provider1(func(dep MissingDependency) NeedsMissingDependency {
-						return NeedsMissingDependency(dep)
+					dix.Provider1(func(dep missingDependency) needsMissingDependency {
+						return needsMissingDependency(dep)
 					}),
 				),
 				dix.WithModuleInvokes(
-					dix.Invoke1(func(value NeedsMissingDependency) {
-						fmt.Println(value.Name)
+					dix.Invoke1(func(value needsMissingDependency) {
+						printLine(value.Name)
 					}),
 				),
 			),
 		),
 	)
 
-	if err := app.Validate(); err != nil {
-		fmt.Println("validate error:", err)
+	err = app.Validate()
+	if err != nil {
+		printValues("validate error:", err)
 	} else {
-		fmt.Println("validate error: <nil>")
+		printLine("validate error: <nil>")
 	}
 
 	_, err = app.Build()
-	fmt.Println("build error:", err != nil)
+	printValues("build error:", err != nil)
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
+}
+
+func printValues(values ...any) {
+	if _, err := fmt.Println(values...); err != nil {
+		panic(err)
+	}
 }

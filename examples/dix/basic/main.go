@@ -1,3 +1,4 @@
+// Package main demonstrates a minimal dix application with health checks.
 package main
 
 import (
@@ -12,19 +13,19 @@ import (
 	"github.com/DaiYuANg/arcgo/logx"
 )
 
-type Config struct {
+type appConfig struct {
 	Port int
 }
 
-type Server struct {
+type server struct {
 	Logger *slog.Logger
-	Config Config
+	Config appConfig
 }
 
 func main() {
 	configModule := dix.NewModule("config",
 		dix.WithModuleProviders(
-			dix.Provider0(func() Config { return Config{Port: 8080} }),
+			dix.Provider0(func() appConfig { return appConfig{Port: 8080} }),
 		),
 	)
 
@@ -35,14 +36,14 @@ func main() {
 	serverModule := dix.NewModule("server",
 		dix.WithModuleImports(configModule),
 		dix.WithModuleProviders(
-			dix.Provider2(func(logger *slog.Logger, cfg Config) *Server {
-				return &Server{Logger: logger, Config: cfg}
+			dix.Provider2(func(logger *slog.Logger, cfg appConfig) *server {
+				return &server{Logger: logger, Config: cfg}
 			}),
 		),
-		dix.WithModuleSetup(func(c *dix.Container, lc dix.Lifecycle) error {
+		dix.WithModuleSetup(func(c *dix.Container, _ dix.Lifecycle) error {
 			c.RegisterLivenessCheck("process", func(context.Context) error { return nil })
 			c.RegisterReadinessCheck("bootstrap", func(context.Context) error {
-				server, ok := dix.ResolveOptionalAs[*Server](c)
+				server, ok := dix.ResolveOptionalAs[*server](c)
 				if !ok || server == nil {
 					return errors.New("server not ready")
 				}
@@ -63,15 +64,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := rt.Start(context.Background()); err != nil {
+	err = rt.Start(context.Background())
+	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = rt.Stop(context.Background()) }()
+	defer stopOrPanic(rt)
 
-	fmt.Println("basic app built and started")
-	fmt.Printf("health: %v\n", rt.CheckHealth(context.Background()).Healthy())
-	fmt.Printf("liveness: %v\n", rt.CheckLiveness(context.Background()).Healthy())
-	fmt.Printf("readiness: %v\n", rt.CheckReadiness(context.Background()).Healthy())
+	printLine("basic app built and started")
+	printFormat("health: %v\n", rt.CheckHealth(context.Background()).Healthy())
+	printFormat("liveness: %v\n", rt.CheckLiveness(context.Background()).Healthy())
+	printFormat("readiness: %v\n", rt.CheckReadiness(context.Background()).Healthy())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", rt.HealthHandler())
@@ -80,4 +82,22 @@ func main() {
 	_ = mux
 
 	time.Sleep(100 * time.Millisecond)
+}
+
+func stopOrPanic(rt *dix.Runtime) {
+	if err := rt.Stop(context.Background()); err != nil {
+		panic(err)
+	}
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
+}
+
+func printFormat(format string, args ...any) {
+	if _, err := fmt.Printf(format, args...); err != nil {
+		panic(err)
+	}
 }

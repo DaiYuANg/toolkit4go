@@ -1,3 +1,4 @@
+// Package main demonstrates alias binding and named alias resolution in dix.
 package main
 
 import (
@@ -10,7 +11,7 @@ import (
 	"github.com/DaiYuANg/arcgo/logx"
 )
 
-type Greeter interface {
+type greeter interface {
 	Greet() string
 }
 
@@ -40,8 +41,8 @@ func main() {
 			}),
 		),
 		dix.WithModuleSetups(
-			dixadvanced.BindAlias[*englishGreeter, Greeter](),
-			dixadvanced.BindNamedAlias[*englishGreeter, Greeter]("greeter.en", "greeter.en.alias"),
+			dixadvanced.BindAlias[*englishGreeter, greeter](),
+			dixadvanced.BindNamedAlias[*englishGreeter, greeter]("greeter.en", "greeter.en.alias"),
 		),
 	)
 
@@ -50,26 +51,39 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := rt.Start(context.Background()); err != nil {
+	err = rt.Start(context.Background())
+	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = rt.Stop(context.Background()) }()
+	defer stopOrPanic(rt)
 
 	locale, err := dixadvanced.ResolveNamedAs[string](rt.Container(), "locale.default")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("locale:", locale)
+	printValues("locale:", locale)
 
-	greeter, err := dix.ResolveAs[Greeter](rt.Container())
+	greeterValue, err := dix.ResolveAs[greeter](rt.Container())
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("implicit/assignable alias:", greeter.Greet())
+	printValues("implicit/assignable alias:", greeterValue.Greet())
 
-	namedAlias, err := dixadvanced.ResolveNamedAs[Greeter](rt.Container(), "greeter.en.alias")
+	namedAlias, err := dixadvanced.ResolveNamedAs[greeter](rt.Container(), "greeter.en.alias")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("named explicit alias:", namedAlias.Greet())
+	printValues("named explicit alias:", namedAlias.Greet())
+}
+
+func stopOrPanic(rt *dix.Runtime) {
+	if err := rt.Stop(context.Background()); err != nil {
+		panic(err)
+	}
+}
+
+func printValues(values ...any) {
+	if _, err := fmt.Println(values...); err != nil {
+		panic(err)
+	}
 }

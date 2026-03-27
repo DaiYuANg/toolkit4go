@@ -1,3 +1,4 @@
+// Package main demonstrates scoped runtime values in dix.
 package main
 
 import (
@@ -10,17 +11,17 @@ import (
 	do "github.com/samber/do/v2"
 )
 
-type AppConfig struct {
+type appConfig struct {
 	Name string
 }
 
-type RequestContext struct {
+type requestContext struct {
 	RequestID string
 }
 
-type ScopedService struct {
-	Config  AppConfig
-	Request RequestContext
+type scopedService struct {
+	Config  appConfig
+	Request requestContext
 }
 
 func main() {
@@ -35,8 +36,8 @@ func main() {
 		dix.WithModule(
 			dix.NewModule("root",
 				dix.WithModuleProviders(
-					dix.Provider0(func() AppConfig {
-						return AppConfig{Name: "arcgo"}
+					dix.Provider0(func() appConfig {
+						return appConfig{Name: "arcgo"}
 					}),
 				),
 			),
@@ -47,27 +48,46 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := rt.Start(context.Background()); err != nil {
+	err = rt.Start(context.Background())
+	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = rt.Stop(context.Background()) }()
+	defer stopOrPanic(rt)
 
 	requestScope := dixadvanced.Scope(rt, "request-42", func(injector do.Injector) {
-		dixadvanced.ProvideScopedValue(injector, RequestContext{RequestID: "req-42"})
-		dixadvanced.ProvideScoped2(injector, func(cfg AppConfig, req RequestContext) ScopedService {
-			return ScopedService{Config: cfg, Request: req}
+		dixadvanced.ProvideScopedValue(injector, requestContext{RequestID: "req-42"})
+		dixadvanced.ProvideScoped2(injector, func(cfg appConfig, req requestContext) scopedService {
+			return scopedService{Config: cfg, Request: req}
 		})
 	})
 
-	service, err := dixadvanced.ResolveScopedAs[ScopedService](requestScope)
+	service, err := dixadvanced.ResolveScopedAs[scopedService](requestScope)
 	if err != nil {
 		panic(err)
 	}
 
-	_, rootCanResolveRequest := dixadvanced.ResolveRuntimeAs[RequestContext](rt)
+	_, rootCanResolveRequest := dixadvanced.ResolveRuntimeAs[requestContext](rt)
 
-	fmt.Println("runtime scope example")
-	fmt.Println(service.Config.Name)
-	fmt.Println(service.Request.RequestID)
-	fmt.Println("root sees request context:", rootCanResolveRequest == nil)
+	printLine("runtime scope example")
+	printLine(service.Config.Name)
+	printLine(service.Request.RequestID)
+	printValues("root sees request context:", rootCanResolveRequest == nil)
+}
+
+func stopOrPanic(rt *dix.Runtime) {
+	if err := rt.Stop(context.Background()); err != nil {
+		panic(err)
+	}
+}
+
+func printLine(value any) {
+	if _, err := fmt.Println(value); err != nil {
+		panic(err)
+	}
+}
+
+func printValues(values ...any) {
+	if _, err := fmt.Println(values...); err != nil {
+		panic(err)
+	}
 }
