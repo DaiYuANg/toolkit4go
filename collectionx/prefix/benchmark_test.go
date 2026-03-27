@@ -102,7 +102,7 @@ func BenchmarkTrieRangePrefix(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		t.RangePrefix(prefixKey, func(key string, value int) bool {
+		t.RangePrefix(prefixKey, func(_ string, value int) bool {
 			_ = value
 			return true
 		})
