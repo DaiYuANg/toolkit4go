@@ -1,3 +1,4 @@
+// Package main demonstrates dbx custom codec usage.
 package main
 
 import (
@@ -10,31 +11,31 @@ import (
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
-type Preferences struct {
+type preferences struct {
 	Theme string   `json:"theme"`
 	Flags []string `json:"flags"`
 }
 
-type AccountStatus string
+type accountStatus string
 
 const (
-	AccountStatusActive  AccountStatus = "active"
-	AccountStatusBlocked AccountStatus = "blocked"
+	accountStatusActive  accountStatus = "active"
+	accountStatusBlocked accountStatus = "blocked"
 )
 
-func (s AccountStatus) MarshalText() ([]byte, error) {
+func (s accountStatus) MarshalText() ([]byte, error) {
 	switch s {
-	case AccountStatusActive, AccountStatusBlocked:
+	case accountStatusActive, accountStatusBlocked:
 		return []byte(s), nil
 	default:
 		return nil, fmt.Errorf("invalid account status %q", s)
 	}
 }
 
-func (s *AccountStatus) UnmarshalText(text []byte) error {
-	value := AccountStatus(strings.ToLower(strings.TrimSpace(string(text))))
+func (s *accountStatus) UnmarshalText(text []byte) error {
+	value := accountStatus(strings.ToLower(strings.TrimSpace(string(text))))
 	switch value {
-	case AccountStatusActive, AccountStatusBlocked:
+	case accountStatusActive, accountStatusBlocked:
 		*s = value
 		return nil
 	default:
@@ -42,23 +43,23 @@ func (s *AccountStatus) UnmarshalText(text []byte) error {
 	}
 }
 
-type Account struct {
+type account struct {
 	ID          int64         `dbx:"id"`
 	Username    string        `dbx:"username"`
-	Status      AccountStatus `dbx:"status,codec=text"`
+	Status      accountStatus `dbx:"status,codec=text"`
 	CreatedAt   time.Time     `dbx:"created_at,codec=unix_milli_time"`
-	Preferences Preferences   `dbx:"preferences,codec=json"`
+	Preferences preferences   `dbx:"preferences,codec=json"`
 	Tags        []string      `dbx:"tags,codec=csv"`
 }
 
-type AccountSchema struct {
-	dbx.Schema[Account]
-	ID          dbx.Column[Account, int64]         `dbx:"id,pk,auto"`
-	Username    dbx.Column[Account, string]        `dbx:"username,unique"`
-	Status      dbx.Column[Account, AccountStatus] `dbx:"status,type=text"`
-	CreatedAt   dbx.Column[Account, time.Time]     `dbx:"created_at,type=integer"`
-	Preferences dbx.Column[Account, Preferences]   `dbx:"preferences,type=text"`
-	Tags        dbx.Column[Account, []string]      `dbx:"tags,type=text"`
+type accountSchema struct {
+	dbx.Schema[account]
+	ID          dbx.Column[account, int64]         `dbx:"id,pk,auto"`
+	Username    dbx.Column[account, string]        `dbx:"username,unique"`
+	Status      dbx.Column[account, accountStatus] `dbx:"status,type=text"`
+	CreatedAt   dbx.Column[account, time.Time]     `dbx:"created_at,type=integer"`
+	Preferences dbx.Column[account, preferences]   `dbx:"preferences,type=text"`
+	Tags        dbx.Column[account, []string]      `dbx:"tags,type=text"`
 }
 
 func main() {
@@ -72,14 +73,43 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = closeDB() }()
+	defer func() {
+		if closeErr := closeDB(); closeErr != nil {
+			panic(closeErr)
+		}
+	}()
 
-	accounts := dbx.MustSchema("accounts", AccountSchema{})
-	if _, err := core.AutoMigrate(ctx, accounts); err != nil {
+	accounts := dbx.MustSchema("accounts", accountSchema{})
+	_, err = core.AutoMigrate(ctx, accounts)
+	if err != nil {
 		panic(err)
 	}
 
-	csvCodec := dbx.NewCodec[[]string](
+	mapper := dbx.MustMapperWithOptions[account](accounts, dbx.WithMapperCodecs(newCSVCodec()))
+	insertAccounts(ctx, core, accounts, mapper)
+
+	items, err := queryAccounts(ctx, core, accounts, mapper)
+	if err != nil {
+		panic(err)
+	}
+
+	printAccounts(items)
+}
+
+func splitCSV(input string) []string {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return nil
+	}
+	parts := strings.Split(trimmed, ",")
+	for index := range parts {
+		parts[index] = strings.TrimSpace(parts[index])
+	}
+	return parts
+}
+
+func newCSVCodec() dbx.Codec {
+	return dbx.NewCodec[[]string](
 		"csv",
 		func(src any) ([]string, error) {
 			switch value := src.(type) {
@@ -95,13 +125,20 @@ func main() {
 			return strings.Join(values, ","), nil
 		},
 	)
-	mapper := dbx.MustMapperWithOptions[Account](accounts, dbx.WithMapperCodecs(csvCodec))
-	for _, account := range []Account{
+}
+
+func insertAccounts(
+	ctx context.Context,
+	session dbx.Session,
+	schema accountSchema,
+	mapper dbx.Mapper[account],
+) {
+	accountsToInsert := []*account{
 		{
 			Username:  "alice",
-			Status:    AccountStatusActive,
+			Status:    accountStatusActive,
 			CreatedAt: time.UnixMilli(1711111111222).UTC(),
-			Preferences: Preferences{
+			Preferences: preferences{
 				Theme: "dark",
 				Flags: []string{"beta", "admin"},
 			},
@@ -109,48 +146,65 @@ func main() {
 		},
 		{
 			Username:  "bob",
-			Status:    AccountStatusBlocked,
+			Status:    accountStatusBlocked,
 			CreatedAt: time.UnixMilli(1712222222333).UTC(),
-			Preferences: Preferences{
+			Preferences: preferences{
 				Theme: "light",
 				Flags: []string{"reader"},
 			},
 			Tags: []string{"sqlite", "json"},
 		},
-	} {
-		assignments, err := mapper.InsertAssignments(core, accounts, &account)
+	}
+
+	for _, item := range accountsToInsert {
+		assignments, err := mapper.InsertAssignments(session, schema, item)
 		if err != nil {
 			panic(err)
 		}
-		if _, err := dbx.Exec(ctx, core, dbx.InsertInto(accounts).Values(assignments...)); err != nil {
+		if _, err = dbx.Exec(ctx, session, dbx.InsertInto(schema).Values(assignments...)); err != nil {
 			panic(err)
 		}
 	}
+}
 
-	items, err := dbx.QueryAll[Account](
+func queryAccounts(
+	ctx context.Context,
+	session dbx.Session,
+	schema accountSchema,
+	mapper dbx.Mapper[account],
+) ([]account, error) {
+	return dbx.QueryAll[account](
 		ctx,
-		core,
-		dbx.Select(accounts.AllColumns()...).From(accounts).OrderBy(accounts.ID.Asc()),
+		session,
+		dbx.Select(schema.AllColumns()...).From(schema).OrderBy(schema.ID.Asc()),
 		mapper,
 	)
-	if err != nil {
-		panic(err)
-	}
+}
 
-	fmt.Println("codec example:")
-	for _, item := range items {
-		fmt.Printf("- id=%d username=%s status=%s created_at=%s theme=%s tags=%v\n", item.ID, item.Username, item.Status, item.CreatedAt.Format(time.RFC3339), item.Preferences.Theme, item.Tags)
+func printAccounts(items []account) {
+	printLine("codec example:")
+	for index := range items {
+		item := &items[index]
+		printFormat(
+			"- id=%d username=%s status=%s created_at=%s theme=%s tags=%v\n",
+			item.ID,
+			item.Username,
+			item.Status,
+			item.CreatedAt.Format(time.RFC3339),
+			item.Preferences.Theme,
+			item.Tags,
+		)
 	}
 }
 
-func splitCSV(input string) []string {
-	trimmed := strings.TrimSpace(input)
-	if trimmed == "" {
-		return nil
+func printLine(text string) {
+	if _, err := fmt.Println(text); err != nil {
+		panic(err)
 	}
-	parts := strings.Split(trimmed, ",")
-	for index := range parts {
-		parts[index] = strings.TrimSpace(parts[index])
+}
+
+func printFormat(format string, args ...any) {
+	if _, err := fmt.Printf(format, args...); err != nil {
+		panic(err)
 	}
-	return parts
 }
