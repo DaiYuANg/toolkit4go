@@ -1,11 +1,13 @@
-package prometheus
+package prometheus_test
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/observabilityx"
+	promobs "github.com/DaiYuANg/arcgo/observabilityx/prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 )
@@ -14,10 +16,10 @@ func TestAdapterMetrics(t *testing.T) {
 	t.Parallel()
 
 	registry := prom.NewRegistry()
-	obs := New(
-		WithRegisterer(registry),
-		WithGatherer(registry),
-		WithNamespace("arcgo_test"),
+	obs := promobs.New(
+		promobs.WithRegisterer(registry),
+		promobs.WithGatherer(registry),
+		promobs.WithNamespace("arcgo_test"),
 	)
 
 	obs.AddCounter(context.Background(), "authx_authenticate_total", 1, observabilityx.String("result", "ok"))
@@ -32,11 +34,11 @@ func TestAdapterHandler(t *testing.T) {
 	t.Parallel()
 
 	registry := prom.NewRegistry()
-	obs := New(WithRegisterer(registry), WithGatherer(registry))
+	obs := promobs.New(promobs.WithRegisterer(registry), promobs.WithGatherer(registry))
 
 	obs.AddCounter(context.Background(), "eventx_publish_total", 1)
 
-	req := httptest.NewRequest("GET", "/metrics", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics", http.NoBody)
 	w := httptest.NewRecorder()
 	obs.Handler().ServeHTTP(w, req)
 

@@ -47,17 +47,18 @@ func (m *multiObservability) StartSpan(
 		ctx = context.Background()
 	}
 
+	nextCtx, firstSpan := m.backends[0].StartSpan(ctx, name, attrs...)
 	spans := make([]Span, 0, len(m.backends))
-	nextCtx := ctx
-	lo.ForEach(m.backends, func(backend Observability, index int) {
-		spanCtx, span := backend.StartSpan(nextCtx, name, attrs...)
-		if index == 0 {
-			nextCtx = spanCtx
-		}
+	if firstSpan != nil {
+		spans = append(spans, firstSpan)
+	}
+
+	for _, backend := range m.backends[1:] {
+		_, span := backend.StartSpan(nextCtx, name, attrs...)
 		if span != nil {
 			spans = append(spans, span)
 		}
-	})
+	}
 	if len(spans) == 0 {
 		return nextCtx, nopSpan{}
 	}

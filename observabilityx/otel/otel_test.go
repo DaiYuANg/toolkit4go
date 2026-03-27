@@ -1,17 +1,18 @@
-package otel
+package otel_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/observabilityx"
+	otelobs "github.com/DaiYuANg/arcgo/observabilityx/otel"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
 	t.Parallel()
 
-	obs := New()
+	obs := otelobs.New()
 	require.NotNil(t, obs)
 	require.NotNil(t, obs.Logger())
 }
@@ -19,7 +20,7 @@ func TestNew(t *testing.T) {
 func TestAdapterMethods(t *testing.T) {
 	t.Parallel()
 
-	obs := New()
+	obs := otelobs.New()
 
 	ctx, span := obs.StartSpan(context.Background(), "test.operation", observabilityx.String("k", "v"))
 	require.NotNil(t, ctx)

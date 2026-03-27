@@ -2,16 +2,14 @@ package otel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/observabilityx"
-	"github.com/samber/lo"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -92,20 +90,7 @@ func (a *adapter) StartSpan(
 	name string,
 	attrs ...observabilityx.Attribute,
 ) (context.Context, observabilityx.Span) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	cleanName := strings.TrimSpace(name)
-	if cleanName == "" {
-		cleanName = "operation"
-	}
-
-	spanOptions := []trace.SpanStartOption{
-		trace.WithAttributes(toOTelAttributes(attrs)...),
-	}
-	nextCtx, span := a.tracer.Start(ctx, cleanName, spanOptions...)
-	return nextCtx, otelSpan{span: span}
+	return startTraceSpan(normalizeContext(ctx), a.tracer, normalizeSpanName(name), attrs)
 }
 
 func (a *adapter) AddCounter(
@@ -117,16 +102,13 @@ func (a *adapter) AddCounter(
 	if value == 0 {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	counter, err := a.counter(name)
 	if err != nil {
 		a.Logger().Warn("create metric counter failed", "name", name, "error", err.Error())
 		return
 	}
-	counter.Add(ctx, value, metric.WithAttributes(toOTelAttributes(attrs)...))
+	counter.Add(normalizeContext(ctx), value, metric.WithAttributes(toOTelAttributes(attrs)...))
 }
 
 func (a *adapter) RecordHistogram(
@@ -135,22 +117,18 @@ func (a *adapter) RecordHistogram(
 	value float64,
 	attrs ...observabilityx.Attribute,
 ) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
 	histogram, err := a.histogram(name)
 	if err != nil {
 		a.Logger().Warn("create metric histogram failed", "name", name, "error", err.Error())
 		return
 	}
-	histogram.Record(ctx, value, metric.WithAttributes(toOTelAttributes(attrs)...))
+	histogram.Record(normalizeContext(ctx), value, metric.WithAttributes(toOTelAttributes(attrs)...))
 }
 
 func (a *adapter) counter(name string) (metric.Int64Counter, error) {
 	clean := strings.TrimSpace(name)
 	if clean == "" {
-		return nil, fmt.Errorf("metric counter name is empty")
+		return nil, errors.New("metric counter name is empty")
 	}
 
 	if existing, ok := a.counters.Get(clean); ok {
@@ -159,7 +137,7 @@ func (a *adapter) counter(name string) (metric.Int64Counter, error) {
 
 	created, err := a.meter.Int64Counter(clean)
 	if err != nil {
-		return nil, err
+		return nil, wrapOTelError(err, "create OTel counter")
 	}
 
 	actual, _ := a.counters.GetOrStore(clean, created)
@@ -169,7 +147,7 @@ func (a *adapter) counter(name string) (metric.Int64Counter, error) {
 func (a *adapter) histogram(name string) (metric.Float64Histogram, error) {
 	clean := strings.TrimSpace(name)
 	if clean == "" {
-		return nil, fmt.Errorf("metric histogram name is empty")
+		return nil, errors.New("metric histogram name is empty")
 	}
 
 	if existing, ok := a.histograms.Get(clean); ok {
@@ -178,7 +156,7 @@ func (a *adapter) histogram(name string) (metric.Float64Histogram, error) {
 
 	created, err := a.meter.Float64Histogram(clean)
 	if err != nil {
-		return nil, err
+		return nil, wrapOTelError(err, "create OTel histogram")
 	}
 
 	actual, _ := a.histograms.GetOrStore(clean, created)
@@ -208,55 +186,33 @@ func (s otelSpan) SetAttributes(attrs ...observabilityx.Attribute) {
 	s.span.SetAttributes(toOTelAttributes(attrs)...)
 }
 
-func toOTelAttributes(attrs []observabilityx.Attribute) []attribute.KeyValue {
-	if len(attrs) == 0 {
-		return nil
+func normalizeContext(ctx context.Context) context.Context {
+	if ctx != nil {
+		return ctx
 	}
 
-	return lo.FilterMap(attrs, func(attr observabilityx.Attribute, _ int) (attribute.KeyValue, bool) {
-		key := strings.TrimSpace(attr.Key)
-		if key == "" {
-			return attribute.KeyValue{}, false
-		}
-		return toOTelAttribute(key, attr.Value), true
-	})
+	return context.Background()
 }
 
-func toOTelAttribute(key string, value any) attribute.KeyValue {
-	k := attribute.Key(key)
-
-	switch typed := value.(type) {
-	case string:
-		return k.String(typed)
-	case bool:
-		return k.Bool(typed)
-	case int:
-		return k.Int(typed)
-	case int8:
-		return k.Int64(int64(typed))
-	case int16:
-		return k.Int64(int64(typed))
-	case int32:
-		return k.Int64(int64(typed))
-	case int64:
-		return k.Int64(typed)
-	case uint:
-		return k.Int64(int64(typed))
-	case uint8:
-		return k.Int64(int64(typed))
-	case uint16:
-		return k.Int64(int64(typed))
-	case uint32:
-		return k.Int64(int64(typed))
-	case uint64:
-		return k.Int64(int64(typed))
-	case float32:
-		return k.Float64(float64(typed))
-	case float64:
-		return k.Float64(typed)
-	case time.Duration:
-		return k.Int64(typed.Milliseconds())
-	default:
-		return k.String(fmt.Sprint(typed))
+func normalizeSpanName(name string) string {
+	cleanName := strings.TrimSpace(name)
+	if cleanName == "" {
+		return "operation"
 	}
+
+	return cleanName
+}
+
+//nolint:spancheck // span ownership is transferred to the returned observabilityx.Span wrapper.
+func startTraceSpan(ctx context.Context, tracer trace.Tracer, name string, attrs []observabilityx.Attribute) (context.Context, observabilityx.Span) {
+	nextCtx, span := tracer.Start(ctx, name, trace.WithAttributes(toOTelAttributes(attrs)...))
+	return nextCtx, otelSpan{span: span}
+}
+
+func wrapOTelError(err error, action string) error {
+	if err != nil {
+		return fmt.Errorf("%s: %w", action, err)
+	}
+
+	return nil
 }

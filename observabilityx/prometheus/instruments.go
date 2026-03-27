@@ -15,17 +15,17 @@ func (a *Adapter) counter(metricName string, labels map[string]string) (*counter
 	labelNames := sortedLabelKeys(labels)
 	vec := prom.NewCounterVec(prom.CounterOpts{
 		Name: metricName,
-		Help: fmt.Sprintf("Counter metric for %s", metricName),
+		Help: "Counter metric for " + metricName,
 	}, labelNames)
 
 	if err := a.register.Register(vec); err != nil {
-		alreadyRegisteredError := &prom.AlreadyRegisteredError{}
-		if !errors.As(err, alreadyRegisteredError) {
-			return nil, err
+		alreadyRegisteredError, ok := errors.AsType[*prom.AlreadyRegisteredError](err)
+		if !ok || alreadyRegisteredError == nil {
+			return nil, fmt.Errorf("register prometheus counter %q: %w", metricName, err)
 		}
 		existingVec, ok := alreadyRegisteredError.ExistingCollector.(*prom.CounterVec)
 		if !ok {
-			return nil, err
+			return nil, fmt.Errorf("prometheus counter %q has unexpected collector type %T", metricName, alreadyRegisteredError.ExistingCollector)
 		}
 		vec = existingVec
 	}
@@ -47,18 +47,18 @@ func (a *Adapter) histogram(metricName string, labels map[string]string) (*histI
 	labelNames := sortedLabelKeys(labels)
 	vec := prom.NewHistogramVec(prom.HistogramOpts{
 		Name:    metricName,
-		Help:    fmt.Sprintf("Histogram metric for %s", metricName),
+		Help:    "Histogram metric for " + metricName,
 		Buckets: a.buckets,
 	}, labelNames)
 
 	if err := a.register.Register(vec); err != nil {
-		alreadyRegisteredError := &prom.AlreadyRegisteredError{}
-		if !errors.As(err, alreadyRegisteredError) {
-			return nil, err
+		alreadyRegisteredError, ok := errors.AsType[*prom.AlreadyRegisteredError](err)
+		if !ok || alreadyRegisteredError == nil {
+			return nil, fmt.Errorf("register prometheus histogram %q: %w", metricName, err)
 		}
 		existingVec, ok := alreadyRegisteredError.ExistingCollector.(*prom.HistogramVec)
 		if !ok {
-			return nil, err
+			return nil, fmt.Errorf("prometheus histogram %q has unexpected collector type %T", metricName, alreadyRegisteredError.ExistingCollector)
 		}
 		vec = existingVec
 	}
