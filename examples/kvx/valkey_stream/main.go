@@ -1,3 +1,4 @@
+// Package valkey_stream demonstrates Valkey stream operations with kvx.
 package main
 
 import (
@@ -14,11 +15,11 @@ func main() {
 
 	container, addr, err := shared.StartContainer(ctx, shared.ValkeyImage())
 	must(err)
-	defer func() { _ = container.Terminate(ctx) }()
+	defer func() { must(container.Terminate(ctx)) }()
 
 	adapter, err := valkeyadapter.New(kvx.ClientOptions{Addrs: []string{addr}})
 	must(err)
-	defer func() { _ = adapter.Close() }()
+	defer func() { must(adapter.Close()) }()
 
 	id1, err := adapter.XAdd(ctx, "demo:events", "*", map[string][]byte{
 		"type": []byte("user.created"),
@@ -38,14 +39,19 @@ func main() {
 	length, err := adapter.XLen(ctx, "demo:events")
 	must(err)
 
-	fmt.Printf("valkey stream addr: %s\n", addr)
-	fmt.Printf("entry ids: %s, %s\n", id1, id2)
-	fmt.Printf("xlen: %d\n", length)
-	fmt.Printf("read entries: %d\n", len(entries))
+	mustWritef("valkey stream addr: %s\n", addr)
+	mustWritef("entry ids: %s, %s\n", id1, id2)
+	mustWritef("xlen: %d\n", length)
+	mustWritef("read entries: %d\n", len(entries))
 }
 
 func must(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func mustWritef(format string, args ...any) {
+	_, err := fmt.Printf(format, args...)
+	must(err)
 }
