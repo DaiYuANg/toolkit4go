@@ -1,4 +1,4 @@
-package examples
+package examples_test
 
 import (
 	"context"
@@ -52,7 +52,7 @@ func (m *exampleHashKV) TTL(context.Context, string) (time.Duration, error)  { r
 func (m *exampleHashKV) Scan(_ context.Context, pattern string, _ uint64, _ int64) ([]string, uint64, error) {
 	keys := make([]string, 0)
 	for key := range m.keys {
-		if len(pattern) > 0 && pattern[len(pattern)-1] == '*' && len(key) >= len(pattern)-1 && key[:len(pattern)-1] == pattern[:len(pattern)-1] {
+		if pattern != "" && pattern[len(pattern)-1] == '*' && len(key) >= len(pattern)-1 && key[:len(pattern)-1] == pattern[:len(pattern)-1] {
 			keys = append(keys, key)
 		}
 	}
@@ -94,8 +94,15 @@ func ExampleHashRepository() {
 		repository.WithHashCodec[ExampleUser](mapping.NewHashCodec(nil)),
 	)...)
 
-	_ = repo.Save(context.Background(), &ExampleUser{ID: "u-1", Name: "Alice", Email: "alice@example.com"})
-	entity, _ := repo.FindByID(context.Background(), "u-1")
-	fmt.Println(entity.ID, entity.Name)
+	if err := repo.Save(context.Background(), &ExampleUser{ID: "u-1", Name: "Alice", Email: "alice@example.com"}); err != nil {
+		panic(err)
+	}
+	entity, err := repo.FindByID(context.Background(), "u-1")
+	if err != nil {
+		panic(err)
+	}
+	if _, err := fmt.Println(entity.ID, entity.Name); err != nil {
+		panic(err)
+	}
 	// Output: u-1 Alice
 }

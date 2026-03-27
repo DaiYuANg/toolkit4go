@@ -1,4 +1,3 @@
-// Package adapter provides client adapters for Redis and Valkey.
 package kvx
 
 import (
@@ -13,6 +12,7 @@ var (
 	ErrUnsupportedOption    = errors.New("kvx: unsupported client option")
 )
 
+// MaxPipelineArgs is the maximum number of arguments allowed in a single pipeline command.
 const MaxPipelineArgs = 1024
 
 // IsNil checks if the error is a "not found" error.
@@ -24,8 +24,11 @@ func IsNil(err error) bool {
 type SchemaFieldType string
 
 const (
-	SchemaFieldTypeText    SchemaFieldType = "TEXT"
-	SchemaFieldTypeTag     SchemaFieldType = "TAG"
+	// SchemaFieldTypeText indexes a field as full text.
+	SchemaFieldTypeText SchemaFieldType = "TEXT"
+	// SchemaFieldTypeTag indexes a field as an exact-match tag.
+	SchemaFieldTypeTag SchemaFieldType = "TAG"
+	// SchemaFieldTypeNumeric indexes a field as a numeric value.
 	SchemaFieldTypeNumeric SchemaFieldType = "NUMERIC"
 )
 

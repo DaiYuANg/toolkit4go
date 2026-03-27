@@ -1,4 +1,4 @@
-package examples
+package examples_test
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func (m *exampleJSONBackend) ExistsMulti(context.Context, []string) (map[string]
 }
 func (m *exampleJSONBackend) Expire(context.Context, string, time.Duration) error { return nil }
 func (m *exampleJSONBackend) TTL(context.Context, string) (time.Duration, error)  { return 0, nil }
-func (m *exampleJSONBackend) Scan(_ context.Context, pattern string, _ uint64, _ int64) ([]string, uint64, error) {
+func (m *exampleJSONBackend) Scan(_ context.Context, _ string, _ uint64, _ int64) ([]string, uint64, error) {
 	keys := make([]string, 0, len(m.data))
 	for key := range m.data {
 		keys = append(keys, key)
@@ -59,25 +59,30 @@ func (m *exampleJSONBackend) Keys(ctx context.Context, pattern string) ([]string
 	keys, _, err := m.Scan(ctx, pattern, 0, 0)
 	return keys, err
 }
-func (m *exampleJSONBackend) JSONSet(_ context.Context, key string, _ string, value []byte, _ time.Duration) error {
+func (m *exampleJSONBackend) JSONSet(_ context.Context, key, _ string, value []byte, _ time.Duration) error {
 	m.data[key] = value
 	return nil
 }
-func (m *exampleJSONBackend) JSONGet(_ context.Context, key string, _ string) ([]byte, error) {
-	return m.Get(context.Background(), key)
+func (m *exampleJSONBackend) JSONGet(ctx context.Context, key, _ string) ([]byte, error) {
+	return m.Get(ctx, key)
 }
-func (m *exampleJSONBackend) JSONSetField(_ context.Context, key string, path string, value []byte) error {
+func (m *exampleJSONBackend) JSONSetField(_ context.Context, key, path string, value []byte) error {
 	var doc map[string]any
-	_ = json.Unmarshal(m.data[key], &doc)
+	if err := json.Unmarshal(m.data[key], &doc); err != nil {
+		return fmt.Errorf("unmarshal json document %q: %w", key, err)
+	}
 	doc[path[2:]] = string(value)
-	encoded, _ := json.Marshal(doc)
+	encoded, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshal json document %q: %w", key, err)
+	}
 	m.data[key] = encoded
 	return nil
 }
 func (m *exampleJSONBackend) JSONGetField(context.Context, string, string) ([]byte, error) {
 	return nil, nil
 }
-func (m *exampleJSONBackend) JSONDelete(_ context.Context, key string, _ string) error {
+func (m *exampleJSONBackend) JSONDelete(_ context.Context, key, _ string) error {
 	delete(m.data, key)
 	return nil
 }
@@ -85,8 +90,15 @@ func (m *exampleJSONBackend) JSONDelete(_ context.Context, key string, _ string)
 func ExampleJSONRepository() {
 	backend := newExampleJSONBackend()
 	repo := repository.NewJSONRepository[ExampleUser](backend, backend, "json:user")
-	_ = repo.Save(context.Background(), &ExampleUser{ID: "u-2", Name: "Bob", Email: "bob@example.com"})
-	entity, _ := repo.FindByID(context.Background(), "u-2")
-	fmt.Println(entity.ID, entity.Email)
+	if err := repo.Save(context.Background(), &ExampleUser{ID: "u-2", Name: "Bob", Email: "bob@example.com"}); err != nil {
+		panic(err)
+	}
+	entity, err := repo.FindByID(context.Background(), "u-2")
+	if err != nil {
+		panic(err)
+	}
+	if _, err := fmt.Println(entity.ID, entity.Email); err != nil {
+		panic(err)
+	}
 	// Output: u-2 bob@example.com
 }

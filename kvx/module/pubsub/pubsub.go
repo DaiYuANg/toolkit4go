@@ -4,6 +4,7 @@ package pubsub
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/kvx"
@@ -25,11 +26,14 @@ func NewPubSub(client kvx.PubSub) *PubSub {
 
 // Publish publishes a message to a channel.
 func (p *PubSub) Publish(ctx context.Context, channel string, message []byte) error {
-	return p.client.Publish(ctx, channel, message)
+	if err := p.client.Publish(ctx, channel, message); err != nil {
+		return fmt.Errorf("publish to channel %q: %w", channel, err)
+	}
+	return nil
 }
 
 // PublishString publishes a string message to a channel.
-func (p *PubSub) PublishString(ctx context.Context, channel string, message string) error {
+func (p *PubSub) PublishString(ctx context.Context, channel, message string) error {
 	return p.Publish(ctx, channel, []byte(message))
 }
 
@@ -41,12 +45,14 @@ func (p *PubSub) Subscribe(ctx context.Context, channel string) (<-chan []byte, 
 
 	sub, err := p.client.Subscribe(ctx, channel)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("subscribe to channel %q: %w", channel, err)
 	}
 
 	actual, loaded := p.subscriptions.GetOrStore(channel, sub)
 	if loaded {
-		_ = sub.Close()
+		if err := sub.Close(); err != nil {
+			return nil, fmt.Errorf("close duplicate subscription for channel %q: %w", channel, err)
+		}
 		return actual.Channel(), nil
 	}
 
@@ -54,10 +60,10 @@ func (p *PubSub) Subscribe(ctx context.Context, channel string) (<-chan []byte, 
 }
 
 // Unsubscribe unsubscribes from a channel.
-func (p *PubSub) Unsubscribe(ctx context.Context, channel string) error {
+func (p *PubSub) Unsubscribe(_ context.Context, channel string) error {
 	if sub, ok := p.subscriptions.LoadAndDelete(channel); ok {
 		if err := sub.Close(); err != nil {
-			return err
+			return fmt.Errorf("unsubscribe from channel %q: %w", channel, err)
 		}
 	}
 
@@ -73,7 +79,7 @@ func (p *PubSub) Close() error {
 			continue
 		}
 		if err := sub.Close(); err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("close subscription for channel %q: %w", channel, err))
 		}
 	}
 

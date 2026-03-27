@@ -1,11 +1,3 @@
-// Package kvx provides a layered KV abstraction with Redis/Valkey support.
-//
-// Architecture:
-//   - Layer 1: Core Client Abstraction (KV, Hash, PubSub, Stream, etc.)
-//   - Layer 2: Mapping Layer (tag parser, metadata, serializers)
-//   - Layer 3: Repository Layer (HashRepository, JSONRepository, etc.)
-//   - Layer 4: Feature Modules (pubsub, stream, json, search, script)
-//   - Layer 5: Adapters (redis, valkey)
 package kvx
 
 import (
@@ -218,7 +210,7 @@ type Search interface {
 	// SearchWithSort performs a search query with sorting.
 	SearchWithSort(ctx context.Context, indexName string, query string, sortBy string, ascending bool, limit int) ([]string, error)
 	// SearchAggregate performs an aggregation query.
-	SearchAggregate(ctx context.Context, indexName string, query string, limit int) ([]map[string]interface{}, error)
+	SearchAggregate(ctx context.Context, indexName string, query string, limit int) ([]map[string]any, error)
 }
 
 // Pipeline represents pipeline (batch) operations.
