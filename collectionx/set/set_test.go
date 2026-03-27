@@ -51,7 +51,7 @@ func TestSet_RangeStop(t *testing.T) {
 	require.Equal(t, 3, visited)
 
 	visited = 0
-	s.Range(func(item string) bool {
+	s.Range(func(_ string) bool {
 		visited++
 		return false
 	})
