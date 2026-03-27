@@ -1,9 +1,14 @@
-package postgresparser
+// Package postgresparser_test contains benchmarks for postgresparser.
+package postgresparser_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/validate/postgresparser"
+)
 
 func BenchmarkValidateSelect(b *testing.B) {
-	parser := New()
+	parser := postgresparser.New()
 	query := "SELECT 1"
 
 	for b.Loop() {
@@ -14,7 +19,7 @@ func BenchmarkValidateSelect(b *testing.B) {
 }
 
 func BenchmarkAnalyzeSelect(b *testing.B) {
-	parser := New()
+	parser := postgresparser.New()
 	query := "SELECT 1"
 
 	for b.Loop() {

@@ -1,9 +1,14 @@
-package sqliteparser
+// Package sqliteparser_test contains benchmarks for sqliteparser.
+package sqliteparser_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/validate/sqliteparser"
+)
 
 func BenchmarkValidateSelect(b *testing.B) {
-	parser := New()
+	parser := sqliteparser.New()
 	query := "SELECT 1"
 
 	for b.Loop() {
@@ -14,7 +19,7 @@ func BenchmarkValidateSelect(b *testing.B) {
 }
 
 func BenchmarkAnalyzeSelect(b *testing.B) {
-	parser := New()
+	parser := sqliteparser.New()
 	query := "SELECT 1"
 
 	for b.Loop() {

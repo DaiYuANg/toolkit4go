@@ -1,6 +1,7 @@
 package postgresparser
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/validate"
@@ -11,44 +12,52 @@ func init() {
 	validate.Register("postgres", New)
 }
 
+// Parser validates SQL using the PostgreSQL parser.
 type Parser struct{}
 
+// New creates a PostgreSQL SQL parser for sqltmplx validation.
 func New() validate.SQLParser { return &Parser{} }
 
-func (p *Parser) Validate(sql string) error {
-	_, err := pgquery.Parse(sql)
-	return err
-}
-
-func (p *Parser) Analyze(sql string) (*validate.Analysis, error) {
-	result, err := pgquery.Parse(sql)
+// Validate checks whether sqlText can be parsed as PostgreSQL SQL.
+func (p *Parser) Validate(sqlText string) error {
+	_, err := pgquery.Parse(sqlText)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("parse PostgreSQL SQL: %w", err)
 	}
 
-	normalized, err := pgquery.Normalize(sql)
+	return nil
+}
+
+// Analyze parses sqlText and returns normalized PostgreSQL metadata.
+func (p *Parser) Analyze(sqlText string) (*validate.Analysis, error) {
+	result, err := pgquery.Parse(sqlText)
 	if err != nil {
-		normalized = normalizeWhitespace(sql)
+		return nil, fmt.Errorf("parse PostgreSQL SQL: %w", err)
+	}
+
+	normalized, err := pgquery.Normalize(sqlText)
+	if err != nil {
+		normalized = normalizeWhitespace(sqlText)
 	}
 
 	return &validate.Analysis{
 		Dialect:       "postgres",
-		StatementType: detectStatementType(sql),
+		StatementType: detectStatementType(sqlText),
 		NormalizedSQL: normalized,
 		AST:           result,
 	}, nil
 }
 
-func normalizeWhitespace(sql string) string {
-	return strings.Join(strings.Fields(sql), " ")
+func normalizeWhitespace(sqlText string) string {
+	return strings.Join(strings.Fields(sqlText), " ")
 }
 
-func detectStatementType(sql string) string {
-	sql = strings.TrimSpace(sql)
-	if sql == "" {
+func detectStatementType(sqlText string) string {
+	sqlText = strings.TrimSpace(sqlText)
+	if sqlText == "" {
 		return "UNKNOWN"
 	}
-	parts := strings.Fields(sql)
+	parts := strings.Fields(sqlText)
 	if len(parts) == 0 {
 		return "UNKNOWN"
 	}

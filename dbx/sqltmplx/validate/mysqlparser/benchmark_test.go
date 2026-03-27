@@ -1,9 +1,14 @@
-package mysqlparser
+// Package mysqlparser_test contains benchmarks for mysqlparser.
+package mysqlparser_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/validate/mysqlparser"
+)
 
 func BenchmarkValidateSelect(b *testing.B) {
-	parser := New()
+	parser := mysqlparser.New()
 	query := "SELECT 1"
 
 	for b.Loop() {
@@ -14,7 +19,7 @@ func BenchmarkValidateSelect(b *testing.B) {
 }
 
 func BenchmarkAnalyzeSelect(b *testing.B) {
-	parser := New()
+	parser := mysqlparser.New()
 	query := "SELECT 1"
 
 	for b.Loop() {
