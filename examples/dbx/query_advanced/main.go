@@ -1,3 +1,4 @@
+// Package main demonstrates advanced dbx query composition examples.
 package main
 
 import (
@@ -31,12 +32,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = closeDB() }()
+	defer closeOrPanic(closeDB)
 
-	if _, err := core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles); err != nil {
+	_, err = core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+	if err != nil {
 		panic(err)
 	}
-	if err := shared.SeedDemoData(ctx, core, catalog); err != nil {
+	err = shared.SeedDemoData(ctx, core, catalog)
+	if err != nil {
 		panic(err)
 	}
 
@@ -56,10 +59,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("cte query:")
-	for _, row := range activeRows {
-		fmt.Printf("- id=%d username=%s\n", row.ID, row.Username)
-	}
+	printActiveRows(activeRows)
 
 	statusLabel := dbx.CaseWhen[string](catalog.Users.Status.Eq(1), "active").
 		When(catalog.Users.Status.Eq(0), "inactive").
@@ -76,10 +76,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("case query:")
-	for _, row := range labeledRows {
-		fmt.Printf("- id=%d username=%s status=%s\n", row.ID, row.Username, row.StatusLabel)
-	}
+	printLabeledRows(labeledRows)
 
 	label := dbx.ResultColumn[string]("label")
 	unionQuery := dbx.Select(catalog.Users.Username.As("label")).
@@ -95,8 +92,47 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("union query:")
-	for _, row := range unionRows {
-		fmt.Printf("- label=%s\n", row.Label)
+	printUnionRows(unionRows)
+}
+
+func printActiveRows(rows []activeUserRow) {
+	printLine("cte query:")
+	for index := range rows {
+		row := &rows[index]
+		printFormat("- id=%d username=%s\n", row.ID, row.Username)
+	}
+}
+
+func printLabeledRows(rows []labeledUserRow) {
+	printLine("case query:")
+	for index := range rows {
+		row := &rows[index]
+		printFormat("- id=%d username=%s status=%s\n", row.ID, row.Username, row.StatusLabel)
+	}
+}
+
+func printUnionRows(rows []unionLabelRow) {
+	printLine("union query:")
+	for index := range rows {
+		row := &rows[index]
+		printFormat("- label=%s\n", row.Label)
+	}
+}
+
+func closeOrPanic(closeFn func() error) {
+	if err := closeFn(); err != nil {
+		panic(err)
+	}
+}
+
+func printLine(text string) {
+	if _, err := fmt.Println(text); err != nil {
+		panic(err)
+	}
+}
+
+func printFormat(format string, args ...any) {
+	if _, err := fmt.Printf(format, args...); err != nil {
+		panic(err)
 	}
 }
