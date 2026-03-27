@@ -17,7 +17,7 @@ func NewConcurrencyLimitPolicy(maxInFlight int) Policy {
 	return &concurrencyLimitPolicy{sem: make(chan struct{}, maxInFlight)}
 }
 
-func (p *concurrencyLimitPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
+func (p *concurrencyLimitPolicy) Before(ctx context.Context, _ Operation) (context.Context, error) {
 	ctx = normalizeContext(ctx)
 	select {
 	case p.sem <- struct{}{}:
@@ -27,7 +27,7 @@ func (p *concurrencyLimitPolicy) Before(ctx context.Context, operation Operation
 	}
 }
 
-func (p *concurrencyLimitPolicy) After(ctx context.Context, operation Operation, err error) error {
+func (p *concurrencyLimitPolicy) After(_ context.Context, _ Operation, _ error) error {
 	select {
 	case <-p.sem:
 	default:

@@ -86,18 +86,18 @@ func InvokeWithPolicies[T any](
 	})
 
 	for attempt := 1; ; attempt++ {
-		attemptCtx, applied, err := applyBeforePolicies(activePolicies, ctx, operation)
+		attemptCtx, applied, err := applyBeforePolicies(ctx, activePolicies, operation)
 		if err != nil {
-			return zero, applyAfterPolicies(applied, attemptCtx, operation, err)
+			return zero, applyAfterPolicies(attemptCtx, applied, operation, err)
 		}
 
 		result, execErr := fn(attemptCtx)
-		execErr = applyAfterPolicies(applied, attemptCtx, operation, execErr)
+		execErr = applyAfterPolicies(attemptCtx, applied, operation, execErr)
 		if execErr == nil {
 			return result, nil
 		}
 
-		retry, wait := decideRetry(activePolicies, ctx, operation, attempt, execErr)
+		retry, wait := decideRetry(ctx, activePolicies, operation, attempt, execErr)
 		if !retry {
 			return result, execErr
 		}
@@ -107,10 +107,10 @@ func InvokeWithPolicies[T any](
 	}
 }
 
-func applyAfterPolicies(policies []Policy, ctx context.Context, operation Operation, baseErr error) error {
+func applyAfterPolicies(ctx context.Context, policies []Policy, operation Operation, baseErr error) error {
 	aggErr := baseErr
 	for i := len(policies) - 1; i >= 0; i-- {
-		afterErr, afterOK := callPolicyAfter(policies[i], ctx, operation, aggErr)
+		afterOK, afterErr := callPolicyAfter(ctx, policies[i], operation, aggErr)
 		if !afterOK || afterErr == nil {
 			continue
 		}
@@ -120,8 +120,8 @@ func applyAfterPolicies(policies []Policy, ctx context.Context, operation Operat
 }
 
 func decideRetry(
-	policies []Policy,
 	ctx context.Context,
+	policies []Policy,
 	operation Operation,
 	attempt int,
 	err error,
@@ -136,7 +136,7 @@ func decideRetry(
 		if !ok {
 			return agg
 		}
-		shouldRetry, delay, retryOK := callShouldRetry(decider, ctx, operation, attempt, err)
+		shouldRetry, delay, retryOK := callShouldRetry(ctx, decider, operation, attempt, err)
 		if !retryOK || !shouldRetry {
 			return agg
 		}
@@ -171,20 +171,20 @@ func normalizeOperation(operation Operation) Operation {
 }
 
 func applyBeforePolicies(
-	policies []Policy,
 	ctx context.Context,
+	policies []Policy,
 	operation Operation,
 ) (context.Context, []Policy, error) {
 	if len(policies) == 0 {
 		return ctx, nil, nil
 	}
 
-	nextCtx, err := callPolicyBefore(policies[0], ctx, operation)
+	nextCtx, err := callPolicyBefore(ctx, policies[0], operation)
 	if err != nil {
 		return ctx, nil, err
 	}
 
-	finalCtx, tailApplied, tailErr := applyBeforePolicies(policies[1:], nextCtx, operation)
+	finalCtx, tailApplied, tailErr := applyBeforePolicies(nextCtx, policies[1:], operation)
 	if tailErr != nil {
 		return finalCtx, append([]Policy{policies[0]}, tailApplied...), tailErr
 	}
@@ -193,8 +193,8 @@ func applyBeforePolicies(
 }
 
 func callPolicyBefore(
-	policy Policy,
 	ctx context.Context,
+	policy Policy,
 	operation Operation,
 ) (context.Context, error) {
 	recovered := false
@@ -215,24 +215,24 @@ func callPolicyBefore(
 }
 
 func callPolicyAfter(
-	policy Policy,
 	ctx context.Context,
+	policy Policy,
 	operation Operation,
 	err error,
-) (afterErr error, ok bool) {
+) (ok bool, afterErr error) {
 	ok = true
 	defer func() {
 		if recover() != nil {
-			afterErr = nil
 			ok = false
+			afterErr = nil
 		}
 	}()
-	return wrapPolicyAfterError(policy.After(ctx, operation, err)), ok
+	return true, wrapPolicyAfterError(policy.After(ctx, operation, err))
 }
 
 func callShouldRetry(
-	decider RetryDecider,
 	ctx context.Context,
+	decider RetryDecider,
 	operation Operation,
 	attempt int,
 	err error,

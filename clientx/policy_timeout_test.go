@@ -112,7 +112,7 @@ func TestTimeoutPolicyWorksWithRetryPolicy(t *testing.T) {
 	result, err := clientx.InvokeWithPolicies(
 		context.Background(),
 		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
-		func(ctx context.Context) (string, error) {
+		func(_ context.Context) (string, error) {
 			attempts++
 			if attempts < 3 {
 				return "", context.DeadlineExceeded

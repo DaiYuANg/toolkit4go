@@ -91,8 +91,8 @@ func (e *Error) Timeout() bool {
 	if e.Kind == ErrorKindTimeout {
 		return true
 	}
-	var netErr net.Error
-	return errors.As(e.Err, &netErr) && netErr.Timeout()
+	netErr, ok := errors.AsType[net.Error](e.Err)
+	return ok && netErr.Timeout()
 }
 
 // Temporary reports whether the error is marked as temporary.
@@ -117,8 +117,7 @@ func WrapErrorWithKind(protocol Protocol, op, addr string, kind ErrorKind, err e
 	if err == nil {
 		return nil
 	}
-	var existing *Error
-	if errors.As(err, &existing) {
+	if existing, ok := errors.AsType[*Error](err); ok && existing != nil {
 		return err
 	}
 	if protocol == "" {
@@ -135,8 +134,8 @@ func WrapErrorWithKind(protocol Protocol, op, addr string, kind ErrorKind, err e
 
 // IsKind reports whether err is a *Error with the given kind.
 func IsKind(err error, kind ErrorKind) bool {
-	var e *Error
-	if !errors.As(err, &e) {
+	e, ok := errors.AsType[*Error](err)
+	if !ok {
 		return false
 	}
 	return e.Kind == kind
@@ -144,8 +143,8 @@ func IsKind(err error, kind ErrorKind) bool {
 
 // KindOf returns the ErrorKind carried by err when available.
 func KindOf(err error) ErrorKind {
-	var e *Error
-	if !errors.As(err, &e) {
+	e, ok := errors.AsType[*Error](err)
+	if !ok {
 		return ErrorKindUnknown
 	}
 	return e.Kind
@@ -171,12 +170,10 @@ func isConnRefused(err error) bool {
 	if errors.Is(err, syscall.ECONNREFUSED) {
 		return true
 	}
-	var errno syscall.Errno
-	if errors.As(err, &errno) {
+	if errno, ok := errors.AsType[syscall.Errno](err); ok {
 		return lo.Contains([]syscall.Errno{syscall.ECONNREFUSED, syscall.Errno(10061)}, errno)
 	}
-	var sysErr *os.SyscallError
-	if errors.As(err, &sysErr) {
+	if sysErr, ok := errors.AsType[*os.SyscallError](err); ok {
 		return isConnRefused(sysErr.Err)
 	}
 	return false
@@ -201,31 +198,57 @@ func classifyClosedError(err error) (ErrorKind, bool) {
 }
 
 func classifyTypedNetworkError(err error) (ErrorKind, bool) {
-	var dnsErr *net.DNSError
-	if errors.As(err, &dnsErr) {
+	for _, classify := range []func(error) (ErrorKind, bool){
+		classifyDNSError,
+		classifyTimeoutNetworkError,
+		classifyOpNetworkError,
+		classifyConnRefusedError,
+		classifyGenericNetworkError,
+	} {
+		if kind, ok := classify(err); ok {
+			return kind, true
+		}
+	}
+
+	return "", false
+}
+
+func classifyDNSError(err error) (ErrorKind, bool) {
+	if dnsErr, ok := errors.AsType[*net.DNSError](err); ok && dnsErr != nil {
 		return ErrorKindDNS, true
 	}
+	return "", false
+}
 
-	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
+func classifyTimeoutNetworkError(err error) (ErrorKind, bool) {
+	if netErr, ok := errors.AsType[net.Error](err); ok && netErr.Timeout() {
 		return ErrorKindTimeout, true
 	}
+	return "", false
+}
 
-	if opErr, ok := errors.AsType[*net.OpError](err); ok {
-		if opErr.Err != nil && isConnRefused(opErr.Err) {
-			return ErrorKindConnRefused, true
-		}
-		return ErrorKindNetwork, true
+func classifyOpNetworkError(err error) (ErrorKind, bool) {
+	opErr, ok := errors.AsType[*net.OpError](err)
+	if !ok || opErr == nil {
+		return "", false
 	}
+	if opErr.Err != nil && isConnRefused(opErr.Err) {
+		return ErrorKindConnRefused, true
+	}
+	return ErrorKindNetwork, true
+}
 
+func classifyConnRefusedError(err error) (ErrorKind, bool) {
 	if isConnRefused(err) {
 		return ErrorKindConnRefused, true
 	}
+	return "", false
+}
 
-	if errors.As(err, &netErr) {
+func classifyGenericNetworkError(err error) (ErrorKind, bool) {
+	if netErr, ok := errors.AsType[net.Error](err); ok && netErr != nil {
 		return ErrorKindNetwork, true
 	}
-
 	return "", false
 }
 

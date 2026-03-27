@@ -19,7 +19,7 @@ import (
 )
 
 func TestNewEdgeHTTPRetryPreset(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
@@ -58,7 +58,7 @@ func TestNewEdgeHTTPRetryPreset(t *testing.T) {
 }
 
 func TestNewEdgeHTTPTimeoutGuard(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		time.Sleep(120 * time.Millisecond)
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))

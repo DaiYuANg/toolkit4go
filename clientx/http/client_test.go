@@ -17,7 +17,7 @@ import (
 )
 
 func TestExecuteWithNilRequest(t *testing.T) {
-	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
@@ -54,8 +54,8 @@ func TestExecuteWrapsTransportError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected transport error, got nil")
 	}
-	var typedErr *clientx.Error
-	if !errors.As(err, &typedErr) {
+	typedErr, ok := errors.AsType[*clientx.Error](err)
+	if !ok {
 		t.Fatalf("expected *clientx.Error, got %T", err)
 	}
 	if typedErr.Protocol != clientx.ProtocolHTTP {
@@ -74,7 +74,7 @@ func TestExecuteWrapsTransportError(t *testing.T) {
 }
 
 func TestExecuteEmitsHook(t *testing.T) {
-	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		mustWriteBody(t, w, "ok")
 	}))
 	defer srv.Close()
@@ -122,7 +122,7 @@ func TestNewWithInvalidBaseURL(t *testing.T) {
 }
 
 func TestExecuteAppliesPolicies(t *testing.T) {
-	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()
@@ -138,7 +138,7 @@ func TestExecuteAppliesPolicies(t *testing.T) {
 				}
 				return ctx, nil
 			},
-			AfterFunc: func(ctx context.Context, operation clientx.Operation, err error) error {
+			AfterFunc: func(_ context.Context, _ clientx.Operation, _ error) error {
 				calls = append(calls, "after")
 				return nil
 			},
@@ -159,7 +159,7 @@ func TestExecuteAppliesPolicies(t *testing.T) {
 }
 
 func TestExecuteRetriesFromConfig(t *testing.T) {
-	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))
 	defer srv.Close()

@@ -17,7 +17,7 @@ func TestExecuteWithConcurrencyLimitOption(t *testing.T) {
 	var active atomic.Int32
 	var maxActive atomic.Int32
 
-	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		current := active.Add(1)
 		defer active.Add(-1)
 		updateMaxActive(&maxActive, current)
@@ -60,7 +60,7 @@ func TestExecuteWithConcurrencyLimitOption(t *testing.T) {
 }
 
 func TestExecuteWithTimeoutGuardOption(t *testing.T) {
-	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	srv := newHTTPTestServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		time.Sleep(120 * time.Millisecond)
 		w.WriteHeader(stdhttp.StatusNoContent)
 	}))

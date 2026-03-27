@@ -16,7 +16,7 @@ func NewTimeoutPolicy(timeout time.Duration) Policy {
 	return &timeoutPolicy{timeout: timeout}
 }
 
-func (p *timeoutPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
+func (p *timeoutPolicy) Before(ctx context.Context, _ Operation) (context.Context, error) {
 	ctx = normalizeContext(ctx)
 	if p.timeout <= 0 {
 		return ctx, nil
@@ -30,7 +30,7 @@ func (p *timeoutPolicy) Before(ctx context.Context, operation Operation) (contex
 	return context.WithValue(nextCtx, timeoutCancelKey{}, cancel), nil
 }
 
-func (p *timeoutPolicy) After(ctx context.Context, operation Operation, err error) error {
+func (p *timeoutPolicy) After(ctx context.Context, _ Operation, _ error) error {
 	if ctx == nil {
 		return nil
 	}

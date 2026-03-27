@@ -29,8 +29,8 @@ func TestDialErrorIsTyped(t *testing.T) {
 		t.Fatal("expected dial error, got nil")
 	}
 
-	var typedErr *clientx.Error
-	if !errors.As(err, &typedErr) {
+	typedErr, ok := errors.AsType[*clientx.Error](err)
+	if !ok {
 		t.Fatalf("expected *clientx.Error, got %T", err)
 	}
 	if typedErr.Protocol != clientx.ProtocolTCP {
@@ -94,8 +94,8 @@ func TestReadTimeoutIsTypedAndStillNetError(t *testing.T) {
 		t.Fatalf("expected kind %q, got %q", clientx.ErrorKindTimeout, clientx.KindOf(err))
 	}
 
-	var netErr net.Error
-	if !errors.As(err, &netErr) || !netErr.Timeout() {
+	netErr, ok := errors.AsType[net.Error](err)
+	if !ok || !netErr.Timeout() {
 		t.Fatalf("expected timeout net.Error, got %v", err)
 	}
 }

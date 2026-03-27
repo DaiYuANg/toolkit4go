@@ -21,7 +21,7 @@ func TestRetryPolicyRetriesUntilSuccess(t *testing.T) {
 	result, err := clientx.InvokeWithPolicies(
 		context.Background(),
 		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
-		func(ctx context.Context) (string, error) {
+		func(_ context.Context) (string, error) {
 			attempts++
 			if attempts < 3 {
 				return "", clientx.WrapError(clientx.ProtocolHTTP, "get", "example", context.DeadlineExceeded)
@@ -53,7 +53,7 @@ func TestRetryPolicyStopsAtMaxAttempts(t *testing.T) {
 	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
 		clientx.Operation{Protocol: clientx.ProtocolTCP, Kind: clientx.OperationKindDial, Op: "dial"},
-		func(ctx context.Context) (int, error) {
+		func(_ context.Context) (int, error) {
 			attempts++
 			return 0, clientx.WrapError(clientx.ProtocolTCP, "dial", "127.0.0.1:1", context.DeadlineExceeded)
 		},
@@ -74,7 +74,7 @@ func TestRetryPolicySkipsNonRetryableError(t *testing.T) {
 	_, err := clientx.InvokeWithPolicies(
 		context.Background(),
 		clientx.Operation{Protocol: clientx.ProtocolUDP, Kind: clientx.OperationKindDial, Op: "dial"},
-		func(ctx context.Context) (int, error) {
+		func(_ context.Context) (int, error) {
 			attempts++
 			return 0, clientx.WrapErrorWithKind(clientx.ProtocolUDP, "dial", "127.0.0.1:1", clientx.ErrorKindCodec, errors.New("codec"))
 		},
@@ -107,7 +107,7 @@ func TestRetryPolicyContextCancelDuringBackoff(t *testing.T) {
 	_, err := clientx.InvokeWithPolicies(
 		ctx,
 		clientx.Operation{Protocol: clientx.ProtocolHTTP, Kind: clientx.OperationKindRequest, Op: "get"},
-		func(ctx context.Context) (int, error) {
+		func(_ context.Context) (int, error) {
 			attempts++
 			return 0, clientx.WrapError(clientx.ProtocolHTTP, "get", "example", context.DeadlineExceeded)
 		},

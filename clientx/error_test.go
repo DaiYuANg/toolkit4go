@@ -68,8 +68,8 @@ func TestWrapErrorStillImplementsNetError(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	var netErr net.Error
-	if !errors.As(err, &netErr) {
+	netErr, ok := errors.AsType[net.Error](err)
+	if !ok {
 		t.Fatalf("expected net.Error, got %T", err)
 	}
 	if !netErr.Timeout() {

@@ -76,15 +76,15 @@ func NewRetryPolicy(cfg RetryPolicyConfig) Policy {
 	}
 }
 
-func (p *retryPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
+func (p *retryPolicy) Before(ctx context.Context, _ Operation) (context.Context, error) {
 	return ctx, nil
 }
 
-func (p *retryPolicy) After(ctx context.Context, operation Operation, err error) error {
+func (p *retryPolicy) After(_ context.Context, _ Operation, _ error) error {
 	return nil
 }
 
-func (p *retryPolicy) ShouldRetry(ctx context.Context, operation Operation, attempt int, err error) (bool, time.Duration) {
+func (p *retryPolicy) ShouldRetry(ctx context.Context, _ Operation, attempt int, err error) (bool, time.Duration) {
 	if err == nil {
 		return false, 0
 	}
@@ -150,8 +150,7 @@ func defaultRetryable(err error) bool {
 		return false
 	}
 
-	var netErr net.Error
-	if errors.As(err, &netErr) {
+	if netErr, ok := errors.AsType[net.Error](err); ok {
 		return netErr.Timeout()
 	}
 	return false

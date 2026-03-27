@@ -38,18 +38,18 @@ func TestEmitHookPanicIsolation(t *testing.T) {
 
 	hooks := []clientx.Hook{
 		clientx.HookFuncs{
-			OnDialFunc: func(event clientx.DialEvent) {
+			OnDialFunc: func(_ clientx.DialEvent) {
 				panic("dial hook panic")
 			},
-			OnIOFunc: func(event clientx.IOEvent) {
+			OnIOFunc: func(_ clientx.IOEvent) {
 				panic("io hook panic")
 			},
 		},
 		clientx.HookFuncs{
-			OnDialFunc: func(event clientx.DialEvent) {
+			OnDialFunc: func(_ clientx.DialEvent) {
 				dialCalled = true
 			},
-			OnIOFunc: func(event clientx.IOEvent) {
+			OnIOFunc: func(_ clientx.IOEvent) {
 				ioCalled = true
 			},
 		},
