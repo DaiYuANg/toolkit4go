@@ -1,3 +1,4 @@
+// Package redis_json demonstrates Redis JSON operations with kvx.
 package main
 
 import (
@@ -14,11 +15,11 @@ func main() {
 
 	container, addr, err := shared.StartContainer(ctx, shared.RedisJSONImage())
 	must(err)
-	defer func() { _ = container.Terminate(ctx) }()
+	defer func() { must(container.Terminate(ctx)) }()
 
 	adapter, err := redisadapter.New(kvx.ClientOptions{Addrs: []string{addr}})
 	must(err)
-	defer func() { _ = adapter.Close() }()
+	defer func() { must(adapter.Close()) }()
 
 	must(adapter.JSONSet(ctx, "demo:user:u-1", "$", []byte(`{"id":"u-1","name":"Alice","roles":["admin"]}`), 0))
 
@@ -30,14 +31,19 @@ func main() {
 	name, err := adapter.JSONGetField(ctx, "demo:user:u-1", "$.name")
 	must(err)
 
-	fmt.Printf("redis json addr: %s\n", addr)
-	fmt.Printf("document: %s\n", string(document))
-	fmt.Printf("updated name: %s\n", string(name))
-	fmt.Printf("image: %s\n", shared.RedisJSONImage())
+	mustWritef("redis json addr: %s\n", addr)
+	mustWritef("document: %s\n", string(document))
+	mustWritef("updated name: %s\n", string(name))
+	mustWritef("image: %s\n", shared.RedisJSONImage())
 }
 
 func must(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func mustWritef(format string, args ...any) {
+	_, err := fmt.Printf(format, args...)
+	must(err)
 }

@@ -1,67 +1,42 @@
+// Package redis_adapter demonstrates using the kvx Redis adapter directly.
 package main
 
 import (
 	"context"
 	"fmt"
-	"net"
-	"time"
 
+	"github.com/DaiYuANg/arcgo/examples/kvx/shared"
 	"github.com/DaiYuANg/arcgo/kvx"
 	redisadapter "github.com/DaiYuANg/arcgo/kvx/adapter/redis"
 	"github.com/DaiYuANg/arcgo/kvx/repository"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
-
-type User struct {
-	ID    string `kvx:"id"`
-	Name  string `kvx:"name"`
-	Email string `kvx:"email,index=email"`
-}
 
 func main() {
 	ctx := context.Background()
 
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "redis:7-alpine",
-			ExposedPorts: []string{"6379/tcp"},
-			WaitingFor:   wait.ForListeningPort("6379/tcp").WithStartupTimeout(30 * time.Second),
-		},
-		Started: true,
-	})
+	container, addr, err := shared.StartContainer(ctx, shared.RedisImage())
 	must(err)
-	defer func() {
-		_ = container.Terminate(ctx)
-	}()
-
-	host, err := container.Host(ctx)
-	must(err)
-
-	port, err := container.MappedPort(ctx, "6379/tcp")
-	must(err)
+	defer func() { must(container.Terminate(ctx)) }()
 
 	adapter, err := redisadapter.New(kvx.ClientOptions{
-		Addrs: []string{net.JoinHostPort(host, port.Port())},
+		Addrs: []string{addr},
 	})
 	must(err)
-	defer func() {
-		_ = adapter.Close()
-	}()
+	defer func() { must(adapter.Close()) }()
 
-	repo := repository.NewHashRepository[User](
+	repo := repository.NewHashRepository[shared.User](
 		adapter,
 		adapter,
 		"demo:user",
-		repository.WithPipeline[User](adapter),
+		repository.WithPipeline[shared.User](adapter),
 	)
 
-	must(repo.Save(ctx, &User{
+	must(repo.Save(ctx, &shared.User{
 		ID:    "u-1",
 		Name:  "Alice",
 		Email: "alice@example.com",
 	}))
-	must(repo.Save(ctx, &User{
+	must(repo.Save(ctx, &shared.User{
 		ID:    "u-2",
 		Name:  "Bob",
 		Email: "bob@example.com",
@@ -76,14 +51,19 @@ func main() {
 	count, err := repo.Count(ctx)
 	must(err)
 
-	fmt.Printf("redis addr: %s\n", net.JoinHostPort(host, port.Port()))
-	fmt.Printf("loaded: %s (%s)\n", entity.Name, entity.Email)
-	fmt.Printf("indexed matches: %d\n", len(matches))
-	fmt.Printf("count: %d\n", count)
+	mustWritef("redis addr: %s\n", addr)
+	mustWritef("loaded: %s (%s)\n", entity.Name, entity.Email)
+	mustWritef("indexed matches: %d\n", len(matches))
+	mustWritef("count: %d\n", count)
 }
 
 func must(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func mustWritef(format string, args ...any) {
+	_, err := fmt.Printf(format, args...)
+	must(err)
 }
