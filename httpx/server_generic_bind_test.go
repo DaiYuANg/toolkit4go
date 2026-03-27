@@ -1,10 +1,9 @@
-package httpx
+package httpx_test
 
 import (
 	"bytes"
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,14 +12,14 @@ import (
 func TestServer_GenericGetWithDefaultHuma(t *testing.T) {
 	server := newServer()
 
-	err := Get(server, "/ping", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/ping", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "pong"
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	req := newTestRequest(http.MethodGet, "/ping", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -30,7 +29,7 @@ func TestServer_GenericGetWithDefaultHuma(t *testing.T) {
 func TestServer_GenericPostDecodeBody(t *testing.T) {
 	server := newServer()
 
-	err := Post(server, "/echo", func(ctx context.Context, input *echoInput) (*echoOutput, error) {
+	err := Post(server, "/echo", func(_ context.Context, input *echoInput) (*echoOutput, error) {
 		out := &echoOutput{}
 		out.Body.Name = input.Body.Name
 		return out, nil
@@ -38,7 +37,7 @@ func TestServer_GenericPostDecodeBody(t *testing.T) {
 	assert.NoError(t, err)
 
 	body := []byte(`{"name":"arcgo"}`)
-	req := httptest.NewRequest(http.MethodPost, "/echo", bytes.NewReader(body))
+	req := newTestRequest(http.MethodPost, "/echo", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := serveRequest(t, server, req)
 
@@ -49,14 +48,14 @@ func TestServer_GenericPostDecodeBody(t *testing.T) {
 func TestServer_GenericPostInvalidJSON(t *testing.T) {
 	server := newServer()
 
-	err := Post(server, "/echo", func(ctx context.Context, input *echoInput) (*echoOutput, error) {
+	err := Post(server, "/echo", func(_ context.Context, input *echoInput) (*echoOutput, error) {
 		out := &echoOutput{}
 		out.Body.Name = input.Body.Name
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/echo", bytes.NewReader([]byte(`{"name":`)))
+	req := newTestRequest(http.MethodPost, "/echo", bytes.NewReader([]byte(`{"name":`)))
 	req.Header.Set("Content-Type", "application/json")
 	w := serveRequest(t, server, req)
 
@@ -67,14 +66,14 @@ func TestServer_GenericPostInvalidJSON(t *testing.T) {
 func TestServer_WithValidation_InvalidBody(t *testing.T) {
 	server := newServer(WithValidation())
 
-	err := Post(server, "/validated", func(ctx context.Context, input *validatedBodyInput) (*validatedBodyOutput, error) {
+	err := Post(server, "/validated", func(_ context.Context, input *validatedBodyInput) (*validatedBodyOutput, error) {
 		out := &validatedBodyOutput{}
 		out.Body.Name = input.Body.Name
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/validated", bytes.NewReader([]byte(`{"name":"ab"}`)))
+	req := newTestRequest(http.MethodPost, "/validated", bytes.NewReader([]byte(`{"name":"ab"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	w := serveRequest(t, server, req)
 
@@ -85,14 +84,14 @@ func TestServer_WithValidation_InvalidBody(t *testing.T) {
 func TestServer_WithValidation_ValidBody(t *testing.T) {
 	server := newServer(WithValidation())
 
-	err := Post(server, "/validated", func(ctx context.Context, input *validatedBodyInput) (*validatedBodyOutput, error) {
+	err := Post(server, "/validated", func(_ context.Context, input *validatedBodyInput) (*validatedBodyOutput, error) {
 		out := &validatedBodyOutput{}
 		out.Body.Name = input.Body.Name
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/validated", bytes.NewReader([]byte(`{"name":"arcgo"}`)))
+	req := newTestRequest(http.MethodPost, "/validated", bytes.NewReader([]byte(`{"name":"arcgo"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	w := serveRequest(t, server, req)
 
@@ -103,7 +102,7 @@ func TestServer_WithValidation_ValidBody(t *testing.T) {
 func TestServer_CustomRequestBinder(t *testing.T) {
 	server := newServer()
 
-	err := Get(server, "/custom-bind", func(ctx context.Context, input *customBindInput) (*customBindOutput, error) {
+	err := Get(server, "/custom-bind", func(_ context.Context, input *customBindInput) (*customBindOutput, error) {
 		out := &customBindOutput{}
 		out.Body.ID = input.ID
 		out.Body.Token = input.Token
@@ -111,7 +110,7 @@ func TestServer_CustomRequestBinder(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/custom-bind?user_id=123", nil)
+	req := newTestRequest(http.MethodGet, "/custom-bind?user_id=123", nil)
 	req.Header.Set("X-Token", "token-abc")
 	w := serveRequest(t, server, req)
 
@@ -123,14 +122,14 @@ func TestServer_CustomRequestBinder(t *testing.T) {
 func TestServer_CustomRequestBinderError(t *testing.T) {
 	server := newServer()
 
-	err := Get(server, "/custom-bind", func(ctx context.Context, input *customBindInput) (*customBindOutput, error) {
+	err := Get(server, "/custom-bind", func(_ context.Context, input *customBindInput) (*customBindOutput, error) {
 		out := &customBindOutput{}
 		out.Body.ID = input.ID
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/custom-bind?user_id=not-an-int", nil)
+	req := newTestRequest(http.MethodGet, "/custom-bind?user_id=not-an-int", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -141,14 +140,14 @@ func TestServer_GroupWithBasePath(t *testing.T) {
 	server := newServer(WithBasePath("/api"))
 	v1 := server.Group("/v1")
 
-	err := GroupGet(v1, "/health", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := GroupGet(v1, "/health", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req := newTestRequest(http.MethodGet, "/api/v1/health", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

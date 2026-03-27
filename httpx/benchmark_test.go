@@ -1,10 +1,9 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"testing"
 )
@@ -19,9 +18,7 @@ func benchmarkServerWithPingRoute(b *testing.B) *Server {
 	b.Helper()
 
 	server := newServer()
-	err := Get(server, "/ping", func(ctx context.Context, input *struct{}) (*benchmarkPingOutput, error) {
-		_ = ctx
-		_ = input
+	err := Get(server, "/ping", func(_ context.Context, _ *struct{}) (*benchmarkPingOutput, error) {
 		out := &benchmarkPingOutput{}
 		out.Body.Message = "pong"
 		return out, nil
@@ -36,11 +33,9 @@ func benchmarkServerWithParameterizedRoutes(b *testing.B, total int) *Server {
 	b.Helper()
 
 	server := newServer()
-	for i := 0; i < total; i++ {
+	for i := range total {
 		path := fmt.Sprintf("/resources/%d/items/{id}", i)
-		err := Get(server, path, func(ctx context.Context, input *struct{}) (*benchmarkPingOutput, error) {
-			_ = ctx
-			_ = input
+		err := Get(server, path, func(_ context.Context, _ *struct{}) (*benchmarkPingOutput, error) {
 			out := &benchmarkPingOutput{}
 			out.Body.Message = "pong"
 			return out, nil
@@ -56,12 +51,10 @@ func BenchmarkServerRegisterGet(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		server := newServer()
 		path := "/bench/" + strconv.Itoa(i)
-		err := Get(server, path, func(ctx context.Context, input *struct{}) (*benchmarkPingOutput, error) {
-			_ = ctx
-			_ = input
+		err := Get(server, path, func(_ context.Context, _ *struct{}) (*benchmarkPingOutput, error) {
 			out := &benchmarkPingOutput{}
 			out.Body.Message = "ok"
 			return out, nil
@@ -78,8 +71,8 @@ func BenchmarkServerServeGet(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	for range b.N {
+		req := newTestRequest(http.MethodGet, "/ping", nil)
 		w := serveRequest(b, server, req)
 		if w.Code != http.StatusOK {
 			b.Fatalf("unexpected status code: %d", w.Code)
@@ -93,8 +86,8 @@ func BenchmarkServerMatchParameterizedRoute(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		route, ok := server.matchRoute(http.MethodGet, "/resources/1024/items/42")
+	for range b.N {
+		route, ok := matchRoute(server, http.MethodGet, "/resources/1024/items/42")
 		if !ok {
 			b.Fatal("expected route to match")
 		}
@@ -111,7 +104,7 @@ func BenchmarkPathNormalizeAndJoin(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		prefix := normalizeRoutePrefix(base)
 		fullPath := joinRoutePath(prefix, path)
 		if fullPath == "" {

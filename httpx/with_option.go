@@ -55,25 +55,9 @@ func WithAccessLog(enabled bool) ServerOption {
 // WithOpenAPIInfo sets top-level OpenAPI info fields for the server.
 func WithOpenAPIInfo(title, version, description string) ServerOption {
 	return func(s *Server) {
-		patch := func(doc *huma.OpenAPI) {
-			if doc == nil {
-				return
-			}
-			if doc.Info == nil {
-				doc.Info = &huma.Info{}
-			}
-			if title != "" {
-				doc.Info.Title = title
-			}
-			if version != "" {
-				doc.Info.Version = version
-			}
-			if description != "" {
-				doc.Info.Description = description
-			}
-		}
-
-		s.openAPIPatches.Add(patch)
+		s.openAPIPatches.Add(func(doc *huma.OpenAPI) {
+			applyOpenAPIInfo(doc, title, version, description)
+		})
 	}
 }
 
@@ -172,5 +156,23 @@ func forEachNonNilHeader(headers []*huma.Param, fn func(header *huma.Param)) {
 			continue
 		}
 		fn(header)
+	}
+}
+
+func applyOpenAPIInfo(doc *huma.OpenAPI, title, version, description string) {
+	if doc == nil {
+		return
+	}
+	if doc.Info == nil {
+		doc.Info = &huma.Info{}
+	}
+	if title != "" {
+		doc.Info.Title = title
+	}
+	if version != "" {
+		doc.Info.Version = version
+	}
+	if description != "" {
+		doc.Info.Description = description
 	}
 }

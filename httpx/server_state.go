@@ -10,7 +10,7 @@ func (s *Server) IsFrozen() bool {
 	return s != nil && s.frozen.Load()
 }
 
-func (s *Server) freezeConfiguration() {
+func (s *Server) freezeConfiguration(ctx context.Context) {
 	if s == nil {
 		return
 	}
@@ -18,8 +18,8 @@ func (s *Server) freezeConfiguration() {
 	defer s.openAPIMu.Unlock()
 	wasFrozen := s.frozen.Load()
 	s.frozen.Store(true)
-	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) && !wasFrozen {
-		s.logger.Debug("httpx configuration frozen",
+	if s.logger != nil && !wasFrozen {
+		s.logger.DebugContext(normalizeServerContext(ctx), "httpx configuration frozen",
 			slog.Int("routes", s.RouteCount()),
 		)
 	}

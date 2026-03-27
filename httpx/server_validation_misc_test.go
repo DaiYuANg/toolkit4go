@@ -1,11 +1,10 @@
-package httpx
+package httpx_test
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -16,7 +15,7 @@ import (
 func TestServer_StrongTypedQueryAndHeaderBinding(t *testing.T) {
 	server := newServer()
 
-	err := Get(server, "/params", func(ctx context.Context, input *paramsInput) (*paramsOutput, error) {
+	err := Get(server, "/params", func(_ context.Context, input *paramsInput) (*paramsOutput, error) {
 		out := &paramsOutput{}
 		out.Body.ID = input.ID
 		out.Body.Flag = input.Flag
@@ -25,7 +24,7 @@ func TestServer_StrongTypedQueryAndHeaderBinding(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/params?id=42&flag=true", nil)
+	req := newTestRequest(http.MethodGet, "/params?id=42&flag=true", nil)
 	req.Header.Set("X-Trace-ID", "trace-001")
 	w := serveRequest(t, server, req)
 
@@ -40,14 +39,14 @@ func TestServer_WithMiddleware(t *testing.T) {
 	// Huma is now initialized at adapter creation time, so middleware should be
 	// configured on the router/engine before calling adapter.New().
 	server := newServer()
-	err := Get(server, "/items", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/items", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/items", nil)
+	req := newTestRequest(http.MethodGet, "/items", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -57,14 +56,14 @@ func TestServer_WithMiddleware(t *testing.T) {
 func TestServer_DefaultHumaEnabled(t *testing.T) {
 	server := newServer()
 
-	err := Get(server, "/huma", func(ctx context.Context, input *struct{}) (*humaPingOutput, error) {
+	err := Get(server, "/huma", func(_ context.Context, _ *struct{}) (*humaPingOutput, error) {
 		out := &humaPingOutput{}
 		out.Body.Message = "from huma"
 		return out, nil
 	}, huma.OperationTags("demo"))
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/huma", nil)
+	req := newTestRequest(http.MethodGet, "/huma", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -77,14 +76,14 @@ func TestServer_WithValidation_WorksWithHuma(t *testing.T) {
 		WithValidation(),
 	)
 
-	err := Get(server, "/validate-huma", func(ctx context.Context, input *validatedQueryInput) (*humaPingOutput, error) {
+	err := Get(server, "/validate-huma", func(_ context.Context, _ *validatedQueryInput) (*humaPingOutput, error) {
 		out := &humaPingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/validate-huma", nil)
+	req := newTestRequest(http.MethodGet, "/validate-huma", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -100,14 +99,14 @@ func TestServer_WithCustomValidator(t *testing.T) {
 
 	server := newServer(WithValidator(customValidator))
 
-	err = Post(server, "/custom-validate", func(ctx context.Context, input *customValidatedInput) (*validatedBodyOutput, error) {
+	err = Post(server, "/custom-validate", func(_ context.Context, input *customValidatedInput) (*validatedBodyOutput, error) {
 		out := &validatedBodyOutput{}
 		out.Body.Name = input.Body.Name
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/custom-validate", bytes.NewReader([]byte(`{"name":"bad"}`)))
+	req := newTestRequest(http.MethodPost, "/custom-validate", bytes.NewReader([]byte(`{"name":"bad"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	w := serveRequest(t, server, req)
 
@@ -118,7 +117,7 @@ func TestServer_WithCustomValidator(t *testing.T) {
 func TestServer_GetRoutesAndFilters(t *testing.T) {
 	server := newServer()
 
-	err := Get(server, "/users", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/users", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
@@ -138,7 +137,7 @@ func TestServer_GetRoutesAndFilters(t *testing.T) {
 	assert.True(t, server.HasRoute(http.MethodGet, "/users"))
 
 	var resp map[string]any
-	req := httptest.NewRequest(http.MethodGet, "/users", nil)
+	req := newTestRequest(http.MethodGet, "/users", nil)
 	w := serveRequest(t, server, req)
-	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 }

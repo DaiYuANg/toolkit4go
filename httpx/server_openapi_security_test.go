@@ -1,4 +1,4 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
@@ -39,7 +39,7 @@ func TestServer_SecurityComponentsAndGlobalHeader(t *testing.T) {
 		Schema:      &huma.Schema{Type: "integer"},
 	})
 
-	err := Get(server, "/secure", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/secure", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
@@ -78,7 +78,7 @@ func TestServer_RegisterGlobalParameter_ClonesSchema(t *testing.T) {
 	// Mutating the original parameter after registration should not affect future operations.
 	param.Schema.Type = "integer"
 
-	err := Get(server, "/clone-param", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/clone-param", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
@@ -109,7 +109,7 @@ func TestGroup_DefaultTagsAndSecurity(t *testing.T) {
 		"apiKey": {},
 	})
 
-	err := GroupGet(group, "/stats", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := GroupGet(group, "/stats", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil

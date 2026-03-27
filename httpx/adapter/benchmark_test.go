@@ -1,13 +1,14 @@
-package adapter
+package adapter_test
 
 import (
 	"testing"
 
+	adapter "github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/danielgtaylor/huma/v2"
 )
 
 func BenchmarkApplyHumaConfig(b *testing.B) {
-	opts := HumaOptions{
+	opts := adapter.HumaOptions{
 		Description: "benchmark docs",
 		DocsPath:    "/docs/v1",
 		OpenAPIPath: "/openapi/v1",
@@ -16,9 +17,9 @@ func BenchmarkApplyHumaConfig(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		cfg := huma.DefaultConfig("benchmark", "1.0.0")
-		ApplyHumaConfig(&cfg, opts)
+		adapter.ApplyHumaConfig(&cfg, opts)
 		if cfg.DocsPath == "" || cfg.OpenAPIPath == "" {
 			b.Fatal("expected docs/openapi paths to be set")
 		}

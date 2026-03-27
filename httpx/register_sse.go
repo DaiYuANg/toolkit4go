@@ -45,39 +45,12 @@ func registerSSE[I any](
 	if api == nil {
 		return ErrAdapterNotFound
 	}
-	if len(eventTypeMap) == 0 {
-		return fmt.Errorf("%w: sse event map is empty", ErrRouteNotRegistered)
-	}
-	nilEventTypes := lo.FilterMap(lo.Entries(eventTypeMap), func(entry lo.Entry[string, any], _ int) (string, bool) {
-		return entry.Key, entry.Value == nil
-	})
-	if len(nilEventTypes) > 0 {
-		return fmt.Errorf("%w: sse event type is nil for event %q", ErrRouteNotRegistered, nilEventTypes[0])
-	}
-	if handler == nil {
-		return fmt.Errorf("%w: sse handler is nil", ErrRouteNotRegistered)
+	if err := validateSSERouteRegistration(eventTypeMap, handler); err != nil {
+		return err
 	}
 	wrappedHandler := applySSERoutePolicies(handler, policies)
-
-	opID := defaultOperationID(method, fullPath)
-	op := huma.Operation{
-		OperationID: opID,
-		Method:      method,
-		Path:        registerPath,
-	}
-
-	lo.ForEach(operationOptions, func(opt OperationOption, _ int) {
-		if opt != nil {
-			opt(&op)
-		}
-	})
-	applySSEPolicyOperations(&op, policies)
-
-	lo.ForEach(s.operationModifiers.Values(), func(modifier func(*huma.Operation), _ int) {
-		if modifier != nil {
-			modifier(&op)
-		}
-	})
+	op := newSSEOperation(method, registerPath, fullPath, operationOptions, policies)
+	applyOperationModifiers(&op, s.operationModifiers.Values())
 	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
 		s.logger.Debug("httpx sse route registration starting",
 			"method", method,
@@ -119,4 +92,41 @@ func registerSSE[I any](
 	}
 
 	return nil
+}
+
+func validateSSERouteRegistration[I any](eventTypeMap map[string]any, handler SSEHandler[I]) error {
+	if len(eventTypeMap) == 0 {
+		return fmt.Errorf("%w: sse event map is empty", ErrRouteNotRegistered)
+	}
+	nilEventTypes := lo.FilterMap(lo.Entries(eventTypeMap), func(entry lo.Entry[string, any], _ int) (string, bool) {
+		return entry.Key, entry.Value == nil
+	})
+	if len(nilEventTypes) > 0 {
+		return fmt.Errorf("%w: sse event type is nil for event %q", ErrRouteNotRegistered, nilEventTypes[0])
+	}
+	if handler == nil {
+		return fmt.Errorf("%w: sse handler is nil", ErrRouteNotRegistered)
+	}
+	return nil
+}
+
+func newSSEOperation[I any](
+	method string,
+	registerPath string,
+	fullPath string,
+	operationOptions []OperationOption,
+	policies []SSERoutePolicy[I],
+) huma.Operation {
+	op := huma.Operation{
+		OperationID: defaultOperationID(method, fullPath),
+		Method:      method,
+		Path:        registerPath,
+	}
+	lo.ForEach(operationOptions, func(opt OperationOption, _ int) {
+		if opt != nil {
+			opt(&op)
+		}
+	})
+	applySSEPolicyOperations(&op, policies)
+	return op
 }

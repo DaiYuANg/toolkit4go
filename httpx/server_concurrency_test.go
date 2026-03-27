@@ -1,10 +1,9 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 
@@ -19,7 +18,7 @@ func TestServer_ConcurrentModifiersAndRouteRegistration(t *testing.T) {
 	var wg sync.WaitGroup
 	errCh := make(chan error, total)
 
-	for i := 0; i < total; i++ {
+	for i := range total {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
@@ -29,12 +28,12 @@ func TestServer_ConcurrentModifiersAndRouteRegistration(t *testing.T) {
 		}(i)
 	}
 
-	for i := 0; i < total; i++ {
+	for i := range total {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
 			path := fmt.Sprintf("/concurrent/%d", index)
-			err := Get(server, path, func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+			err := Get(server, path, func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 				out := &pingOutput{}
 				out.Body.Message = "ok"
 				return out, nil
@@ -53,7 +52,7 @@ func TestServer_ConcurrentModifiersAndRouteRegistration(t *testing.T) {
 
 	assert.Equal(t, total, server.RouteCount())
 
-	req := httptest.NewRequest(http.MethodGet, "/concurrent/0", nil)
+	req := newTestRequest(http.MethodGet, "/concurrent/0", nil)
 	rec := serveRequest(t, server, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 }

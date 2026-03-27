@@ -1,4 +1,4 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func TestGroup_DefaultParametersSummaryAndDescription(t *testing.T) {
 	group.DefaultSummaryPrefix("Reports")
 	group.DefaultDescription("Shared reporting endpoints")
 
-	err := GroupGet(group, "/daily", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := GroupGet(group, "/daily", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
@@ -56,7 +56,7 @@ func TestGroup_RegisterTagsExternalDocsAndExtensions(t *testing.T) {
 		"x-group": "admin",
 	})
 
-	err := GroupGet(group, "/health", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := GroupGet(group, "/health", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil

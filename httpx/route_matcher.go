@@ -42,20 +42,7 @@ func (m *routeMatcher) Add(path string, route RouteInfo, seq uint64) {
 	node.recordMinSeq(seq)
 
 	for _, segment := range segments {
-		if isPathParameterSegment(segment) {
-			if node.paramChild == nil {
-				node.paramChild = &routeMatcherNode{}
-			}
-			node = node.paramChild
-		} else {
-			if node.staticChildren == nil {
-				node.staticChildren = map[string]*routeMatcherNode{}
-			}
-			if node.staticChildren[segment] == nil {
-				node.staticChildren[segment] = &routeMatcherNode{}
-			}
-			node = node.staticChildren[segment]
-		}
+		node = node.ensureChild(segment)
 		node.recordMinSeq(seq)
 	}
 
@@ -86,6 +73,25 @@ func (m *routeMatcher) Match(path string) (RouteInfo, bool) {
 	return matched.route, true
 }
 
+func (n *routeMatcherNode) ensureChild(segment string) *routeMatcherNode {
+	if n == nil {
+		return nil
+	}
+	if isPathParameterSegment(segment) {
+		if n.paramChild == nil {
+			n.paramChild = &routeMatcherNode{}
+		}
+		return n.paramChild
+	}
+	if n.staticChildren == nil {
+		n.staticChildren = map[string]*routeMatcherNode{}
+	}
+	if n.staticChildren[segment] == nil {
+		n.staticChildren[segment] = &routeMatcherNode{}
+	}
+	return n.staticChildren[segment]
+}
+
 func (m *routeMatcher) ensureRootLocked() *routeMatcherNode {
 	if m.root == nil {
 		m.root = &routeMatcherNode{}
@@ -99,10 +105,7 @@ func (n *routeMatcherNode) match(segments []string, index int) (routeMatchEntry,
 	}
 
 	if index == len(segments) {
-		if len(n.routes) == 0 {
-			return routeMatchEntry{}, false
-		}
-		return n.routes[0], true
+		return n.routeAtCurrentNode()
 	}
 
 	segment := segments[index]
@@ -121,6 +124,13 @@ func (n *routeMatcherNode) match(segments []string, index int) (routeMatchEntry,
 	}
 
 	return matchRouteChild(second, segments, index+1)
+}
+
+func (n *routeMatcherNode) routeAtCurrentNode() (routeMatchEntry, bool) {
+	if len(n.routes) == 0 {
+		return routeMatchEntry{}, false
+	}
+	return n.routes[0], true
 }
 
 func (n *routeMatcherNode) recordMinSeq(seq uint64) {

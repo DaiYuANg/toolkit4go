@@ -1,9 +1,8 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -20,12 +19,12 @@ func TestServer_GetSSE_StreamsMessages(t *testing.T) {
 
 	err := GetSSE(server, "/events", map[string]any{
 		"ping": ssePingData{},
-	}, func(ctx context.Context, input *struct{}, send SSESender) {
-		_ = send.Data(ssePingData{Message: "pong"})
+	}, func(_ context.Context, _ *struct{}, send SSESender) {
+		require.NoError(t, send.Data(ssePingData{Message: "pong"}))
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	req := newTestRequest(http.MethodGet, "/events", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -49,12 +48,12 @@ func TestServer_GroupGetSSE_WithBasePath(t *testing.T) {
 
 	err := GroupGetSSE(group, "/events", map[string]any{
 		"message": ssePingData{},
-	}, func(ctx context.Context, input *struct{}, send SSESender) {
-		_ = send.Data(ssePingData{Message: "hello"})
+	}, func(_ context.Context, _ *struct{}, send SSESender) {
+		require.NoError(t, send.Data(ssePingData{Message: "hello"}))
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/events", nil)
+	req := newTestRequest(http.MethodGet, "/api/v1/events", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -71,7 +70,7 @@ func TestServer_GroupGetSSE_WithBasePath(t *testing.T) {
 
 func TestServer_GetSSE_EmptyEventMap(t *testing.T) {
 	server := newServer()
-	err := GetSSE(server, "/events", nil, func(ctx context.Context, input *struct{}, send SSESender) {})
+	err := GetSSE(server, "/events", nil, func(_ context.Context, _ *struct{}, _ SSESender) {})
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "sse event map is empty")
 }
@@ -80,7 +79,7 @@ func TestServer_GetSSE_NilEventType(t *testing.T) {
 	server := newServer()
 	err := GetSSE(server, "/events", map[string]any{
 		"ping": nil,
-	}, func(ctx context.Context, input *struct{}, send SSESender) {})
+	}, func(_ context.Context, _ *struct{}, _ SSESender) {})
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "sse event type is nil")
 }
@@ -101,7 +100,7 @@ func TestServer_GetSSE_AdapterWithoutHumaAPI(t *testing.T) {
 
 	err := GetSSE(server, "/events", map[string]any{
 		"ping": ssePingData{},
-	}, func(ctx context.Context, input *struct{}, send SSESender) {})
+	}, func(_ context.Context, _ *struct{}, _ SSESender) {})
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrAdapterNotFound)
 }
@@ -111,20 +110,20 @@ func TestServer_RouteSSEWithPolicies_WrapAndOperation(t *testing.T) {
 
 	err := RouteSSEWithPolicies(server, MethodGet, "/events/policy", map[string]any{
 		"ping": ssePingData{},
-	}, func(ctx context.Context, input *struct{}, send SSESender) {
-		_ = send.Data(ssePingData{Message: "from-handler"})
+	}, func(_ context.Context, _ *struct{}, send SSESender) {
+		require.NoError(t, send.Data(ssePingData{Message: "from-handler"}))
 	}, SSERoutePolicy[struct{}]{
 		Name: "prefix-message",
 		Wrap: func(next SSEHandler[struct{}]) SSEHandler[struct{}] {
 			return func(ctx context.Context, input *struct{}, send SSESender) {
-				_ = send.Data(ssePingData{Message: "from-policy"})
+				require.NoError(t, send.Data(ssePingData{Message: "from-policy"}))
 				next(ctx, input, send)
 			}
 		},
 	}, SSEPolicyOperation[struct{}](huma.OperationTags("sse-policy")))
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/events/policy", nil)
+	req := newTestRequest(http.MethodGet, "/events/policy", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -142,12 +141,12 @@ func TestServer_GroupRouteSSEWithPolicies_WithBasePath(t *testing.T) {
 
 	err := GroupRouteSSEWithPolicies(group, MethodGet, "/events/policy", map[string]any{
 		"ping": ssePingData{},
-	}, func(ctx context.Context, input *struct{}, send SSESender) {
-		_ = send.Data(ssePingData{Message: "ok"})
+	}, func(_ context.Context, _ *struct{}, send SSESender) {
+		require.NoError(t, send.Data(ssePingData{Message: "ok"}))
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v2/events/policy", nil)
+	req := newTestRequest(http.MethodGet, "/api/v2/events/policy", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -159,14 +158,14 @@ func TestServer_DuplicateSSERouteRegistrationReturnsError(t *testing.T) {
 
 	require.NoError(t, GetSSE(server, "/events", map[string]any{
 		"ping": ssePingData{},
-	}, func(ctx context.Context, input *struct{}, send SSESender) {
-		_ = send.Data(ssePingData{Message: "first"})
+	}, func(_ context.Context, _ *struct{}, send SSESender) {
+		require.NoError(t, send.Data(ssePingData{Message: "first"}))
 	}))
 
 	err := GetSSE(server, "/events", map[string]any{
 		"ping": ssePingData{},
-	}, func(ctx context.Context, input *struct{}, send SSESender) {
-		_ = send.Data(ssePingData{Message: "second"})
+	}, func(_ context.Context, _ *struct{}, send SSESender) {
+		require.NoError(t, send.Data(ssePingData{Message: "second"}))
 	})
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrRouteAlreadyExists)

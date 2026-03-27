@@ -1,9 +1,8 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	adapterecho "github.com/DaiYuANg/arcgo/httpx/adapter/echo"
@@ -24,14 +23,14 @@ func TestServer_StrongTypedPathBindingOnStdAdapter(t *testing.T) {
 		}
 	}
 
-	err := Get(server, "/users/{id}", func(ctx context.Context, input *in) (*out, error) {
+	err := Get(server, "/users/{id}", func(_ context.Context, input *in) (*out, error) {
 		result := &out{}
 		result.Body.ID = input.UserID
 		return result, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/users/123", nil)
+	req := newTestRequest(http.MethodGet, "/users/123", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -50,14 +49,14 @@ func TestServer_StrongTypedPathBindingOnGinAdapter(t *testing.T) {
 		}
 	}
 
-	err := Get(server, "/users/{id}", func(ctx context.Context, input *in) (*out, error) {
+	err := Get(server, "/users/{id}", func(_ context.Context, input *in) (*out, error) {
 		result := &out{}
 		result.Body.ID = input.UserID
 		return result, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/users/88", nil)
+	req := newTestRequest(http.MethodGet, "/users/88", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -76,14 +75,14 @@ func TestServer_StrongTypedPathBindingOnEchoAdapter(t *testing.T) {
 		}
 	}
 
-	err := Get(server, "/users/{id}", func(ctx context.Context, input *in) (*out, error) {
+	err := Get(server, "/users/{id}", func(_ context.Context, input *in) (*out, error) {
 		result := &out{}
 		result.Body.ID = input.UserID
 		return result, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/users/77", nil)
+	req := newTestRequest(http.MethodGet, "/users/77", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -102,14 +101,14 @@ func TestServer_StrongTypedPathBindingOnFiberAdapter(t *testing.T) {
 		}
 	}
 
-	err := Get(server, "/users/{id}", func(ctx context.Context, input *in) (*out, error) {
+	err := Get(server, "/users/{id}", func(_ context.Context, input *in) (*out, error) {
 		result := &out{}
 		result.Body.ID = input.UserID
 		return result, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/users/66", nil)
+	req := newTestRequest(http.MethodGet, "/users/66", nil)
 	w := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

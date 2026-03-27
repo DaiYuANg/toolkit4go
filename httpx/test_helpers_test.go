@@ -1,6 +1,8 @@
+//nolint:testpackage // Exposes internal-only test helpers to httpx_test without expanding package API.
 package httpx
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,12 +15,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func serveRequest(t testing.TB, server ServerRuntime, req *http.Request) *httptest.ResponseRecorder {
-	t.Helper()
+func newTestRequest(method, target string, body io.Reader) *http.Request {
+	if body == nil {
+		body = http.NoBody
+	}
+	return httptest.NewRequestWithContext(context.Background(), method, target, body)
+}
+
+func serveRequest(tb testing.TB, server ServerRuntime, req *http.Request) *httptest.ResponseRecorder {
+	tb.Helper()
 
 	impl := unwrapServer(server)
-	require.NotNil(t, impl)
-	require.NotNil(t, impl.adapter)
+	require.NotNil(tb, impl)
+	require.NotNil(tb, impl.adapter)
 
 	switch host := impl.adapter.(type) {
 	case *adapterstd.Adapter:
@@ -35,8 +44,10 @@ func serveRequest(t testing.TB, server ServerRuntime, req *http.Request) *httpte
 		return rec
 	case *adapterfiber.Adapter:
 		resp, err := host.Router().Test(req, -1)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
+		require.NoError(tb, err)
+		defer func() {
+			require.NoError(tb, resp.Body.Close())
+		}()
 
 		rec := httptest.NewRecorder()
 		for key, values := range resp.Header {
@@ -47,11 +58,58 @@ func serveRequest(t testing.TB, server ServerRuntime, req *http.Request) *httpte
 		rec.WriteHeader(resp.StatusCode)
 
 		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-		_, _ = rec.Body.Write(body)
+		require.NoError(tb, err)
+		_, err = rec.Body.Write(body)
+		require.NoError(tb, err)
 		return rec
 	default:
-		t.Fatalf("unsupported adapter type %T", host)
+		tb.Fatalf("unsupported adapter type %T", host)
 		return nil
 	}
+}
+
+// NewServerForTest creates a server with internal defaults for external tests.
+func NewServerForTest(opts ...ServerOption) *Server {
+	return newServer(opts...)
+}
+
+// NewRequestForTest builds a request with a background context for external tests.
+func NewRequestForTest(method, target string, body io.Reader) *http.Request {
+	return newTestRequest(method, target, body)
+}
+
+// ServeRequestForTest executes req against server using the concrete adapter router.
+func ServeRequestForTest(tb testing.TB, server ServerRuntime, req *http.Request) *httptest.ResponseRecorder {
+	tb.Helper()
+	return serveRequest(tb, server, req)
+}
+
+// MatchRouteForTest exposes route matching for external tests and benchmarks.
+func MatchRouteForTest(server *Server, method, path string) (RouteInfo, bool) {
+	if server == nil {
+		return RouteInfo{}, false
+	}
+	return server.matchRoute(method, path)
+}
+
+// NormalizeRoutePrefixForTest exposes route prefix normalization for external tests.
+func NormalizeRoutePrefixForTest(prefix string) string {
+	return normalizeRoutePrefix(prefix)
+}
+
+// JoinRoutePathForTest exposes route path joining for external tests.
+func JoinRoutePathForTest(basePath, path string) string {
+	return joinRoutePath(basePath, path)
+}
+
+// FreezeServerForTest freezes further configuration mutation for external tests.
+func FreezeServerForTest(server *Server) {
+	if server != nil {
+		server.freezeConfiguration(context.TODO())
+	}
+}
+
+// UseHostCapabilityForTest exposes adapter capability dispatch for external tests.
+func UseHostCapabilityForTest[T any](server ServerRuntime, use func(T)) bool {
+	return useHostCapability(server, use)
 }

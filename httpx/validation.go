@@ -2,7 +2,6 @@ package httpx
 
 import (
 	"errors"
-	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -16,41 +15,32 @@ func compileInputValidator[I any](v *validator.Validate) func(*I) error {
 		return nil
 	}
 
-	inputType := reflect.TypeFor[I]()
-	hasNestedPointer := false
-	for inputType.Kind() == reflect.Pointer {
-		hasNestedPointer = true
-		inputType = inputType.Elem()
-	}
-	if inputType.Kind() != reflect.Struct {
+	_, hasNestedPointer, ok := indirectStructType[I]()
+	if !ok {
 		return nil
 	}
 
 	if !hasNestedPointer {
-		return func(input *I) error {
-			if input == nil {
-				return nil
-			}
-			return v.Struct(input)
-		}
+		return directInputValidator[I](v)
 	}
 
+	return nestedPointerInputValidator[I](v)
+}
+
+func directInputValidator[I any](v *validator.Validate) func(*I) error {
 	return func(input *I) error {
 		if input == nil {
 			return nil
 		}
+		return v.Struct(input)
+	}
+}
 
-		value := reflect.ValueOf(input)
-		for value.IsValid() && value.Kind() == reflect.Pointer {
-			if value.IsNil() {
-				return nil
-			}
-			value = value.Elem()
-		}
-		if !value.IsValid() || value.Kind() != reflect.Struct {
+func nestedPointerInputValidator[I any](v *validator.Validate) func(*I) error {
+	return func(input *I) error {
+		if _, ok := indirectStructValue(input); !ok {
 			return nil
 		}
-
 		return v.Struct(input)
 	}
 }

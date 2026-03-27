@@ -17,7 +17,7 @@ type Endpoint interface {
 type BaseEndpoint struct{}
 
 // RegisterRoutes is a no-op default implementation.
-func (e *BaseEndpoint) RegisterRoutes(server ServerRuntime) {}
+func (e *BaseEndpoint) RegisterRoutes(_ ServerRuntime) {}
 
 // EndpointHookFunc runs before or after endpoint registration.
 type EndpointHookFunc func(server ServerRuntime, endpoint Endpoint)
@@ -40,7 +40,7 @@ func (s *Server) Register(endpoint Endpoint, hooks ...EndpointHooks) {
 		)
 	}
 
-	lo.ForEach(hooks, func(h EndpointHooks, index int) {
+	lo.ForEach(hooks, func(h EndpointHooks, _ int) {
 		if h.Before != nil {
 			h.Before(s, endpoint)
 		}
@@ -49,7 +49,7 @@ func (s *Server) Register(endpoint Endpoint, hooks ...EndpointHooks) {
 	endpoint.RegisterRoutes(s)
 
 	// After hooks
-	lo.ForEach(hooks, func(h EndpointHooks, index int) {
+	lo.ForEach(hooks, func(h EndpointHooks, _ int) {
 		if h.After != nil {
 			h.After(s, endpoint)
 		}

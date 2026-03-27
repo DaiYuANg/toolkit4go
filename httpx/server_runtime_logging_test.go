@@ -1,25 +1,24 @@
-package httpx
+package httpx_test
 
 import (
 	"bytes"
 	"context"
+	"github.com/stretchr/testify/assert"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestServer_WithPanicRecover_Enabled(t *testing.T) {
 	server := newServer(WithPanicRecover(true))
 
-	err := Get(server, "/panic", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/panic", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		panic("boom")
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	req := newTestRequest(http.MethodGet, "/panic", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
@@ -29,12 +28,12 @@ func TestServer_WithPanicRecover_Enabled(t *testing.T) {
 func TestServer_WithPanicRecover_Disabled(t *testing.T) {
 	server := newServer(WithPanicRecover(false))
 
-	err := Get(server, "/panic", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/panic", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		panic("boom")
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	req := newTestRequest(http.MethodGet, "/panic", nil)
 
 	assert.Panics(t, func() {
 		_ = serveRequest(t, server, req)
@@ -53,14 +52,14 @@ func TestServer_WithAccessLog_LogsRequests(t *testing.T) {
 		ID int `path:"id"`
 	}
 
-	err := Get(server, "/users/{id}", func(ctx context.Context, input *in) (*pingOutput, error) {
+	err := Get(server, "/users/{id}", func(_ context.Context, _ *in) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/users/42", nil)
+	req := newTestRequest(http.MethodGet, "/users/42", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -80,7 +79,7 @@ func TestServer_WithPrintRoutes_LogsOnRegistration(t *testing.T) {
 		WithPrintRoutes(true),
 	)
 
-	err := Get(server, "/routes", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/routes", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil

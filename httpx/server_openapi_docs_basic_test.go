@@ -1,9 +1,8 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
@@ -28,11 +27,11 @@ func TestServer_AdapterDocsDisabled_HidesDefaultDocsRoutes(t *testing.T) {
 		DisableDocsRoutes: true,
 	})))
 
-	docsReq := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	docsReq := newTestRequest(http.MethodGet, "/docs", nil)
 	docsRec := serveRequest(t, server, docsReq)
 	assert.Equal(t, http.StatusNotFound, docsRec.Code)
 
-	openAPIReq := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	openAPIReq := newTestRequest(http.MethodGet, "/openapi.json", nil)
 	openAPIRec := serveRequest(t, server, openAPIReq)
 	assert.Equal(t, http.StatusNotFound, openAPIRec.Code)
 }
@@ -61,14 +60,14 @@ func TestGroup_HumaMiddlewareAndModifier(t *testing.T) {
 		op.Tags = append(op.Tags, "group-tag")
 	})
 
-	err := GroupGet(group, "/items", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := GroupGet(group, "/items", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
 	})
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/items", nil)
+	req := newTestRequest(http.MethodGet, "/api/v1/items", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -88,15 +87,15 @@ func TestServer_AdapterDocs_CustomPaths(t *testing.T) {
 		DocsRenderer: DocsRendererScalar,
 	})))
 
-	docsReq := httptest.NewRequest(http.MethodGet, "/reference", nil)
+	docsReq := newTestRequest(http.MethodGet, "/reference", nil)
 	docsRec := serveRequest(t, server, docsReq)
 	assert.Equal(t, http.StatusOK, docsRec.Code)
 
-	oldDocsReq := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	oldDocsReq := newTestRequest(http.MethodGet, "/docs", nil)
 	oldDocsRec := serveRequest(t, server, oldDocsReq)
 	assert.Equal(t, http.StatusNotFound, oldDocsRec.Code)
 
-	specReq := httptest.NewRequest(http.MethodGet, "/spec.json", nil)
+	specReq := newTestRequest(http.MethodGet, "/spec.json", nil)
 	specRec := serveRequest(t, server, specReq)
 	assert.Equal(t, http.StatusOK, specRec.Code)
 	assert.Contains(t, specRec.Body.String(), "\"openapi\"")

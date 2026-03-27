@@ -57,9 +57,9 @@ func Compose(opts ...ServerOption) ServerOption {
 }
 
 // WithAdapter configures related behavior.
-func WithAdapter(adapter adapter.Host) ServerOption {
+func WithAdapter(host adapter.Host) ServerOption {
 	return func(o *ServerOptions) {
-		o.Adapter = adapter
+		o.Adapter = host
 	}
 }
 
@@ -137,9 +137,11 @@ func (o *ServerOptions) Build() []httpx.ServerOption {
 		return opt.Get()
 	})...)
 
-	opts = append(opts, httpx.WithOpenAPIInfo(o.HumaTitle, o.HumaVersion, o.HumaDescription))
-	opts = append(opts, httpx.WithPanicRecover(o.EnablePanicRecover))
-	opts = append(opts, httpx.WithAccessLog(o.EnableAccessLog))
+	opts = append(opts,
+		httpx.WithOpenAPIInfo(o.HumaTitle, o.HumaVersion, o.HumaDescription),
+		httpx.WithPanicRecover(o.EnablePanicRecover),
+		httpx.WithAccessLog(o.EnableAccessLog),
+	)
 
 	return opts
 }
@@ -226,21 +228,10 @@ func WithContextValue(key string, value any) ContextOption {
 
 // Build creates a context and optional cancel function from the configured values.
 func (o *ContextOptions) Build() (context.Context, context.CancelFunc) {
-	var ctx context.Context
-	var cancel context.CancelFunc
-
-	if o.Deadline.IsZero() && o.Timeout == 0 {
-		ctx = context.Background()
-	} else if !o.Deadline.IsZero() {
-		ctx, cancel = context.WithDeadline(context.Background(), o.Deadline)
-	} else {
-		ctx, cancel = context.WithTimeout(context.Background(), o.Timeout)
-	}
-
-	lo.ForEach(lo.Entries(o.ValueKeys), func(entry lo.Entry[contextValueKey, any], _ int) {
-		ctx = context.WithValue(ctx, entry.Key, entry.Value)
-	})
-
+	ctx, cancel := baseContext(o)
+	ctx = lo.Reduce(lo.Entries(o.ValueKeys), func(acc context.Context, entry lo.Entry[contextValueKey, any], _ int) context.Context {
+		return context.WithValue(acc, entry.Key, entry.Value)
+	}, ctx)
 	return ctx, cancel
 }
 
@@ -272,4 +263,15 @@ func ensureContextValues(o *ContextOptions) map[contextValueKey]any {
 		o.ValueKeys = make(map[contextValueKey]any)
 	}
 	return o.ValueKeys
+}
+
+func baseContext(o *ContextOptions) (context.Context, context.CancelFunc) {
+	switch {
+	case !o.Deadline.IsZero():
+		return context.WithDeadline(context.Background(), o.Deadline)
+	case o.Timeout > 0:
+		return context.WithTimeout(context.Background(), o.Timeout)
+	default:
+		return context.Background(), nil
+	}
 }

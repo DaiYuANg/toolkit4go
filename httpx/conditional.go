@@ -39,26 +39,45 @@ func conditionalPolicy[I, O any](operationOption OperationOption, stateGetter Co
 	return RoutePolicy[I, O]{
 		Name:      "conditional",
 		Operation: operationOption,
-		Wrap: func(next TypedHandler[I, O]) TypedHandler[I, O] {
-			if next == nil || stateGetter == nil || paramsExtractor == nil {
-				return next
-			}
-			return func(ctx context.Context, input *I) (*O, error) {
-				params := paramsExtractor(input)
-				if params == nil || !params.HasConditionalParams() {
-					return next(ctx, input)
-				}
+		Wrap:      nextConditionalHandler[I, O](stateGetter, paramsExtractor),
+	}
+}
 
-				etag, modified, err := stateGetter(ctx, input)
-				if err != nil {
-					return nil, err
-				}
-				if err := params.PreconditionFailed(etag, modified); err != nil {
-					return nil, err
-				}
-				return next(ctx, input)
-			}
-		},
+func nextConditionalHandler[I, O any](
+	stateGetter ConditionalStateGetter[I],
+	paramsExtractor func(*I) *ConditionalParams,
+) func(next TypedHandler[I, O]) TypedHandler[I, O] {
+	if stateGetter == nil || paramsExtractor == nil {
+		return nil
+	}
+
+	return func(next TypedHandler[I, O]) TypedHandler[I, O] {
+		if next == nil {
+			return nil
+		}
+		return conditionalRequestHandler(next, stateGetter, paramsExtractor)
+	}
+}
+
+func conditionalRequestHandler[I, O any](
+	next TypedHandler[I, O],
+	stateGetter ConditionalStateGetter[I],
+	paramsExtractor func(*I) *ConditionalParams,
+) TypedHandler[I, O] {
+	return func(ctx context.Context, input *I) (*O, error) {
+		params := paramsExtractor(input)
+		if params == nil || !params.HasConditionalParams() {
+			return next(ctx, input)
+		}
+
+		etag, modified, err := stateGetter(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		if err := params.PreconditionFailed(etag, modified); err != nil {
+			return nil, err
+		}
+		return next(ctx, input)
 	}
 }
 
@@ -83,75 +102,72 @@ func operationConditionalResponse(status int) OperationOption {
 }
 
 func compileConditionalParamsExtractor[I any]() func(*I) *ConditionalParams {
-	inputType := reflect.TypeFor[I]()
-	for inputType.Kind() == reflect.Pointer {
-		inputType = inputType.Elem()
-	}
-	if inputType.Kind() != reflect.Struct {
+	inputType, _, ok := indirectStructType[I]()
+	if !ok {
 		return nil
 	}
 
-	paramsType := reflect.TypeFor[ConditionalParams]()
-	paramsPtrType := reflect.PointerTo(paramsType)
-
-	fieldIndex := -1
-	isPointerField := false
-	for i := 0; i < inputType.NumField(); i++ {
-		fieldType := inputType.Field(i).Type
-		switch fieldType {
-		case paramsType:
-			fieldIndex = i
-		case paramsPtrType:
-			fieldIndex = i
-			isPointerField = true
-		}
-		if fieldIndex >= 0 {
-			break
-		}
-	}
-	if fieldIndex < 0 {
+	fieldIndex, isPointerField, ok := conditionalParamsField(inputType)
+	if !ok {
 		return nil
 	}
 
 	return func(input *I) *ConditionalParams {
-		if input == nil {
-			return nil
-		}
+		return extractConditionalParams(input, fieldIndex, isPointerField)
+	}
+}
 
-		value := reflect.ValueOf(input)
-		if !value.IsValid() || value.IsNil() {
-			return nil
-		}
+func conditionalParamsField(inputType reflect.Type) (int, bool, bool) {
+	paramsType := reflect.TypeFor[ConditionalParams]()
+	paramsPtrType := reflect.PointerTo(paramsType)
 
-		value = value.Elem()
-		for value.IsValid() && value.Kind() == reflect.Pointer {
-			if value.IsNil() {
-				return nil
-			}
-			value = value.Elem()
+	for i := range inputType.NumField() {
+		fieldType := inputType.Field(i).Type
+		switch fieldType {
+		case paramsType:
+			return i, false, true
+		case paramsPtrType:
+			return i, true, true
 		}
-		if !value.IsValid() || value.Kind() != reflect.Struct || fieldIndex >= value.NumField() {
-			return nil
-		}
+	}
+	return 0, false, false
+}
 
-		field := value.Field(fieldIndex)
-		if isPointerField {
-			if field.IsNil() || !field.CanInterface() {
-				return nil
-			}
-			params, _ := field.Interface().(*ConditionalParams)
-			return params
-		}
-
-		if !field.CanAddr() {
-			return nil
-		}
-		addr := field.Addr()
-		if !addr.CanInterface() {
-			return nil
-		}
-		params, _ := addr.Interface().(*ConditionalParams)
-		return params
+func extractConditionalParams[I any](input *I, fieldIndex int, isPointerField bool) *ConditionalParams {
+	value, hasValue := indirectStructValue(input)
+	if !hasValue || fieldIndex >= value.NumField() {
+		return nil
 	}
 
+	field := value.Field(fieldIndex)
+	if isPointerField {
+		return conditionalParamsFromPointerField(field)
+	}
+	return conditionalParamsFromValueField(field)
+}
+
+func conditionalParamsFromPointerField(field reflect.Value) *ConditionalParams {
+	if field.IsNil() || !field.CanInterface() {
+		return nil
+	}
+	params, ok := field.Interface().(*ConditionalParams)
+	if !ok {
+		return nil
+	}
+	return params
+}
+
+func conditionalParamsFromValueField(field reflect.Value) *ConditionalParams {
+	if !field.CanAddr() {
+		return nil
+	}
+	addr := field.Addr()
+	if !addr.CanInterface() {
+		return nil
+	}
+	params, ok := addr.Interface().(*ConditionalParams)
+	if !ok {
+		return nil
+	}
+	return params
 }

@@ -1,4 +1,4 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
@@ -44,13 +44,13 @@ func TestServer_ListenAndServeContext_FreezesConfiguration(t *testing.T) {
 
 func TestServer_FrozenConfig_DoesNotAcceptOperationModifier(t *testing.T) {
 	server := newServer()
-	server.freezeConfiguration()
+	freezeServer(server)
 
 	server.UseOperationModifier(func(op *huma.Operation) {
 		op.Tags = append(op.Tags, "blocked")
 	})
 
-	err := Get(server, "/frozen-modifier", func(ctx context.Context, input *struct{}) (*pingOutput, error) {
+	err := Get(server, "/frozen-modifier", func(_ context.Context, _ *struct{}) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
@@ -68,7 +68,7 @@ func TestServer_UseOpenAPIPatch_RespectsFreeze(t *testing.T) {
 	})
 	assert.Equal(t, "patched-before-freeze", server.OpenAPI().Info.Title)
 
-	server.freezeConfiguration()
+	freezeServer(server)
 	server.UseOpenAPIPatch(func(doc *huma.OpenAPI) {
 		doc.Info.Title = "patched-after-freeze"
 	})
@@ -86,7 +86,7 @@ func (f *fakeSlowShutdownAdapter) Name() string { return "slow-shutdown" }
 
 func (f *fakeSlowShutdownAdapter) HumaAPI() huma.API { return nil }
 
-func (f *fakeSlowShutdownAdapter) Listen(addr string) error {
+func (f *fakeSlowShutdownAdapter) Listen(_ string) error {
 	close(f.listenStarted)
 	<-f.allowReturn
 	return nil

@@ -1,4 +1,4 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
@@ -53,7 +53,7 @@ func (f *fakeContextAdapter) Name() string { return "ctx-adapter" }
 
 func (f *fakeContextAdapter) HumaAPI() huma.API { return nil }
 
-func (f *fakeContextAdapter) ListenContext(ctx context.Context, addr string) error {
+func (f *fakeContextAdapter) ListenContext(ctx context.Context, _ string) error {
 	close(f.started)
 	<-ctx.Done()
 	close(f.stopped)

@@ -1,9 +1,8 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -24,16 +23,16 @@ func TestServer_RouteWithPolicies_ConditionalRead(t *testing.T) {
 	server := newServer()
 	modified := time.Date(2026, 3, 11, 9, 0, 0, 0, time.UTC)
 
-	err := RouteWithPolicies(server, MethodGet, "/policy/read", func(ctx context.Context, input *policyConditionalInput) (*pingOutput, error) {
+	err := RouteWithPolicies(server, MethodGet, "/policy/read", func(_ context.Context, _ *policyConditionalInput) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "ok"
 		return out, nil
-	}, PolicyConditionalRead[policyConditionalInput, pingOutput](func(ctx context.Context, input *policyConditionalInput) (string, time.Time, error) {
+	}, PolicyConditionalRead[policyConditionalInput, pingOutput](func(_ context.Context, _ *policyConditionalInput) (string, time.Time, error) {
 		return "etag-v1", modified, nil
 	}))
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/policy/read", nil)
+	req := newTestRequest(http.MethodGet, "/policy/read", nil)
 	req.Header.Set("If-None-Match", `"etag-v1"`)
 	rec := serveRequest(t, server, req)
 
@@ -46,16 +45,16 @@ func TestServer_RouteWithPolicies_ConditionalWrite(t *testing.T) {
 	server := newServer()
 	modified := time.Date(2026, 3, 11, 9, 0, 0, 0, time.UTC)
 
-	err := RouteWithPolicies(server, MethodPut, "/policy/write", func(ctx context.Context, input *policyConditionalInput) (*pingOutput, error) {
+	err := RouteWithPolicies(server, MethodPut, "/policy/write", func(_ context.Context, _ *policyConditionalInput) (*pingOutput, error) {
 		out := &pingOutput{}
 		out.Body.Message = "updated"
 		return out, nil
-	}, PolicyConditionalWrite[policyConditionalInput, pingOutput](func(ctx context.Context, input *policyConditionalInput) (string, time.Time, error) {
+	}, PolicyConditionalWrite[policyConditionalInput, pingOutput](func(_ context.Context, _ *policyConditionalInput) (string, time.Time, error) {
 		return "etag-v2", modified, nil
 	}))
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPut, "/policy/write", nil)
+	req := newTestRequest(http.MethodPut, "/policy/write", nil)
 	req.Header.Set("If-Match", `"old"`)
 	rec := serveRequest(t, server, req)
 
@@ -66,14 +65,14 @@ func TestServer_RouteWithPolicies_ConditionalWrite(t *testing.T) {
 func TestServer_RouteWithPolicies_HTMLResponse(t *testing.T) {
 	server := newServer()
 
-	err := RouteWithPolicies(server, MethodGet, "/policy/html", func(ctx context.Context, input *struct{}) (*policyBinaryOutput, error) {
+	err := RouteWithPolicies(server, MethodGet, "/policy/html", func(_ context.Context, _ *struct{}) (*policyBinaryOutput, error) {
 		return &policyBinaryOutput{
 			Body: []byte("<h1>hello</h1>"),
 		}, nil
 	}, PolicyHTMLResponse[struct{}, policyBinaryOutput]())
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/policy/html", nil)
+	req := newTestRequest(http.MethodGet, "/policy/html", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -85,14 +84,14 @@ func TestServer_RouteWithPolicies_HTMLResponse(t *testing.T) {
 func TestServer_RouteWithPolicies_ImageResponse(t *testing.T) {
 	server := newServer()
 
-	err := RouteWithPolicies(server, MethodGet, "/policy/image", func(ctx context.Context, input *struct{}) (*policyBinaryOutput, error) {
+	err := RouteWithPolicies(server, MethodGet, "/policy/image", func(_ context.Context, _ *struct{}) (*policyBinaryOutput, error) {
 		return &policyBinaryOutput{
 			Body: []byte("img"),
 		}, nil
 	}, PolicyImageResponse[struct{}, policyBinaryOutput]("image/png", "image/jpeg"), PolicyOperation[struct{}, policyBinaryOutput](huma.OperationTags("media")))
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/policy/image", nil)
+	req := newTestRequest(http.MethodGet, "/policy/image", nil)
 	rec := serveRequest(t, server, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)

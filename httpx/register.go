@@ -2,7 +2,6 @@ package httpx
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -186,30 +185,10 @@ func registerTyped[I, O any](
 		return ErrAdapterNotFound
 	}
 
-	wrappedHandler := withInputValidation(s, handler)
-	wrappedHandler = applyRoutePolicies(wrappedHandler, policies)
-
-	opID := defaultOperationID(method, fullPath)
+	wrappedHandler := applyRoutePolicies(withInputValidation(s, handler), policies)
+	op := newTypedOperation(method, registerPath, fullPath, operationOptions, policies)
 	handlerName := handlerName(handler)
-
-	op := huma.Operation{
-		OperationID: opID,
-		Method:      method,
-		Path:        registerPath,
-	}
-
-	lo.ForEach(operationOptions, func(opt OperationOption, _ int) {
-		if opt != nil {
-			opt(&op)
-		}
-	})
-	applyPolicyOperations(&op, policies)
-
-	lo.ForEach(s.operationModifiers.Values(), func(modifier func(*huma.Operation), _ int) {
-		if modifier != nil {
-			modifier(&op)
-		}
-	})
+	applyOperationModifiers(&op, s.operationModifiers.Values())
 	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
 		s.logger.Debug("httpx route registration starting",
 			"method", method,
@@ -253,49 +232,33 @@ func registerTyped[I, O any](
 	return nil
 }
 
-// withInputValidation applies validator checks and standard error conversion.
-func withInputValidation[I, O any](s *Server, handler TypedHandler[I, O]) TypedHandler[I, O] {
-	if handler == nil || s == nil {
-		return handler
+func newTypedOperation[I, O any](
+	method string,
+	registerPath string,
+	fullPath string,
+	operationOptions []OperationOption,
+	policies []RoutePolicy[I, O],
+) huma.Operation {
+	op := huma.Operation{
+		OperationID: defaultOperationID(method, fullPath),
+		Method:      method,
+		Path:        registerPath,
 	}
-
-	validateInput := compileInputValidator[I](s.validator)
-
-	return func(ctx context.Context, input *I) (out *O, err error) {
-		if s.panicRecover {
-			defer func() {
-				if recovered := recover(); recovered != nil {
-					out = nil
-					err = huma.Error500InternalServerError(fmt.Sprintf("panic in handler: %v", recovered))
-				}
-			}()
+	lo.ForEach(operationOptions, func(opt OperationOption, _ int) {
+		if opt != nil {
+			opt(&op)
 		}
+	})
+	applyPolicyOperations(&op, policies)
+	return op
+}
 
-		if validateInput != nil {
-			if err = validateInput(input); err != nil {
-				message := validationErrorMessage(err)
-				return nil, huma.Error400BadRequest(message, err)
-			}
+func applyOperationModifiers(op *huma.Operation, modifiers []func(*huma.Operation)) {
+	lo.ForEach(modifiers, func(modifier func(*huma.Operation), _ int) {
+		if modifier != nil {
+			modifier(op)
 		}
-
-		out, err = handler(ctx, input)
-		if err != nil {
-			if httpxErr, ok := errors.AsType[*Error](err); ok {
-				return nil, lo.Ternary(
-					httpxErr.Err != nil,
-					huma.NewError(httpxErr.Code, httpxErr.Message, httpxErr.Err),
-					huma.NewError(httpxErr.Code, httpxErr.Message),
-				)
-			}
-
-			if _, ok := errors.AsType[huma.StatusError](err); ok {
-				return nil, err
-			}
-
-			return nil, huma.Error500InternalServerError(err.Error(), err)
-		}
-		return out, nil
-	}
+	})
 }
 
 // handlerName returns a best-effort function name for diagnostics.

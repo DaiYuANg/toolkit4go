@@ -1,9 +1,8 @@
-package httpx
+package httpx_test
 
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -22,7 +21,7 @@ func TestServer_ConditionalRead_NotModified304(t *testing.T) {
 	server := newServer()
 	modified := time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC)
 
-	err := Get(server, "/resources/read", func(ctx context.Context, input *conditionalReadInput) (*pingOutput, error) {
+	err := Get(server, "/resources/read", func(_ context.Context, input *conditionalReadInput) (*pingOutput, error) {
 		if err := input.PreconditionFailed("v1", modified); err != nil {
 			return nil, err
 		}
@@ -32,7 +31,7 @@ func TestServer_ConditionalRead_NotModified304(t *testing.T) {
 	}, OperationConditionalRead())
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/resources/read", nil)
+	req := newTestRequest(http.MethodGet, "/resources/read", nil)
 	req.Header.Set("If-None-Match", `"v1"`)
 	rec := serveRequest(t, server, req)
 
@@ -48,7 +47,7 @@ func TestServer_ConditionalWrite_PreconditionFailed412(t *testing.T) {
 	server := newServer()
 	modified := time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC)
 
-	err := Put(server, "/resources/write", func(ctx context.Context, input *conditionalWriteInput) (*pingOutput, error) {
+	err := Put(server, "/resources/write", func(_ context.Context, input *conditionalWriteInput) (*pingOutput, error) {
 		if err := input.PreconditionFailed("v2", modified); err != nil {
 			return nil, err
 		}
@@ -58,7 +57,7 @@ func TestServer_ConditionalWrite_PreconditionFailed412(t *testing.T) {
 	}, OperationConditionalWrite())
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPut, "/resources/write", nil)
+	req := newTestRequest(http.MethodPut, "/resources/write", nil)
 	req.Header.Set("If-Match", `"old-version"`)
 	rec := serveRequest(t, server, req)
 

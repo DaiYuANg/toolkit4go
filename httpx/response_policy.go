@@ -20,31 +20,8 @@ func OperationBinaryResponse(contentTypes ...string) OperationOption {
 		if op == nil {
 			return
 		}
-
-		code := strconv.Itoa(http.StatusOK)
-		if op.Responses == nil {
-			op.Responses = map[string]*huma.Response{}
-		}
-		if op.Responses[code] == nil {
-			op.Responses[code] = &huma.Response{
-				Description: http.StatusText(http.StatusOK),
-			}
-		}
-		if op.Responses[code].Content == nil {
-			op.Responses[code].Content = map[string]*huma.MediaType{}
-		}
-
-		for _, contentType := range normalized {
-			if _, exists := op.Responses[code].Content[contentType]; exists {
-				continue
-			}
-			op.Responses[code].Content[contentType] = &huma.MediaType{
-				Schema: &huma.Schema{
-					Type:   huma.TypeString,
-					Format: "binary",
-				},
-			}
-		}
+		response := ensureHTTPResponse(op, http.StatusOK)
+		appendBinaryContentTypes(response, normalized)
 	}
 }
 
@@ -54,23 +31,11 @@ func OperationHTMLResponse() OperationOption {
 		if op == nil {
 			return
 		}
-
-		code := strconv.Itoa(http.StatusOK)
-		if op.Responses == nil {
-			op.Responses = map[string]*huma.Response{}
-		}
-		if op.Responses[code] == nil {
-			op.Responses[code] = &huma.Response{
-				Description: http.StatusText(http.StatusOK),
-			}
-		}
-		if op.Responses[code].Content == nil {
-			op.Responses[code].Content = map[string]*huma.MediaType{}
-		}
-		if _, exists := op.Responses[code].Content["text/html"]; exists {
+		response := ensureHTTPResponse(op, http.StatusOK)
+		if _, exists := response.Content["text/html"]; exists {
 			return
 		}
-		op.Responses[code].Content["text/html"] = &huma.MediaType{
+		response.Content["text/html"] = &huma.MediaType{
 			Schema: &huma.Schema{
 				Type: huma.TypeString,
 			},
@@ -135,54 +100,73 @@ func compileHeaderSetter[O any](headerName, headerValue string) func(*O) {
 		return nil
 	}
 
-	outputType := reflect.TypeFor[O]()
-	for outputType.Kind() == reflect.Pointer {
-		outputType = outputType.Elem()
-	}
-	if outputType.Kind() != reflect.Struct {
+	outputType, _, ok := indirectStructType[O]()
+	if !ok {
 		return nil
 	}
 
-	fieldIndex := -1
-	for i := 0; i < outputType.NumField(); i++ {
+	fieldIndex, ok := headerFieldIndex(outputType, headerName)
+	if !ok {
+		return nil
+	}
+
+	return func(output *O) {
+		setHeaderField(output, fieldIndex, headerValue)
+	}
+}
+
+func ensureHTTPResponse(op *huma.Operation, status int) *huma.Response {
+	code := strconv.Itoa(status)
+	if op.Responses == nil {
+		op.Responses = map[string]*huma.Response{}
+	}
+	if op.Responses[code] == nil {
+		op.Responses[code] = &huma.Response{
+			Description: http.StatusText(status),
+		}
+	}
+	if op.Responses[code].Content == nil {
+		op.Responses[code].Content = map[string]*huma.MediaType{}
+	}
+	return op.Responses[code]
+}
+
+func appendBinaryContentTypes(response *huma.Response, contentTypes []string) {
+	for _, contentType := range contentTypes {
+		if _, exists := response.Content[contentType]; exists {
+			continue
+		}
+		response.Content[contentType] = &huma.MediaType{
+			Schema: &huma.Schema{
+				Type:   huma.TypeString,
+				Format: "binary",
+			},
+		}
+	}
+}
+
+func headerFieldIndex(outputType reflect.Type, headerName string) (int, bool) {
+	for i := range outputType.NumField() {
 		structField := outputType.Field(i)
 		if !strings.EqualFold(structField.Tag.Get("header"), headerName) {
 			continue
 		}
 		if structField.Type.Kind() == reflect.String {
-			fieldIndex = i
-			break
+			return i, true
 		}
 	}
-	if fieldIndex < 0 {
-		return nil
+	return 0, false
+}
+
+func setHeaderField[O any](output *O, fieldIndex int, headerValue string) {
+	value, ok := indirectStructValue(output)
+	if !ok || fieldIndex >= value.NumField() {
+		return
 	}
 
-	return func(output *O) {
-		if output == nil {
-			return
-		}
-
-		value := reflect.ValueOf(output)
-		if !value.IsValid() || value.IsNil() {
-			return
-		}
-
-		value = value.Elem()
-		for value.IsValid() && value.Kind() == reflect.Pointer {
-			if value.IsNil() {
-				return
-			}
-			value = value.Elem()
-		}
-		if !value.IsValid() || value.Kind() != reflect.Struct || fieldIndex >= value.NumField() {
-			return
-		}
-
-		field := value.Field(fieldIndex)
-		if field.Kind() == reflect.String && field.CanSet() && field.String() == "" {
-			field.SetString(headerValue)
-		}
+	field := value.Field(fieldIndex)
+	if field.Kind() == reflect.String && field.CanSet() && field.String() == "" {
+		field.SetString(headerValue)
 	}
 }
 
