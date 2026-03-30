@@ -131,34 +131,19 @@ func (c unixTimeCodec) valueFromTime(value time.Time) int64 {
 }
 
 func normalizeInt64Source(src any) (int64, error) {
-	switch value := src.(type) {
+	switch v := src.(type) {
 	case int64:
-		return value, nil
-	case int:
-		return int64(value), nil
-	case int32:
-		return int64(value), nil
-	case int16:
-		return int64(value), nil
-	case int8:
-		return int64(value), nil
+		return v, nil
+	case int, int32, int16, int8:
+		return reflect.ValueOf(v).Int(), nil
 	case uint64:
-		if value > math.MaxInt64 {
-			return 0, errors.New("dbx: uint64 value overflows int64")
-		}
-		return int64(value), nil
-	case uint32:
-		return int64(value), nil
-	case uint16:
-		return int64(value), nil
-	case uint8:
-		return int64(value), nil
-	case []byte:
-		return parseInt64(string(value))
-	case sql.RawBytes:
-		return parseInt64(string(value))
+		return convertUint64ToInt64(v)
+	case uint32, uint16, uint8:
+		return convertUnsignedToInt64(v)
+	case []byte, sql.RawBytes:
+		return parseInt64(fmt.Sprintf("%s", v))
 	case string:
-		return parseInt64(value)
+		return parseInt64(v)
 	default:
 		return 0, fmt.Errorf("unsupported unix time codec source %T", src)
 	}
@@ -170,4 +155,24 @@ func parseInt64(input string) (int64, error) {
 		return 0, fmt.Errorf("dbx: parse int64: %w", err)
 	}
 	return value, nil
+}
+
+func convertUint64ToInt64(u uint64) (int64, error) {
+	if u > math.MaxInt64 {
+		return 0, errors.New("dbx: uint64 value overflows int64")
+	}
+	return int64(u), nil
+}
+
+func convertUnsignedToInt64(x any) (int64, error) {
+	switch u := x.(type) {
+	case uint32:
+		return int64(u), nil
+	case uint16:
+		return int64(u), nil
+	case uint8:
+		return int64(u), nil
+	default:
+		return 0, fmt.Errorf("unsupported unsigned type %T", x)
+	}
 }
