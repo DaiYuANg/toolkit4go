@@ -65,64 +65,72 @@ func resolveEntityColumn(field reflect.StructField) (string, map[string]string) 
 }
 
 func collectMappedFields(entityType reflect.Type, prefix []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
-	for i := range entityType.NumField() {
+	num := entityType.NumField()
+	for i := 0; i < num; i++ {
 		field := entityType.Field(i)
-		if !field.IsExported() {
-			continue
-		}
-		rawTag := strings.TrimSpace(field.Tag.Get("dbx"))
-		if rawTag == "-" {
-			continue
-		}
-
 		path := appendIndexPath(prefix, i)
-		if field.Anonymous && rawTag == "" {
-			if embeddedType, ok := indirectStructType(field.Type); ok {
-				if err := collectMappedFields(embeddedType, path, fields, byColumn, byNormalizedColumn, codecs); err != nil {
-					return err
-				}
-				continue
-			}
+		if err := processField(field, path, fields, byColumn, byNormalizedColumn, codecs); err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		columnName, options := resolveEntityColumn(field)
-		if optionEnabled(options, "inline") {
-			embeddedType, ok := indirectStructType(field.Type)
-			if !ok {
-				return fmt.Errorf("dbx: inline field %s must be a struct or pointer to struct", field.Name)
-			}
-			if err := collectMappedFields(embeddedType, path, fields, byColumn, byNormalizedColumn, codecs); err != nil {
-				return err
-			}
-			continue
-		}
-		if columnName == "" {
-			continue
-		}
+func processField(field reflect.StructField, path []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
+	if !field.IsExported() {
+		return nil
+	}
+	rawTag := strings.TrimSpace(field.Tag.Get("dbx"))
+	if rawTag == "-" {
+		return nil
+	}
 
-		codecName := normalizeCodecName(optionValue(options, "codec"))
-		codec, err := resolveMappedFieldCodec(codecs, codecName)
-		if err != nil {
-			return fmt.Errorf("dbx: field %s: %w", field.Name, err)
+	// anonymous embedded struct without explicit tag
+	if field.Anonymous && rawTag == "" {
+		if embeddedType, ok := indirectStructType(field.Type); ok {
+			return collectMappedFields(embeddedType, path, fields, byColumn, byNormalizedColumn, codecs)
 		}
+		return nil
+	}
 
-		mapped := MappedField{
-			Name:       field.Name,
-			Column:     columnName,
-			Codec:      codecName,
-			Index:      path[0],
-			Path:       path,
-			Type:       field.Type,
-			Insertable: !optionEnabled(options, "readonly") && !optionEnabled(options, "-insert") && !optionEnabled(options, "noinsert"),
-			Updatable:  !optionEnabled(options, "readonly") && !optionEnabled(options, "-update") && !optionEnabled(options, "noupdate"),
-			codec:      codec,
+	columnName, options := resolveEntityColumn(field)
+	if optionEnabled(options, "inline") {
+		embeddedType, ok := indirectStructType(field.Type)
+		if !ok {
+			return fmt.Errorf("dbx: inline field %s must be a struct or pointer to struct", field.Name)
 		}
-		fields.Add(mapped)
-		byColumn.Set(columnName, mapped)
-		normalized := normalizeResultColumnName(columnName)
-		if normalized != "" {
-			byNormalizedColumn.Set(normalized, mapped)
-		}
+		return collectMappedFields(embeddedType, path, fields, byColumn, byNormalizedColumn, codecs)
+	}
+	if columnName == "" {
+		return nil
+	}
+
+	return addMappedField(field, columnName, options, path, fields, byColumn, byNormalizedColumn, codecs)
+}
+
+func addMappedField(field reflect.StructField, columnName string, options map[string]string, path []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
+	codecName := normalizeCodecName(optionValue(options, "codec"))
+	codec, err := resolveMappedFieldCodec(codecs, codecName)
+	if err != nil {
+		return fmt.Errorf("dbx: field %s: %w", field.Name, err)
+	}
+
+	mapped := MappedField{
+		Name:       field.Name,
+		Column:     columnName,
+		Codec:      codecName,
+		Index:      path[0],
+		Path:       path,
+		Type:       field.Type,
+		Insertable: !optionEnabled(options, "readonly") && !optionEnabled(options, "-insert") && !optionEnabled(options, "noinsert"),
+		Updatable:  !optionEnabled(options, "readonly") && !optionEnabled(options, "-update") && !optionEnabled(options, "noupdate"),
+		codec:      codec,
+	}
+	fields.Add(mapped)
+	byColumn.Set(columnName, mapped)
+	normalized := normalizeResultColumnName(columnName)
+	if normalized != "" {
+		byNormalizedColumn.Set(normalized, mapped)
 	}
 	return nil
 }
