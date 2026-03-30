@@ -138,7 +138,15 @@ func (o runtimeObserver) log(event HookEvent) {
 	if !o.debug && event.Err == nil {
 		return
 	}
+	attrs := o.buildLogAttrs(event)
+	if event.Err != nil {
+		o.logger.Error("dbx operation failed", attrs...)
+		return
+	}
+	o.logger.Debug("dbx operation", attrs...)
+}
 
+func (o runtimeObserver) buildLogAttrs(event HookEvent) []any {
 	attrs := collectionx.NewListWithCapacity[any](14,
 		"operation", event.Operation,
 		"duration", event.Duration,
@@ -163,8 +171,6 @@ func (o runtimeObserver) log(event HookEvent) {
 	}
 	if event.Err != nil {
 		attrs.Add("error", event.Err)
-		o.logger.Error("dbx operation failed", attrs.Values()...)
-		return
 	}
-	o.logger.Debug("dbx operation", attrs.Values()...)
+	return attrs.Values()
 }

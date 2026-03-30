@@ -39,7 +39,7 @@ type StrongTypedIDUser struct {
 type StrongTypedIDUserSchema struct {
 	Schema[StrongTypedIDUser]
 	ID   IDColumn[StrongTypedIDUser, int64, IDSnowflake] `dbx:"id,pk"`
-	Name Column[StrongTypedIDUser, string] `dbx:"name"`
+	Name Column[StrongTypedIDUser, string]               `dbx:"name"`
 }
 
 type RoleSchema struct {

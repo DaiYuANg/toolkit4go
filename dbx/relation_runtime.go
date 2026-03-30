@@ -10,8 +10,8 @@ import (
 // relationRuntime holds relation-load caches and pools per DB instance.
 // Avoids package-level globals; enables per-instance config and test isolation.
 type relationRuntime struct {
-	queryCache   *hot.HotCache[string, string]
-	seenSetPool  sync.Pool
+	queryCache    *hot.HotCache[string, string]
+	seenSetPool   sync.Pool
 	countsMapPool sync.Pool
 }
 

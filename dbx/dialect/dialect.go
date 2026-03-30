@@ -33,8 +33,8 @@ func DefaultQueryFeatures(name string) QueryFeatures {
 	switch name {
 	case "postgres", "sqlite":
 		return QueryFeatures{
-			UpsertVariant:    "on_conflict",
-			ExcludedRefStyle: "excluded",
+			UpsertVariant:     "on_conflict",
+			ExcludedRefStyle:  "excluded",
 			SupportsReturning: true,
 		}
 	case "mysql":

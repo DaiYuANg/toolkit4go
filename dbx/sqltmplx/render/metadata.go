@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/samber/lo"
 	"github.com/samber/hot"
+	"github.com/samber/lo"
 )
 
 var structMetadataCache = hot.NewHotCache[reflect.Type, *structMetadata](hot.LRU, 256).Build()
