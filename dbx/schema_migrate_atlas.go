@@ -331,54 +331,141 @@ func atlasFallbackType(rawType string, column ColumnMeta) atlasschema.Type {
 	}
 	typeName := strings.ToLower(strings.TrimSpace(rawType))
 	if column.GoType != nil {
-		typ := column.GoType
-		for typ.Kind() == reflect.Pointer {
-			typ = typ.Elem()
-		}
-		if typ.PkgPath() == "time" && typ.Name() == "Time" {
-			return &atlasschema.TimeType{T: rawType}
-		}
-		switch kind := typ.Kind(); {
-		case kind == reflect.Bool:
-			return &atlasschema.BoolType{T: rawType}
-		case isSignedIntKind(kind) || kind == reflect.Int64:
-			return &atlasschema.IntegerType{T: rawType}
-		case isUnsignedIntKind(kind) || kind == reflect.Uint64:
-			return &atlasschema.IntegerType{T: rawType, Unsigned: true}
-		case kind == reflect.Float32 || kind == reflect.Float64:
-			return &atlasschema.FloatType{T: rawType}
-		case kind == reflect.String:
-			return &atlasschema.StringType{T: rawType}
-		case isByteSliceType(typ):
-			return &atlasschema.BinaryType{T: rawType}
-		case kind == reflect.Slice && strings.Contains(typeName, "json"):
-			return &atlasschema.JSONType{T: rawType}
-		case kind == reflect.Map || kind == reflect.Struct:
-			if strings.Contains(typeName, "json") {
-				return &atlasschema.JSONType{T: rawType}
-			}
+		if typ := atlasFallbackFromGoType(rawType, column.GoType); typ != nil {
+			return typ
 		}
 	}
-	switch {
-	case strings.Contains(typeName, "bool"):
-		return &atlasschema.BoolType{T: rawType}
-	case strings.Contains(typeName, "json"):
-		return &atlasschema.JSONType{T: rawType}
-	case strings.Contains(typeName, "time") || strings.Contains(typeName, "date"):
+	return atlasFallbackFromTypeName(rawType, typeName)
+}
+
+func atlasFallbackFromGoType(rawType string, goType reflect.Type) atlasschema.Type {
+	typ := goType
+	for typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	if typ.PkgPath() == "time" && typ.Name() == "Time" {
 		return &atlasschema.TimeType{T: rawType}
-	case strings.Contains(typeName, "char") || strings.Contains(typeName, "text") || strings.Contains(typeName, "string"):
-		return &atlasschema.StringType{T: rawType}
-	case strings.Contains(typeName, "blob") || strings.Contains(typeName, "binary") || strings.Contains(typeName, "bytea"):
-		return &atlasschema.BinaryType{T: rawType}
-	case strings.Contains(typeName, "real") || strings.Contains(typeName, "double") || strings.Contains(typeName, "float"):
-		return &atlasschema.FloatType{T: rawType}
-	case strings.Contains(typeName, "numeric") || strings.Contains(typeName, "decimal"):
-		return &atlasschema.DecimalType{T: rawType}
-	case strings.Contains(typeName, "int"):
-		return &atlasschema.IntegerType{T: rawType}
-	default:
-		return &atlasschema.UnsupportedType{T: rawType}
 	}
+	if typ := atlasFallbackFromBasicGoType(rawType, typ); typ != nil {
+		return typ
+	}
+	return atlasFallbackFromComplexGoType(rawType, typ)
+}
+
+func atlasFallbackFromBasicGoType(rawType string, typ reflect.Type) atlasschema.Type {
+	switch kind := typ.Kind(); {
+	case kind == reflect.Bool:
+		return &atlasschema.BoolType{T: rawType}
+	case isSignedIntKind(kind) || kind == reflect.Int64:
+		return &atlasschema.IntegerType{T: rawType}
+	case isUnsignedIntKind(kind) || kind == reflect.Uint64:
+		return &atlasschema.IntegerType{T: rawType, Unsigned: true}
+	case kind == reflect.Float32 || kind == reflect.Float64:
+		return &atlasschema.FloatType{T: rawType}
+	case kind == reflect.String:
+		return &atlasschema.StringType{T: rawType}
+	case isByteSliceType(typ):
+		return &atlasschema.BinaryType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromComplexGoType(rawType string, typ reflect.Type) atlasschema.Type {
+	switch kind := typ.Kind(); {
+	case kind == reflect.Slice:
+		if strings.Contains(strings.ToLower(rawType), "json") {
+			return &atlasschema.JSONType{T: rawType}
+		}
+	case kind == reflect.Map || kind == reflect.Struct:
+		if strings.Contains(strings.ToLower(rawType), "json") {
+			return &atlasschema.JSONType{T: rawType}
+		}
+	}
+	return nil
+}
+
+func atlasFallbackFromTypeName(rawType, typeName string) atlasschema.Type {
+	if typ := atlasFallbackFromBooleanType(rawType, typeName); typ != nil {
+		return typ
+	}
+	if typ := atlasFallbackFromJsonType(rawType, typeName); typ != nil {
+		return typ
+	}
+	if typ := atlasFallbackFromTimeType(rawType, typeName); typ != nil {
+		return typ
+	}
+	if typ := atlasFallbackFromStringType(rawType, typeName); typ != nil {
+		return typ
+	}
+	if typ := atlasFallbackFromBinaryType(rawType, typeName); typ != nil {
+		return typ
+	}
+	if typ := atlasFallbackFromFloatType(rawType, typeName); typ != nil {
+		return typ
+	}
+	if typ := atlasFallbackFromDecimalType(rawType, typeName); typ != nil {
+		return typ
+	}
+	if typ := atlasFallbackFromIntType(rawType, typeName); typ != nil {
+		return typ
+	}
+	return &atlasschema.UnsupportedType{T: rawType}
+}
+
+func atlasFallbackFromBooleanType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "bool") {
+		return &atlasschema.BoolType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromJsonType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "json") {
+		return &atlasschema.JSONType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromTimeType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "time") || strings.Contains(typeName, "date") {
+		return &atlasschema.TimeType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromStringType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "char") || strings.Contains(typeName, "text") || strings.Contains(typeName, "string") {
+		return &atlasschema.StringType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromBinaryType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "blob") || strings.Contains(typeName, "binary") || strings.Contains(typeName, "bytea") {
+		return &atlasschema.BinaryType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromFloatType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "real") || strings.Contains(typeName, "double") || strings.Contains(typeName, "float") {
+		return &atlasschema.FloatType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromDecimalType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "numeric") || strings.Contains(typeName, "decimal") {
+		return &atlasschema.DecimalType{T: rawType}
+	}
+	return nil
+}
+
+func atlasFallbackFromIntType(rawType, typeName string) atlasschema.Type {
+	if strings.Contains(typeName, "int") {
+		return &atlasschema.IntegerType{T: rawType}
+	}
+	return nil
 }
 
 func atlasAddAutoIncrementAttr(dialectName string, column *atlasschema.Column) {
