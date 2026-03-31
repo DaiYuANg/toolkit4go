@@ -100,28 +100,38 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery
 		logRuntimeNode(session, "query_all_bound.query_error", "statement", bound.Name, "error", err)
 		return nil, wrapDBError("query bound rows", err)
 	}
-	if bound.CapacityHint > 0 {
-		if withCap, ok := any(mapper).(CapacityHintScanner[E]); ok {
-			logRuntimeNode(session, "query_all_bound.scan_with_capacity", "capacity_hint", bound.CapacityHint)
-			items, scanErr := withCap.ScanRowsWithCapacity(rows, bound.CapacityHint)
-			scanErr = errors.Join(wrapDBError("scan rows with capacity", scanErr), rowsIterError(rows))
-			closeErr := closeRows(rows)
-			if scanErr != nil {
-				scanErr = errors.Join(scanErr, closeErr)
-				logRuntimeNode(session, "query_all_bound.scan_error", "error", scanErr)
-				return nil, scanErr
-			}
-			if closeErr != nil {
-				logRuntimeNode(session, "query_all_bound.scan_error", "error", closeErr)
-				return nil, closeErr
-			}
-			logRuntimeNode(session, "query_all_bound.scan_done", "items", len(items))
-			return items, nil
-		}
+	if withCap, ok := capacityHintScannerFor(mapper, bound.CapacityHint); ok {
+		return scanAllBoundWithCapacity(session, rows, bound, withCap)
 	}
 	logRuntimeNode(session, "query_all_bound.scan")
 	items, scanErr := mapper.ScanRows(rows)
 	scanErr = errors.Join(wrapDBError("scan rows", scanErr), rowsIterError(rows))
+	closeErr := closeRows(rows)
+	if scanErr != nil {
+		scanErr = errors.Join(scanErr, closeErr)
+		logRuntimeNode(session, "query_all_bound.scan_error", "error", scanErr)
+		return nil, scanErr
+	}
+	if closeErr != nil {
+		logRuntimeNode(session, "query_all_bound.scan_error", "error", closeErr)
+		return nil, closeErr
+	}
+	logRuntimeNode(session, "query_all_bound.scan_done", "items", len(items))
+	return items, nil
+}
+
+func capacityHintScannerFor[E any](mapper RowsScanner[E], capacityHint int) (CapacityHintScanner[E], bool) {
+	if capacityHint <= 0 {
+		return nil, false
+	}
+	withCap, ok := any(mapper).(CapacityHintScanner[E])
+	return withCap, ok
+}
+
+func scanAllBoundWithCapacity[E any](session Session, rows *sql.Rows, bound BoundQuery, mapper CapacityHintScanner[E]) ([]E, error) {
+	logRuntimeNode(session, "query_all_bound.scan_with_capacity", "capacity_hint", bound.CapacityHint)
+	items, scanErr := mapper.ScanRowsWithCapacity(rows, bound.CapacityHint)
+	scanErr = errors.Join(wrapDBError("scan rows with capacity", scanErr), rowsIterError(rows))
 	closeErr := closeRows(rows)
 	if scanErr != nil {
 		scanErr = errors.Join(scanErr, closeErr)

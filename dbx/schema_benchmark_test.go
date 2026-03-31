@@ -1,10 +1,13 @@
-package dbx
+package dbx_test
 
 import (
 	"context"
 	"database/sql"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "modernc.org/sqlite"
 )
 
 func BenchmarkCompileAtlasSchema(b *testing.B) {
@@ -14,8 +17,8 @@ func BenchmarkCompileAtlasSchema(b *testing.B) {
 
 	b.ReportAllocs()
 	for range b.N {
-		if compiled := compileAtlasSchema("sqlite", nil, "main", schemas); compiled == nil {
-			b.Fatal("compileAtlasSchema returned nil")
+		if compiled := CompileAtlasSchemaForTest("sqlite", schemas...); compiled == nil {
+			b.Fatal("CompileAtlasSchemaForTest returned nil")
 		}
 	}
 }
@@ -101,4 +104,41 @@ func BenchmarkMigrationPlanSQLPreview(b *testing.B) {
 	b.Run("IO", func(b *testing.B) {
 		run(b, benchmarkOpenSQLiteDB(b, "preview"))
 	})
+}
+
+func benchmarkOpenSQLiteDB(b *testing.B, name string) *sql.DB {
+	b.Helper()
+	path := filepath.Join(b.TempDir(), name+".db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		b.Fatalf("sql.Open returned error: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	b.Cleanup(func() {
+		if closeErr := db.Close(); closeErr != nil {
+			b.Fatalf("db.Close returned error: %v", closeErr)
+		}
+	})
+	return db
+}
+
+func benchmarkOpenSQLiteDBMemory(b *testing.B) *sql.DB {
+	b.Helper()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		b.Fatalf("sql.Open returned error: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	if _, err := db.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
+		if closeErr := db.Close(); closeErr != nil {
+			b.Fatalf("db.Close returned error after PRAGMA failure: %v", closeErr)
+		}
+		b.Fatalf("PRAGMA foreign_keys: %v", err)
+	}
+	b.Cleanup(func() {
+		if closeErr := db.Close(); closeErr != nil {
+			b.Fatalf("db.Close returned error: %v", closeErr)
+		}
+	})
+	return db
 }

@@ -66,7 +66,7 @@ func resolveEntityColumn(field reflect.StructField) (string, map[string]string) 
 
 func collectMappedFields(entityType reflect.Type, prefix []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
 	num := entityType.NumField()
-	for i := 0; i < num; i++ {
+	for i := range num {
 		field := entityType.Field(i)
 		path := appendIndexPath(prefix, i)
 		if err := processField(field, path, fields, byColumn, byNormalizedColumn, codecs); err != nil {

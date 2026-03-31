@@ -10,29 +10,42 @@ func normalizeIDPolicy(meta ColumnMeta) (ColumnMeta, error) {
 		return meta, nil
 	}
 
-	columnType := meta.GoType
+	columnType := normalizeIDColumnType(meta.GoType)
+	meta = applyDefaultIDStrategy(meta, columnType)
+	return validateIDStrategy(meta, columnType)
+}
+
+func normalizeIDColumnType(columnType reflect.Type) reflect.Type {
 	for columnType != nil && columnType.Kind() == reflect.Pointer {
 		columnType = columnType.Elem()
 	}
+	return columnType
+}
 
+func applyDefaultIDStrategy(meta ColumnMeta, columnType reflect.Type) ColumnMeta {
+	if meta.IDStrategy != IDStrategyUnset {
+		return meta
+	}
+	return inferIDStrategyFromType(meta, columnType)
+}
+
+func validateIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, error) {
 	if meta.IDStrategy == IDStrategyUnset {
-		meta = inferIDStrategyFromType(meta, columnType)
-	}
-
-	switch meta.IDStrategy {
-	case IDStrategyUnset:
 		return meta, nil
-	case IDStrategyDBAuto:
-		return handleDBAutoStrategy(meta)
-	case IDStrategySnowflake:
-		return handleSnowflakeStrategy(meta, columnType)
-	case IDStrategyUUID:
-		return handleUUIDStrategy(meta, columnType)
-	case IDStrategyULID, IDStrategyKSUID:
-		return handleStringIDStrategy(meta, columnType)
-	default:
-		return meta, fmt.Errorf("dbx: unsupported id strategy %q for column %s", meta.IDStrategy, meta.Name)
 	}
+	if meta.IDStrategy == IDStrategyDBAuto {
+		return handleDBAutoStrategy(meta)
+	}
+	if meta.IDStrategy == IDStrategySnowflake {
+		return handleSnowflakeStrategy(meta, columnType)
+	}
+	if meta.IDStrategy == IDStrategyUUID {
+		return handleUUIDStrategy(meta, columnType)
+	}
+	if meta.IDStrategy == IDStrategyULID || meta.IDStrategy == IDStrategyKSUID {
+		return handleStringIDStrategy(meta, columnType)
+	}
+	return meta, fmt.Errorf("dbx: unsupported id strategy %q for column %s", meta.IDStrategy, meta.Name)
 }
 
 func inferIDStrategyFromType(meta ColumnMeta, columnType reflect.Type) ColumnMeta {

@@ -1,4 +1,4 @@
-package dbx
+package dbx_test
 
 import (
 	"context"
@@ -79,30 +79,7 @@ func TestStructMapperScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("QueryAll returned error: %v", err)
 	}
-	if len(items) != 2 {
-		t.Fatalf("unexpected item count: %d", len(items))
-	}
-	if items[0].AccountProfile == nil {
-		t.Fatal("expected embedded profile to be allocated")
-	}
-	if items[0].Nickname == nil || *items[0].Nickname != "ally" {
-		t.Fatalf("unexpected nickname: %+v", items[0].Nickname)
-	}
-	if !items[0].Bio.Valid || items[0].Bio.String != "hello" {
-		t.Fatalf("unexpected bio: %+v", items[0].Bio)
-	}
-	if items[0].Label != "ADMIN" {
-		t.Fatalf("unexpected custom scanner label: %q", items[0].Label)
-	}
-	if items[1].Nickname != nil {
-		t.Fatalf("expected nil nickname, got: %+v", items[1].Nickname)
-	}
-	if items[1].Bio.Valid {
-		t.Fatalf("expected invalid bio, got: %+v", items[1].Bio)
-	}
-	if items[1].Label != "READER" {
-		t.Fatalf("unexpected second label: %q", items[1].Label)
-	}
+	assertAccountRecords(t, items)
 }
 
 func TestMapperInsertAssignmentsWithNilEmbeddedPointerAndValuer(t *testing.T) {
@@ -196,12 +173,23 @@ func TestQueryCursorScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("QueryCursor returned error: %v", err)
 	}
-	defer func() {
-		if closeErr := cursor.Close(); closeErr != nil {
-			t.Fatalf("cursor.Close returned error: %v", closeErr)
-		}
-	}()
+	defer closeCursorOrFatal(t, cursor)
 
+	assertAccountRecords(t, collectAccountCursor(t, cursor))
+	assertAccountRecords(t, collectAccountEach(t, core, query, mapper))
+}
+
+func assertAccountRecords(t *testing.T, items []accountRecord) {
+	t.Helper()
+	if len(items) != 2 {
+		t.Fatalf("unexpected item count: %d", len(items))
+	}
+	assertFirstAccountRecord(t, items[0])
+	assertSecondAccountRecord(t, items[1])
+}
+
+func collectAccountCursor(t *testing.T, cursor Cursor[accountRecord]) []accountRecord {
+	t.Helper()
 	var items []accountRecord
 	for cursor.Next() {
 		item, err := cursor.Get()
@@ -213,25 +201,44 @@ func TestQueryCursorScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	if err := cursor.Err(); err != nil {
 		t.Fatalf("cursor.Err returned error: %v", err)
 	}
-	if len(items) != 2 {
-		t.Fatalf("unexpected item count: %d", len(items))
-	}
-	if items[0].AccountProfile == nil || items[0].Nickname == nil || *items[0].Nickname != "ally" {
-		t.Fatalf("unexpected first item: %+v", items[0])
-	}
-	if items[1].Label != "READER" {
-		t.Fatalf("unexpected second label: %q", items[1].Label)
-	}
+	return items
+}
 
-	var fromEach []accountRecord
+func collectAccountEach(t *testing.T, core *DB, query *SelectQuery, mapper StructMapper[accountRecord]) []accountRecord {
+	t.Helper()
+	var items []accountRecord
 	QueryEach(context.Background(), core, query, mapper)(func(item accountRecord, err error) bool {
 		if err != nil {
 			t.Fatalf("QueryEach yielded error: %v", err)
 		}
-		fromEach = append(fromEach, item)
+		items = append(items, item)
 		return true
 	})
-	if len(fromEach) != 2 || fromEach[0].Label != "ADMIN" || fromEach[1].Label != "READER" {
-		t.Fatalf("unexpected each items: %+v", fromEach)
+	return items
+}
+
+func assertFirstAccountRecord(t *testing.T, item accountRecord) {
+	t.Helper()
+	if item.AccountProfile == nil || item.Nickname == nil || *item.Nickname != "ally" {
+		t.Fatalf("unexpected first item: %+v", item)
+	}
+	if !item.Bio.Valid || item.Bio.String != "hello" {
+		t.Fatalf("unexpected bio: %+v", item.Bio)
+	}
+	if item.Label != "ADMIN" {
+		t.Fatalf("unexpected custom scanner label: %q", item.Label)
+	}
+}
+
+func assertSecondAccountRecord(t *testing.T, item accountRecord) {
+	t.Helper()
+	if item.Nickname != nil {
+		t.Fatalf("expected nil nickname, got: %+v", item.Nickname)
+	}
+	if item.Bio.Valid {
+		t.Fatalf("expected invalid bio, got: %+v", item.Bio)
+	}
+	if item.Label != "READER" {
+		t.Fatalf("unexpected second label: %q", item.Label)
 	}
 }

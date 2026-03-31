@@ -5,9 +5,18 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/DaiYuANg/arcgo/collectionx"
 )
+
+type schemaBindingState struct {
+	binder      schemaBinder
+	binderField reflect.Value
+	defTable    tableDefinition
+	columns     []ColumnMeta
+	relations   []RelationMeta
+	indexes     []IndexMeta
+	checks      []CheckMeta
+	primaryKey  *PrimaryKeyMeta
+}
 
 func bindSchema[S any](name, alias string, schema S) (S, error) {
 	value := reflect.ValueOf(&schema).Elem()
@@ -15,85 +24,128 @@ func bindSchema[S any](name, alias string, schema S) (S, error) {
 		return schema, errors.New("dbx: schema must be a struct")
 	}
 
-	var binder schemaBinder
-	var binderField reflect.Value
 	schemaType := value.Type()
-	defTable := tableDefinition{
-		name:       strings.TrimSpace(name),
-		alias:      strings.TrimSpace(alias),
-		schemaType: schemaType,
-	}
-	columns := collectionx.NewListWithCapacity[ColumnMeta](value.NumField())
-	relations := collectionx.NewListWithCapacity[RelationMeta](value.NumField())
-	indexes := collectionx.NewListWithCapacity[IndexMeta](value.NumField())
-	checks := collectionx.NewListWithCapacity[CheckMeta](value.NumField())
-	var primaryKey *PrimaryKeyMeta
-
+	state := newSchemaBindingState(schemaType, name, alias, value.NumField())
 	for i := range value.NumField() {
-		fieldValue := value.Field(i)
-		fieldType := schemaType.Field(i)
-		if !fieldValue.CanSet() {
-			continue
-		}
-
-		if candidate, ok := fieldValue.Interface().(schemaBinder); ok {
-			binder = candidate
-			binderField = fieldValue
-			defTable.entityType = candidate.entityType()
-			continue
-		}
-
-		if candidate, ok := fieldValue.Interface().(columnBinder); ok {
-			meta, metaErr := resolveColumnMeta(defTable, fieldType, fieldValue.Interface())
-			if metaErr != nil {
-				return schema, metaErr
-			}
-			bound := candidate.bindColumn(columnBinding{meta: meta})
-			fieldValue.Set(reflect.ValueOf(bound))
-			if accessor, ok := bound.(columnAccessor); ok {
-				columns.Add(accessor.columnRef())
-			} else {
-				columns.Add(meta)
-			}
-			continue
-		}
-
-		if candidate, ok := fieldValue.Interface().(relationBinder); ok {
-			meta := resolveRelationMeta(defTable, fieldType, candidate)
-			fieldValue.Set(reflect.ValueOf(candidate.bindRelation(relationBinding{meta: meta})))
-			relations.Add(meta)
-			continue
-		}
-
-		if candidate, ok := fieldValue.Interface().(constraintBinder); ok {
-			binding, bindErr := resolveConstraintBinding(defTable, fieldType, fieldValue.Interface())
-			if bindErr != nil {
-				return schema, bindErr
-			}
-			fieldValue.Set(reflect.ValueOf(candidate.bindConstraint(binding)))
-			indexes.MergeSlice(binding.indexes)
-			if binding.primaryKey != nil {
-				primaryKey = new(clonePrimaryKeyMeta(*binding.primaryKey))
-			}
-			if binding.check != nil {
-				checks.Add(*binding.check)
-			}
+		if err := state.bindField(schemaType.Field(i), value.Field(i)); err != nil {
+			return schema, err
 		}
 	}
 
-	if binder == nil {
-		return schema, fmt.Errorf("dbx: schema %s must embed dbx.Schema[T]", schemaType.Name())
+	def, err := state.definition(schemaType)
+	if err != nil {
+		return schema, err
 	}
-
-	binderField.Set(reflect.ValueOf(binder.bindSchema(schemaDefinition{
-		table:      defTable,
-		columns:    columns.Values(),
-		relations:  relations.Values(),
-		indexes:    indexes.Values(),
-		primaryKey: primaryKey,
-		checks:     checks.Values(),
-	})))
+	state.binderField.Set(reflect.ValueOf(state.binder.bindSchema(def)))
 	return schema, nil
+}
+
+func newSchemaBindingState(schemaType reflect.Type, name, alias string, fieldCount int) schemaBindingState {
+	return schemaBindingState{
+		defTable: tableDefinition{
+			name:       strings.TrimSpace(name),
+			alias:      strings.TrimSpace(alias),
+			schemaType: schemaType,
+		},
+		columns:   make([]ColumnMeta, 0, fieldCount),
+		relations: make([]RelationMeta, 0, fieldCount),
+		indexes:   make([]IndexMeta, 0, fieldCount),
+		checks:    make([]CheckMeta, 0, fieldCount),
+	}
+}
+
+func (s *schemaBindingState) bindField(fieldType reflect.StructField, fieldValue reflect.Value) error {
+	if !fieldValue.CanSet() {
+		return nil
+	}
+	if s.captureSchemaBinder(fieldValue) {
+		return nil
+	}
+	if handled, err := s.bindColumnField(fieldType, fieldValue); handled || err != nil {
+		return err
+	}
+	if s.bindRelationField(fieldType, fieldValue) {
+		return nil
+	}
+	if handled, err := s.bindConstraintField(fieldType, fieldValue); handled || err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *schemaBindingState) captureSchemaBinder(fieldValue reflect.Value) bool {
+	candidate, ok := fieldValue.Interface().(schemaBinder)
+	if !ok {
+		return false
+	}
+	s.binder = candidate
+	s.binderField = fieldValue
+	s.defTable.entityType = candidate.entityType()
+	return true
+}
+
+func (s *schemaBindingState) bindColumnField(fieldType reflect.StructField, fieldValue reflect.Value) (bool, error) {
+	candidate, ok := fieldValue.Interface().(columnBinder)
+	if !ok {
+		return false, nil
+	}
+	meta, err := resolveColumnMeta(s.defTable, fieldType, fieldValue.Interface())
+	if err != nil {
+		return true, err
+	}
+	bound := candidate.bindColumn(columnBinding{meta: meta})
+	fieldValue.Set(reflect.ValueOf(bound))
+	if accessor, ok := bound.(columnAccessor); ok {
+		s.columns = append(s.columns, accessor.columnRef())
+		return true, nil
+	}
+	s.columns = append(s.columns, meta)
+	return true, nil
+}
+
+func (s *schemaBindingState) bindRelationField(fieldType reflect.StructField, fieldValue reflect.Value) bool {
+	candidate, ok := fieldValue.Interface().(relationBinder)
+	if !ok {
+		return false
+	}
+	meta := resolveRelationMeta(s.defTable, fieldType, candidate)
+	fieldValue.Set(reflect.ValueOf(candidate.bindRelation(relationBinding{meta: meta})))
+	s.relations = append(s.relations, meta)
+	return true
+}
+
+func (s *schemaBindingState) bindConstraintField(fieldType reflect.StructField, fieldValue reflect.Value) (bool, error) {
+	candidate, ok := fieldValue.Interface().(constraintBinder)
+	if !ok {
+		return false, nil
+	}
+	binding, err := resolveConstraintBinding(s.defTable, fieldType, fieldValue.Interface())
+	if err != nil {
+		return true, err
+	}
+	fieldValue.Set(reflect.ValueOf(candidate.bindConstraint(binding)))
+	s.indexes = append(s.indexes, binding.indexes...)
+	if binding.primaryKey != nil {
+		s.primaryKey = new(clonePrimaryKeyMeta(*binding.primaryKey))
+	}
+	if binding.check != nil {
+		s.checks = append(s.checks, *binding.check)
+	}
+	return true, nil
+}
+
+func (s *schemaBindingState) definition(schemaType reflect.Type) (schemaDefinition, error) {
+	if s.binder == nil {
+		return schemaDefinition{}, fmt.Errorf("dbx: schema %s must embed dbx.Schema[T]", schemaType.Name())
+	}
+	return schemaDefinition{
+		table:      s.defTable,
+		columns:    s.columns,
+		relations:  s.relations,
+		indexes:    s.indexes,
+		primaryKey: s.primaryKey,
+		checks:     s.checks,
+	}, nil
 }
 
 func resolveColumnMeta(def tableDefinition, field reflect.StructField, value any) (ColumnMeta, error) {

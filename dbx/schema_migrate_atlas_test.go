@@ -1,4 +1,4 @@
-package dbx
+package dbx_test
 
 import (
 	"context"
@@ -12,14 +12,14 @@ import (
 
 func TestCompileAtlasSchemaIncludesDerivedMetadata(t *testing.T) {
 	users := MustSchema("users", advancedUserSchema{})
-	compiled := compileAtlasSchema("sqlite", nil, "main", []SchemaResource{users})
-	if compiled == nil || compiled.schema == nil {
+	compiled := CompileAtlasSchemaForTest("sqlite", users)
+	if compiled == nil || compiled.Schema == nil {
 		t.Fatal("expected compiled atlas schema")
 	}
-	if len(compiled.schema.Tables) != 1 {
-		t.Fatalf("unexpected table count: %d", len(compiled.schema.Tables))
+	if len(compiled.Schema.Tables) != 1 {
+		t.Fatalf("unexpected table count: %d", len(compiled.Schema.Tables))
 	}
-	table := compiled.schema.Tables[0]
+	table := compiled.Schema.Tables[0]
 	if table.PrimaryKey == nil || len(table.PrimaryKey.Parts) != 2 {
 		t.Fatalf("expected composite primary key, got: %+v", table.PrimaryKey)
 	}
@@ -36,18 +36,18 @@ func TestCompileAtlasSchemaIncludesDerivedMetadata(t *testing.T) {
 
 func TestAtlasSplitChangesSeparatesExecutableAndManualChanges(t *testing.T) {
 	users := MustSchema("users", advancedUserSchema{})
-	compiled := compileAtlasSchema("sqlite", nil, "main", []SchemaResource{users})
-	compiledTable, ok := compiled.tables.Get("users")
+	compiled := CompileAtlasSchemaForTest("sqlite", users)
+	compiledTable, ok := compiled.Table("users")
 	if !ok {
 		t.Fatal("expected compiled users table")
 	}
 	changes := []atlasschema.Change{
-		&atlasschema.ModifyTable{T: compiledTable.table, Changes: []atlasschema.Change{
+		&atlasschema.ModifyTable{T: compiledTable, Changes: []atlasschema.Change{
 			&atlasschema.AddColumn{C: atlasschema.NewStringColumn("nickname", "text")},
 			&atlasschema.AddPrimaryKey{P: atlasschema.NewPrimaryKey(atlasschema.NewColumn("id"))},
 		}},
 	}
-	safe, manual := atlasSplitChanges(changes)
+	safe, manual := AtlasSplitChangesForTest(changes)
 	if len(safe) != 1 {
 		t.Fatalf("expected one executable atlas change, got: %d", len(safe))
 	}

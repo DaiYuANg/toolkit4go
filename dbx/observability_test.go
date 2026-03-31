@@ -1,4 +1,4 @@
-package dbx
+package dbx_test
 
 import (
 	"context"
@@ -88,30 +88,10 @@ func TestDBDebugLoggingAndHooks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertAssignments returned error: %v", err)
 	}
-
-	if _, err := Exec(context.Background(), db, InsertInto(users).Values(assignments...)); err != nil {
-		t.Fatalf("Exec returned error: %v", err)
-	}
-
-	if beforeCount != 1 || afterCount != 1 {
-		t.Fatalf("unexpected hook counts: before=%d after=%d", beforeCount, afterCount)
-	}
-	if len(handler.records) == 0 {
-		t.Fatal("expected debug log record")
-	}
-	record, ok := findRecordByAttr(handler.records, "operation", OperationExec)
-	if !ok {
-		t.Fatalf("expected operation log record, got %#v", handler.records)
-	}
-	if record.level != slog.LevelDebug {
-		t.Fatalf("unexpected log level: %v", record.level)
-	}
-	if record.attrs["operation"] != OperationExec {
-		t.Fatalf("unexpected log attrs: %#v", record.attrs)
-	}
-	if record.attrs["sql"] == "" {
-		t.Fatalf("expected sql log attr, got %#v", record.attrs)
-	}
+	mustExecInsert(context.Background(), t, db, InsertInto(users).Values(assignments...))
+	assertDebugHookCounts(t, beforeCount, afterCount)
+	record := mustFindOperationRecord(t, handler.records, OperationExec)
+	assertDebugRecord(t, record, OperationExec)
 }
 
 func TestSchemaOperationsEmitObserverEvents(t *testing.T) {
@@ -122,7 +102,7 @@ func TestSchemaOperationsEmitObserverEvents(t *testing.T) {
 
 	users := MustSchema("users", UserSchema{})
 	schemaDialect := newFakeSchemaDialect()
-	spec := buildTableSpec(users.schemaRef())
+	spec := TableSpecForTest(users)
 	schemaDialect.tables["users"] = TableState{
 		Exists:      true,
 		Name:        "users",
@@ -200,41 +180,78 @@ func TestHookEventMetadataAndDuration(t *testing.T) {
 
 	type ctxKey struct{}
 	ctx := context.WithValue(context.Background(), ctxKey{}, "abc-123")
-	if _, err := Exec(ctx, db, InsertInto(users).Values(assignments...)); err != nil {
+	mustExecInsert(ctx, t, db, InsertInto(users).Values(assignments...))
+	assertHookEventMetadata(t, afterEvent, "abc-123", "req-456")
+	assertTraceRecord(t, mustFindOperationRecord(t, handler.records, OperationExec), "abc-123", "req-456")
+}
+
+func mustExecInsert(ctx context.Context, t *testing.T, db *DB, query *InsertQuery) {
+	t.Helper()
+	if _, err := Exec(ctx, db, query); err != nil {
 		t.Fatalf("Exec returned error: %v", err)
 	}
+}
 
-	if afterEvent == nil {
-		t.Fatal("AfterFunc was not called")
+func assertDebugHookCounts(t *testing.T, beforeCount, afterCount int) {
+	t.Helper()
+	if beforeCount != 1 || afterCount != 1 {
+		t.Fatalf("unexpected hook counts: before=%d after=%d", beforeCount, afterCount)
 	}
-	if afterEvent.Metadata["trace_id"] != "abc-123" {
-		t.Fatalf("unexpected trace_id: %v", afterEvent.Metadata["trace_id"])
-	}
-	if afterEvent.Metadata["request_id"] != "req-456" {
-		t.Fatalf("unexpected request_id: %v", afterEvent.Metadata["request_id"])
-	}
-	if afterEvent.StartedAt.IsZero() {
-		t.Fatal("expected StartedAt to be set")
-	}
-	// StartedAt can equal time.Now() within the same wall-clock tick; require not in the future.
-	if afterEvent.StartedAt.After(time.Now()) {
-		t.Fatalf("expected StartedAt <= now: %v", afterEvent.StartedAt)
-	}
-	if afterEvent.Duration < 0 {
-		t.Fatalf("expected non-negative Duration: %v", afterEvent.Duration)
-	}
+}
 
-	if len(handler.records) == 0 {
+func mustFindOperationRecord(t *testing.T, records []memoryRecord, operation Operation) memoryRecord {
+	t.Helper()
+	if len(records) == 0 {
 		t.Fatal("expected debug log record")
 	}
-	record, ok := findRecordByAttr(handler.records, "operation", OperationExec)
+	record, ok := findRecordByAttr(records, "operation", operation)
 	if !ok {
-		t.Fatalf("expected operation log record, got %#v", handler.records)
+		t.Fatalf("expected operation log record, got %#v", records)
 	}
-	if record.attrs["trace_id"] != "abc-123" {
+	return record
+}
+
+func assertDebugRecord(t *testing.T, record memoryRecord, operation Operation) {
+	t.Helper()
+	if record.level != slog.LevelDebug {
+		t.Fatalf("unexpected log level: %v", record.level)
+	}
+	if record.attrs["operation"] != operation {
+		t.Fatalf("unexpected log attrs: %#v", record.attrs)
+	}
+	if record.attrs["sql"] == "" {
+		t.Fatalf("expected sql log attr, got %#v", record.attrs)
+	}
+}
+
+func assertHookEventMetadata(t *testing.T, event *HookEvent, traceID, requestID string) {
+	t.Helper()
+	if event == nil {
+		t.Fatal("AfterFunc was not called")
+	}
+	if event.Metadata["trace_id"] != traceID {
+		t.Fatalf("unexpected trace_id: %v", event.Metadata["trace_id"])
+	}
+	if event.Metadata["request_id"] != requestID {
+		t.Fatalf("unexpected request_id: %v", event.Metadata["request_id"])
+	}
+	if event.StartedAt.IsZero() {
+		t.Fatal("expected StartedAt to be set")
+	}
+	if event.StartedAt.After(time.Now()) {
+		t.Fatalf("expected StartedAt <= now: %v", event.StartedAt)
+	}
+	if event.Duration < 0 {
+		t.Fatalf("expected non-negative Duration: %v", event.Duration)
+	}
+}
+
+func assertTraceRecord(t *testing.T, record memoryRecord, traceID, requestID string) {
+	t.Helper()
+	if record.attrs["trace_id"] != traceID {
 		t.Fatalf("expected trace_id in log attrs: %#v", record.attrs)
 	}
-	if record.attrs["request_id"] != "req-456" {
+	if record.attrs["request_id"] != requestID {
 		t.Fatalf("expected request_id in log attrs: %#v", record.attrs)
 	}
 }

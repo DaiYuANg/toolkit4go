@@ -105,38 +105,49 @@ func (c Check[E]) Meta() CheckMeta             { return cloneCheckMeta(c.meta) }
 
 func resolveConstraintBinding(def tableDefinition, field reflect.StructField, value any) (constraintBinding, error) {
 	if key, ok := value.(keyMetadata); ok {
-		tagName := "idx"
-		if key.keyMeta().primary {
-			tagName = "key"
-		}
-		options := parseTagOptions(field.Tag.Get(tagName))
-		columns := splitColumnsOption(optionValue(options, "columns"))
-		if len(columns) == 0 {
-			return constraintBinding{}, fmt.Errorf("dbx: constraint %s on schema %s requires columns option", field.Name, def.schemaType.Name())
-		}
-		name := optionValue(options, "name")
-		if name == "" {
-			name = defaultConstraintName(def.name, field.Name, key.keyMeta())
-		}
-		if key.keyMeta().primary {
-			return constraintBinding{
-				primaryKey: &PrimaryKeyMeta{
-					Name:    name,
-					Table:   def.name,
-					Columns: columns,
-				},
-			}, nil
-		}
+		return resolveKeyConstraintBinding(def, field, key)
+	}
+	return resolveCheckConstraintBinding(def, field)
+}
+
+func resolveKeyConstraintBinding(def tableDefinition, field reflect.StructField, key keyMetadata) (constraintBinding, error) {
+	meta := key.keyMeta()
+	options := parseTagOptions(field.Tag.Get(constraintTagName(meta)))
+	columns := splitColumnsOption(optionValue(options, "columns"))
+	if len(columns) == 0 {
+		return constraintBinding{}, fmt.Errorf("dbx: constraint %s on schema %s requires columns option", field.Name, def.schemaType.Name())
+	}
+	name := optionValue(options, "name")
+	if name == "" {
+		name = defaultConstraintName(def.name, field.Name, meta)
+	}
+	if meta.primary {
 		return constraintBinding{
-			indexes: []IndexMeta{{
+			primaryKey: &PrimaryKeyMeta{
 				Name:    name,
 				Table:   def.name,
 				Columns: columns,
-				Unique:  key.keyMeta().unique,
-			}},
+			},
 		}, nil
 	}
+	return constraintBinding{
+		indexes: []IndexMeta{{
+			Name:    name,
+			Table:   def.name,
+			Columns: columns,
+			Unique:  meta.unique,
+		}},
+	}, nil
+}
 
+func constraintTagName(meta keyBindingMeta) string {
+	if meta.primary {
+		return "key"
+	}
+	return "idx"
+}
+
+func resolveCheckConstraintBinding(def tableDefinition, field reflect.StructField) (constraintBinding, error) {
 	options := parseTagOptions(field.Tag.Get("check"))
 	expression := strings.TrimSpace(optionValue(options, "expr"))
 	if expression == "" {

@@ -167,22 +167,31 @@ func (m Mapper[E]) entityValue(entity *E) (reflect.Value, error) {
 
 func (m Mapper[E]) buildAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator IDGenerator) (Assignment, bool, error) {
 	if column.PrimaryKey && shouldGenerateID(column) {
-		fieldValue, generated, genErr := m.ensureGeneratedID(ctx, root, field, column, generator)
-		if genErr != nil {
-			return nil, false, genErr
-		}
-		if generated {
-			boundValue, boundErr := boundFieldValue(field, fieldValue)
-			if boundErr != nil {
-				return nil, false, boundErr
-			}
-			return metadataAssignment{meta: column, value: boundValue}, true, nil
-		}
+		return m.generatedOrExistingAssignment(ctx, root, column, field, generator)
 	}
+	return buildFieldAssignment(root, column, field)
+}
+
+func (m Mapper[E]) generatedOrExistingAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator IDGenerator) (Assignment, bool, error) {
+	fieldValue, generated, err := m.ensureGeneratedID(ctx, root, field, column, generator)
+	if err != nil {
+		return nil, false, err
+	}
+	if generated {
+		return assignmentFromValue(column, field, fieldValue)
+	}
+	return buildFieldAssignment(root, column, field)
+}
+
+func buildFieldAssignment(root reflect.Value, column ColumnMeta, field MappedField) (Assignment, bool, error) {
 	fieldValue, err := fieldValueForRead(root, field)
 	if err != nil {
 		return nil, false, err
 	}
+	return assignmentFromValue(column, field, fieldValue)
+}
+
+func assignmentFromValue(column ColumnMeta, field MappedField, fieldValue reflect.Value) (Assignment, bool, error) {
 	boundValue, err := boundFieldValue(field, fieldValue)
 	if err != nil {
 		return nil, false, err

@@ -127,11 +127,8 @@ func toSnakeCase(input string) string {
 
 	for index, r := range input {
 		if unicode.IsUpper(r) {
-			if index > 0 {
-				prev := rune(input[index-1])
-				if prev != '_' && (!unicode.IsUpper(prev) || (index+1 < len(input) && unicode.IsLower(rune(input[index+1])))) {
-					out.writeByte('_')
-				}
+			if shouldInsertSnakeCaseUnderscore(input, index) {
+				out.writeByte('_')
 			}
 			out.writeString(string(unicode.ToLower(r)))
 			continue
@@ -140,4 +137,18 @@ func toSnakeCase(input string) string {
 	}
 
 	return out.String()
+}
+
+func shouldInsertSnakeCaseUnderscore(input string, index int) bool {
+	if index == 0 {
+		return false
+	}
+	prev := rune(input[index-1])
+	if prev == '_' {
+		return false
+	}
+	if !unicode.IsUpper(prev) {
+		return true
+	}
+	return index+1 < len(input) && unicode.IsLower(rune(input[index+1]))
 }

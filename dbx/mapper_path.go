@@ -30,6 +30,14 @@ func fieldPath(field MappedField) []int {
 }
 
 func ensureFieldValue(root reflect.Value, field MappedField) (reflect.Value, error) {
+	return walkFieldValue(root, field, true)
+}
+
+func fieldValueForRead(root reflect.Value, field MappedField) (reflect.Value, error) {
+	return walkFieldValue(root, field, false)
+}
+
+func walkFieldValue(root reflect.Value, field MappedField, createPointers bool) (reflect.Value, error) {
 	current := root
 	path := fieldPath(field)
 	for i, index := range path {
@@ -37,41 +45,56 @@ func ensureFieldValue(root reflect.Value, field MappedField) (reflect.Value, err
 		if i == len(path)-1 {
 			return current, nil
 		}
-		for current.Kind() == reflect.Pointer {
-			if current.IsNil() {
-				current.Set(reflect.New(current.Type().Elem()))
-			}
-			current = current.Elem()
+		next, ok, err := descendFieldValue(current, field, path[:i+1], createPointers)
+		if err != nil {
+			return reflect.Value{}, err
 		}
-		if current.Kind() != reflect.Struct {
-			return reflect.Value{}, fmt.Errorf("dbx: field path %v does not resolve to struct", path[:i+1])
+		if !ok {
+			return reflect.Zero(field.Type), nil
 		}
+		current = next
 	}
 	return reflect.Value{}, fmt.Errorf("dbx: field path %v is empty", path)
 }
 
-func fieldValueForRead(root reflect.Value, field MappedField) (reflect.Value, error) {
-	current := root
-	path := fieldPath(field)
-	for i, index := range path {
-		current = current.Field(index)
-		if i == len(path)-1 {
-			return current, nil
-		}
-		for current.Kind() == reflect.Pointer {
-			if current.IsNil() {
-				if field.Type == nil {
-					return reflect.Value{}, fmt.Errorf("dbx: field %s type metadata is missing", field.Name)
-				}
-				return reflect.Zero(field.Type), nil
-			}
-			current = current.Elem()
-		}
-		if current.Kind() != reflect.Struct {
-			return reflect.Value{}, fmt.Errorf("dbx: field path %v does not resolve to struct", path[:i+1])
-		}
+func descendFieldValue(current reflect.Value, field MappedField, path []int, createPointers bool) (reflect.Value, bool, error) {
+	descended, ok, err := descendPointerValue(current, field, createPointers)
+	if err != nil || !ok {
+		return reflect.Value{}, ok, err
 	}
-	return reflect.Value{}, fmt.Errorf("dbx: field path %v is empty", path)
+	if descended.Kind() != reflect.Struct {
+		return reflect.Value{}, false, fmt.Errorf("dbx: field path %v does not resolve to struct", path)
+	}
+	return descended, true, nil
+}
+
+func descendPointerValue(current reflect.Value, field MappedField, createPointers bool) (reflect.Value, bool, error) {
+	for current.Kind() == reflect.Pointer {
+		next, ok, err := pointerFieldValue(current, field, createPointers)
+		if err != nil || !ok {
+			return reflect.Value{}, ok, err
+		}
+		current = next
+	}
+	return current, true, nil
+}
+
+func pointerFieldValue(current reflect.Value, field MappedField, createPointers bool) (reflect.Value, bool, error) {
+	if !current.IsNil() {
+		return current.Elem(), true, nil
+	}
+	if createPointers {
+		current.Set(reflect.New(current.Type().Elem()))
+		return current.Elem(), true, nil
+	}
+	return missingPointerFieldValue(field)
+}
+
+func missingPointerFieldValue(field MappedField) (reflect.Value, bool, error) {
+	if field.Type == nil {
+		return reflect.Value{}, false, fmt.Errorf("dbx: field %s type metadata is missing", field.Name)
+	}
+	return reflect.Value{}, false, nil
 }
 
 func normalizeFieldValue(value reflect.Value) any {

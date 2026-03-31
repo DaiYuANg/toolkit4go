@@ -138,10 +138,6 @@ linters:
     rules:
       - path: _test\.go
         linters:
-          - revive
-        text: 'file-length-limit: file length is ([3-7][0-9]{2}|800) lines, which exceeds the limit of 300'
-      - path: _test\.go
-        linters:
           - godoclint
 
 issues:

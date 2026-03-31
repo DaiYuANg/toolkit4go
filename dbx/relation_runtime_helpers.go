@@ -33,29 +33,47 @@ func relationCachedQuery(rt *relationRuntime, cacheKey string) (string, bool, er
 func scanRelationPairs(rows *sql.Rows, sourceType, targetType reflect.Type) ([]relationKeyPair, error) {
 	pairs := collectionx.NewList[relationKeyPair]()
 	for rows.Next() {
-		sourceDest, sourceValue := relationScanDestination(sourceType)
-		targetDest, targetValue := relationScanDestination(targetType)
-		if err := rows.Scan(sourceDest, targetDest); err != nil {
-			return nil, wrapDBError("scan relation pair row", err)
-		}
-
-		sourceKey, err := normalizeRelationLookupValue(sourceValue())
+		pair, ok, err := scanRelationPairRow(rows, sourceType, targetType)
 		if err != nil {
 			return nil, err
 		}
-		targetKey, err := normalizeRelationLookupValue(targetValue())
-		if err != nil {
-			return nil, err
-		}
-		if !sourceKey.present || !targetKey.present {
+		if !ok {
 			continue
 		}
-		pairs.Add(relationKeyPair{source: sourceKey.key, target: targetKey.key})
+		pairs.Add(pair)
 	}
 	if err := rowsIterError(rows); err != nil {
 		return nil, err
 	}
 	return pairs.Values(), nil
+}
+
+func scanRelationPairRow(rows *sql.Rows, sourceType, targetType reflect.Type) (relationKeyPair, bool, error) {
+	sourceDest, sourceValue := relationScanDestination(sourceType)
+	targetDest, targetValue := relationScanDestination(targetType)
+	if err := rows.Scan(sourceDest, targetDest); err != nil {
+		return relationKeyPair{}, false, wrapDBError("scan relation pair row", err)
+	}
+	sourceKey, targetKey, err := normalizeRelationPair(sourceValue(), targetValue())
+	if err != nil {
+		return relationKeyPair{}, false, err
+	}
+	if !sourceKey.present || !targetKey.present {
+		return relationKeyPair{}, false, nil
+	}
+	return relationKeyPair{source: sourceKey.key, target: targetKey.key}, true, nil
+}
+
+func normalizeRelationPair(source, target any) (relationLookupValue, relationLookupValue, error) {
+	sourceKey, err := normalizeRelationLookupValue(source)
+	if err != nil {
+		return relationLookupValue{}, relationLookupValue{}, err
+	}
+	targetKey, err := normalizeRelationLookupValue(target)
+	if err != nil {
+		return relationLookupValue{}, relationLookupValue{}, err
+	}
+	return sourceKey, targetKey, nil
 }
 
 func relationScanDestination(typ reflect.Type) (any, func() any) {

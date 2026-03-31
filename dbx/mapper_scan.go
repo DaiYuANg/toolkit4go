@@ -163,52 +163,104 @@ type rowScanState struct {
 
 func (m StructMapper[E]) scanMapper(plan *scanPlan) scanlib.Mapper[E] {
 	return func(_ context.Context, _ []string) (func(*scanlib.Row) (any, error), func(any) (E, error)) {
-		return func(row *scanlib.Row) (any, error) {
-				state := rowScanState{
-					value:        reflect.New(m.meta.entityType).Elem(),
-					codecSources: make([]any, len(plan.fields)),
-				}
-				for i := range plan.fields {
-					field := plan.fields[i]
-					fieldValue, err := ensureFieldValue(state.value, field)
-					if err != nil {
-						return nil, err
-					}
-					if field.codec != nil {
-						row.ScheduleScanByIndexX(i, reflect.ValueOf(&state.codecSources[i]))
-						continue
-					}
-					row.ScheduleScanByIndexX(i, fieldValue.Addr())
-				}
-				return state, nil
-			}, func(state any) (E, error) {
-				current, ok := state.(rowScanState)
-				if !ok {
-					var zero E
-					return zero, fmt.Errorf("dbx: unexpected scan state %T", state)
-				}
-				for i, field := range plan.fields {
-					if field.codec == nil {
-						continue
-					}
-					fieldValue, err := ensureFieldValue(current.value, field)
-					if err != nil {
-						var zero E
-						return zero, err
-					}
-					if err := field.codec.Decode(current.codecSources[i], fieldValue); err != nil {
-						var zero E
-						return zero, wrapDBError("decode mapped field", err)
-					}
-				}
-				value, ok := current.value.Interface().(E)
-				if !ok {
-					var zero E
-					return zero, fmt.Errorf("dbx: scanned value type %T does not match target", current.value.Interface())
-				}
-				return value, nil
-			}
+		return m.scheduleScanState(plan), m.decodeScanState(plan)
 	}
+}
+
+func (m StructMapper[E]) scheduleScanState(plan *scanPlan) func(*scanlib.Row) (any, error) {
+	return func(row *scanlib.Row) (any, error) {
+		state := m.newRowScanState(len(plan.fields))
+		if err := m.scheduleMappedFieldScans(plan, row, &state); err != nil {
+			return nil, err
+		}
+		return state, nil
+	}
+}
+
+func (m StructMapper[E]) decodeScanState(plan *scanPlan) func(any) (E, error) {
+	return func(state any) (E, error) {
+		current, err := scanStateFromAny[E](state)
+		if err != nil {
+			return zeroValue[E](), err
+		}
+		if err := m.decodeCodecFields(plan, current); err != nil {
+			return zeroValue[E](), err
+		}
+		return scannedValueFromState[E](current)
+	}
+}
+
+func (m StructMapper[E]) newRowScanState(fieldCount int) rowScanState {
+	return rowScanState{
+		value:        reflect.New(m.meta.entityType).Elem(),
+		codecSources: make([]any, fieldCount),
+	}
+}
+
+func (m StructMapper[E]) scheduleMappedFieldScans(plan *scanPlan, row *scanlib.Row, state *rowScanState) error {
+	for index := range plan.fields {
+		if err := m.scheduleMappedFieldScan(row, state, plan.fields[index], index); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m StructMapper[E]) scheduleMappedFieldScan(row *scanlib.Row, state *rowScanState, field MappedField, index int) error {
+	fieldValue, err := ensureFieldValue(state.value, field)
+	if err != nil {
+		return err
+	}
+	if field.codec != nil {
+		row.ScheduleScanByIndexX(index, reflect.ValueOf(&state.codecSources[index]))
+		return nil
+	}
+	row.ScheduleScanByIndexX(index, fieldValue.Addr())
+	return nil
+}
+
+func (m StructMapper[E]) decodeCodecFields(plan *scanPlan, state rowScanState) error {
+	for index := range plan.fields {
+		if err := m.decodeCodecField(state, plan.fields[index], index); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m StructMapper[E]) decodeCodecField(state rowScanState, field MappedField, index int) error {
+	if field.codec == nil {
+		return nil
+	}
+	fieldValue, err := ensureFieldValue(state.value, field)
+	if err != nil {
+		return err
+	}
+	if err := field.codec.Decode(state.codecSources[index], fieldValue); err != nil {
+		return wrapDBError("decode mapped field", err)
+	}
+	return nil
+}
+
+func scanStateFromAny[E any](state any) (rowScanState, error) {
+	current, ok := state.(rowScanState)
+	if !ok {
+		return rowScanState{}, fmt.Errorf("dbx: unexpected scan state %T", state)
+	}
+	return current, nil
+}
+
+func scannedValueFromState[E any](state rowScanState) (E, error) {
+	value, ok := state.value.Interface().(E)
+	if !ok {
+		return zeroValue[E](), fmt.Errorf("dbx: scanned value type %T does not match target", state.value.Interface())
+	}
+	return value, nil
+}
+
+func zeroValue[T any]() T {
+	var zero T
+	return zero
 }
 
 func (m StructMapper[E]) resolveFieldByResultColumn(column string) (MappedField, bool) {

@@ -1,4 +1,4 @@
-package dbx
+package dbx_test
 
 import (
 	"context"
@@ -161,38 +161,10 @@ func TestQueryCursorAndEach(t *testing.T) {
 	if err != nil {
 		t.Fatalf("QueryCursor returned error: %v", err)
 	}
-	defer func() {
-		if closeErr := cursor.Close(); closeErr != nil {
-			t.Fatalf("cursor.Close returned error: %v", closeErr)
-		}
-	}()
+	defer closeCursorOrFatal(t, cursor)
 
-	var fromCursor []UserSummary
-	for cursor.Next() {
-		item, err := cursor.Get()
-		if err != nil {
-			t.Fatalf("cursor.Get returned error: %v", err)
-		}
-		fromCursor = append(fromCursor, item)
-	}
-	if err := cursor.Err(); err != nil {
-		t.Fatalf("cursor.Err returned error: %v", err)
-	}
-	if len(fromCursor) != 2 || fromCursor[0].Username != "alice" || fromCursor[1].ID != 2 {
-		t.Fatalf("unexpected cursor items: %+v", fromCursor)
-	}
-
-	var fromEach []UserSummary
-	QueryEach(context.Background(), core, query, mapper)(func(item UserSummary, err error) bool {
-		if err != nil {
-			t.Fatalf("QueryEach yielded error: %v", err)
-		}
-		fromEach = append(fromEach, item)
-		return true
-	})
-	if len(fromEach) != 2 || fromEach[0].Username != "alice" || fromEach[1].ID != 2 {
-		t.Fatalf("unexpected each items: %+v", fromEach)
-	}
+	assertUserSummaryRows(t, collectUserSummaryCursor(t, cursor))
+	assertUserSummaryRows(t, collectUserSummaryEach(t, core, query, mapper))
 }
 
 func TestBuildRejectsNilQuery(t *testing.T) {
@@ -234,10 +206,7 @@ func TestMapperBuildsAssignmentsAndPrimaryPredicate(t *testing.T) {
 		RoleID:   9,
 	}
 
-	insertAssignments, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), users, entity)
-	if err != nil {
-		t.Fatalf("InsertAssignments returned error: %v", err)
-	}
+	insertAssignments := mustInsertAssignments(t, mapper, users, entity)
 	if len(insertAssignments) != 4 {
 		t.Fatalf("unexpected insert assignment count: %d fields=%+v columns=%+v", len(insertAssignments), mapper.Fields(), users.Columns())
 	}
@@ -249,18 +218,12 @@ func TestMapperBuildsAssignmentsAndPrimaryPredicate(t *testing.T) {
 		t.Fatalf("unexpected insert sql: %q", insertBound.SQL)
 	}
 
-	updateAssignments, err := mapper.UpdateAssignments(users, entity)
-	if err != nil {
-		t.Fatalf("UpdateAssignments returned error: %v", err)
-	}
+	updateAssignments := mustUpdateAssignments(t, mapper, users, entity)
 	if len(updateAssignments) != 4 {
 		t.Fatalf("unexpected update assignment count: %d", len(updateAssignments))
 	}
 
-	predicate, err := mapper.PrimaryPredicate(users, entity)
-	if err != nil {
-		t.Fatalf("PrimaryPredicate returned error: %v", err)
-	}
+	predicate := mustPrimaryPredicate(t, mapper, users, entity)
 	updateBound, err := Update(users).Set(updateAssignments...).Where(predicate).Build(testSQLiteDialect{})
 	if err != nil {
 		t.Fatalf("update build returned error: %v", err)
@@ -270,144 +233,5 @@ func TestMapperBuildsAssignmentsAndPrimaryPredicate(t *testing.T) {
 	}
 	if len(updateBound.Args) != 5 || updateBound.Args[4] != int64(42) {
 		t.Fatalf("unexpected update args: %#v", updateBound.Args)
-	}
-}
-
-func TestExecBuildsAndRunsBoundQuery(t *testing.T) {
-	sqlDB, cleanup := OpenTestSQLiteWithSchema(t, `INSERT INTO "roles" ("id","name") VALUES (9,'admin')`)
-	defer cleanup()
-
-	users := MustSchema("users", UserSchema{})
-	mapper := MustMapper[User](users)
-	entity := &User{
-		Username: "alice",
-		Email:    "alice@example.com",
-		Status:   1,
-		RoleID:   9,
-	}
-
-	assignments, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), users, entity)
-	if err != nil {
-		t.Fatalf("InsertAssignments returned error: %v", err)
-	}
-
-	rec := &hookRecorder{}
-	result, err := Exec(context.Background(), MustNewWithOptions(sqlDB, testSQLiteDialect{}, WithHooks(HookFuncs{AfterFunc: rec.after})), InsertInto(users).Values(assignments...))
-	if err != nil {
-		t.Fatalf("Exec returned error: %v", err)
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		t.Fatalf("RowsAffected returned error: %v", err)
-	}
-	if rowsAffected != 1 {
-		t.Fatalf("unexpected rows affected: %d", rowsAffected)
-	}
-	if rec.execCount != 1 {
-		t.Fatalf("unexpected recorded exec count: %d", rec.execCount)
-	}
-}
-
-func TestBeginTxExecsWithinTransaction(t *testing.T) {
-	sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
-		`INSERT INTO "roles" ("id","name") VALUES (1,'r1')`,
-		`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('u','e@x.com',1,1)`,
-	)
-	defer cleanup()
-
-	users := MustSchema("users", UserSchema{})
-	rec := &hookRecorder{}
-	core := MustNewWithOptions(sqlDB, testSQLiteDialect{}, WithHooks(HookFuncs{AfterFunc: rec.after}))
-	tx, err := core.BeginTx(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("BeginTx returned error: %v", err)
-	}
-
-	result, err := Exec(context.Background(), tx, Update(users).Set(users.Status.Set(2)).Where(users.ID.Eq(1)))
-	if err != nil {
-		t.Fatalf("Exec returned error: %v", err)
-	}
-	commitErr := tx.Commit()
-	if commitErr != nil {
-		t.Fatalf("Commit returned error: %v", commitErr)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		t.Fatalf("RowsAffected returned error: %v", err)
-	}
-	if rowsAffected != 1 {
-		t.Fatalf("unexpected rows affected: %d", rowsAffected)
-	}
-	if rec.execCount != 1 {
-		t.Fatalf("unexpected recorded exec count: %d", rec.execCount)
-	}
-}
-
-func TestInsertAssignmentsGenerateSnowflakeID(t *testing.T) {
-	users := MustSchema("users", SnowflakeUserSchema{})
-	mapper := MustMapper[SnowflakeUser](users)
-	entity := &SnowflakeUser{Username: "alice"}
-
-	assignments, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), users, entity)
-	if err != nil {
-		t.Fatalf("InsertAssignments returned error: %v", err)
-	}
-	if entity.ID == 0 {
-		t.Fatal("expected generated snowflake id")
-	}
-	if len(assignments) != 2 {
-		t.Fatalf("expected id + username assignments, got %d", len(assignments))
-	}
-}
-
-func TestInsertAssignmentsGenerateUUIDv7ID(t *testing.T) {
-	users := MustSchema("users", UUIDUserSchema{})
-	mapper := MustMapper[UUIDUser](users)
-	entity := &UUIDUser{Username: "alice"}
-
-	assignments, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), users, entity)
-	if err != nil {
-		t.Fatalf("InsertAssignments returned error: %v", err)
-	}
-	if entity.ID == "" {
-		t.Fatal("expected generated uuid id")
-	}
-	if len(assignments) != 2 {
-		t.Fatalf("expected id + username assignments, got %d", len(assignments))
-	}
-}
-
-func TestInsertAssignmentsGenerateULID(t *testing.T) {
-	users := MustSchema("users", ULIDUserSchema{})
-	mapper := MustMapper[ULIDUser](users)
-	entity := &ULIDUser{Username: "alice"}
-
-	assignments, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), users, entity)
-	if err != nil {
-		t.Fatalf("InsertAssignments returned error: %v", err)
-	}
-	if entity.ID == "" {
-		t.Fatal("expected generated ulid")
-	}
-	if len(assignments) != 2 {
-		t.Fatalf("expected id + username assignments, got %d", len(assignments))
-	}
-}
-
-func TestInsertAssignmentsGenerateKSUID(t *testing.T) {
-	users := MustSchema("users", KSUIDUserSchema{})
-	mapper := MustMapper[KSUIDUser](users)
-	entity := &KSUIDUser{Username: "alice"}
-
-	assignments, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), users, entity)
-	if err != nil {
-		t.Fatalf("InsertAssignments returned error: %v", err)
-	}
-	if entity.ID == "" {
-		t.Fatal("expected generated ksuid")
-	}
-	if len(assignments) != 2 {
-		t.Fatalf("expected id + username assignments, got %d", len(assignments))
 	}
 }

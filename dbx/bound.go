@@ -1,3 +1,4 @@
+// Package dbx provides a lightweight typed SQL query builder, mapper, and repository toolkit.
 package dbx
 
 type BoundQuery struct {

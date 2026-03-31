@@ -1,4 +1,4 @@
-package dbx
+package dbx_test
 
 import (
 	"context"
@@ -58,80 +58,11 @@ func TestSQLGetAndFind(t *testing.T) {
 		return BoundQuery{SQL: `SELECT "id", "username" FROM "users"`}, nil
 	})
 
-	t.Run("get returns single row", func(t *testing.T) {
-		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
-			`INSERT INTO "roles" ("id","name") VALUES (1,'r1')`,
-			`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('alice','a@x.com',1,1)`,
-		)
-		defer cleanup()
-
-		item, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
-		if err != nil {
-			t.Fatalf("SQLGet returned error: %v", err)
-		}
-		if item.ID != 1 || item.Username != "alice" {
-			t.Fatalf("unexpected item: %+v", item)
-		}
-	})
-
-	t.Run("get returns sql.ErrNoRows", func(t *testing.T) {
-		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
-		defer cleanup()
-
-		_, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
-		if !errors.Is(err, sql.ErrNoRows) {
-			t.Fatalf("expected sql.ErrNoRows, got %v", err)
-		}
-	})
-
-	t.Run("find returns none", func(t *testing.T) {
-		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
-		defer cleanup()
-
-		result, err := SQLFind(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
-		if err != nil {
-			t.Fatalf("SQLFind returned error: %v", err)
-		}
-		if result.IsPresent() {
-			t.Fatalf("expected empty option, got %+v", result)
-		}
-	})
-
-	t.Run("find returns row", func(t *testing.T) {
-		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
-			`INSERT INTO "roles" ("id","name") VALUES (1,'r1')`,
-			`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('alice','a@x.com',1,1)`,
-		)
-		defer cleanup()
-
-		result, err := SQLFind(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
-		if err != nil {
-			t.Fatalf("SQLFind returned error: %v", err)
-		}
-		if !result.IsPresent() {
-			t.Fatal("expected present option")
-		}
-		item, ok := result.Get()
-		if !ok {
-			t.Fatal("expected option value")
-		}
-		if item.ID != 1 || item.Username != "alice" {
-			t.Fatalf("unexpected item: %+v", item)
-		}
-	})
-
-	t.Run("get returns too many rows", func(t *testing.T) {
-		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
-			`INSERT INTO "roles" ("id","name") VALUES (1,'r1')`,
-			`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('alice','a@x.com',1,1),('bob','b@x.com',1,1)`,
-		)
-		defer cleanup()
-
-		_, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
-		if !errors.Is(err, ErrTooManyRows) {
-			t.Fatalf("expected ErrTooManyRows, got %v", err)
-		}
-	})
+	runSQLGetExpectRow(t, statement)
+	runSQLGetExpectNoRows(t, statement)
+	runSQLFindExpectNone(t, statement)
+	runSQLFindExpectRow(t, statement)
+	runSQLGetExpectTooManyRows(t, statement)
 }
 
 func TestSQLScalarAndScalarOption(t *testing.T) {
@@ -207,36 +138,111 @@ func TestSQLCursorAndEach(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SQLCursor returned error: %v", err)
 	}
-	defer func() {
-		if closeErr := cursor.Close(); closeErr != nil {
-			t.Fatalf("cursor.Close returned error: %v", closeErr)
-		}
-	}()
+	defer closeCursorOrFatal(t, cursor)
 
-	var fromCursor []UserSummary
-	for cursor.Next() {
-		item, err := cursor.Get()
+	assertUserSummaryRows(t, collectUserSummaryCursor(t, cursor))
+	assertUserSummaryRows(t, collectSQLUserSummaryEach(t, db, statement, mapper))
+}
+
+func runSQLGetExpectRow(t *testing.T, statement SQLStatementSource) {
+	t.Helper()
+	t.Run("get returns single row", func(t *testing.T) {
+		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
+			`INSERT INTO "roles" ("id","name") VALUES (1,'r1')`,
+			`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('alice','a@x.com',1,1)`,
+		)
+		defer cleanup()
+
+		item, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if err != nil {
-			t.Fatalf("cursor.Get returned error: %v", err)
+			t.Fatalf("SQLGet returned error: %v", err)
 		}
-		fromCursor = append(fromCursor, item)
-	}
-	if err := cursor.Err(); err != nil {
-		t.Fatalf("cursor.Err returned error: %v", err)
-	}
-	if len(fromCursor) != 2 || fromCursor[0].Username != "alice" || fromCursor[1].ID != 2 {
-		t.Fatalf("unexpected cursor items: %+v", fromCursor)
-	}
+		assertSingleUserSummary(t, item)
+	})
+}
 
-	var fromEach []UserSummary
+func runSQLGetExpectNoRows(t *testing.T, statement SQLStatementSource) {
+	t.Helper()
+	t.Run("get returns sql.ErrNoRows", func(t *testing.T) {
+		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
+		defer cleanup()
+
+		_, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		if !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("expected sql.ErrNoRows, got %v", err)
+		}
+	})
+}
+
+func runSQLFindExpectNone(t *testing.T, statement SQLStatementSource) {
+	t.Helper()
+	t.Run("find returns none", func(t *testing.T) {
+		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
+		defer cleanup()
+
+		result, err := SQLFind(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		if err != nil {
+			t.Fatalf("SQLFind returned error: %v", err)
+		}
+		if result.IsPresent() {
+			t.Fatalf("expected empty option, got %+v", result)
+		}
+	})
+}
+
+func runSQLFindExpectRow(t *testing.T, statement SQLStatementSource) {
+	t.Helper()
+	t.Run("find returns row", func(t *testing.T) {
+		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
+			`INSERT INTO "roles" ("id","name") VALUES (1,'r1')`,
+			`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('alice','a@x.com',1,1)`,
+		)
+		defer cleanup()
+
+		result, err := SQLFind(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		if err != nil {
+			t.Fatalf("SQLFind returned error: %v", err)
+		}
+		item, ok := result.Get()
+		if !ok {
+			t.Fatal("expected option value")
+		}
+		assertSingleUserSummary(t, item)
+	})
+}
+
+func runSQLGetExpectTooManyRows(t *testing.T, statement SQLStatementSource) {
+	t.Helper()
+	t.Run("get returns too many rows", func(t *testing.T) {
+		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
+			`INSERT INTO "roles" ("id","name") VALUES (1,'r1')`,
+			`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('alice','a@x.com',1,1),('bob','b@x.com',1,1)`,
+		)
+		defer cleanup()
+
+		_, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		if !errors.Is(err, ErrTooManyRows) {
+			t.Fatalf("expected ErrTooManyRows, got %v", err)
+		}
+	})
+}
+
+func collectSQLUserSummaryEach(t *testing.T, db *DB, statement SQLStatementSource, mapper StructMapper[UserSummary]) []UserSummary {
+	t.Helper()
+	var items []UserSummary
 	SQLEach(context.Background(), db, statement, nil, mapper)(func(item UserSummary, err error) bool {
 		if err != nil {
 			t.Fatalf("SQLEach yielded error: %v", err)
 		}
-		fromEach = append(fromEach, item)
+		items = append(items, item)
 		return true
 	})
-	if len(fromEach) != 2 || fromEach[0].Username != "alice" || fromEach[1].ID != 2 {
-		t.Fatalf("unexpected each items: %+v", fromEach)
+	return items
+}
+
+func assertSingleUserSummary(t *testing.T, item UserSummary) {
+	t.Helper()
+	if item.ID != 1 || item.Username != "alice" {
+		t.Fatalf("unexpected item: %+v", item)
 	}
 }

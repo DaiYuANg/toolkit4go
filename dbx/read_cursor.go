@@ -193,31 +193,55 @@ func structMapperCursor[E any](ctx context.Context, rows *sql.Rows, mapper RowsS
 
 func iterateCursor[E any](open func() (Cursor[E], error)) func(func(E, error) bool) {
 	return func(yield func(E, error) bool) {
-		cursor, err := open()
-		if err != nil {
-			var zero E
-			yield(zero, err)
+		cursor, ok := openCursorOrYieldError(open, yield)
+		if !ok {
 			return
 		}
-		defer func() {
-			if closeErr := closeCursor(cursor); closeErr != nil {
-				var zero E
-				yield(zero, closeErr)
-			}
-		}()
+		defer yieldCursorCloseError(cursor, yield)
+		if !drainCursor(cursor, yield) {
+			return
+		}
+		yieldCursorErr(cursor, yield)
+	}
+}
 
-		for cursor.Next() {
-			item, itemErr := cursor.Get()
-			if !yield(item, itemErr) {
-				return
-			}
-			if itemErr != nil {
-				return
-			}
+func openCursorOrYieldError[E any](open func() (Cursor[E], error), yield func(E, error) bool) (Cursor[E], bool) {
+	cursor, err := open()
+	if err == nil {
+		return cursor, true
+	}
+	var zero E
+	yield(zero, err)
+	return nil, false
+}
+
+func drainCursor[E any](cursor Cursor[E], yield func(E, error) bool) bool {
+	for cursor.Next() {
+		if !yieldCursorItem(cursor, yield) {
+			return false
 		}
-		if err := cursor.Err(); err != nil {
-			var zero E
-			yield(zero, err)
-		}
+	}
+	return true
+}
+
+func yieldCursorItem[E any](cursor Cursor[E], yield func(E, error) bool) bool {
+	item, itemErr := cursor.Get()
+	if !yield(item, itemErr) {
+		return false
+	}
+	return itemErr == nil
+}
+
+func yieldCursorErr[E any](cursor Cursor[E], yield func(E, error) bool) {
+	if err := cursor.Err(); err != nil {
+		var zero E
+		yield(zero, err)
+	}
+}
+
+func yieldCursorCloseError[E any](cursor Cursor[E], yield func(E, error) bool) {
+	if closeErr := closeCursor(cursor); closeErr != nil {
+		var zero E
+		yield(zero, closeErr)
 	}
 }
