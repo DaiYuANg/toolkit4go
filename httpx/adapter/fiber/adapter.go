@@ -15,22 +15,23 @@ type Adapter struct {
 
 // New constructs a fiber adapter backed by a fiber app and Huma API.
 func New(app *fiber.App, opts ...adapter.HumaOptions) *Adapter {
-	var a *fiber.App
-	if app != nil {
-		a = app
-	} else {
-		a = fiber.New()
-	}
-
+	resolvedApp := orDefaultApp(app)
 	humaOpts := adapter.MergeHumaOptions(opts...)
 	cfg := huma.DefaultConfig(humaOpts.Title, humaOpts.Version)
 	adapter.ApplyHumaConfig(&cfg, humaOpts)
-	api := humafiber.New(a, cfg)
+	api := humafiber.New(resolvedApp, cfg)
 
 	return &Adapter{
-		app:  a,
+		app:  resolvedApp,
 		huma: api,
 	}
+}
+
+func orDefaultApp(app *fiber.App) *fiber.App {
+	if app != nil {
+		return app
+	}
+	return fiber.New()
 }
 
 // Name returns the adapter name.

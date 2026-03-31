@@ -11,7 +11,7 @@ import (
 // Listen starts the fiber server.
 func (a *Adapter) Listen(addr string) error {
 	if err := a.app.Listen(addr); err != nil {
-		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, err)
+		return wrapFiberListenError(addr, err)
 	}
 	return nil
 }
@@ -40,7 +40,7 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		if isExpectedFiberClose(err) {
 			return nil
 		}
-		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, err)
+		return wrapFiberListenError(addr, err)
 	case <-ctx.Done():
 		shutdownErr := a.Shutdown()
 		listenErr := <-errCh
@@ -50,8 +50,12 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		if isExpectedFiberClose(listenErr) {
 			return nil
 		}
-		return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, listenErr)
+		return wrapFiberListenError(addr, listenErr)
 	}
+}
+
+func wrapFiberListenError(addr string, err error) error {
+	return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, err)
 }
 
 func isExpectedFiberClose(err error) bool {
