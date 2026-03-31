@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	pkgfx "github.com/DaiYuANg/arcgo/pkg/fx"
 	"go.uber.org/fx"
 
 	"github.com/DaiYuANg/arcgo/configx"
@@ -58,7 +59,7 @@ func NewConfig(params ConfigParams) (ConfigResult, error) {
 func NewConfigxModule(opts ...configx.Option) fx.Option {
 	return fx.Module("configx",
 		// Seed the group with the options passed directly to this constructor.
-		provideGroupOptions(opts),
+		pkgfx.ProvideOptionGroup[configx.Options, configx.Option]("configx_options", opts...),
 		fx.Provide(NewConfig),
 	)
 }
@@ -157,29 +158,7 @@ func NewFxWatcher(lc fx.Lifecycle, params WatcherParams) (WatcherResult, error) 
 // "configx_options" value-group.
 func NewConfigxWatcherModule(opts ...configx.Option) fx.Option {
 	return fx.Module("configx",
-		provideGroupOptions(opts),
+		pkgfx.ProvideOptionGroup[configx.Options, configx.Option]("configx_options", opts...),
 		fx.Provide(NewFxWatcher),
 	)
-}
-
-// ── shared helpers ────────────────────────────────────────────────────────────
-
-// provideGroupOptions seeds the "configx_options" value-group with opts.
-// Each option is provided as a separate group element so that other modules
-// can append to the same group without replacing these values.
-func provideGroupOptions(opts []configx.Option) fx.Option {
-	if len(opts) == 0 {
-		return fx.Options() // no-op
-	}
-
-	providers := make([]fx.Option, 0, len(opts))
-	for _, opt := range opts {
-		providers = append(providers, fx.Provide(
-			fx.Annotate(
-				func() configx.Option { return opt },
-				fx.ResultTags(`group:"configx_options"`),
-			),
-		))
-	}
-	return fx.Options(providers...)
 }
