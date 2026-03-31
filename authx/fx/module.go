@@ -2,7 +2,7 @@ package fx
 
 import (
 	"github.com/DaiYuANg/arcgo/authx"
-	"github.com/samber/lo"
+	pkgfx "github.com/DaiYuANg/arcgo/pkg/fx"
 	"go.uber.org/fx"
 )
 
@@ -29,19 +29,7 @@ func NewEngine(params EngineParams) EngineResult {
 
 // WithEngineOptions adds engine options into fxx option group.
 func WithEngineOptions(opts ...authx.EngineOption) fx.Option {
-	filtered := lo.Filter(opts, func(item authx.EngineOption, _ int) bool {
-		return item != nil
-	})
-	if len(filtered) == 0 {
-		return fx.Options()
-	}
-
-	return fx.Provide(
-		fx.Annotate(
-			func() []authx.EngineOption { return filtered },
-			fx.ResultTags(`group:"authx_engine_options,flatten"`),
-		),
-	)
+	return pkgfx.ProvideOptionGroup[authx.Engine, authx.EngineOption]("authx_engine_options", opts...)
 }
 
 // NewAuthxModule creates an authx fxx module.
