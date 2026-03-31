@@ -7,10 +7,10 @@ import (
 )
 
 // Option documents related behavior.
-type Option func(*config)
+type Option func(*BuildOptions)
 
-// config documents related behavior.
-type config struct {
+// BuildOptions configures logger construction.
+type BuildOptions struct {
 	level      slog.Level
 	console    bool
 	noColor    bool
@@ -24,6 +24,8 @@ type config struct {
 	localTime  bool
 	compress   bool
 }
+
+type config = BuildOptions
 
 // Config is an exported read-only snapshot of logger build options.
 type Config struct {
@@ -42,8 +44,8 @@ type Config struct {
 }
 
 // defaultConfig provides default behavior.
-func defaultConfig() config {
-	return config{
+func defaultConfig() BuildOptions {
+	return BuildOptions{
 		level:      slog.LevelInfo,
 		console:    true,
 		noColor:    false,
@@ -57,7 +59,7 @@ func defaultConfig() config {
 }
 
 // validate documents related behavior.
-func (c *config) validate() error {
+func (c *BuildOptions) validate() error {
 	if c.maxSize < 1 {
 		return fmt.Errorf("maxSize must be at least 1MB, got %d", c.maxSize)
 	}
@@ -73,7 +75,7 @@ func (c *config) validate() error {
 	return nil
 }
 
-func (c config) export() Config {
+func (c BuildOptions) export() Config {
 	return Config{
 		Level:      c.level,
 		Console:    c.console,
