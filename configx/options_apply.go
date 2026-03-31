@@ -1,13 +1,9 @@
 package configx
 
-import "github.com/samber/lo"
+import "github.com/DaiYuANg/arcgo/pkg/option"
 
 func buildOptions(opts ...Option) *Options {
 	options := NewOptions()
-	lo.ForEach(opts, func(opt Option, _ int) {
-		if opt != nil {
-			opt(options)
-		}
-	})
+	option.Apply(options, opts...)
 	return options
 }
