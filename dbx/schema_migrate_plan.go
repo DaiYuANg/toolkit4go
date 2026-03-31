@@ -3,9 +3,11 @@ package dbx
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/lo"
 )
 
 func PlanSchemaChanges(ctx context.Context, session Session, schemas ...SchemaResource) (MigrationPlan, error) {
@@ -90,35 +92,31 @@ func buildLegacyMigrationActions(schemaDialect SchemaDialect, schema SchemaResou
 }
 
 func buildMissingTableActions(schemaDialect SchemaDialect, spec TableSpec) []MigrationAction {
-	actions := make([]MigrationAction, 0, len(spec.Indexes)+1)
-	actions = append(actions, buildCreateTableAction(schemaDialect, spec))
-	return append(actions, mappedMigrationActions(spec.Indexes, func(index IndexMeta) MigrationAction {
-		return buildCreateIndexAction(schemaDialect, index)
-	})...)
+	return slices.Concat(
+		[]MigrationAction{buildCreateTableAction(schemaDialect, spec)},
+		mappedMigrationActions(spec.Indexes, func(index IndexMeta) MigrationAction {
+			return buildCreateIndexAction(schemaDialect, index)
+		}),
+	)
 }
 
 func buildExistingTableActions(schemaDialect SchemaDialect, diff TableDiff) []MigrationAction {
-	actions := make([]MigrationAction, 0, len(diff.MissingColumns)+len(diff.MissingIndexes)+len(diff.MissingForeignKeys)+len(diff.MissingChecks)+len(diff.ColumnDiffs)+1)
-	actions = append(actions, mappedMigrationActions(diff.MissingColumns, func(column ColumnMeta) MigrationAction {
-		return buildAddColumnAction(schemaDialect, diff.Table, column)
-	})...)
-	actions = append(actions, mappedMigrationActions(diff.MissingIndexes, func(index IndexMeta) MigrationAction {
-		return buildCreateIndexAction(schemaDialect, index)
-	})...)
-	actions = append(actions, mappedMigrationActions(diff.MissingForeignKeys, func(foreignKey ForeignKeyMeta) MigrationAction {
-		return buildAddForeignKeyAction(schemaDialect, diff.Table, foreignKey)
-	})...)
-	actions = append(actions, mappedMigrationActions(diff.MissingChecks, func(check CheckMeta) MigrationAction {
-		return buildAddCheckAction(schemaDialect, diff.Table, check)
-	})...)
-	if diff.PrimaryKeyDiff != nil {
-		actions = append(actions, MigrationAction{
-			Kind:    MigrationActionManual,
-			Table:   diff.Table,
-			Summary: "manual primary key migration required",
-		})
-	}
-	return append(actions, columnDiffManualActions(diff)...)
+	return slices.Concat(
+		mappedMigrationActions(diff.MissingColumns, func(column ColumnMeta) MigrationAction {
+			return buildAddColumnAction(schemaDialect, diff.Table, column)
+		}),
+		mappedMigrationActions(diff.MissingIndexes, func(index IndexMeta) MigrationAction {
+			return buildCreateIndexAction(schemaDialect, index)
+		}),
+		mappedMigrationActions(diff.MissingForeignKeys, func(foreignKey ForeignKeyMeta) MigrationAction {
+			return buildAddForeignKeyAction(schemaDialect, diff.Table, foreignKey)
+		}),
+		mappedMigrationActions(diff.MissingChecks, func(check CheckMeta) MigrationAction {
+			return buildAddCheckAction(schemaDialect, diff.Table, check)
+		}),
+		primaryKeyManualActions(diff),
+		columnDiffManualActions(diff),
+	)
 }
 
 func ValidateSchemas(ctx context.Context, session Session, schemas ...SchemaResource) (ValidationReport, error) {
@@ -213,9 +211,18 @@ func schemaNames(schemas []SchemaResource) string {
 	if len(schemas) == 0 {
 		return ""
 	}
-	names := make([]string, len(schemas))
-	for i := range schemas {
-		names[i] = schemas[i].tableRef().TableName()
+	return strings.Join(lo.Map(schemas, func(schema SchemaResource, _ int) string {
+		return schema.tableRef().TableName()
+	}), ",")
+}
+
+func primaryKeyManualActions(diff TableDiff) []MigrationAction {
+	if diff.PrimaryKeyDiff == nil {
+		return nil
 	}
-	return strings.Join(names, ",")
+	return []MigrationAction{{
+		Kind:    MigrationActionManual,
+		Table:   diff.Table,
+		Summary: "manual primary key migration required",
+	}}
 }

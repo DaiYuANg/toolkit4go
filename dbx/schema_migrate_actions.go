@@ -3,14 +3,14 @@ package dbx
 import (
 	"slices"
 	"strings"
+
+	"github.com/samber/lo"
 )
 
 func mappedMigrationActions[T any](items []T, mapper func(T) MigrationAction) []MigrationAction {
-	actions := make([]MigrationAction, 0, len(items))
-	for i := range items {
-		actions = append(actions, mapper(items[i]))
-	}
-	return actions
+	return lo.Map(items, func(item T, _ int) MigrationAction {
+		return mapper(item)
+	})
 }
 
 func columnDiffManualActions(diff TableDiff) []MigrationAction {
@@ -24,22 +24,16 @@ func columnDiffManualActions(diff TableDiff) []MigrationAction {
 }
 
 func columnDiffIssues(schemaDialect SchemaDialect, expected ColumnMeta, actual ColumnState) []string {
-	issues := make([]string, 0, 4)
 	expectedType := normalizeExpectedType(schemaDialect, expected)
 	actualType := schemaDialect.NormalizeType(actual.Type)
-	if expectedType != "" && actualType != "" && expectedType != actualType {
-		issues = append(issues, "type mismatch: expected "+expectedType+" got "+actualType)
-	}
-	if !actual.PrimaryKey && expected.Nullable != actual.Nullable {
-		issues = append(issues, "nullable mismatch")
-	}
-	if expected.AutoIncrement != actual.AutoIncrement {
-		issues = append(issues, "auto increment mismatch")
-	}
-	if expected.DefaultValue != "" && normalizeDefault(expected.DefaultValue) != normalizeDefault(actual.DefaultValue) {
-		issues = append(issues, "default mismatch")
-	}
-	return issues
+	return lo.FilterMap([]string{
+		typeMismatchIssue(expectedType, actualType),
+		nullableMismatchIssue(expected, actual),
+		autoIncrementMismatchIssue(expected, actual),
+		defaultMismatchIssue(expected, actual),
+	}, func(issue string, _ int) (string, bool) {
+		return issue, issue != ""
+	})
 }
 
 func buildCreateTableAction(schemaDialect SchemaDialect, spec TableSpec) MigrationAction {
@@ -181,4 +175,32 @@ func normalizeReferentialAction(action ReferentialAction) ReferentialAction {
 func clonePrimaryKeyState(state PrimaryKeyState) PrimaryKeyState {
 	state.Columns = slices.Clone(state.Columns)
 	return state
+}
+
+func typeMismatchIssue(expectedType, actualType string) string {
+	if expectedType == "" || actualType == "" || expectedType == actualType {
+		return ""
+	}
+	return "type mismatch: expected " + expectedType + " got " + actualType
+}
+
+func nullableMismatchIssue(expected ColumnMeta, actual ColumnState) string {
+	if actual.PrimaryKey || expected.Nullable == actual.Nullable {
+		return ""
+	}
+	return "nullable mismatch"
+}
+
+func autoIncrementMismatchIssue(expected ColumnMeta, actual ColumnState) string {
+	if expected.AutoIncrement == actual.AutoIncrement {
+		return ""
+	}
+	return "auto increment mismatch"
+}
+
+func defaultMismatchIssue(expected ColumnMeta, actual ColumnState) string {
+	if expected.DefaultValue == "" || normalizeDefault(expected.DefaultValue) == normalizeDefault(actual.DefaultValue) {
+		return ""
+	}
+	return "default mismatch"
 }

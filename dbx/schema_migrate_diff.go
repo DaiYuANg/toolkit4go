@@ -123,15 +123,10 @@ func diffChecks(expected []CheckMeta, actual []CheckState, diff *TableDiff) {
 }
 
 func missingByKey[T any, S any](expected []T, actual map[string]S, key func(T) string) []T {
-	missing := make([]T, 0, len(expected))
-	for i := range expected {
-		item := expected[i]
-		if _, ok := actual[key(item)]; ok {
-			continue
-		}
-		missing = append(missing, item)
-	}
-	return missing
+	return lo.Filter(expected, func(item T, _ int) bool {
+		_, ok := actual[key(item)]
+		return !ok
+	})
 }
 
 func buildTableSpec(def schemaDefinition) TableSpec {

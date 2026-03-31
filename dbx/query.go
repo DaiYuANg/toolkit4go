@@ -142,22 +142,18 @@ func cloneCTEs(items []CTE) []CTE {
 	if len(items) == 0 {
 		return nil
 	}
-	cloned := make([]CTE, len(items))
-	for i, item := range items {
-		cloned[i] = CTE{Name: item.Name, Query: item.Query.Clone()}
-	}
-	return cloned
+	return lo.Map(items, func(item CTE, _ int) CTE {
+		return CTE{Name: item.Name, Query: item.Query.Clone()}
+	})
 }
 
 func cloneUnionClauses(items []UnionClause) []UnionClause {
 	if len(items) == 0 {
 		return nil
 	}
-	cloned := make([]UnionClause, len(items))
-	for i, item := range items {
-		cloned[i] = UnionClause{All: item.All, Query: item.Query.Clone()}
-	}
-	return cloned
+	return lo.Map(items, func(item UnionClause, _ int) UnionClause {
+		return UnionClause{All: item.All, Query: item.Query.Clone()}
+	})
 }
 
 func cloneInt(value *int) *int {

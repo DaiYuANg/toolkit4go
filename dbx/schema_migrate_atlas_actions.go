@@ -7,17 +7,20 @@ import (
 
 	atlasmigrate "ariga.io/atlas/sql/migrate"
 	atlasschema "ariga.io/atlas/sql/schema"
+	"github.com/samber/lo"
 )
 
 func atlasSplitChanges(changes []atlasschema.Change) ([]atlasschema.Change, []MigrationAction) {
-	safeChanges := make([]atlasschema.Change, 0, len(changes))
-	manualActions := make([]MigrationAction, 0, len(changes))
-	for _, change := range changes {
+	result := lo.Reduce(changes, func(acc atlasSplitResult, change atlasschema.Change, _ int) atlasSplitResult {
 		currentSafe, currentManual := atlasClassifyChange(change)
-		safeChanges = append(safeChanges, currentSafe...)
-		manualActions = append(manualActions, currentManual...)
-	}
-	return safeChanges, manualActions
+		acc.safeChanges = append(acc.safeChanges, currentSafe...)
+		acc.manualActions = append(acc.manualActions, currentManual...)
+		return acc
+	}, atlasSplitResult{
+		safeChanges:   make([]atlasschema.Change, 0, len(changes)),
+		manualActions: make([]MigrationAction, 0, len(changes)),
+	})
+	return result.safeChanges, result.manualActions
 }
 
 func atlasClassifyChange(change atlasschema.Change) ([]atlasschema.Change, []MigrationAction) {
@@ -73,11 +76,9 @@ func atlasPlanChangeActions(ctx context.Context, driver atlasmigrate.Driver, cha
 		}
 		return nil, wrapDBError("plan atlas schema changes", err)
 	}
-	actions := make([]MigrationAction, 0, len(plan.Changes))
-	for _, planned := range plan.Changes {
-		actions = append(actions, atlasPlannedAction(change, planned))
-	}
-	return actions, nil
+	return lo.Map(plan.Changes, func(planned *atlasmigrate.Change, _ int) MigrationAction {
+		return atlasPlannedAction(change, planned)
+	}), nil
 }
 
 func atlasPlannedAction(change atlasschema.Change, planned *atlasmigrate.Change) MigrationAction {
@@ -268,4 +269,9 @@ func atlasChangeTableName(change atlasschema.Change) string {
 	default:
 		return ""
 	}
+}
+
+type atlasSplitResult struct {
+	safeChanges   []atlasschema.Change
+	manualActions []MigrationAction
 }
