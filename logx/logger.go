@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
-	"github.com/samber/lo"
 	oopszerolog "github.com/samber/oops/loggers/zerolog"
 	slogzerolog "github.com/samber/slog-zerolog/v2"
 	"go.opentelemetry.io/otel/trace"
@@ -36,17 +36,18 @@ func (s *lifecycleState) close() error {
 	}
 
 	s.closeOnce.Do(func() {
-		errs := lo.FilterMap(s.closers, func(closer io.Closer, _ int) (error, bool) {
+		errs := collectionx.NewListWithCapacity[error](len(s.closers))
+		for _, closer := range s.closers {
 			if closer == nil {
-				return nil, false
+				continue
 			}
 			err := closer.Close()
 			if err == nil {
-				return nil, false
+				continue
 			}
-			return fmt.Errorf("close logger resource: %w", err), true
-		})
-		s.closeErr = errors.Join(errs...)
+			errs.Add(fmt.Errorf("close logger resource: %w", err))
+		}
+		s.closeErr = errors.Join(errs.Values()...)
 	})
 
 	return s.closeErr
@@ -228,10 +229,11 @@ func WithFields(logger *slog.Logger, fields map[string]any) *slog.Logger {
 	if len(fields) == 0 {
 		return logger
 	}
-	args := lo.FlatMap(lo.Entries(fields), func(entry lo.Entry[string, any], _ int) []any {
-		return []any{entry.Key, entry.Value}
-	})
-	return logger.With(args...)
+	args := collectionx.NewListWithCapacity[any](len(fields) * 2)
+	for key, value := range fields {
+		args.Add(key, value)
+	}
+	return logger.With(args.Values()...)
 }
 
 // WithError adds an error field and returns a derived logger.
