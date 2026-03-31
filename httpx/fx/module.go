@@ -2,7 +2,7 @@ package fx
 
 import (
 	"github.com/DaiYuANg/arcgo/httpx"
-	"github.com/samber/lo"
+	pkgfx "github.com/DaiYuANg/arcgo/pkg/fx"
 	"go.uber.org/fx"
 )
 
@@ -29,19 +29,7 @@ func NewServer(params ServerParams) ServerResult {
 
 // WithServerOptions adds server options into fxx option group.
 func WithServerOptions(opts ...httpx.ServerOption) fx.Option {
-	filtered := lo.Filter(opts, func(item httpx.ServerOption, _ int) bool {
-		return item != nil
-	})
-	if len(filtered) == 0 {
-		return fx.Options()
-	}
-
-	return fx.Provide(
-		fx.Annotate(
-			func() []httpx.ServerOption { return filtered },
-			fx.ResultTags(`group:"httpx_server_options,flatten"`),
-		),
-	)
+	return pkgfx.ProvideOptionGroup[httpx.Server, httpx.ServerOption]("httpx_server_options", opts...)
 }
 
 // NewHttpxModule creates a httpx fxx module.
