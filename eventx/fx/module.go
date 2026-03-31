@@ -1,9 +1,9 @@
 package fx
 
 import (
-	"go.uber.org/fx"
-
 	"github.com/DaiYuANg/arcgo/eventx"
+	pkgfx "github.com/DaiYuANg/arcgo/pkg/fx"
+	"go.uber.org/fx"
 )
 
 // EventParams defines parameters for eventx module.
@@ -11,7 +11,7 @@ type EventParams struct {
 	fx.In
 
 	// Options for creating event bus.
-	Options []eventx.Option `optional:"true"`
+	Options []eventx.Option `group:"eventx_options,soft"`
 }
 
 // EventResult defines result for eventx module.
@@ -31,10 +31,8 @@ func NewEventBus(params EventParams) EventResult {
 // NewEventxModule creates a eventx module.
 func NewEventxModule(opts ...eventx.Option) fx.Option {
 	return fx.Module("eventx",
-		fx.Provide(
-			func() []eventx.Option { return opts },
-			NewEventBus,
-		),
+		pkgfx.ProvideOptionGroup[eventx.Options, eventx.Option]("eventx_options", opts...),
+		fx.Provide(NewEventBus),
 	)
 }
 
