@@ -99,8 +99,7 @@ func collectPendingGoMigrations(
 	validateHash bool,
 ) ([]Migration, error) {
 	pending := collectionx.NewListWithCapacity[Migration](len(statuses))
-	for i := range statuses {
-		status := statuses[i]
+	for _, status := range statuses {
 		migration, ok := byVersion[status.Source.Version]
 		if !ok {
 			continue
@@ -162,8 +161,7 @@ func collectPendingSQLMigrations(
 	validateHash bool,
 ) ([]SQLMigration, error) {
 	pending := collectionx.NewListWithCapacity[SQLMigration](len(statuses))
-	for i := range statuses {
-		status := statuses[i]
+	for _, status := range statuses {
 		migration, ok := byVersion[status.Source.Version]
 		if !ok {
 			continue
