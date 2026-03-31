@@ -30,11 +30,7 @@ type TypedGuard[C any, P any] struct {
 // NewTypedGuard constructs a TypedGuard from engine and opts.
 func NewTypedGuard[C any, P any](engine *authx.Engine, opts ...TypedOption[C, P]) *TypedGuard[C, P] {
 	guard := &TypedGuard[C, P]{engine: engine}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(guard)
-		}
-	}
+	ApplyOptions(guard, opts...)
 	return guard
 }
 
