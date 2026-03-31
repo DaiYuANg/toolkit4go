@@ -9,7 +9,6 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx/set"
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/samber/lo"
 )
 
 // OperationBinaryResponse documents a binary payload for HTTP 200.
@@ -176,12 +175,12 @@ func normalizeContentTypes(values []string, fallback string) []string {
 	}
 
 	ordered := set.NewOrderedSet[string]()
-	lo.ForEach(lo.FilterMap(values, func(value string, _ int) (string, bool) {
+	for _, value := range values {
 		trimmed := strings.TrimSpace(value)
-		return trimmed, trimmed != ""
-	}), func(contentType string, _ int) {
-		ordered.Add(contentType)
-	})
+		if trimmed != "" {
+			ordered.Add(trimmed)
+		}
+	}
 	normalized := ordered.Values()
 	if len(normalized) == 0 {
 		return []string{fallback}

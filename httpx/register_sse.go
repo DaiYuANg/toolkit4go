@@ -99,11 +99,10 @@ func validateSSERouteRegistration[I any](eventTypeMap map[string]any, handler SS
 	if len(eventTypeMap) == 0 {
 		return fmt.Errorf("%w: sse event map is empty", ErrRouteNotRegistered)
 	}
-	nilEventTypes := lo.FilterMap(lo.Entries(eventTypeMap), func(entry lo.Entry[string, any], _ int) (string, bool) {
-		return entry.Key, entry.Value == nil
-	})
-	if len(nilEventTypes) > 0 {
-		return fmt.Errorf("%w: sse event type is nil for event %q", ErrRouteNotRegistered, nilEventTypes[0])
+	for eventName, eventType := range eventTypeMap {
+		if eventType == nil {
+			return fmt.Errorf("%w: sse event type is nil for event %q", ErrRouteNotRegistered, eventName)
+		}
 	}
 	if handler == nil {
 		return fmt.Errorf("%w: sse handler is nil", ErrRouteNotRegistered)

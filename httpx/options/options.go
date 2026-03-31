@@ -12,7 +12,6 @@ import (
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/go-playground/validator/v10"
-	"github.com/samber/lo"
 )
 
 // ServerOptions collects higher-level server construction settings.
@@ -224,10 +223,7 @@ func WithContextValue(key string, value any) ContextOption {
 // Build creates a context and optional cancel function from the configured values.
 func (o *ContextOptions) Build() (context.Context, context.CancelFunc) {
 	ctx, cancel := baseContext(o)
-	ctx = lo.Reduce(lo.Entries(o.ValueKeys), func(acc context.Context, entry lo.Entry[contextValueKey, any], _ int) context.Context {
-		return context.WithValue(acc, entry.Key, entry.Value)
-	}, ctx)
-	return ctx, cancel
+	return applyContextValues(ctx, o.ValueKeys), cancel
 }
 
 // WithContextValueOpt mutates a ContextOptions value directly.
@@ -262,4 +258,29 @@ func baseContext(o *ContextOptions) (context.Context, context.CancelFunc) {
 	default:
 		return context.Background(), nil
 	}
+}
+
+func applyContextValues(ctx context.Context, values map[contextValueKey]any) context.Context {
+	if len(values) == 0 {
+		return ctx
+	}
+
+	keys := make([]contextValueKey, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	return applyContextValueEntries(ctx, values, keys)
+}
+
+func applyContextValueEntries(
+	ctx context.Context,
+	values map[contextValueKey]any,
+	keys []contextValueKey,
+) context.Context {
+	if len(keys) == 0 {
+		return ctx
+	}
+
+	key := keys[0]
+	return applyContextValueEntries(context.WithValue(ctx, key, values[key]), values, keys[1:])
 }
