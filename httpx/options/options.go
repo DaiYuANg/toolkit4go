@@ -9,6 +9,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/httpx"
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/go-playground/validator/v10"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -48,7 +49,7 @@ type ServerOption func(*ServerOptions)
 // Compose combines multiple option functions into one.
 func Compose(opts ...ServerOption) ServerOption {
 	return func(o *ServerOptions) {
-		applyOptions(o, opts...)
+		option.Apply(o, opts...)
 	}
 }
 

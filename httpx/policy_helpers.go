@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/danielgtaylor/huma/v2"
 )
 
@@ -9,7 +10,7 @@ func buildOperationMutation(operationOptions []OperationOption) func(*huma.Opera
 		if op == nil {
 			return
 		}
-		applyOptions(op, operationOptions...)
+		option.Apply(op, operationOptions...)
 	}
 }
 
@@ -17,7 +18,7 @@ func applyOperationMutations(op *huma.Operation, mutators []func(*huma.Operation
 	if op == nil || len(mutators) == 0 {
 		return
 	}
-	applyOptions(op, mutators...)
+	option.Apply(op, mutators...)
 }
 
 func applyWrappers[T any](handler T, wrappers []func(T) T) T {

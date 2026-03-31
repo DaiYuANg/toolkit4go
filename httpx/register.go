@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/samber/lo"
 )
@@ -244,7 +245,7 @@ func newTypedOperation[I, O any](
 		Method:      method,
 		Path:        registerPath,
 	}
-	applyOptions(&op, operationOptions...)
+	option.Apply(&op, operationOptions...)
 	applyPolicyOperations(&op, policies)
 	return op
 }
@@ -253,7 +254,7 @@ func applyOperationModifiers(op *huma.Operation, modifiers []func(*huma.Operatio
 	if op == nil {
 		return
 	}
-	applyOptions(op, modifiers...)
+	option.Apply(op, modifiers...)
 }
 
 // handlerName returns a best-effort function name for diagnostics.

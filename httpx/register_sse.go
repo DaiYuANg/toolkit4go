@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/danielgtaylor/huma/v2"
 	humasse "github.com/danielgtaylor/huma/v2/sse"
 	"github.com/samber/lo"
@@ -122,7 +123,7 @@ func newSSEOperation[I any](
 		Method:      method,
 		Path:        registerPath,
 	}
-	applyOptions(&op, operationOptions...)
+	option.Apply(&op, operationOptions...)
 	applySSEPolicyOperations(&op, policies)
 	return op
 }

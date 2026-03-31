@@ -10,6 +10,7 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-playground/validator/v10"
 )
@@ -53,7 +54,7 @@ func newServer(opts ...ServerOption) *Server {
 		operationModifiers: list.NewConcurrentList[func(*huma.Operation)](),
 	}
 
-	applyOptions(s, opts...)
+	option.Apply(s, opts...)
 
 	if s.adapter == nil {
 		s.adapter = std.New(nil)
