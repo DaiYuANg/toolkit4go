@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/samber/lo"
 )
 
 // HealthKind is the category of a health check.
@@ -67,9 +66,12 @@ type HealthReport struct {
 
 // Healthy reports whether all checks passed.
 func (r HealthReport) Healthy() bool {
-	return lo.EveryBy(lo.Values(r.Checks), func(err error) bool {
-		return err == nil
-	})
+	for _, err := range r.Checks {
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // Error returns a combined error when one or more checks fail.
@@ -78,14 +80,16 @@ func (r HealthReport) Error() error {
 		return nil
 	}
 
-	names := lo.FilterMap(lo.Entries(r.Checks), func(entry lo.Entry[string, error], _ int) (string, bool) {
-		if entry.Value == nil {
-			return "", false
+	names := collectionx.NewListWithCapacity[string](len(r.Checks))
+	for name, err := range r.Checks {
+		if err == nil {
+			continue
 		}
-		return fmt.Sprintf("%s: %v", entry.Key, entry.Value), true
-	})
-	sort.Strings(names)
-	return fmt.Errorf("health check failed: %s", strings.Join(names, "; "))
+		names.Add(fmt.Sprintf("%s: %v", name, err))
+	}
+	parts := names.Values()
+	sort.Strings(parts)
+	return fmt.Errorf("health check failed: %s", strings.Join(parts, "; "))
 }
 
 // MarshalJSON renders a user-friendly JSON payload for HTTP endpoints.
@@ -97,14 +101,13 @@ func (r HealthReport) MarshalJSON() ([]byte, error) {
 	}
 
 	checks := collectionx.NewMapWithCapacity[string, *string](len(r.Checks))
-	lo.ForEach(lo.Entries(r.Checks), func(entry lo.Entry[string, error], _ int) {
-		name, err := entry.Key, entry.Value
+	for name, err := range r.Checks {
 		if err == nil {
 			checks.Set(name, nil)
-			return
+			continue
 		}
 		checks.Set(name, new(err.Error()))
-	})
+	}
 
 	data, err := json.Marshal(payload{Kind: r.Kind, Healthy: r.Healthy(), Checks: checks.All()})
 	if err != nil {
@@ -134,23 +137,33 @@ func (r *Runtime) checkHealthByKind(ctx context.Context, kind HealthKind) Health
 		return report
 	}
 
-	checks := lo.Filter(r.container.healthChecks.Values(), func(check healthCheckEntry, _ int) bool {
-		return check.kind == kind
-	})
-	reportChecks := collectionx.NewMapWithCapacity[string, error](len(checks))
-	lo.ForEach(checks, func(check healthCheckEntry, _ int) {
-		err := check.fn(ctx)
-		reportChecks.Set(check.name, err)
-		if r.logger != nil {
-			if err != nil {
-				r.logger.Warn("health check failed", "kind", check.kind, "check", check.name, "error", err)
-			} else {
-				r.logger.Debug("health check passed", "kind", check.kind, "check", check.name)
-			}
+	entries := r.container.healthChecks.Values()
+	reportChecks := collectionx.NewMapWithCapacity[string, error](len(entries))
+	for _, check := range entries {
+		if check.kind != kind {
+			continue
 		}
-	})
+		reportChecks.Set(check.name, r.runHealthCheck(ctx, check))
+	}
 	report.Checks = reportChecks.All()
 	return report
+}
+
+func (r *Runtime) runHealthCheck(ctx context.Context, check healthCheckEntry) error {
+	err := check.fn(ctx)
+	r.logHealthCheck(check, err)
+	return err
+}
+
+func (r *Runtime) logHealthCheck(check healthCheckEntry, err error) {
+	if r.logger == nil {
+		return
+	}
+	if err != nil {
+		r.logger.Warn("health check failed", "kind", check.kind, "check", check.name, "error", err)
+		return
+	}
+	r.logger.Debug("health check passed", "kind", check.kind, "check", check.name)
 }
 
 // HealthHandler returns a HTTP handler for general health checks.
