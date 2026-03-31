@@ -78,18 +78,7 @@ func requireWithMode(guard *authhttp.Guard, fast bool, opts ...Option) gin.Handl
 }
 
 func requestInfoFromGinFast(c *gin.Context, req *http.Request) authhttp.RequestInfo {
-	path := ""
-	method := ""
-	pattern := c.FullPath()
-	if req != nil {
-		method = req.Method
-		if req.URL != nil {
-			path = req.URL.Path
-		}
-	}
-	if pattern == "" {
-		pattern = path
-	}
+	method, path, pattern := requestMetaFromGin(c, req)
 
 	return authhttp.RequestInfo{
 		Method:       method,
@@ -104,18 +93,7 @@ func requestInfoFromGinFast(c *gin.Context, req *http.Request) authhttp.RequestI
 }
 
 func requestInfoFromGin(c *gin.Context, req *http.Request) authhttp.RequestInfo {
-	path := ""
-	method := ""
-	pattern := c.FullPath()
-	if req != nil {
-		method = req.Method
-		if req.URL != nil {
-			path = req.URL.Path
-		}
-	}
-	if pattern == "" {
-		pattern = path
-	}
+	method, path, pattern := requestMetaFromGin(c, req)
 
 	var params map[string]string
 	if len(c.Params) > 0 {
@@ -127,10 +105,7 @@ func requestInfoFromGin(c *gin.Context, req *http.Request) authhttp.RequestInfo 
 	var headers http.Header
 	var query map[string][]string
 	if req != nil {
-		headers = req.Header.Clone()
-		if req.URL != nil && req.URL.RawQuery != "" {
-			query = req.URL.Query()
-		}
+		headers, query = clonedRequestData(req)
 	}
 
 	return authhttp.RequestInfo{
@@ -143,4 +118,31 @@ func requestInfoFromGin(c *gin.Context, req *http.Request) authhttp.RequestInfo 
 		Request:      req,
 		Native:       c,
 	}
+}
+
+func requestMetaFromGin(c *gin.Context, req *http.Request) (method, path, pattern string) {
+	pattern = c.FullPath()
+	if req != nil {
+		method = req.Method
+		if req.URL != nil {
+			path = req.URL.Path
+		}
+	}
+	if pattern == "" {
+		pattern = path
+	}
+	return method, path, pattern
+}
+
+func clonedRequestData(req *http.Request) (http.Header, map[string][]string) {
+	if req == nil {
+		return nil, nil
+	}
+
+	headers := req.Header.Clone()
+	if req.URL == nil || req.URL.RawQuery == "" {
+		return headers, nil
+	}
+
+	return headers, req.URL.Query()
 }
