@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/samber/lo"
 )
 
@@ -23,11 +24,7 @@ type Engine struct {
 // NewEngine constructs an Engine from opts.
 func NewEngine(opts ...EngineOption) *Engine {
 	engine := &Engine{logger: slog.Default()}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(engine)
-		}
-	}
+	option.Apply(engine, opts...)
 	engine.logDebug("authx engine created", "hooks", len(engine.hooks), "has_authn", engine.authn != nil, "has_authz", engine.authz != nil)
 	return engine
 }
