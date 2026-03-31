@@ -2,11 +2,11 @@ package activerecord
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
-	"github.com/samber/lo"
 )
 
 func (s *Store[E, S]) keyOf(entity *E) repository.Key {
@@ -108,7 +108,7 @@ func cloneKey(key repository.Key) repository.Key {
 	if len(key) == 0 {
 		return nil
 	}
-	return lo.Assign(repository.Key{}, key)
+	return maps.Clone(key)
 }
 
 func hasZeroKeyValue(key repository.Key) bool {
