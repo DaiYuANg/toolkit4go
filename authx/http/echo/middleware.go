@@ -75,18 +75,7 @@ func requireWithMode(guard *authhttp.Guard, fast bool, opts ...Option) echo.Midd
 }
 
 func requestInfoFromEchoFast(c echo.Context, req *http.Request) authhttp.RequestInfo {
-	path := ""
-	method := ""
-	pattern := c.Path()
-	if req != nil {
-		method = req.Method
-		if req.URL != nil {
-			path = req.URL.Path
-		}
-	}
-	if pattern == "" {
-		pattern = path
-	}
+	method, path, pattern := requestMetaFromEcho(c, req)
 
 	return authhttp.RequestInfo{
 		Method:       method,
@@ -101,18 +90,7 @@ func requestInfoFromEchoFast(c echo.Context, req *http.Request) authhttp.Request
 }
 
 func requestInfoFromEcho(c echo.Context, req *http.Request) authhttp.RequestInfo {
-	path := ""
-	method := ""
-	pattern := c.Path()
-	if req != nil {
-		method = req.Method
-		if req.URL != nil {
-			path = req.URL.Path
-		}
-	}
-	if pattern == "" {
-		pattern = path
-	}
+	method, path, pattern := requestMetaFromEcho(c, req)
 
 	paramNames := c.ParamNames()
 	var params map[string]string
@@ -125,10 +103,7 @@ func requestInfoFromEcho(c echo.Context, req *http.Request) authhttp.RequestInfo
 	var headers http.Header
 	var query map[string][]string
 	if req != nil {
-		headers = req.Header.Clone()
-		if req.URL != nil && req.URL.RawQuery != "" {
-			query = req.URL.Query()
-		}
+		headers, query = clonedRequestData(req)
 	}
 
 	return authhttp.RequestInfo{
@@ -141,4 +116,31 @@ func requestInfoFromEcho(c echo.Context, req *http.Request) authhttp.RequestInfo
 		Request:      req,
 		Native:       c,
 	}
+}
+
+func requestMetaFromEcho(c echo.Context, req *http.Request) (method, path, pattern string) {
+	pattern = c.Path()
+	if req != nil {
+		method = req.Method
+		if req.URL != nil {
+			path = req.URL.Path
+		}
+	}
+	if pattern == "" {
+		pattern = path
+	}
+	return method, path, pattern
+}
+
+func clonedRequestData(req *http.Request) (http.Header, map[string][]string) {
+	if req == nil {
+		return nil, nil
+	}
+
+	headers := req.Header.Clone()
+	if req.URL == nil || req.URL.RawQuery == "" {
+		return headers, nil
+	}
+
+	return headers, req.URL.Query()
 }
