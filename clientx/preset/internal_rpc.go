@@ -92,11 +92,7 @@ func WithInternalRPCOption(opt clienttcp.Option) InternalRPCOption {
 // NewInternalRPC creates a TCP client tuned for internal RPC traffic.
 func NewInternalRPC(cfg clienttcp.Config, opts ...InternalRPCOption) (clienttcp.Client, error) {
 	preset := defaultInternalRPCPreset()
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&preset)
-		}
-	}
+	clientx.Apply(&preset, opts...)
 
 	tuned := tuneInternalRPCConfig(cfg, preset)
 	clientOpts := buildInternalRPCOptions(preset)

@@ -77,11 +77,7 @@ func WithEdgeHTTPOption(opt clienthttp.Option) EdgeHTTPOption {
 // NewEdgeHTTP creates an HTTP client tuned for edge-facing traffic.
 func NewEdgeHTTP(cfg clienthttp.Config, opts ...EdgeHTTPOption) (clienthttp.Client, error) {
 	preset := defaultEdgeHTTPPreset()
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&preset)
-		}
-	}
+	clientx.Apply(&preset, opts...)
 
 	tuned := tuneEdgeHTTPConfig(cfg, preset)
 	clientOpts := buildEdgeHTTPOptions(preset)

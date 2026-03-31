@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/clientx"
 	clientudp "github.com/DaiYuANg/arcgo/clientx/udp"
 )
 
@@ -66,31 +67,10 @@ func WithLowLatencyUDPOption(opt clientudp.Option) LowLatencyUDPOption {
 // NewLowLatencyUDP creates a UDP client tuned for low-latency traffic.
 func NewLowLatencyUDP(cfg clientudp.Config, opts ...LowLatencyUDPOption) (clientudp.Client, error) {
 	preset := defaultLowLatencyUDPPreset()
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&preset)
-		}
-	}
+	clientx.Apply(&preset, opts...)
 
-	tuned := cfg
-	if tuned.DialTimeout == 0 {
-		tuned.DialTimeout = preset.dialTimeout
-	}
-	if tuned.ReadTimeout == 0 {
-		tuned.ReadTimeout = preset.readTimeout
-	}
-	if tuned.WriteTimeout == 0 {
-		tuned.WriteTimeout = preset.writeTimeout
-	}
-
-	clientOpts := make([]clientudp.Option, 0, 2+len(preset.options))
-	if preset.timeoutGuard > 0 {
-		clientOpts = append(clientOpts, clientudp.WithTimeoutGuard(preset.timeoutGuard))
-	}
-	if preset.concurrencyLimit > 0 {
-		clientOpts = append(clientOpts, clientudp.WithConcurrencyLimit(preset.concurrencyLimit))
-	}
-	clientOpts = append(clientOpts, preset.options...)
+	tuned := tuneLowLatencyUDPConfig(cfg, preset)
+	clientOpts := buildLowLatencyUDPOptions(preset)
 	client, err := clientudp.New(tuned, clientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("build low latency udp client: %w", err)
@@ -106,4 +86,30 @@ func defaultLowLatencyUDPPreset() lowLatencyUDPPreset {
 		timeoutGuard:     200 * time.Millisecond,
 		concurrencyLimit: 1024,
 	}
+}
+
+func tuneLowLatencyUDPConfig(cfg clientudp.Config, preset lowLatencyUDPPreset) clientudp.Config {
+	tuned := cfg
+	if tuned.DialTimeout == 0 {
+		tuned.DialTimeout = preset.dialTimeout
+	}
+	if tuned.ReadTimeout == 0 {
+		tuned.ReadTimeout = preset.readTimeout
+	}
+	if tuned.WriteTimeout == 0 {
+		tuned.WriteTimeout = preset.writeTimeout
+	}
+	return tuned
+}
+
+func buildLowLatencyUDPOptions(preset lowLatencyUDPPreset) []clientudp.Option {
+	clientOpts := make([]clientudp.Option, 0, 2+len(preset.options))
+	if preset.timeoutGuard > 0 {
+		clientOpts = append(clientOpts, clientudp.WithTimeoutGuard(preset.timeoutGuard))
+	}
+	if preset.concurrencyLimit > 0 {
+		clientOpts = append(clientOpts, clientudp.WithConcurrencyLimit(preset.concurrencyLimit))
+	}
+	clientOpts = append(clientOpts, preset.options...)
+	return clientOpts
 }
