@@ -12,7 +12,6 @@ import (
 	"github.com/DaiYuANg/arcgo/httpx/adapter/std"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-playground/validator/v10"
-	"github.com/samber/lo"
 )
 
 // Server is the central httpx runtime object used to register routes and expose
@@ -54,9 +53,7 @@ func newServer(opts ...ServerOption) *Server {
 		operationModifiers: list.NewConcurrentList[func(*huma.Operation)](),
 	}
 
-	lo.ForEach(opts, func(opt ServerOption, _ int) {
-		opt(s)
-	})
+	applyOptions(s, opts...)
 
 	if s.adapter == nil {
 		s.adapter = std.New(nil)

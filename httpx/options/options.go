@@ -48,11 +48,7 @@ type ServerOption func(*ServerOptions)
 // Compose combines multiple option functions into one.
 func Compose(opts ...ServerOption) ServerOption {
 	return func(o *ServerOptions) {
-		lo.ForEach(opts, func(opt ServerOption, _ int) {
-			if opt != nil {
-				opt(o)
-			}
-		})
+		applyOptions(o, opts...)
 	}
 }
 

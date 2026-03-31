@@ -122,11 +122,7 @@ func newSSEOperation[I any](
 		Method:      method,
 		Path:        registerPath,
 	}
-	lo.ForEach(operationOptions, func(opt OperationOption, _ int) {
-		if opt != nil {
-			opt(&op)
-		}
-	})
+	applyOptions(&op, operationOptions...)
 	applySSEPolicyOperations(&op, policies)
 	return op
 }

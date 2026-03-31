@@ -4,8 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"reflect"
-
-	"github.com/samber/lo"
 )
 
 // Endpoint is an optional route-module interface for organizing related routes.
@@ -40,20 +38,11 @@ func (s *Server) Register(endpoint Endpoint, hooks ...EndpointHooks) {
 		)
 	}
 
-	lo.ForEach(hooks, func(h EndpointHooks, _ int) {
-		if h.Before != nil {
-			h.Before(s, endpoint)
-		}
-	})
+	runEndpointHooks(s, endpoint, hooks, func(h EndpointHooks) EndpointHookFunc { return h.Before })
 
 	endpoint.RegisterRoutes(s)
 
-	// After hooks
-	lo.ForEach(hooks, func(h EndpointHooks, _ int) {
-		if h.After != nil {
-			h.After(s, endpoint)
-		}
-	})
+	runEndpointHooks(s, endpoint, hooks, func(h EndpointHooks) EndpointHookFunc { return h.After })
 	if s != nil && s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
 		s.logger.Debug("httpx endpoint registration completed",
 			"endpoint_type", reflect.TypeOf(endpoint).String(),
@@ -64,13 +53,13 @@ func (s *Server) Register(endpoint Endpoint, hooks ...EndpointHooks) {
 
 // RegisterOnly registers endpoints without hook processing.
 func (s *Server) RegisterOnly(endpoints ...Endpoint) {
-	lo.ForEach(endpoints, func(e Endpoint, _ int) {
+	for _, e := range endpoints {
 		if e == nil {
 			if s.logger != nil {
 				s.logger.Warn("skipping nil endpoint")
 			}
-			return
+			continue
 		}
 		e.RegisterRoutes(s)
-	})
+	}
 }

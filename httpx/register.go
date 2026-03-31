@@ -244,21 +244,16 @@ func newTypedOperation[I, O any](
 		Method:      method,
 		Path:        registerPath,
 	}
-	lo.ForEach(operationOptions, func(opt OperationOption, _ int) {
-		if opt != nil {
-			opt(&op)
-		}
-	})
+	applyOptions(&op, operationOptions...)
 	applyPolicyOperations(&op, policies)
 	return op
 }
 
 func applyOperationModifiers(op *huma.Operation, modifiers []func(*huma.Operation)) {
-	lo.ForEach(modifiers, func(modifier func(*huma.Operation), _ int) {
-		if modifier != nil {
-			modifier(op)
-		}
-	})
+	if op == nil {
+		return
+	}
+	applyOptions(op, modifiers...)
 }
 
 // handlerName returns a best-effort function name for diagnostics.
