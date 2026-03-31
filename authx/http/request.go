@@ -2,10 +2,9 @@ package authhttp
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"net/url"
-
-	"github.com/samber/lo"
 )
 
 type routePatternContextKey struct{}
@@ -187,7 +186,7 @@ func cloneStringMap(in map[string]string) map[string]string {
 	if len(in) == 0 {
 		return nil
 	}
-	return lo.Assign(map[string]string{}, in)
+	return maps.Clone(in)
 }
 
 func queryValuesFromURL(uri *url.URL) url.Values {
