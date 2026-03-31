@@ -30,13 +30,7 @@ type Adapter struct {
 
 // New constructs a gin adapter backed by a gin engine and Huma API.
 func New(engine *gin.Engine, opts ...adapter.HumaOptions) *Adapter {
-	var eng *gin.Engine
-	if engine != nil {
-		eng = engine
-	} else {
-		eng = gin.New()
-	}
-
+	eng := orDefaultEngine(engine)
 	humaOpts := adapter.MergeHumaOptions(opts...)
 	cfg := huma.DefaultConfig(humaOpts.Title, humaOpts.Version)
 	adapter.ApplyHumaConfig(&cfg, humaOpts)
@@ -47,6 +41,13 @@ func New(engine *gin.Engine, opts ...adapter.HumaOptions) *Adapter {
 		huma:      api,
 		lifecycle: &lifecycleState{},
 	}
+}
+
+func orDefaultEngine(engine *gin.Engine) *gin.Engine {
+	if engine != nil {
+		return engine
+	}
+	return gin.New()
 }
 
 // Name returns the adapter name.
@@ -66,7 +67,7 @@ func (a *Adapter) Listen(addr string) error {
 	defer release()
 
 	if err := server.ListenAndServe(); err != nil {
-		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
+		return wrapGinListenError(addr, err)
 	}
 	return nil
 }
@@ -107,7 +108,7 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
+		return wrapGinListenError(addr, err)
 	case <-ctx.Done():
 		if err := a.shutdownContext(ctx); err != nil {
 			return fmt.Errorf("httpx/gin: shutdown on %q: %w", addr, err)
@@ -116,7 +117,7 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
+		return wrapGinListenError(addr, err)
 	}
 }
 
@@ -159,4 +160,8 @@ func (a *Adapter) activeServer() *http.Server {
 	a.lifecycle.mu.Lock()
 	defer a.lifecycle.mu.Unlock()
 	return a.lifecycle.server
+}
+
+func wrapGinListenError(addr string, err error) error {
+	return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
 }
