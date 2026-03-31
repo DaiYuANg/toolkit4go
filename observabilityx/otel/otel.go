@@ -9,6 +9,7 @@ import (
 
 	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/observabilityx"
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -56,12 +57,7 @@ func New(opts ...Option) observabilityx.Observability {
 		tracer: otel.Tracer(defaultTracerName),
 		meter:  otel.Meter(defaultMeterName),
 	}
-	for _, opt := range opts {
-		if opt == nil {
-			continue
-		}
-		opt(&cfg)
-	}
+	option.Apply(&cfg, opts...)
 
 	return &adapter{
 		logger:     observabilityx.NormalizeLogger(cfg.logger),

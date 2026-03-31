@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/samber/lo"
 )
 
 const defaultNamespace = "arcgo"
@@ -32,14 +32,7 @@ func defaultConfig() config {
 }
 
 func applyOptions(cfg *config, opts []Option) {
-	if cfg == nil {
-		return
-	}
-	lo.ForEach(opts, func(opt Option, _ int) {
-		if opt != nil {
-			opt(cfg)
-		}
-	})
+	option.Apply(cfg, opts...)
 }
 
 // WithLogger sets logger used by this adapter.
