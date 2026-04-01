@@ -3,17 +3,18 @@ package observabilityx
 import (
 	"context"
 	"log/slog"
-
-	"github.com/samber/lo"
 )
 
 // Multi combines multiple observability backends into one.
 //
 // Use this to send telemetry to more than one backend (for example OTel + Prometheus).
 func Multi(backends ...Observability) Observability {
-	filtered := lo.Filter(backends, func(backend Observability, _ int) bool {
-		return backend != nil
-	})
+	filtered := make([]Observability, 0, len(backends))
+	for _, backend := range backends {
+		if backend != nil {
+			filtered = append(filtered, backend)
+		}
+	}
 	if len(filtered) == 0 {
 		return Nop()
 	}
@@ -66,15 +67,15 @@ func (m *multiObservability) StartSpan(
 }
 
 func (m *multiObservability) AddCounter(ctx context.Context, name string, value int64, attrs ...Attribute) {
-	lo.ForEach(m.backends, func(backend Observability, _ int) {
+	for _, backend := range m.backends {
 		backend.AddCounter(ctx, name, value, attrs...)
-	})
+	}
 }
 
 func (m *multiObservability) RecordHistogram(ctx context.Context, name string, value float64, attrs ...Attribute) {
-	lo.ForEach(m.backends, func(backend Observability, _ int) {
+	for _, backend := range m.backends {
 		backend.RecordHistogram(ctx, name, value, attrs...)
-	})
+	}
 }
 
 type multiSpan struct {
@@ -82,22 +83,22 @@ type multiSpan struct {
 }
 
 func (s multiSpan) End() {
-	lo.ForEach(s.spans, func(span Span, _ int) {
+	for _, span := range s.spans {
 		span.End()
-	})
+	}
 }
 
 func (s multiSpan) RecordError(err error) {
 	if err == nil {
 		return
 	}
-	lo.ForEach(s.spans, func(span Span, _ int) {
+	for _, span := range s.spans {
 		span.RecordError(err)
-	})
+	}
 }
 
 func (s multiSpan) SetAttributes(attrs ...Attribute) {
-	lo.ForEach(s.spans, func(span Span, _ int) {
+	for _, span := range s.spans {
 		span.SetAttributes(attrs...)
-	})
+	}
 }
