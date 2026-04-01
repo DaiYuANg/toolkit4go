@@ -75,11 +75,13 @@ func (engine *Engine) Check(ctx context.Context, credential any) (Authentication
 		return AuthenticationResult{}, ErrAuthenticationManagerNotConfigured
 	}
 
-	for _, hook := range hooks {
-		if err := hook.BeforeCheck(ctx, credential); err != nil {
-			engine.logError("authx check before hook failed", "credential_type", reflect.TypeOf(credential), "error", err)
-			return AuthenticationResult{}, fmt.Errorf("before check hook: %w", err)
-		}
+	var beforeCheckErr error
+	if _, ok := lo.Find(hooks, func(hook Hook) bool {
+		beforeCheckErr = hook.BeforeCheck(ctx, credential)
+		return beforeCheckErr != nil
+	}); ok {
+		engine.logError("authx check before hook failed", "credential_type", reflect.TypeOf(credential), "error", beforeCheckErr)
+		return AuthenticationResult{}, fmt.Errorf("before check hook: %w", beforeCheckErr)
 	}
 
 	result, err := authn.Authenticate(ctx, credential)
@@ -107,11 +109,13 @@ func (engine *Engine) Can(ctx context.Context, input AuthorizationModel) (Decisi
 		return Decision{}, ErrAuthorizerNotConfigured
 	}
 
-	for _, hook := range hooks {
-		if err := hook.BeforeCan(ctx, input); err != nil {
-			engine.logError("authx can before hook failed", "action", input.Action, "resource", input.Resource, "error", err)
-			return Decision{}, fmt.Errorf("before authorization hook: %w", err)
-		}
+	var beforeCanErr error
+	if _, ok := lo.Find(hooks, func(hook Hook) bool {
+		beforeCanErr = hook.BeforeCan(ctx, input)
+		return beforeCanErr != nil
+	}); ok {
+		engine.logError("authx can before hook failed", "action", input.Action, "resource", input.Resource, "error", beforeCanErr)
+		return Decision{}, fmt.Errorf("before authorization hook: %w", beforeCanErr)
 	}
 
 	decision, err := authorizer.Authorize(ctx, input)

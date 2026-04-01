@@ -54,7 +54,7 @@ func (q *SelectQuery) joinRelation(joinType JoinType, source relationSchemaSourc
 	if err != nil {
 		return nil, err
 	}
-	q.Joins = append(q.Joins, joins...)
+	q.Joins = lo.Concat(q.Joins, joins)
 	return q, nil
 }
 

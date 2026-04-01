@@ -1,6 +1,10 @@
 package dbx
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/samber/lo"
+)
 
 type Aggregate[T any] struct {
 	Function AggregateFunction
@@ -66,7 +70,7 @@ func (b *CaseBuilder[T]) When(predicate Predicate, value any) *CaseBuilder[T] {
 	if b == nil {
 		b = &CaseBuilder[T]{}
 	}
-	b.branches = append(b.branches, caseWhenBranch{Predicate: predicate, Value: value})
+	b.branches = lo.Concat(b.branches, []caseWhenBranch{{Predicate: predicate, Value: value}})
 	return b
 }
 
