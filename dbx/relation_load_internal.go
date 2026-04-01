@@ -203,52 +203,19 @@ func indexRelationTargets[E any](targets []E, mapper Mapper[E], column, relation
 	return indexed, nil
 }
 
-func groupRelationTargets[E any](rt *relationRuntime, targets []E, mapper Mapper[E], column string) (map[any][]E, error) {
-	counts, err := relationCountsMap(rt)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		counts.Clear()
-		rt.countsMapPool.Put(counts)
-	}()
-	if err := countGroupedRelationTargets(counts, targets, mapper, column); err != nil {
-		return nil, err
-	}
-	grouped := groupedValuesFromCounts[E](counts)
-	if err := appendGroupedRelationTargets(grouped, targets, mapper, column); err != nil {
-		return nil, err
+func groupRelationTargets[E any](_ *relationRuntime, targets []E, mapper Mapper[E], column string) (collectionx.MultiMap[any, E], error) {
+	grouped := collectionx.NewMultiMapWithCapacity[any, E](len(targets))
+	for index := range targets {
+		key, err := presentEntityRelationKey(mapper, &targets[index], column)
+		if err != nil {
+			return nil, err
+		}
+		if !key.ok {
+			continue
+		}
+		grouped.Put(key.value, targets[index])
 	}
 	return grouped, nil
-}
-
-func countGroupedRelationTargets[E any](counts collectionx.Map[any, int], targets []E, mapper Mapper[E], column string) error {
-	for index := range targets {
-		key, err := presentEntityRelationKey(mapper, &targets[index], column)
-		if err != nil {
-			return err
-		}
-		if !key.ok {
-			continue
-		}
-		v, _ := counts.Get(key.value)
-		counts.Set(key.value, v+1)
-	}
-	return nil
-}
-
-func appendGroupedRelationTargets[E any](grouped map[any][]E, targets []E, mapper Mapper[E], column string) error {
-	for index := range targets {
-		key, err := presentEntityRelationKey(mapper, &targets[index], column)
-		if err != nil {
-			return err
-		}
-		if !key.ok {
-			continue
-		}
-		grouped[key.value] = append(grouped[key.value], targets[index])
-	}
-	return nil
 }
 
 func relationKeyTypeForMeta(def schemaDefinition, column string) reflect.Type {

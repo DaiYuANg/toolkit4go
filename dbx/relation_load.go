@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/mo"
 )
 
@@ -55,7 +56,7 @@ func LoadManyToMany[S any, T any](ctx context.Context, session Session, sources 
 	}
 	for index := range sources {
 		key := state.lookup[index]
-		assign(index, &sources[index], grouped[key.key])
+		assign(index, &sources[index], grouped.Get(key.key))
 	}
 	logRelationLoadDone(session, logPrefix, "sources", len(sources), "targets", targetCount)
 	return nil
@@ -126,7 +127,7 @@ func loadMultiRelation[S any, T any](ctx context.Context, session Session, sourc
 	}
 	for index := range sources {
 		key := sourceLookup[index]
-		assign(index, &sources[index], grouped[key.key])
+		assign(index, &sources[index], grouped.Get(key.key))
 	}
 	logRuntimeNode(session, "relation.load.multi.done", "sources", len(sources), "targets", len(targets))
 	return nil
@@ -182,7 +183,7 @@ func prepareRelationSourceState[E any](session Session, sources []E, sourceSchem
 	return relationSourceState{rt: rt, keys: keys, lookup: lookup}, nil
 }
 
-func loadManyToManyGroupedTargets[T any](ctx context.Context, session Session, rt *relationRuntime, sourceSchema schemaDefinition, meta RelationMeta, targetSchema SchemaSource[T], targetMapper Mapper[T], sourceKeys []any, logPrefix string) (map[any][]T, int, bool, error) {
+func loadManyToManyGroupedTargets[T any](ctx context.Context, session Session, rt *relationRuntime, sourceSchema schemaDefinition, meta RelationMeta, targetSchema SchemaSource[T], targetMapper Mapper[T], sourceKeys []any, logPrefix string) (collectionx.MultiMap[any, T], int, bool, error) {
 	targetColumn, err := relationTargetColumnForSchema(targetSchema, meta)
 	if err != nil {
 		logRelationLoadError(session, logPrefix, "resolve_target_column", err)
@@ -194,7 +195,7 @@ func loadManyToManyGroupedTargets[T any](ctx context.Context, session Session, r
 		return nil, 0, false, err
 	}
 	if len(pairs) == 0 {
-		return nil, 0, false, nil
+		return collectionx.NewMultiMap[any, T](), 0, false, nil
 	}
 	targetKeys := uniqueRelationKeysFromPairs(rt, pairs, false)
 	targets, err := queryRelationTargets(ctx, session, rt, targetSchema, targetMapper, targetColumn, targetKeys)

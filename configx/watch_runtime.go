@@ -33,12 +33,16 @@ func queueWatcherReload(reloadCh chan<- struct{}) {
 }
 
 func (w *Watcher) startProviders(trigger func()) error {
-	for i, fp := range w.providers {
-		if err := fp.Watch(w.watchProvider(i, trigger)); err != nil {
-			w.cleanupStartedProviders(i)
-			logError(w.opts, "configx watcher start failed", "index", i, "error", err)
-			return fmt.Errorf("configx: start file watcher: %w", err)
+	started, err := lo.ReduceErr(w.providers, func(started int, fp *file.File, index int) (int, error) {
+		if err := fp.Watch(w.watchProvider(index, trigger)); err != nil {
+			return started, fmt.Errorf("provider %d: %w", index, err)
 		}
+		return started + 1, nil
+	}, 0)
+	if err != nil {
+		w.cleanupStartedProviders(started)
+		logError(w.opts, "configx watcher start failed", "started", started, "error", err)
+		return fmt.Errorf("configx: start file watcher: %w", err)
 	}
 	return nil
 }

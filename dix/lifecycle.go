@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
+	"github.com/samber/lo"
 )
 
 // StartHook is executed when the application starts.
@@ -82,8 +83,8 @@ func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) (in
 			}
 			return completed, fmt.Errorf("start hook %d failed: %w", i, err)
 		}
-		completed++
 		l.logDebug(debugEnabled, "start hook completed", "index", i)
+		completed++
 	}
 	return completed, nil
 }
@@ -104,19 +105,19 @@ func (l *lifecycleImpl) executeStopHooksSubset(ctx context.Context, count int) e
 	debugEnabled := l.debugEnabled(ctx)
 	l.logDebug(debugEnabled, "executing stop hooks", "count", len(stopHooks), "registered", len(l.stopHooks.Values()))
 	slices.Reverse(stopHooks)
-	errs := collectionlist.NewListWithCapacity[error](1)
-	for i, hook := range stopHooks {
+
+	errs := lo.Reduce(stopHooks, func(errs []error, hook StopHook, i int) []error {
 		l.logDebug(debugEnabled, "executing stop hook", "index", i)
 		if err := hook(ctx); err != nil {
 			if l.logger != nil {
 				l.logger.Error("stop hook failed", "index", i, "error", err)
 			}
-			errs.Add(fmt.Errorf("stop hook %d failed: %w", i, err))
-			continue
+			return append(errs, fmt.Errorf("stop hook %d failed: %w", i, err))
 		}
 		l.logDebug(debugEnabled, "stop hook completed", "index", i)
-	}
-	return errors.Join(errs.Values()...)
+		return errs
+	}, make([]error, 0, 1))
+	return errors.Join(errs...)
 }
 
 func (l *lifecycleImpl) debugEnabled(ctx context.Context) bool {

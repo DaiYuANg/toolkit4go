@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -30,7 +31,7 @@ func (a *Adapter) XGroupDelConsumer(ctx context.Context, key, group, consumer st
 }
 
 // XReadGroup reads entries as part of a consumer group.
-func (a *Adapter) XReadGroup(ctx context.Context, group, consumer string, streams map[string]string, count int64, block time.Duration) (map[string][]kvx.StreamEntry, error) {
+func (a *Adapter) XReadGroup(ctx context.Context, group, consumer string, streams map[string]string, count int64, block time.Duration) (collectionx.MultiMap[string, kvx.StreamEntry], error) {
 	result, err := a.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
 		Group:    group,
 		Consumer: consumer,
@@ -40,7 +41,7 @@ func (a *Adapter) XReadGroup(ctx context.Context, group, consumer string, stream
 	}).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return map[string][]kvx.StreamEntry{}, nil
+			return collectionx.NewMultiMap[string, kvx.StreamEntry](), nil
 		}
 
 		return nil, wrapRedisError("read stream group", err)

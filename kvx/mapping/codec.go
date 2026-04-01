@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"github.com/samber/lo"
 )
 
 // Serializer defines the interface for serializing/deserializing values.
@@ -62,22 +64,23 @@ func (c *HashCodec) Encode(entity any, metadata *EntityMetadata) (map[string][]b
 		v = v.Elem()
 	}
 
-	result := make(map[string][]byte, len(metadata.Fields))
-
-	for fieldName, fieldTag := range metadata.Fields {
-		fieldVal := v.FieldByName(fieldName)
+	result, err := lo.ReduceErr(lo.Entries(metadata.Fields), func(result map[string][]byte, entry lo.Entry[string, FieldTag], _ int) (map[string][]byte, error) {
+		fieldVal := v.FieldByName(entry.Key)
 		if !fieldVal.IsValid() {
-			continue
+			return result, nil
 		}
 
 		data, err := c.encodeField(fieldVal)
 		if err != nil {
-			return nil, fmt.Errorf("encode field %s: %w", fieldName, err)
+			return nil, fmt.Errorf("encode field %s: %w", entry.Key, err)
 		}
 
-		result[storageFieldName(fieldName, fieldTag)] = data
+		result[storageFieldName(entry.Key, entry.Value)] = data
+		return result, nil
+	}, make(map[string][]byte, len(metadata.Fields)))
+	if err != nil {
+		return nil, fmt.Errorf("encode hash fields: %w", err)
 	}
-
 	return result, nil
 }
 
@@ -88,28 +91,29 @@ func (c *HashCodec) Decode(data map[string][]byte, entity any, metadata *EntityM
 		v = v.Elem()
 	}
 
-	// Build reverse map: store name -> field name
-	storeToField := make(map[string]string)
-	for fieldName, fieldTag := range metadata.Fields {
-		storeToField[storageFieldName(fieldName, fieldTag)] = fieldName
-	}
+	storeToField := lo.Associate(lo.Entries(metadata.Fields), func(entry lo.Entry[string, FieldTag]) (string, string) {
+		return storageFieldName(entry.Key, entry.Value), entry.Key
+	})
 
-	for storeName, fieldData := range data {
-		fieldName, ok := storeToField[storeName]
+	_, err := lo.ReduceErr(lo.Entries(data), func(_ struct{}, entry lo.Entry[string, []byte], _ int) (struct{}, error) {
+		fieldName, ok := storeToField[entry.Key]
 		if !ok {
-			continue
+			return struct{}{}, nil
 		}
 
 		field := v.FieldByName(fieldName)
 		if !field.IsValid() || !field.CanSet() {
-			continue
+			return struct{}{}, nil
 		}
 
-		if err := c.decodeField(field, fieldData); err != nil {
-			return fmt.Errorf("decode field %s: %w", fieldName, err)
+		if err := c.decodeField(field, entry.Value); err != nil {
+			return struct{}{}, fmt.Errorf("decode field %s: %w", fieldName, err)
 		}
+		return struct{}{}, nil
+	}, struct{}{})
+	if err != nil {
+		return fmt.Errorf("decode hash fields: %w", err)
 	}
-
 	return nil
 }
 

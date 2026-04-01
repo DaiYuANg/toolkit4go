@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-playground/validator/v10"
 )
@@ -39,6 +40,7 @@ type ServerRuntime interface {
 	Group(prefix string) *Group
 	GetRoutes() []RouteInfo
 	GetRoutesByMethod(method string) []RouteInfo
+	GetRoutesGroupedByMethod() collectionx.MultiMap[string, RouteInfo]
 	GetRoutesByPath(prefix string) []RouteInfo
 	HasRoute(method, path string) bool
 	RouteCount() int

@@ -71,7 +71,7 @@ func (cg *ConsumerGroup) Read(ctx context.Context, count int64, block time.Durat
 		return nil, err
 	}
 
-	return results[cg.streamKey], nil
+	return results.Get(cg.streamKey), nil
 }
 
 // ReadPending reads pending messages (previously delivered but not acknowledged).
@@ -86,7 +86,7 @@ func (cg *ConsumerGroup) ReadPending(ctx context.Context, count int64) ([]kvx.St
 		return nil, err
 	}
 
-	return results[cg.streamKey], nil
+	return results.Get(cg.streamKey), nil
 }
 
 // Ack acknowledges processing of messages.

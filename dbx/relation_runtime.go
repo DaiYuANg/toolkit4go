@@ -10,9 +10,8 @@ import (
 // relationRuntime holds relation-load caches and pools per DB instance.
 // Avoids package-level globals; enables per-instance config and test isolation.
 type relationRuntime struct {
-	queryCache    *hot.HotCache[string, string]
-	seenSetPool   sync.Pool
-	countsMapPool sync.Pool
+	queryCache  *hot.HotCache[string, string]
+	seenSetPool sync.Pool
 }
 
 func newRelationRuntime() *relationRuntime {
@@ -20,7 +19,6 @@ func newRelationRuntime() *relationRuntime {
 		queryCache: hot.NewHotCache[string, string](hot.LRU, 64).Build(),
 	}
 	rt.seenSetPool = sync.Pool{New: func() any { return collectionx.NewMap[any, struct{}]() }}
-	rt.countsMapPool = sync.Pool{New: func() any { return collectionx.NewMap[any, int]() }}
 	return rt
 }
 

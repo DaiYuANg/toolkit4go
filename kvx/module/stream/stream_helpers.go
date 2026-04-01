@@ -1,17 +1,24 @@
 package stream
 
-import "github.com/DaiYuANg/arcgo/kvx"
+import (
+	"fmt"
+
+	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/samber/lo"
+)
 
 func buildByteValues(values map[string]any) (map[string][]byte, error) {
-	byteValues := make(map[string][]byte, len(values))
-	for key, value := range values {
-		data, err := convertToBytes(value)
+	byteValues, err := lo.ReduceErr(lo.Entries(values), func(byteValues map[string][]byte, entry lo.Entry[string, any], _ int) (map[string][]byte, error) {
+		data, err := convertToBytes(entry.Value)
 		if err != nil {
 			return nil, err
 		}
-		byteValues[key] = data
+		byteValues[entry.Key] = data
+		return byteValues, nil
+	}, make(map[string][]byte, len(values)))
+	if err != nil {
+		return nil, fmt.Errorf("build stream values: %w", err)
 	}
-
 	return byteValues, nil
 }
 

@@ -130,6 +130,13 @@ func TestServer_GetRoutesAndFilters(t *testing.T) {
 
 	getRoutes := server.GetRoutesByMethod(http.MethodGet)
 	assert.Len(t, getRoutes, 1)
+	getRoutes[0].Path = "/mutated"
+	assert.Equal(t, "/users", server.GetRoutesByMethod(http.MethodGet)[0].Path)
+
+	grouped := server.GetRoutesGroupedByMethod()
+	assert.Len(t, grouped.Get(http.MethodGet), 1)
+	grouped.Set(http.MethodGet)
+	assert.Len(t, server.GetRoutesByMethod(http.MethodGet), 1)
 
 	pathRoutes := server.GetRoutesByPath("/users")
 	assert.Len(t, pathRoutes, 1)

@@ -176,6 +176,7 @@ type multiMapWritable[K comparable, V any] interface {
 type MultiMap[K comparable, V any] interface {
 	multiMapReadable[K, V]
 	multiMapWritable[K, V]
+	clonable[*mapping.MultiMap[K, V]]
 	jsonStringer
 }
 

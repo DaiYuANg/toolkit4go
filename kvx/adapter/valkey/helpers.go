@@ -66,10 +66,12 @@ func convertXRangeEntries(entries []valkey.XRangeEntry) []kvx.StreamEntry {
 	})
 }
 
-func convertXReadEntries(entries map[string][]valkey.XRangeEntry) map[string][]kvx.StreamEntry {
-	return lo.MapValues(entries, func(items []valkey.XRangeEntry, _ string) []kvx.StreamEntry {
-		return convertXRangeEntries(items)
+func convertXReadEntries(entries map[string][]valkey.XRangeEntry) collectionx.MultiMap[string, kvx.StreamEntry] {
+	result := collectionx.NewMultiMapWithCapacity[string, kvx.StreamEntry](len(entries))
+	lo.ForEach(lo.Entries(entries), func(entry lo.Entry[string, []valkey.XRangeEntry], _ int) {
+		result.Set(entry.Key, convertXRangeEntries(entry.Value)...)
 	})
+	return result
 }
 
 func searchDocsToKeys(docs []valkey.FtSearchDoc) []string {

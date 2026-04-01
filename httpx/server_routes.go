@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/lo"
 )
 
@@ -20,7 +21,15 @@ func (s *Server) GetRoutesByMethod(method string) []RouteInfo {
 	if s == nil || method == "" {
 		return nil
 	}
-	return s.routesByMethod.Get(method)
+	return s.routesByMethod.GetCopy(method)
+}
+
+// GetRoutesGroupedByMethod returns a stable snapshot of routes keyed by HTTP method.
+func (s *Server) GetRoutesGroupedByMethod() collectionx.MultiMap[string, RouteInfo] {
+	if s == nil {
+		return collectionx.NewMultiMap[string, RouteInfo]()
+	}
+	return s.routesByMethod.Snapshot()
 }
 
 // GetRoutesByPath returns routes whose path starts with the given prefix.

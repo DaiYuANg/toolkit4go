@@ -62,3 +62,24 @@ func TestNewMultiMapWithCapacity(t *testing.T) {
 	require.Equal(t, 2, m.ValueCount())
 	require.Equal(t, []int{1, 2}, m.Get("k"))
 }
+
+func TestMultiMap_CloneAndFromAll(t *testing.T) {
+	t.Parallel()
+
+	source := mapping.NewMultiMapFromAll(map[string][]int{
+		"a": {1, 2},
+		"b": {3},
+	})
+	cloned := source.Clone()
+
+	cloned.Put("a", 4)
+	cloned.Delete("b")
+
+	require.Equal(t, []int{1, 2}, source.Get("a"))
+	require.Equal(t, []int{1, 2, 4}, cloned.Get("a"))
+	require.True(t, source.ContainsKey("b"))
+	require.False(t, cloned.ContainsKey("b"))
+	require.Equal(t, 2, source.Len())
+	require.Equal(t, 3, source.ValueCount())
+	require.Equal(t, 3, cloned.ValueCount())
+}

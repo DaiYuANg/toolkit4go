@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
@@ -33,10 +34,12 @@ func convertStreamMessages(messages []goredis.XMessage) []kvx.StreamEntry {
 	})
 }
 
-func convertStreams(streams []goredis.XStream) map[string][]kvx.StreamEntry {
-	return lo.Associate(streams, func(stream goredis.XStream) (string, []kvx.StreamEntry) {
-		return stream.Stream, convertStreamMessages(stream.Messages)
+func convertStreams(streams []goredis.XStream) collectionx.MultiMap[string, kvx.StreamEntry] {
+	result := collectionx.NewMultiMapWithCapacity[string, kvx.StreamEntry](len(streams))
+	lo.ForEach(streams, func(stream goredis.XStream, _ int) {
+		result.Set(stream.Stream, convertStreamMessages(stream.Messages)...)
 	})
+	return result
 }
 
 func convertPendingEntries(pending []goredis.XPendingExt) []kvx.PendingEntry {

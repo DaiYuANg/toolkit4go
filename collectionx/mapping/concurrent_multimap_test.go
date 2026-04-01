@@ -68,3 +68,23 @@ func TestNewConcurrentMultiMapWithCapacity(t *testing.T) {
 	require.Equal(t, 1, m.Len())
 	require.Equal(t, 2, m.ValueCount())
 }
+
+func TestConcurrentMultiMap_SnapshotCountsAndIsolation(t *testing.T) {
+	t.Parallel()
+
+	var m mapping.ConcurrentMultiMap[string, int]
+	m.PutAll("a", 1, 2)
+	m.Put("b", 3)
+
+	snapshot := m.Snapshot()
+	require.Equal(t, 2, snapshot.Len())
+	require.Equal(t, 3, snapshot.ValueCount())
+
+	m.Delete("b")
+	m.Put("a", 4)
+
+	require.Equal(t, []int{1, 2}, snapshot.Get("a"))
+	require.Equal(t, []int{1, 2, 4}, m.Get("a"))
+	require.True(t, snapshot.ContainsKey("b"))
+	require.False(t, m.ContainsKey("b"))
+}

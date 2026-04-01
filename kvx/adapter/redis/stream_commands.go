@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -38,7 +39,7 @@ func (a *Adapter) XRead(ctx context.Context, key, start string, count int64) ([]
 }
 
 // XReadMultiple reads entries from multiple streams.
-func (a *Adapter) XReadMultiple(ctx context.Context, streams map[string]string, count int64, block time.Duration) (map[string][]kvx.StreamEntry, error) {
+func (a *Adapter) XReadMultiple(ctx context.Context, streams map[string]string, count int64, block time.Duration) (collectionx.MultiMap[string, kvx.StreamEntry], error) {
 	result, err := a.client.XRead(ctx, &goredis.XReadArgs{
 		Streams: buildStreamPairs(streams),
 		Count:   count,
@@ -46,7 +47,7 @@ func (a *Adapter) XReadMultiple(ctx context.Context, streams map[string]string, 
 	}).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return map[string][]kvx.StreamEntry{}, nil
+			return collectionx.NewMultiMap[string, kvx.StreamEntry](), nil
 		}
 
 		return nil, wrapRedisError("read multiple streams", err)

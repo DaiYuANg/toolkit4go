@@ -112,28 +112,14 @@ func uniqueRelationKeysFromPairs(rt *relationRuntime, pairs []relationKeyPair, u
 	return keys.Values()
 }
 
-func groupManyToManyTargets[E any](rt *relationRuntime, pairs []relationKeyPair, indexed map[any]E) map[any][]E {
-	counts, err := relationCountsMap(rt)
-	if err != nil {
-		return make(map[any][]E)
-	}
-	defer func() {
-		counts.Clear()
-		rt.countsMapPool.Put(counts)
-	}()
-	for _, pair := range pairs {
-		if _, ok := indexed[pair.target]; ok {
-			value, _ := counts.Get(pair.source)
-			counts.Set(pair.source, value+1)
-		}
-	}
-	grouped := groupedValuesFromCounts[E](counts)
+func groupManyToManyTargets[E any](_ *relationRuntime, pairs []relationKeyPair, indexed map[any]E) collectionx.MultiMap[any, E] {
+	grouped := collectionx.NewMultiMapWithCapacity[any, E](len(pairs))
 	for _, pair := range pairs {
 		target, ok := indexed[pair.target]
 		if !ok {
 			continue
 		}
-		grouped[pair.source] = append(grouped[pair.source], target)
+		grouped.Put(pair.source, target)
 	}
 	return grouped
 }

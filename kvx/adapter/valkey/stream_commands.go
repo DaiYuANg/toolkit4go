@@ -31,22 +31,22 @@ func (a *Adapter) XRead(ctx context.Context, key, start string, count int64) ([]
 }
 
 // XReadMultiple reads entries from multiple streams.
-func (a *Adapter) XReadMultiple(ctx context.Context, streams map[string]string, count int64, _ time.Duration) (map[string][]kvx.StreamEntry, error) {
+func (a *Adapter) XReadMultiple(ctx context.Context, streams map[string]string, count int64, _ time.Duration) (collectionx.MultiMap[string, kvx.StreamEntry], error) {
 	readErr := error(nil)
-	result := lo.Reduce(lo.Entries(streams), func(acc map[string][]kvx.StreamEntry, entry lo.Entry[string, string], _ int) map[string][]kvx.StreamEntry {
+	result := collectionx.NewMultiMapWithCapacity[string, kvx.StreamEntry](len(streams))
+	lo.ForEach(lo.Entries(streams), func(entry lo.Entry[string, string], _ int) {
 		if readErr != nil {
-			return acc
+			return
 		}
 
 		entries, err := a.XRead(ctx, entry.Key, entry.Value, count)
 		if err != nil {
 			readErr = err
-			return acc
+			return
 		}
 
-		acc[entry.Key] = entries
-		return acc
-	}, make(map[string][]kvx.StreamEntry, len(streams)))
+		result.Set(entry.Key, entries...)
+	})
 	if readErr != nil {
 		return nil, readErr
 	}

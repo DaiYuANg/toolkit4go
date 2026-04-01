@@ -17,14 +17,6 @@ func relationSeenSet(rt *relationRuntime) (collectionx.Map[any, struct{}], error
 	return seen, nil
 }
 
-func relationCountsMap(rt *relationRuntime) (collectionx.Map[any, int], error) {
-	counts, ok := rt.countsMapPool.Get().(collectionx.Map[any, int])
-	if !ok {
-		return collectionx.NewMap[any, int](), errors.New("dbx: invalid relation counts pool value")
-	}
-	return counts, nil
-}
-
 func relationCachedQuery(rt *relationRuntime, cacheKey string) (string, bool, error) {
 	value, ok, err := rt.queryCache.Get(cacheKey)
 	return value, ok, wrapDBError("read relation query cache", err)
@@ -87,15 +79,6 @@ func relationScanDestination(typ reflect.Type) (any, func() any) {
 	}
 	holder := reflect.New(baseType)
 	return holder.Interface(), func() any { return holder.Elem().Interface() }
-}
-
-func groupedValuesFromCounts[E any](counts collectionx.Map[any, int]) map[any][]E {
-	grouped := make(map[any][]E, counts.Len())
-	counts.Range(func(key any, capacity int) bool {
-		grouped[key] = make([]E, 0, capacity)
-		return true
-	})
-	return grouped
 }
 
 func relationChunkSize(session Session) int {

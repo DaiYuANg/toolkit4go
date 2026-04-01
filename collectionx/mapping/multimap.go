@@ -203,6 +203,19 @@ func (m *MultiMap[K, V]) All() map[K][]V {
 	return out
 }
 
+// Clone returns a deep-copied multimap.
+func (m *MultiMap[K, V]) Clone() *MultiMap[K, V] {
+	if m == nil {
+		return NewMultiMap[K, V]()
+	}
+	out := NewMultiMapWithCapacity[K, V](m.items.Len())
+	m.items.Range(func(key K, values []V) bool {
+		out.Set(key, values...)
+		return true
+	})
+	return out
+}
+
 // Range iterates key-values snapshots until fn returns false.
 func (m *MultiMap[K, V]) Range(fn func(key K, values []V) bool) {
 	if m == nil || fn == nil {
@@ -215,4 +228,13 @@ func (m *MultiMap[K, V]) Range(fn func(key K, values []V) bool) {
 
 func (m *MultiMap[K, V]) ensureInit() {
 	m.items.ensureInit()
+}
+
+// NewMultiMapFromAll creates a multimap from a built-in deep map.
+func NewMultiMapFromAll[K comparable, V any](source map[K][]V) *MultiMap[K, V] {
+	out := NewMultiMapWithCapacity[K, V](len(source))
+	for key, values := range source {
+		out.Set(key, values...)
+	}
+	return out
 }

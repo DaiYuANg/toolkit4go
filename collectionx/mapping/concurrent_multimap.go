@@ -208,7 +208,7 @@ func (m *ConcurrentMultiMap[K, V]) Snapshot() *MultiMap[K, V] {
 	if m.core == nil {
 		return NewMultiMap[K, V]()
 	}
-	return NewMultiMapFromAll(m.core.All())
+	return m.core.Clone()
 }
 
 // Range iterates key-values snapshots until fn returns false.
@@ -227,13 +227,4 @@ func (m *ConcurrentMultiMap[K, V]) ensureInitLocked() {
 	if m.core == nil {
 		m.core = NewMultiMap[K, V]()
 	}
-}
-
-// NewMultiMapFromAll creates a multimap from a built-in deep map.
-func NewMultiMapFromAll[K comparable, V any](source map[K][]V) *MultiMap[K, V] {
-	out := NewMultiMapWithCapacity[K, V](len(source))
-	for key, values := range source {
-		out.Set(key, values...)
-	}
-	return out
 }

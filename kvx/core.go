@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 // KV is the base key-value interface.
@@ -85,7 +87,7 @@ type Stream interface {
 	// XRead reads entries from a stream.
 	XRead(ctx context.Context, key string, start string, count int64) ([]StreamEntry, error)
 	// XReadMultiple reads entries from multiple streams.
-	XReadMultiple(ctx context.Context, streams map[string]string, count int64, block time.Duration) (map[string][]StreamEntry, error)
+	XReadMultiple(ctx context.Context, streams map[string]string, count int64, block time.Duration) (collectionx.MultiMap[string, StreamEntry], error)
 	// XRange reads entries in a range.
 	XRange(ctx context.Context, key string, start, stop string) ([]StreamEntry, error)
 	// XRevRange reads entries in reverse order.
@@ -107,7 +109,7 @@ type Stream interface {
 	// XGroupDelConsumer deletes a consumer from a group.
 	XGroupDelConsumer(ctx context.Context, key string, group string, consumer string) error
 	// XReadGroup reads entries as part of a consumer group.
-	XReadGroup(ctx context.Context, group string, consumer string, streams map[string]string, count int64, block time.Duration) (map[string][]StreamEntry, error)
+	XReadGroup(ctx context.Context, group string, consumer string, streams map[string]string, count int64, block time.Duration) (collectionx.MultiMap[string, StreamEntry], error)
 	// XAck acknowledges processing of stream entries.
 	XAck(ctx context.Context, key string, group string, ids []string) error
 	// XPending gets pending entries information.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/samber/lo"
 )
@@ -66,7 +67,7 @@ func (s *Stream) Read(ctx context.Context, streamKey, start string, count int64)
 }
 
 // ReadMultiple reads entries from multiple streams.
-func (s *Stream) ReadMultiple(ctx context.Context, streams map[string]string, count int64, block time.Duration) (map[string][]kvx.StreamEntry, error) {
+func (s *Stream) ReadMultiple(ctx context.Context, streams map[string]string, count int64, block time.Duration) (collectionx.MultiMap[string, kvx.StreamEntry], error) {
 	entries, err := s.client.XReadMultiple(ctx, streams, count, block)
 	return wrapResult(entries, err, "read multiple streams")
 }
