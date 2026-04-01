@@ -6,7 +6,6 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/observabilityx"
-	"github.com/samber/lo"
 )
 
 // ObservabilityHookOption configures NewObservabilityHook behavior.
@@ -97,5 +96,8 @@ func (h *observabilityHook) metricName(suffix string) string {
 }
 
 func resultOf(err error) string {
-	return lo.Ternary(err == nil, "ok", "error")
+	if err == nil {
+		return "ok"
+	}
+	return "error"
 }
