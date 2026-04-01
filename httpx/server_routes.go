@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-
-	"github.com/samber/lo"
 )
 
 // GetRoutes returns related data.
@@ -28,9 +26,15 @@ func (s *Server) GetRoutesByPath(prefix string) []RouteInfo {
 	if prefix == "" {
 		return s.routesSnapshot()
 	}
-	return lo.Filter(s.routesSnapshot(), func(route RouteInfo, _ int) bool {
-		return strings.HasPrefix(route.Path, prefix)
-	})
+
+	routes := s.routesSnapshot()
+	filtered := make([]RouteInfo, 0, len(routes))
+	for _, route := range routes {
+		if strings.HasPrefix(route.Path, prefix) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
 }
 
 // HasRoute reports whether a route has been registered.
@@ -56,13 +60,13 @@ func (s *Server) printRoutesIfEnabled() {
 
 	routes := s.routesSnapshot()
 	s.logger.Info("Registered routes", slog.Int("count", len(routes)))
-	lo.ForEach(routes, func(route RouteInfo, _ int) {
+	for _, route := range routes {
 		s.logger.Info("  "+route.String(),
 			slog.String("method", route.Method),
 			slog.String("path", route.Path),
 			slog.String("handler", route.HandlerName),
 		)
-	})
+	}
 }
 
 func (s *Server) addRoute(route RouteInfo) {
