@@ -8,7 +8,6 @@ import (
 	"github.com/DaiYuANg/arcgo/clientx"
 	clienthttp "github.com/DaiYuANg/arcgo/clientx/http"
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/samber/lo"
 )
 
 type edgeHTTPPreset struct {
@@ -70,9 +69,7 @@ func WithEdgeHTTPUserAgent(userAgent string) EdgeHTTPOption {
 // WithEdgeHTTPOption appends a raw HTTP client option to the preset.
 func WithEdgeHTTPOption(opt clienthttp.Option) EdgeHTTPOption {
 	return func(p *edgeHTTPPreset) {
-		if opt != nil {
-			p.options = lo.Concat(p.options, []clienthttp.Option{opt})
-		}
+		p.options = appendPresetOption(p.options, opt)
 	}
 }
 

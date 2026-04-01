@@ -7,7 +7,6 @@ import (
 	"github.com/DaiYuANg/arcgo/clientx"
 	clienttcp "github.com/DaiYuANg/arcgo/clientx/tcp"
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/samber/lo"
 )
 
 type internalRPCPreset struct {
@@ -85,9 +84,7 @@ func WithInternalRPCDisableRetry() InternalRPCOption {
 // WithInternalRPCOption appends a raw TCP client option to the preset.
 func WithInternalRPCOption(opt clienttcp.Option) InternalRPCOption {
 	return func(p *internalRPCPreset) {
-		if opt != nil {
-			p.options = lo.Concat(p.options, []clienttcp.Option{opt})
-		}
+		p.options = appendPresetOption(p.options, opt)
 	}
 }
 

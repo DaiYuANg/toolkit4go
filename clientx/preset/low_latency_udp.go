@@ -7,7 +7,6 @@ import (
 	"github.com/DaiYuANg/arcgo/clientx"
 	clientudp "github.com/DaiYuANg/arcgo/clientx/udp"
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/samber/lo"
 )
 
 type lowLatencyUDPPreset struct {
@@ -60,9 +59,7 @@ func WithLowLatencyUDPConcurrencyLimit(maxInFlight int) LowLatencyUDPOption {
 // WithLowLatencyUDPOption appends a raw UDP client option to the preset.
 func WithLowLatencyUDPOption(opt clientudp.Option) LowLatencyUDPOption {
 	return func(p *lowLatencyUDPPreset) {
-		if opt != nil {
-			p.options = lo.Concat(p.options, []clientudp.Option{opt})
-		}
+		p.options = appendPresetOption(p.options, opt)
 	}
 }
 
