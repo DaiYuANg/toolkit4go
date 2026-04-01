@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/pressly/goose/v3"
+	"github.com/samber/lo"
 )
 
 // UpGo applies the provided Go migrations.
@@ -42,7 +43,7 @@ func (r *Runner) UpSQL(ctx context.Context, source FileSource) (RunReport, error
 	if err != nil {
 		return report, err
 	}
-	report.Applied = append(report.Applied, applied...)
+	report.Applied = lo.Concat(report.Applied, applied)
 
 	indexed, err := r.appliedIndex(ctx)
 	if err != nil {
@@ -52,7 +53,7 @@ func (r *Runner) UpSQL(ctx context.Context, source FileSource) (RunReport, error
 	if err != nil {
 		return report, err
 	}
-	report.Applied = append(report.Applied, repeatableRecords...)
+	report.Applied = lo.Concat(report.Applied, repeatableRecords)
 	return report, nil
 }
 
@@ -81,20 +82,21 @@ func buildRunReport(
 	metaByVersion collectionx.Map[int64, AppliedRecord],
 	results []*goose.MigrationResult,
 ) (RunReport, error) {
-	report := RunReport{Applied: make([]AppliedRecord, 0, len(results))}
-	for i := range results {
-		result := results[i]
+	reportApplied, err := lo.ReduceErr(results, func(items []AppliedRecord, result *goose.MigrationResult, _ int) ([]AppliedRecord, error) {
 		record, ok := metaByVersion.Get(result.Source.Version)
 		if !ok {
-			continue
+			return items, nil
 		}
-		current, err := appliedRecordForVersion(applied, record)
-		if err != nil {
-			return report, err
+		current, currentErr := appliedRecordForVersion(applied, record)
+		if currentErr != nil {
+			return nil, currentErr
 		}
-		report.Applied = append(report.Applied, current)
+		return lo.Concat(items, []AppliedRecord{current}), nil
+	}, make([]AppliedRecord, 0, len(results)))
+	if err != nil {
+		return RunReport{}, err
 	}
-	return report, nil
+	return RunReport{Applied: reportApplied}, nil
 }
 
 func (r *Runner) applyPendingRepeatables(
@@ -102,19 +104,20 @@ func (r *Runner) applyPendingRepeatables(
 	repeatables []loadedSQLMigration,
 	indexed map[string]AppliedRecord,
 ) ([]AppliedRecord, error) {
-	applied := collectionx.NewListWithCapacity[AppliedRecord](len(repeatables))
-	for i := range repeatables {
-		migration := repeatables[i]
+	applied, err := lo.ReduceErr(repeatables, func(items []AppliedRecord, migration loadedSQLMigration, _ int) ([]AppliedRecord, error) {
 		if !shouldApplyRepeatableMigration(migration, indexed) {
-			continue
+			return items, nil
 		}
-		record, err := r.applySQLMigration(ctx, migration)
-		if err != nil {
-			return nil, err
+		record, recordErr := r.applySQLMigration(ctx, migration)
+		if recordErr != nil {
+			return nil, recordErr
 		}
-		applied.Add(record)
+		return lo.Concat(items, []AppliedRecord{record}), nil
+	}, make([]AppliedRecord, 0, len(repeatables)))
+	if err != nil {
+		return nil, err
 	}
-	return applied.Values(), nil
+	return applied, nil
 }
 
 func shouldApplyRepeatableMigration(migration loadedSQLMigration, indexed map[string]AppliedRecord) bool {

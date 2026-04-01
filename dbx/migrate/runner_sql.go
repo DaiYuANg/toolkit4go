@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/fs"
 	"strings"
+
+	"github.com/samber/lo"
 )
 
 type loadedSQLMigration struct {
@@ -20,17 +22,18 @@ func loadSQLMigrations(source FileSource) ([]loadedSQLMigration, error) {
 		return nil, fmt.Errorf("dbx/migrate: list sql migrations: %w", err)
 	}
 
-	loaded := make([]loadedSQLMigration, 0, len(items))
-	for i := range items {
-		migration := items[i]
+	loaded, err := lo.ReduceErr(items, func(result []loadedSQLMigration, migration SQLMigration, _ int) ([]loadedSQLMigration, error) {
 		if migration.UpPath == "" {
-			continue
+			return result, nil
 		}
 		item, loadErr := loadSQLMigration(source.FS, migration)
 		if loadErr != nil {
 			return nil, loadErr
 		}
-		loaded = append(loaded, item)
+		return lo.Concat(result, []loadedSQLMigration{item}), nil
+	}, make([]loadedSQLMigration, 0, len(items)))
+	if err != nil {
+		return nil, err
 	}
 	return loaded, nil
 }

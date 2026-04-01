@@ -197,10 +197,13 @@ func (s FileSource) List() ([]SQLMigration, error) {
 	}
 
 	items := collectionx.NewMapWithCapacity[string, *SQLMigration](len(entries))
-	for _, entry := range lo.Filter(entries, func(e fs.DirEntry, _ int) bool { return !e.IsDir() }) {
-		if err := s.addEntry(items, entry); err != nil {
-			return nil, err
-		}
+	_, err = lo.ReduceErr(lo.Filter(entries, func(entry fs.DirEntry, _ int) bool {
+		return !entry.IsDir()
+	}), func(_ struct{}, entry fs.DirEntry, _ int) (struct{}, error) {
+		return struct{}{}, s.addEntry(items, entry)
+	}, struct{}{})
+	if err != nil {
+		return nil, err
 	}
 
 	return sortedSQLMigrations(items), nil
@@ -256,12 +259,9 @@ func setSQLMigrationPath(migration *SQLMigration, direction Direction, fullPath 
 }
 
 func sortedSQLMigrations(items collectionx.Map[string, *SQLMigration]) []SQLMigration {
-	result := collectionx.NewListWithCapacity[SQLMigration](items.Len())
-	for _, migration := range items.Values() {
-		result.Add(*migration)
-	}
-
-	itemsSlice := result.Values()
+	itemsSlice := lo.Map(items.Values(), func(migration *SQLMigration, _ int) SQLMigration {
+		return *migration
+	})
 	sort.Slice(itemsSlice, func(i, j int) bool {
 		if itemsSlice[i].Repeatable != itemsSlice[j].Repeatable {
 			return !itemsSlice[i].Repeatable

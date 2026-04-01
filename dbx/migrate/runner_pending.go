@@ -6,6 +6,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/pressly/goose/v3"
+	"github.com/samber/lo"
 )
 
 // PendingGo returns Go migrations that have not yet been applied.
@@ -79,14 +80,16 @@ func (r *Runner) appliedIndex(ctx context.Context) (map[string]AppliedRecord, er
 }
 
 func indexGoMigrationsByVersion(migrations []Migration) (map[int64]Migration, error) {
-	byVersion := make(map[int64]Migration, len(migrations))
-	for i := range migrations {
-		migration := migrations[i]
-		version, err := parseNumericVersion(migration.Version())
-		if err != nil {
-			return nil, fmt.Errorf("dbx/migrate: parse go migration version %q: %w", migration.Version(), err)
+	byVersion, err := lo.ReduceErr(migrations, func(result map[int64]Migration, migration Migration, _ int) (map[int64]Migration, error) {
+		version, parseErr := parseNumericVersion(migration.Version())
+		if parseErr != nil {
+			return nil, fmt.Errorf("dbx/migrate: parse go migration version %q: %w", migration.Version(), parseErr)
 		}
-		byVersion[version] = migration
+		result[version] = migration
+		return result, nil
+	}, make(map[int64]Migration, len(migrations)))
+	if err != nil {
+		return nil, err
 	}
 	return byVersion, nil
 }
@@ -98,20 +101,23 @@ func collectPendingGoMigrations(
 	byVersion map[int64]Migration,
 	validateHash bool,
 ) ([]Migration, error) {
-	pending := collectionx.NewListWithCapacity[Migration](len(statuses))
-	for _, status := range statuses {
+	pending, err := lo.ReduceErr(statuses, func(result []Migration, status *goose.MigrationStatus, _ int) ([]Migration, error) {
 		migration, ok := byVersion[status.Source.Version]
 		if !ok {
-			continue
+			return result, nil
 		}
 		if err := validatePendingStatus(status, metaByVersion, indexed, validateHash); err != nil {
 			return nil, err
 		}
-		if status.State == goose.StatePending {
-			pending.Add(migration)
+		if status.State != goose.StatePending {
+			return result, nil
 		}
+		return lo.Concat(result, []Migration{migration}), nil
+	}, make([]Migration, 0, len(statuses)))
+	if err != nil {
+		return nil, err
 	}
-	return pending.Values(), nil
+	return pending, nil
 }
 
 func (r *Runner) pendingVersionedSQL(
@@ -138,17 +144,19 @@ func indexVersionedSQLMigrations(source FileSource) (map[int64]SQLMigration, err
 		return nil, err
 	}
 
-	byVersion := make(map[int64]SQLMigration, len(loaded))
-	for i := range loaded {
-		migration := loaded[i]
+	byVersion, err := lo.ReduceErr(loaded, func(result map[int64]SQLMigration, migration loadedSQLMigration, _ int) (map[int64]SQLMigration, error) {
 		if migration.Repeatable {
-			continue
+			return result, nil
 		}
 		version, parseErr := parseNumericVersion(migration.Version)
 		if parseErr != nil {
 			return nil, fmt.Errorf("dbx/migrate: parse sql migration version %q: %w", migration.Version, parseErr)
 		}
-		byVersion[version] = migration.SQLMigration
+		result[version] = migration.SQLMigration
+		return result, nil
+	}, make(map[int64]SQLMigration, len(loaded)))
+	if err != nil {
+		return nil, err
 	}
 	return byVersion, nil
 }
@@ -160,20 +168,23 @@ func collectPendingSQLMigrations(
 	byVersion map[int64]SQLMigration,
 	validateHash bool,
 ) ([]SQLMigration, error) {
-	pending := collectionx.NewListWithCapacity[SQLMigration](len(statuses))
-	for _, status := range statuses {
+	pending, err := lo.ReduceErr(statuses, func(result []SQLMigration, status *goose.MigrationStatus, _ int) ([]SQLMigration, error) {
 		migration, ok := byVersion[status.Source.Version]
 		if !ok {
-			continue
+			return result, nil
 		}
 		if err := validatePendingStatus(status, metaByVersion, indexed, validateHash); err != nil {
 			return nil, err
 		}
-		if status.State == goose.StatePending {
-			pending.Add(migration)
+		if status.State != goose.StatePending {
+			return result, nil
 		}
+		return lo.Concat(result, []SQLMigration{migration}), nil
+	}, make([]SQLMigration, 0, len(statuses)))
+	if err != nil {
+		return nil, err
 	}
-	return pending.Values(), nil
+	return pending, nil
 }
 
 func validatePendingStatus(
@@ -198,15 +209,12 @@ func validatePendingStatus(
 }
 
 func pendingRepeatableMigrations(repeatables []loadedSQLMigration, indexed map[string]AppliedRecord) []SQLMigration {
-	pending := collectionx.NewListWithCapacity[SQLMigration](len(repeatables))
-	for i := range repeatables {
-		migration := repeatables[i]
+	return lo.FilterMap(repeatables, func(migration loadedSQLMigration, _ int) (SQLMigration, bool) {
 		key := appliedRecordKey(migration.kind, migration.Version, migration.Description)
 		record, ok := indexed[key]
 		if ok && record.Checksum == migration.checksum {
-			continue
+			return SQLMigration{}, false
 		}
-		pending.Add(migration.SQLMigration)
-	}
-	return pending.Values()
+		return migration.SQLMigration, true
+	})
 }

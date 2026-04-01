@@ -8,6 +8,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/pressly/goose/v3"
+	"github.com/samber/lo"
 )
 
 type runnerEngine struct {
@@ -16,35 +17,50 @@ type runnerEngine struct {
 	metaByVersion collectionx.Map[int64, AppliedRecord]
 }
 
+type goEngineBuildState struct {
+	gooseMigrations []*goose.Migration
+	metaByVersion   collectionx.Map[int64, AppliedRecord]
+}
+
+type sqlEngineBuildState struct {
+	gooseMigrations []*goose.Migration
+	metaByVersion   collectionx.Map[int64, AppliedRecord]
+	repeatables     []loadedSQLMigration
+}
+
 func (r *Runner) newRunnerEngineForGo(migrations []Migration) (*runnerEngine, error) {
 	if len(migrations) == 0 {
 		return &runnerEngine{runner: r, metaByVersion: collectionx.NewMap[int64, AppliedRecord]()}, nil
 	}
 
-	gooseMigrations := collectionx.NewListWithCapacity[*goose.Migration](len(migrations))
-	metaByVersion := collectionx.NewMapWithCapacity[int64, AppliedRecord](len(migrations))
-	for i := range migrations {
-		migration := migrations[i]
-		version, err := parseNumericVersion(migration.Version())
-		if err != nil {
-			return nil, fmt.Errorf("dbx/migrate: parse go migration version %q: %w", migration.Version(), err)
+	state, err := lo.ReduceErr(migrations, func(state goEngineBuildState, migration Migration, _ int) (goEngineBuildState, error) {
+		version, parseErr := parseNumericVersion(migration.Version())
+		if parseErr != nil {
+			return goEngineBuildState{}, fmt.Errorf("dbx/migrate: parse go migration version %q: %w", migration.Version(), parseErr)
 		}
 
-		gooseMigrations.Add(goose.NewGoMigration(
+		state.gooseMigrations = lo.Concat(state.gooseMigrations, []*goose.Migration{goose.NewGoMigration(
 			version,
 			&goose.GoFunc{RunTx: migration.Up},
 			&goose.GoFunc{RunTx: migration.Down},
-		))
-		metaByVersion.Set(version, AppliedRecord{
+		)})
+		state.metaByVersion.Set(version, AppliedRecord{
 			Version:     migration.Version(),
 			Description: migration.Description(),
 			Kind:        KindGo,
 			Checksum:    checksumGoMigration(migration),
 			Success:     true,
 		})
+		return state, nil
+	}, goEngineBuildState{
+		gooseMigrations: make([]*goose.Migration, 0, len(migrations)),
+		metaByVersion:   collectionx.NewMapWithCapacity[int64, AppliedRecord](len(migrations)),
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	return r.newRunnerEngine(gooseMigrations.Values(), metaByVersion)
+	return r.newRunnerEngine(state.gooseMigrations, state.metaByVersion)
 }
 
 func (r *Runner) newRunnerEngineForSQL(source FileSource) (*runnerEngine, []loadedSQLMigration, error) {
@@ -56,43 +72,47 @@ func (r *Runner) newRunnerEngineForSQL(source FileSource) (*runnerEngine, []load
 		return nil, nil, nil
 	}
 
-	gooseMigrations := collectionx.NewListWithCapacity[*goose.Migration](len(loaded))
-	metaByVersion := collectionx.NewMapWithCapacity[int64, AppliedRecord](len(loaded))
-	repeatables := collectionx.NewList[loadedSQLMigration]()
-	for i := range loaded {
-		migration := loaded[i]
+	state, err := lo.ReduceErr(loaded, func(state sqlEngineBuildState, migration loadedSQLMigration, _ int) (sqlEngineBuildState, error) {
 		if migration.kind == KindRepeatable {
-			repeatables.Add(migration)
-			continue
+			state.repeatables = lo.Concat(state.repeatables, []loadedSQLMigration{migration})
+			return state, nil
 		}
 
 		version, versionErr := parseNumericVersion(migration.Version)
 		if versionErr != nil {
-			return nil, nil, fmt.Errorf("dbx/migrate: parse sql migration version %q: %w", migration.Version, versionErr)
+			return sqlEngineBuildState{}, fmt.Errorf("dbx/migrate: parse sql migration version %q: %w", migration.Version, versionErr)
 		}
 
-		gooseMigrations.Add(goose.NewGoMigration(
+		state.gooseMigrations = lo.Concat(state.gooseMigrations, []*goose.Migration{goose.NewGoMigration(
 			version,
 			runTxSQL(migration.upSQL),
 			runTxSQL(migration.downSQL),
-		))
-		metaByVersion.Set(version, AppliedRecord{
+		)})
+		state.metaByVersion.Set(version, AppliedRecord{
 			Version:     migration.Version,
 			Description: migration.Description,
 			Kind:        migration.kind,
 			Checksum:    migration.checksum,
 			Success:     true,
 		})
-	}
-
-	if gooseMigrations.Len() == 0 {
-		return nil, repeatables.Values(), nil
-	}
-	engine, err := r.newRunnerEngine(gooseMigrations.Values(), metaByVersion)
+		return state, nil
+	}, sqlEngineBuildState{
+		gooseMigrations: make([]*goose.Migration, 0, len(loaded)),
+		metaByVersion:   collectionx.NewMapWithCapacity[int64, AppliedRecord](len(loaded)),
+		repeatables:     make([]loadedSQLMigration, 0, len(loaded)),
+	})
 	if err != nil {
 		return nil, nil, err
 	}
-	return engine, repeatables.Values(), nil
+
+	if len(state.gooseMigrations) == 0 {
+		return nil, state.repeatables, nil
+	}
+	engine, err := r.newRunnerEngine(state.gooseMigrations, state.metaByVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+	return engine, state.repeatables, nil
 }
 
 func (r *Runner) newRunnerEngine(migrations []*goose.Migration, metaByVersion collectionx.Map[int64, AppliedRecord]) (*runnerEngine, error) {
