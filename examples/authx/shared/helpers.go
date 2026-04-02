@@ -3,7 +3,7 @@ package shared
 import (
 	"strings"
 
-	"github.com/samber/lo"
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 // ParseBearer extracts a bearer token from an Authorization header value.
@@ -20,6 +20,11 @@ func ParseBearer(raw string) (string, bool) {
 }
 
 // HasRole reports whether roles contains target.
-func HasRole(roles []string, target string) bool {
-	return lo.Contains(roles, target)
+func HasRole(roles collectionx.List[string], target string) bool {
+	if roles == nil {
+		return false
+	}
+	return roles.AnyMatch(func(_ int, role string) bool {
+		return role == target
+	})
 }

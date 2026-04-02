@@ -131,7 +131,7 @@ type Stream interface {
 // StreamEntry represents a stream entry.
 type StreamEntry struct {
 	ID     string
-	Values map[string][]byte
+	Values collectionx.Map[string, []byte]
 }
 
 // PendingInfo represents pending entries summary.
@@ -139,7 +139,7 @@ type PendingInfo struct {
 	Count     int64
 	StartID   string
 	EndID     string
-	Consumers map[string]int64 // consumer name -> pending count
+	Consumers collectionx.Map[string, int64] // consumer name -> pending count
 }
 
 // PendingEntry represents a single pending entry.

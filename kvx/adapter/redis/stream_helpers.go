@@ -29,7 +29,7 @@ func convertStreamMessages(messages []goredis.XMessage) []kvx.StreamEntry {
 	return lo.Map(messages, func(msg goredis.XMessage, _ int) kvx.StreamEntry {
 		return kvx.StreamEntry{
 			ID:     msg.ID,
-			Values: convertInterfaceMapToBytes(msg.Values),
+			Values: collectionx.NewMapFrom(convertInterfaceMapToBytes(msg.Values)),
 		}
 	})
 }
@@ -86,14 +86,14 @@ func convertStreamInfo(info *goredis.XInfoStream) *kvx.StreamInfo {
 	if info.FirstEntry.ID != "" {
 		result.FirstEntry = &kvx.StreamEntry{
 			ID:     info.FirstEntry.ID,
-			Values: convertInterfaceMapToBytes(info.FirstEntry.Values),
+			Values: collectionx.NewMapFrom(convertInterfaceMapToBytes(info.FirstEntry.Values)),
 		}
 	}
 
 	if info.LastEntry.ID != "" {
 		result.LastEntry = &kvx.StreamEntry{
 			ID:     info.LastEntry.ID,
-			Values: convertInterfaceMapToBytes(info.LastEntry.Values),
+			Values: collectionx.NewMapFrom(convertInterfaceMapToBytes(info.LastEntry.Values)),
 		}
 	}
 

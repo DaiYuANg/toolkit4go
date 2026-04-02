@@ -8,6 +8,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/authx"
 	authhttp "github.com/DaiYuANg/arcgo/authx/http"
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 // BearerCredential carries the bearer token resolved from a request.
@@ -54,9 +55,9 @@ func newManager() *authx.ProviderManager {
 					return authx.AuthenticationResult{}, authx.ErrInvalidAuthenticationCredential
 				}
 
-				roles := []string{"user"}
+				roles := collectionx.NewList("user")
 				if token == "admin-token" {
-					roles = append(roles, "admin")
+					roles.Add("admin")
 				}
 
 				return authx.AuthenticationResult{
@@ -120,9 +121,9 @@ func resolveAuthorization(
 		Principal: principal,
 		Action:    action,
 		Resource:  resource,
-		Context: map[string]any{
+		Context: collectionx.NewMapFrom(map[string]any{
 			"route_pattern": req.RoutePattern,
 			"order_id":      req.PathParam("id"),
-		},
+		}),
 	}, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/DaiYuANg/arcgo/authx"
 	authhttp "github.com/DaiYuANg/arcgo/authx/http"
 	authstd "github.com/DaiYuANg/arcgo/authx/http/std"
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 type middlewareCredential struct {
@@ -54,9 +55,9 @@ func newMiddlewareGuard() *authhttp.Guard {
 				Principal: principal,
 				Action:    action,
 				Resource:  "order",
-				Context: map[string]any{
+				Context: collectionx.NewMapFrom(map[string]any{
 					"order_id": req.PathParam("id"),
-				},
+				}),
 			}, nil
 		}),
 	)

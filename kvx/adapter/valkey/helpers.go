@@ -61,7 +61,7 @@ func convertXRangeEntries(entries []valkey.XRangeEntry) []kvx.StreamEntry {
 	return lo.Map(entries, func(entry valkey.XRangeEntry, _ int) kvx.StreamEntry {
 		return kvx.StreamEntry{
 			ID:     entry.ID,
-			Values: convertStringMapToBytes(entry.FieldValues),
+			Values: collectionx.NewMapFrom(convertStringMapToBytes(entry.FieldValues)),
 		}
 	})
 }

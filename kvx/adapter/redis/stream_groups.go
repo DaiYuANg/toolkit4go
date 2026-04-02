@@ -67,7 +67,7 @@ func (a *Adapter) XPending(ctx context.Context, key, group string) (*kvx.Pending
 		Count:     result.Count,
 		StartID:   result.Lower,
 		EndID:     result.Higher,
-		Consumers: result.Consumers,
+		Consumers: collectionx.NewMapFrom(result.Consumers),
 	}, nil
 }
 

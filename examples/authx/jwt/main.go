@@ -13,6 +13,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/authx"
 	authhttp "github.com/DaiYuANg/arcgo/authx/http"
+	"github.com/DaiYuANg/arcgo/collectionx"
 	authstd "github.com/DaiYuANg/arcgo/authx/http/std"
 	"github.com/DaiYuANg/arcgo/examples/authx/shared"
 	"github.com/DaiYuANg/arcgo/logx"
@@ -124,10 +125,10 @@ func newJWTManager() *authx.ProviderManager {
 			return authx.AuthenticationResult{
 				Principal: authx.Principal{
 					ID:    claims.Subject,
-					Roles: claims.Roles,
-					Attributes: map[string]any{
+					Roles: collectionx.NewListWithCapacity(len(claims.Roles), claims.Roles...),
+					Attributes: collectionx.NewMapFrom(map[string]any{
 						"issuer": claims.Issuer,
-					},
+					}),
 				},
 			}, nil
 		}),
@@ -177,10 +178,10 @@ func resolveJWTAuthorization(_ context.Context, req authhttp.RequestInfo, princi
 		Principal: principal,
 		Action:    action,
 		Resource:  resource,
-		Context: map[string]any{
+		Context: collectionx.NewMapFrom(map[string]any{
 			"order_id":      req.PathParam("id"),
 			"route_pattern": req.RoutePattern,
-		},
+		}),
 	}, nil
 }
 

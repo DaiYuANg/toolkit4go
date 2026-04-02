@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/authx"
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 type benchmarkCredential struct {
@@ -78,9 +79,9 @@ func BenchmarkEngineCan(b *testing.B) {
 		Principal: authx.Principal{ID: "u-1"},
 		Action:    "query",
 		Resource:  "order",
-		Context: map[string]any{
+		Context: collectionx.NewMapFrom(map[string]any{
 			"order_id": "1",
-		},
+		}),
 	}
 
 	for _, benchCase := range benchmarkCases {
@@ -169,9 +170,9 @@ func benchmarkEngineCheckThenCan(
 			Principal: result.Principal,
 			Action:    "query",
 			Resource:  "order",
-			Context: map[string]any{
+			Context: collectionx.NewMapFrom(map[string]any{
 				"order_id": "1",
-			},
+			}),
 		})
 		if err != nil {
 			b.Fatalf("can failed: %v", err)

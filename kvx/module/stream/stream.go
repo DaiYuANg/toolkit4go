@@ -174,7 +174,7 @@ func (e *EventStream[T]) Subscribe(ctx context.Context, start string, count int6
 	}
 
 	decoded := lo.FilterMap(entries, func(entry kvx.StreamEntry, _ int) (lo.Entry[string, T], bool) {
-		data, ok := entry.Values["data"]
+		data, ok := entry.Values.Get("data")
 		if !ok {
 			return lo.Entry[string, T]{}, false
 		}
@@ -201,7 +201,7 @@ type EventConsumer[T any] struct {
 // NewEventConsumer creates a new EventConsumer.
 func NewEventConsumer[T any](group *ConsumerGroup, handler func(ctx context.Context, event T) error, opts ConsumerOptions) *EventConsumer[T] {
 	messageHandler := func(ctx context.Context, entry kvx.StreamEntry) error {
-		if data, ok := entry.Values["data"]; ok {
+		if data, ok := entry.Values.Get("data"); ok {
 			var event T
 			if err := json.Unmarshal(data, &event); err != nil {
 				return fmt.Errorf("unmarshal stream event: %w", err)
