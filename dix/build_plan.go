@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/samber/lo"
 )
@@ -278,8 +279,11 @@ func countModuleInvokes(modules *collectionlist.List[*moduleSpec]) int {
 	return total
 }
 
-func serviceRefNames(refs []ServiceRef) []string {
-	return lo.FilterMap(refs, func(ref ServiceRef, _ int) (string, bool) {
+func serviceRefNames(refs collectionx.List[ServiceRef]) []string {
+	if refs == nil || refs.Len() == 0 {
+		return nil
+	}
+	return lo.FilterMap(refs.Values(), func(ref ServiceRef, _ int) (string, bool) {
 		return ref.Name, ref.Name != ""
 	})
 }

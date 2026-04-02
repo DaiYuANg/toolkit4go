@@ -7,7 +7,6 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	collectionset "github.com/DaiYuANg/arcgo/collectionx/set"
-	"github.com/samber/lo"
 )
 
 func validateTypedGraph(plan *buildPlan) error {
@@ -84,14 +83,15 @@ func collectProviderOutputs(mod *moduleSpec, state *validationState) {
 func collectSetupOutputs(mod *moduleSpec, state *validationState) {
 	mod.setups.Range(func(_ int, setup SetupFunc) bool {
 		meta := setup.meta
-		lo.ForEach(meta.Provides, func(provide ServiceRef, _ int) {
+		meta.Provides.Range(func(_ int, provide ServiceRef) bool {
 			if state.known.Contains(provide.Name) {
 				state.err.Add(fmt.Errorf("duplicate setup output `%s` in module `%s` via %s", provide.Name, mod.name, meta.Label))
-				return
+				return true
 			}
 			state.known.Add(provide.Name)
+			return true
 		})
-		if meta.Raw && len(meta.Provides) == 0 && len(meta.Overrides) == 0 && meta.GraphMutation {
+		if meta.Raw && meta.Provides.Len() == 0 && meta.Overrides.Len() == 0 && meta.GraphMutation {
 			state.addWarning(
 				ValidationWarningRawSetupUndeclaredGraph,
 				mod.name,
@@ -119,7 +119,7 @@ func validateDeclaredDependencies(modules *collectionlist.List[*moduleSpec], sta
 func validateProviderDependencies(mod *moduleSpec, state *validationState) {
 	mod.providers.Range(func(_ int, provider ProviderFunc) bool {
 		meta := provider.meta
-		if meta.Raw && len(meta.Dependencies) == 0 {
+		if meta.Raw && meta.Dependencies.Len() == 0 {
 			state.addWarning(
 				ValidationWarningRawProviderUndeclaredDeps,
 				mod.name,
@@ -135,10 +135,11 @@ func validateProviderDependencies(mod *moduleSpec, state *validationState) {
 func validateSetupDependencies(mod *moduleSpec, state *validationState) {
 	mod.setups.Range(func(_ int, setup SetupFunc) bool {
 		meta := setup.meta
-		lo.ForEach(meta.Overrides, func(override ServiceRef, _ int) {
+		meta.Overrides.Range(func(_ int, override ServiceRef) bool {
 			if !state.known.Contains(override.Name) {
 				state.err.Add(fmt.Errorf("override target `%s` not found in module `%s` via %s", override.Name, mod.name, meta.Label))
 			}
+			return true
 		})
 		state.validateDeps(mod.name, "setup", meta.Label, meta.Dependencies)
 		return true
@@ -147,7 +148,7 @@ func validateSetupDependencies(mod *moduleSpec, state *validationState) {
 
 func validateInvokeDependencies(mod *moduleSpec, state *validationState) {
 	mod.invokes.Range(func(_ int, invoke InvokeFunc) bool {
-		if invoke.meta.Raw && len(invoke.meta.Dependencies) == 0 {
+		if invoke.meta.Raw && invoke.meta.Dependencies.Len() == 0 {
 			state.addWarning(
 				ValidationWarningRawInvokeUndeclaredDeps,
 				mod.name,
@@ -163,7 +164,7 @@ func validateInvokeDependencies(mod *moduleSpec, state *validationState) {
 
 func validateHookDependencies(mod *moduleSpec, state *validationState) {
 	mod.hooks.Range(func(_ int, hook HookFunc) bool {
-		if hook.meta.Raw && len(hook.meta.Dependencies) == 0 {
+		if hook.meta.Raw && hook.meta.Dependencies.Len() == 0 {
 			state.addWarning(
 				ValidationWarningRawHookUndeclaredDeps,
 				mod.name,
@@ -186,7 +187,7 @@ func (s *validationState) addWarning(kind ValidationWarningKind, moduleName, lab
 	})
 }
 
-func (s *validationState) validateDeps(moduleName, kind, label string, deps []ServiceRef) {
+func (s *validationState) validateDeps(moduleName, kind, label string, deps collectionx.List[ServiceRef]) {
 	validateDependencies(s.err, s.known, moduleName, kind, label, deps)
 }
 
@@ -196,11 +197,12 @@ func validateDependencies(
 	moduleName string,
 	kind string,
 	label string,
-	deps []ServiceRef,
+	deps collectionx.List[ServiceRef],
 ) {
-	lo.ForEach(deps, func(dep ServiceRef, _ int) {
+	deps.Range(func(_ int, dep ServiceRef) bool {
 		if !known.Contains(dep.Name) {
 			err.Add(fmt.Errorf("missing dependency `%s` for %s %s in module `%s`", dep.Name, kind, label, moduleName))
 		}
+		return true
 	})
 }

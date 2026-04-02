@@ -200,7 +200,7 @@ func atlasSchemaDiffPlan(ctx context.Context, driver atlasmigrate.Driver, compil
 	}
 	report := atlasReportFromChanges(changes, compiled, current)
 	if len(changes) == 0 {
-		return MigrationPlan{Actions: nil, Report: report}, true, nil
+		return MigrationPlan{Actions: collectionx.NewList[MigrationAction](), Report: report}, true, nil
 	}
 	safeChanges, manualActions := atlasSplitChanges(changes)
 	actions, err := atlasPlanActions(ctx, driver, safeChanges)
@@ -208,7 +208,7 @@ func atlasSchemaDiffPlan(ctx context.Context, driver atlasmigrate.Driver, compil
 		return MigrationPlan{}, true, err
 	}
 	return MigrationPlan{
-		Actions: append(actions, manualActions...),
+		Actions: collectionx.NewListWithCapacity(len(actions)+len(manualActions), append(actions, manualActions...)...),
 		Report:  report,
 	}, true, nil
 }

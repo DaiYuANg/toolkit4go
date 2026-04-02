@@ -155,7 +155,7 @@ func TestValidateReportUsesDeclaredRawMetadata(t *testing.T) {
 			}, dix.ProviderMetadata{
 				Label:        "RawDatabaseProvider",
 				Output:       dix.TypedService[*Database](),
-				Dependencies: []dix.ServiceRef{dix.TypedService[Config]()},
+				Dependencies: dix.ServiceRefs(dix.TypedService[Config]()),
 			}),
 		),
 		dix.WithModuleInvokes(
@@ -164,7 +164,7 @@ func TestValidateReportUsesDeclaredRawMetadata(t *testing.T) {
 				return err
 			}, dix.InvokeMetadata{
 				Label:        "RawInvokeDatabase",
-				Dependencies: []dix.ServiceRef{dix.TypedService[*Database]()},
+				Dependencies: dix.ServiceRefs(dix.TypedService[*Database]()),
 			}),
 		),
 		dix.WithModuleHooks(
@@ -176,7 +176,7 @@ func TestValidateReportUsesDeclaredRawMetadata(t *testing.T) {
 			}, dix.HookMetadata{
 				Label:        "RawStartDatabase",
 				Kind:         dix.HookKindStart,
-				Dependencies: []dix.ServiceRef{dix.TypedService[*Database]()},
+				Dependencies: dix.ServiceRefs(dix.TypedService[*Database]()),
 			}),
 		),
 		dix.WithModuleSetups(
@@ -185,8 +185,8 @@ func TestValidateReportUsesDeclaredRawMetadata(t *testing.T) {
 				return nil
 			}, dix.SetupMetadata{
 				Label:         "RawDoSetup",
-				Dependencies:  []dix.ServiceRef{dix.TypedService[Config]()},
-				Provides:      []dix.ServiceRef{dix.NamedService("tenant.default")},
+				Dependencies:  dix.ServiceRefs(dix.TypedService[Config]()),
+				Provides:      dix.ServiceRefs(dix.NamedService("tenant.default")),
 				GraphMutation: true,
 			}),
 		),

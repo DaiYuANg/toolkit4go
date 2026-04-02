@@ -43,7 +43,7 @@ func Invoke1[T any](fn func(T)) InvokeFunc {
 		func(c *Container) error { return dixInvoke1(c, fn) },
 		InvokeMetadata{
 			Label:        "Invoke1",
-			Dependencies: []ServiceRef{TypedService[T]()},
+			Dependencies: ServiceRefs(TypedService[T]()),
 		},
 	)
 }
@@ -54,7 +54,7 @@ func Invoke2[T1, T2 any](fn func(T1, T2)) InvokeFunc {
 		func(c *Container) error { return dixInvoke2(c, fn) },
 		InvokeMetadata{
 			Label:        "Invoke2",
-			Dependencies: []ServiceRef{TypedService[T1](), TypedService[T2]()},
+			Dependencies: ServiceRefs(TypedService[T1](), TypedService[T2]()),
 		},
 	)
 }
@@ -65,7 +65,7 @@ func Invoke3[T1, T2, T3 any](fn func(T1, T2, T3)) InvokeFunc {
 		func(c *Container) error { return dixInvoke3(c, fn) },
 		InvokeMetadata{
 			Label:        "Invoke3",
-			Dependencies: []ServiceRef{TypedService[T1](), TypedService[T2](), TypedService[T3]()},
+			Dependencies: ServiceRefs(TypedService[T1](), TypedService[T2](), TypedService[T3]()),
 		},
 	)
 }
@@ -76,7 +76,7 @@ func Invoke4[T1, T2, T3, T4 any](fn func(T1, T2, T3, T4)) InvokeFunc {
 		func(c *Container) error { return dixInvoke4(c, fn) },
 		InvokeMetadata{
 			Label:        "Invoke4",
-			Dependencies: []ServiceRef{TypedService[T1](), TypedService[T2](), TypedService[T3](), TypedService[T4]()},
+			Dependencies: ServiceRefs(TypedService[T1](), TypedService[T2](), TypedService[T3](), TypedService[T4]()),
 		},
 	)
 }
@@ -87,13 +87,13 @@ func Invoke5[T1, T2, T3, T4, T5 any](fn func(T1, T2, T3, T4, T5)) InvokeFunc {
 		func(c *Container) error { return dixInvoke5(c, fn) },
 		InvokeMetadata{
 			Label: "Invoke5",
-			Dependencies: []ServiceRef{
+			Dependencies: ServiceRefs(
 				TypedService[T1](),
 				TypedService[T2](),
 				TypedService[T3](),
 				TypedService[T4](),
 				TypedService[T5](),
-			},
+			),
 		},
 	)
 }
@@ -104,14 +104,14 @@ func Invoke6[T1, T2, T3, T4, T5, T6 any](fn func(T1, T2, T3, T4, T5, T6)) Invoke
 		func(c *Container) error { return dixInvoke6(c, fn) },
 		InvokeMetadata{
 			Label: "Invoke6",
-			Dependencies: []ServiceRef{
+			Dependencies: ServiceRefs(
 				TypedService[T1](),
 				TypedService[T2](),
 				TypedService[T3](),
 				TypedService[T4](),
 				TypedService[T5](),
 				TypedService[T6](),
-			},
+			),
 		},
 	)
 }

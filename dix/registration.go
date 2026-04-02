@@ -1,6 +1,9 @@
 package dix
 
-import "github.com/samber/lo"
+import (
+	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/lo"
+)
 
 // ServiceRef identifies a service in the container graph.
 // Typed services should use TypedService[T](). Named services should use NamedService(name).
@@ -22,14 +25,14 @@ func NamedService(name string) ServiceRef {
 type ProviderMetadata struct {
 	Label        string
 	Output       ServiceRef
-	Dependencies []ServiceRef
+	Dependencies collectionx.List[ServiceRef]
 	Raw          bool
 }
 
 // InvokeMetadata describes an invoke registration for validation and inspection.
 type InvokeMetadata struct {
 	Label        string
-	Dependencies []ServiceRef
+	Dependencies collectionx.List[ServiceRef]
 	Raw          bool
 }
 
@@ -47,18 +50,28 @@ const (
 type HookMetadata struct {
 	Label        string
 	Kind         HookKind
-	Dependencies []ServiceRef
+	Dependencies collectionx.List[ServiceRef]
 	Raw          bool
 }
 
 // SetupMetadata describes a setup registration.
 type SetupMetadata struct {
 	Label         string
-	Dependencies  []ServiceRef
-	Provides      []ServiceRef
-	Overrides     []ServiceRef
+	Dependencies  collectionx.List[ServiceRef]
+	Provides      collectionx.List[ServiceRef]
+	Overrides     collectionx.List[ServiceRef]
 	GraphMutation bool
 	Raw           bool
+}
+
+// ServiceRefs constructs a filtered collectionx list of service references.
+func ServiceRefs(refs ...ServiceRef) collectionx.List[ServiceRef] {
+	if len(refs) == 0 {
+		return collectionx.NewList[ServiceRef]()
+	}
+	return collectionx.NewList(lo.Filter(refs, func(ref ServiceRef, _ int) bool {
+		return ref.Name != ""
+	})...)
 }
 
 // NewProviderFunc constructs a provider registration from a callback and metadata.
@@ -127,8 +140,9 @@ func normalizeSetupMetadata(meta SetupMetadata) SetupMetadata {
 	return meta
 }
 
-func normalizeServiceRefs(refs []ServiceRef) []ServiceRef {
-	return lo.Filter(refs, func(ref ServiceRef, _ int) bool {
-		return ref.Name != ""
-	})
+func normalizeServiceRefs(refs collectionx.List[ServiceRef]) collectionx.List[ServiceRef] {
+	if refs == nil || refs.Len() == 0 {
+		return collectionx.NewList[ServiceRef]()
+	}
+	return ServiceRefs(refs.Values()...)
 }

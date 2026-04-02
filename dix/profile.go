@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/samber/lo"
 )
 
 var builtInProfiles = collectionx.NewSet(
@@ -92,9 +91,12 @@ func (pf *ProfileFilter) FilterModules(modules []Module) collectionx.List[Module
 	if err != nil {
 		return collectionx.NewList[Module]()
 	}
-	return collectionx.NewList(lo.Map(filtered.Values(), func(spec *moduleSpec, _ int) Module {
-		return Module{spec: spec}
-	})...)
+	items := collectionx.NewListWithCapacity[Module](filtered.Len())
+	filtered.Range(func(_ int, spec *moduleSpec) bool {
+		items.Add(Module{spec: spec})
+		return true
+	})
+	return items
 }
 
 // Profiles is the shared profile helper instance.

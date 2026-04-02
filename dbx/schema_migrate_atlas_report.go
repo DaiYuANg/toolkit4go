@@ -20,7 +20,8 @@ func atlasReportFromChanges(changes []atlasschema.Change, compiled *atlasCompile
 func atlasReportDiffMap(order []string) collectionx.OrderedMap[string, *TableDiff] {
 	diffs := collectionx.NewOrderedMapWithCapacity[string, *TableDiff](len(order))
 	for _, name := range order {
-		diffs.Set(name, &TableDiff{Table: name})
+		diff := newTableDiff(name)
+		diffs.Set(name, &diff)
 	}
 	return diffs
 }
@@ -52,14 +53,14 @@ func atlasApplyAddTableChange(diffs collectionx.OrderedMap[string, *TableDiff], 
 	}
 	diff, _ := diffs.Get(change.T.Name)
 	diff.MissingTable = true
-	diff.MissingColumns = slices.Clone(compiledTable.spec.Columns)
-	diff.MissingIndexes = slices.Clone(compiledTable.spec.Indexes)
-	diff.MissingForeignKeys = slices.Clone(compiledTable.spec.ForeignKeys)
-	diff.MissingChecks = slices.Clone(compiledTable.spec.Checks)
+	diff.MissingColumns = collectionx.NewListWithCapacity(len(compiledTable.spec.Columns), slices.Clone(compiledTable.spec.Columns)...)
+	diff.MissingIndexes = collectionx.NewListWithCapacity(len(compiledTable.spec.Indexes), slices.Clone(compiledTable.spec.Indexes)...)
+	diff.MissingForeignKeys = collectionx.NewListWithCapacity(len(compiledTable.spec.ForeignKeys), slices.Clone(compiledTable.spec.ForeignKeys)...)
+	diff.MissingChecks = collectionx.NewListWithCapacity(len(compiledTable.spec.Checks), slices.Clone(compiledTable.spec.Checks)...)
 	if compiledTable.spec.PrimaryKey != nil {
 		diff.PrimaryKeyDiff = &PrimaryKeyDiff{
 			Expected: new(clonePrimaryKeyMeta(*compiledTable.spec.PrimaryKey)),
-			Issues:   []string{"table does not exist"},
+			Issues:   collectionx.NewList("table does not exist"),
 		}
 	}
 }
@@ -77,10 +78,11 @@ func atlasApplyModifyTableChange(diffs collectionx.OrderedMap[string, *TableDiff
 }
 
 func atlasValidationReport(diffs collectionx.OrderedMap[string, *TableDiff]) ValidationReport {
+	items := lo.Map(diffs.Values(), func(diff *TableDiff, _ int) TableDiff {
+		return *diff
+	})
 	return ValidationReport{
-		Tables: lo.Map(diffs.Values(), func(diff *TableDiff, _ int) TableDiff {
-			return *diff
-		}),
+		Tables:   collectionx.NewListWithCapacity(len(items), items...),
 		Backend:  ValidationBackendAtlas,
 		Complete: true,
 	}

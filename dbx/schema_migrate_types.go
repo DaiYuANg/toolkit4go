@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
-	"github.com/samber/lo"
 )
 
 type SchemaResource interface {
@@ -85,10 +85,10 @@ type CheckState struct {
 }
 
 type ValidationReport struct {
-	Tables   []TableDiff
+	Tables   collectionx.List[TableDiff]
 	Backend  ValidationBackend
 	Complete bool
-	Warnings []string
+	Warnings collectionx.List[string]
 }
 
 type ValidationBackend string
@@ -101,23 +101,23 @@ const (
 type TableDiff struct {
 	Table              string
 	MissingTable       bool
-	MissingColumns     []ColumnMeta
-	MissingIndexes     []IndexMeta
-	MissingForeignKeys []ForeignKeyMeta
-	MissingChecks      []CheckMeta
+	MissingColumns     collectionx.List[ColumnMeta]
+	MissingIndexes     collectionx.List[IndexMeta]
+	MissingForeignKeys collectionx.List[ForeignKeyMeta]
+	MissingChecks      collectionx.List[CheckMeta]
 	PrimaryKeyDiff     *PrimaryKeyDiff
-	ColumnDiffs        []ColumnDiff
+	ColumnDiffs        collectionx.List[ColumnDiff]
 }
 
 type PrimaryKeyDiff struct {
 	Expected *PrimaryKeyMeta
 	Actual   *PrimaryKeyState
-	Issues   []string
+	Issues   collectionx.List[string]
 }
 
 type ColumnDiff struct {
 	Column ColumnMeta
-	Issues []string
+	Issues collectionx.List[string]
 }
 
 type MigrationActionKind string
@@ -140,7 +140,7 @@ type MigrationAction struct {
 }
 
 type MigrationPlan struct {
-	Actions []MigrationAction
+	Actions collectionx.List[MigrationAction]
 	Report  ValidationReport
 }
 
@@ -152,16 +152,26 @@ func (a MigrationAction) SQLPreview() string {
 	return strings.TrimSpace(a.Statement.SQL)
 }
 
-func (p MigrationPlan) Statements() []BoundQuery {
-	return lo.FilterMap(p.Actions, func(action MigrationAction, _ int) (BoundQuery, bool) {
-		return action.Statement, action.HasStatement()
+func (p MigrationPlan) Statements() collectionx.List[BoundQuery] {
+	statements := collectionx.NewListWithCapacity[BoundQuery](p.Actions.Len())
+	p.Actions.Range(func(_ int, action MigrationAction) bool {
+		if action.HasStatement() {
+			statements.Add(action.Statement)
+		}
+		return true
 	})
+	return statements
 }
 
-func (p MigrationPlan) SQLPreview() []string {
-	return lo.FilterMap(p.Actions, func(action MigrationAction, _ int) (string, bool) {
-		return action.SQLPreview(), action.HasStatement()
+func (p MigrationPlan) SQLPreview() collectionx.List[string] {
+	preview := collectionx.NewListWithCapacity[string](p.Actions.Len())
+	p.Actions.Range(func(_ int, action MigrationAction) bool {
+		if action.HasStatement() {
+			preview.Add(action.SQLPreview())
+		}
+		return true
 	})
+	return preview
 }
 
 type SchemaDriftError struct {
@@ -169,23 +179,33 @@ type SchemaDriftError struct {
 }
 
 func (e SchemaDriftError) Error() string {
-	tables := lo.FilterMap(e.Report.Tables, func(table TableDiff, _ int) (string, bool) {
-		return table.Table, !table.Empty()
+	tables := collectionx.NewListWithCapacity[string](e.Report.Tables.Len())
+	e.Report.Tables.Range(func(_ int, table TableDiff) bool {
+		if !table.Empty() {
+			tables.Add(table.Table)
+		}
+		return true
 	})
-	if len(tables) == 0 {
+	if tables.Len() == 0 {
 		return "dbx: schema drift detected"
 	}
-	return "dbx: schema drift detected for tables: " + strings.Join(tables, ", ")
+	return "dbx: schema drift detected for tables: " + strings.Join(tables.Values(), ", ")
 }
 
 func (r ValidationReport) Valid() bool {
-	return !lo.SomeBy(r.Tables, func(table TableDiff) bool {
-		return !table.Empty()
+	valid := true
+	r.Tables.Range(func(_ int, table TableDiff) bool {
+		if table.Empty() {
+			return true
+		}
+		valid = false
+		return false
 	})
+	return valid
 }
 
 func (r ValidationReport) HasWarnings() bool {
-	return len(r.Warnings) > 0
+	return r.Warnings.Len() > 0
 }
 
 func (r ValidationReport) IsComplete() bool {
@@ -194,22 +214,44 @@ func (r ValidationReport) IsComplete() bool {
 
 func (t TableDiff) Empty() bool {
 	return !t.MissingTable &&
-		len(t.MissingColumns) == 0 &&
-		len(t.MissingIndexes) == 0 &&
-		len(t.MissingForeignKeys) == 0 &&
-		len(t.MissingChecks) == 0 &&
+		t.MissingColumns.Len() == 0 &&
+		t.MissingIndexes.Len() == 0 &&
+		t.MissingForeignKeys.Len() == 0 &&
+		t.MissingChecks.Len() == 0 &&
 		t.PrimaryKeyDiff == nil &&
-		len(t.ColumnDiffs) == 0
+		t.ColumnDiffs.Len() == 0
 }
 
-func (p MigrationPlan) ExecutableActions() []MigrationAction {
-	return lo.Filter(p.Actions, func(action MigrationAction, _ int) bool {
-		return action.Executable
+func (p MigrationPlan) ExecutableActions() collectionx.List[MigrationAction] {
+	actions := collectionx.NewListWithCapacity[MigrationAction](p.Actions.Len())
+	p.Actions.Range(func(_ int, action MigrationAction) bool {
+		if action.Executable {
+			actions.Add(action)
+		}
+		return true
 	})
+	return actions
 }
 
 func (p MigrationPlan) HasManualActions() bool {
-	return lo.SomeBy(p.Actions, func(action MigrationAction) bool {
-		return !action.Executable
+	manual := false
+	p.Actions.Range(func(_ int, action MigrationAction) bool {
+		if action.Executable {
+			return true
+		}
+		manual = true
+		return false
 	})
+	return manual
+}
+
+func newTableDiff(table string) TableDiff {
+	return TableDiff{
+		Table:              table,
+		MissingColumns:     collectionx.NewList[ColumnMeta](),
+		MissingIndexes:     collectionx.NewList[IndexMeta](),
+		MissingForeignKeys: collectionx.NewList[ForeignKeyMeta](),
+		MissingChecks:      collectionx.NewList[CheckMeta](),
+		ColumnDiffs:        collectionx.NewList[ColumnDiff](),
+	}
 }

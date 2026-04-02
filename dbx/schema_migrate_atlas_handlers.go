@@ -2,6 +2,8 @@ package dbx
 
 import (
 	atlasschema "ariga.io/atlas/sql/schema"
+
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 type atlasTableChangeHandler func(*TableDiff, *atlasCompiledTable, *atlasschema.Table, atlasschema.Change) bool
@@ -180,7 +182,7 @@ func handleAtlasModifyOrDropPrimaryKeyChange(diff *TableDiff, compiled *atlasCom
 
 func atlasHandleAddColumn(diff *TableDiff, compiled *atlasCompiledTable, change *atlasschema.AddColumn) {
 	if column, ok := compiled.columnsByName.Get(change.C.Name); ok {
-		diff.MissingColumns = append(diff.MissingColumns, column)
+		diff.MissingColumns.Add(column)
 	}
 }
 
@@ -193,76 +195,76 @@ func atlasHandleModifyColumn(diff *TableDiff, compiled *atlasCompiledTable, chan
 	if !ok {
 		column = ColumnMeta{Name: name, Table: diff.Table}
 	}
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: column, Issues: []string{atlasColumnChangeIssue(change.Change)}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: column, Issues: collectionx.NewList(atlasColumnChangeIssue(change.Change))})
 }
 
 func atlasHandleRenameColumn(diff *TableDiff, change *atlasschema.RenameColumn) {
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: []string{"manual column rename migration required"}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList("manual column rename migration required")})
 }
 
 func atlasHandleDropColumn(diff *TableDiff, change *atlasschema.DropColumn) {
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: []string{"manual column removal migration required"}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: collectionx.NewList("manual column removal migration required")})
 }
 
 func atlasHandleAddIndex(diff *TableDiff, compiled *atlasCompiledTable, change *atlasschema.AddIndex) {
 	if index, ok := atlasFindIndexMeta(compiled, change.I); ok {
-		diff.MissingIndexes = append(diff.MissingIndexes, index)
+		diff.MissingIndexes.Add(index)
 	}
 }
 
 func atlasHandleModifyIndex(diff *TableDiff, compiled *atlasCompiledTable, change *atlasschema.ModifyIndex) {
 	if index, ok := atlasFindIndexMeta(compiled, change.To); ok {
-		diff.MissingIndexes = append(diff.MissingIndexes, index)
+		diff.MissingIndexes.Add(index)
 		return
 	}
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: []string{"manual index modification required"}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList("manual index modification required")})
 }
 
 func atlasHandleRenameIndex(diff *TableDiff, change *atlasschema.RenameIndex) {
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: []string{"manual index rename migration required"}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList("manual index rename migration required")})
 }
 
 func atlasHandleDropIndex(diff *TableDiff, change *atlasschema.DropIndex) {
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: ColumnMeta{Name: change.I.Name, Table: diff.Table}, Issues: []string{"manual index removal migration required"}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: ColumnMeta{Name: change.I.Name, Table: diff.Table}, Issues: collectionx.NewList("manual index removal migration required")})
 }
 
 func atlasHandleAddForeignKey(diff *TableDiff, compiled *atlasCompiledTable, change *atlasschema.AddForeignKey) {
 	if foreignKey, ok := atlasFindForeignKeyMeta(compiled, change.F); ok {
-		diff.MissingForeignKeys = append(diff.MissingForeignKeys, foreignKey)
+		diff.MissingForeignKeys.Add(foreignKey)
 	}
 }
 
 func atlasHandleModifyForeignKey(diff *TableDiff, compiled *atlasCompiledTable, change *atlasschema.ModifyForeignKey) {
 	if foreignKey, ok := atlasFindForeignKeyMeta(compiled, change.To); ok {
-		diff.MissingForeignKeys = append(diff.MissingForeignKeys, foreignKey)
+		diff.MissingForeignKeys.Add(foreignKey)
 	}
 }
 
 func atlasHandleDropForeignKey(diff *TableDiff, change *atlasschema.DropForeignKey) {
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: ColumnMeta{Name: change.F.Symbol, Table: diff.Table}, Issues: []string{"manual foreign key removal migration required"}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: ColumnMeta{Name: change.F.Symbol, Table: diff.Table}, Issues: collectionx.NewList("manual foreign key removal migration required")})
 }
 
 func atlasHandleAddCheck(diff *TableDiff, compiled *atlasCompiledTable, change *atlasschema.AddCheck) {
 	if check, ok := atlasFindCheckMeta(compiled, change.C); ok {
-		diff.MissingChecks = append(diff.MissingChecks, check)
+		diff.MissingChecks.Add(check)
 	}
 }
 
 func atlasHandleModifyCheck(diff *TableDiff, compiled *atlasCompiledTable, change *atlasschema.ModifyCheck) {
 	if check, ok := atlasFindCheckMeta(compiled, change.To); ok {
-		diff.MissingChecks = append(diff.MissingChecks, check)
+		diff.MissingChecks.Add(check)
 	}
 }
 
 func atlasHandleDropCheck(diff *TableDiff, change *atlasschema.DropCheck) {
-	diff.ColumnDiffs = append(diff.ColumnDiffs, ColumnDiff{Column: ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: []string{"manual check removal migration required"}})
+	diff.ColumnDiffs.Add(ColumnDiff{Column: ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: collectionx.NewList("manual check removal migration required")})
 }
 
 func atlasHandleAddPrimaryKey(diff *TableDiff, compiled *atlasCompiledTable) {
 	diff.PrimaryKeyDiff = &PrimaryKeyDiff{
 		Expected: compiled.spec.PrimaryKey,
 		Actual:   atlasPrimaryKeyState(nil),
-		Issues:   []string{"missing primary key"},
+		Issues:   collectionx.NewList("missing primary key"),
 	}
 }
 
@@ -275,5 +277,5 @@ func atlasHandleModifyOrDropPrimaryKey(diff *TableDiff, compiled *atlasCompiledT
 	if compiled.spec.PrimaryKey != nil {
 		expected = new(clonePrimaryKeyMeta(*compiled.spec.PrimaryKey))
 	}
-	diff.PrimaryKeyDiff = &PrimaryKeyDiff{Expected: expected, Actual: actual, Issues: []string{"primary key migration required"}}
+	diff.PrimaryKeyDiff = &PrimaryKeyDiff{Expected: expected, Actual: actual, Issues: collectionx.NewList("primary key migration required")}
 }

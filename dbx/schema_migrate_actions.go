@@ -14,11 +14,11 @@ func mappedMigrationActions[T any](items []T, mapper func(T) MigrationAction) []
 }
 
 func columnDiffManualActions(diff TableDiff) []MigrationAction {
-	return mappedMigrationActions(diff.ColumnDiffs, func(cd ColumnDiff) MigrationAction {
+	return mappedMigrationActions(diff.ColumnDiffs.Values(), func(cd ColumnDiff) MigrationAction {
 		return MigrationAction{
 			Kind:    MigrationActionManual,
 			Table:   diff.Table,
-			Summary: "manual column migration required for " + cd.Column.Name + ": " + strings.Join(cd.Issues, "; "),
+			Summary: "manual column migration required for " + cd.Column.Name + ": " + strings.Join(cd.Issues.Values(), "; "),
 		}
 	})
 }

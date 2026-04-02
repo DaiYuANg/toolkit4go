@@ -3,6 +3,8 @@ package dbx
 import (
 	"context"
 	"database/sql"
+
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 func AutoMigrate(ctx context.Context, session Session, schemas ...SchemaResource) (ValidationReport, error) {
@@ -13,7 +15,7 @@ func AutoMigrate(ctx context.Context, session Session, schemas ...SchemaResource
 		return ValidationReport{}, err
 	}
 	if plan.HasManualActions() {
-		logRuntimeNode(session, "schema.auto_migrate.manual_required", "actions", len(plan.Actions))
+		logRuntimeNode(session, "schema.auto_migrate.manual_required", "actions", plan.Actions.Len())
 		return plan.Report, SchemaDriftError{Report: plan.Report}
 	}
 
@@ -21,13 +23,13 @@ func AutoMigrate(ctx context.Context, session Session, schemas ...SchemaResource
 	if err != nil {
 		return ValidationReport{}, err
 	}
-	logRuntimeNode(session, "schema.auto_migrate.done", "actions", len(plan.Actions))
+	logRuntimeNode(session, "schema.auto_migrate.done", "actions", plan.Actions.Len())
 	return report, nil
 }
 
 func applyMigrationPlan(ctx context.Context, session Session, plan MigrationPlan, schemas ...SchemaResource) (ValidationReport, error) {
 	executableActions := plan.ExecutableActions()
-	execSession, finalize, rollback, transactional, err := autoMigrateExecutionSession(ctx, session, len(executableActions) > 0)
+	execSession, finalize, rollback, transactional, err := autoMigrateExecutionSession(ctx, session, executableActions.Len() > 0)
 	if err != nil {
 		logRuntimeNode(session, "schema.auto_migrate.error", "stage", "begin_tx", "error", err)
 		return ValidationReport{}, err
@@ -46,7 +48,7 @@ func applyMigrationPlan(ctx context.Context, session Session, plan MigrationPlan
 	if err != nil {
 		return ValidationReport{}, err
 	}
-	report = appendNonTransactionalWarning(report, transactional, len(executableActions))
+	report = appendNonTransactionalWarning(report, transactional, executableActions.Len())
 	if err := ensureMigrationReportValid(session, report); err != nil {
 		return report, err
 	}
@@ -65,18 +67,21 @@ func rollbackPendingMigration(session Session, rollback func() error, committed 
 	}
 }
 
-func executeMigrationActions(ctx context.Context, session, execSession Session, actions []MigrationAction) error {
-	for _, action := range actions {
+func executeMigrationActions(ctx context.Context, session, execSession Session, actions collectionx.List[MigrationAction]) error {
+	var execErr error
+	actions.Range(func(_ int, action MigrationAction) bool {
 		if !action.Executable {
-			continue
+			return true
 		}
 		logRuntimeNode(execSession, "schema.auto_migrate.exec_action", "kind", action.Kind, "table", action.Table, "summary", action.Summary)
 		if _, err := execSession.ExecBoundContext(ctx, action.Statement); err != nil {
 			logRuntimeNode(session, "schema.auto_migrate.error", "stage", "exec", "kind", action.Kind, "table", action.Table, "error", err)
-			return wrapDBError("apply schema migration action", err)
+			execErr = wrapDBError("apply schema migration action", err)
+			return false
 		}
-	}
-	return nil
+		return true
+	})
+	return execErr
 }
 
 func validateAppliedMigration(ctx context.Context, session, execSession Session, schemas ...SchemaResource) (ValidationReport, error) {
@@ -99,7 +104,7 @@ func ensureMigrationReportValid(session Session, report ValidationReport) error 
 	if report.Valid() {
 		return nil
 	}
-	logRuntimeNode(session, "schema.auto_migrate.invalid_after_apply", "tables", len(report.Tables))
+	logRuntimeNode(session, "schema.auto_migrate.invalid_after_apply", "tables", report.Tables.Len())
 	return SchemaDriftError{Report: report}
 }
 

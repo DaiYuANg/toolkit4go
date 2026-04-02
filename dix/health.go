@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/samber/lo"
 )
 
 // HealthKind is the category of a health check.
@@ -146,12 +145,13 @@ func (r *Runtime) checkHealthByKind(ctx context.Context, kind HealthKind) Health
 		return report
 	}
 
-	entries := lo.Filter(r.container.healthChecks.Values(), func(check healthCheckEntry, _ int) bool {
-		return check.kind == kind
-	})
-	reportChecks := collectionx.NewMapWithCapacity[string, error](len(entries))
-	lo.ForEach(entries, func(check healthCheckEntry, _ int) {
+	reportChecks := collectionx.NewMapWithCapacity[string, error](r.container.healthChecks.Len())
+	r.container.healthChecks.Range(func(_ int, check healthCheckEntry) bool {
+		if check.kind != kind {
+			return true
+		}
 		reportChecks.Set(check.name, r.runHealthCheck(ctx, check))
+		return true
 	})
 	report.Checks = reportChecks
 	return report

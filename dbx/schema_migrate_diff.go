@@ -21,25 +21,23 @@ func diffSchema(ctx context.Context, schemaDialect SchemaDialect, session Sessio
 }
 
 func missingTableDiff(spec TableSpec) TableDiff {
-	diff := TableDiff{
-		Table:              spec.Name,
-		MissingTable:       true,
-		MissingColumns:     slices.Clone(spec.Columns),
-		MissingIndexes:     slices.Clone(spec.Indexes),
-		MissingForeignKeys: slices.Clone(spec.ForeignKeys),
-		MissingChecks:      slices.Clone(spec.Checks),
-	}
+	diff := newTableDiff(spec.Name)
+	diff.MissingTable = true
+	diff.MissingColumns = collectionx.NewListWithCapacity(len(spec.Columns), slices.Clone(spec.Columns)...)
+	diff.MissingIndexes = collectionx.NewListWithCapacity(len(spec.Indexes), slices.Clone(spec.Indexes)...)
+	diff.MissingForeignKeys = collectionx.NewListWithCapacity(len(spec.ForeignKeys), slices.Clone(spec.ForeignKeys)...)
+	diff.MissingChecks = collectionx.NewListWithCapacity(len(spec.Checks), slices.Clone(spec.Checks)...)
 	if spec.PrimaryKey != nil {
 		diff.PrimaryKeyDiff = &PrimaryKeyDiff{
 			Expected: new(clonePrimaryKeyMeta(*spec.PrimaryKey)),
-			Issues:   []string{"table does not exist"},
+			Issues:   collectionx.NewList("table does not exist"),
 		}
 	}
 	return diff
 }
 
 func existingTableDiff(schemaDialect SchemaDialect, spec TableSpec, actual TableState) TableDiff {
-	diff := TableDiff{Table: spec.Name}
+	diff := newTableDiff(spec.Name)
 	actualColumns := lo.SliceToMap(actual.Columns, func(column ColumnState) (string, ColumnState) {
 		return column.Name, column
 	})
@@ -65,10 +63,10 @@ func diffColumns(schemaDialect SchemaDialect, expectedColumns []ColumnMeta, actu
 		if len(issues) == 0 {
 			continue
 		}
-		columnDiffs.Add(ColumnDiff{Column: expected, Issues: issues})
+		columnDiffs.Add(ColumnDiff{Column: expected, Issues: collectionx.NewListWithCapacity(len(issues), issues...)})
 	}
-	diff.MissingColumns = missingColumns.Values()
-	diff.ColumnDiffs = columnDiffs.Values()
+	diff.MissingColumns = missingColumns
+	diff.ColumnDiffs = columnDiffs
 }
 
 func diffPrimaryKey(expected *PrimaryKeyMeta, actual *PrimaryKeyState, diff *TableDiff) {
@@ -79,7 +77,7 @@ func diffPrimaryKey(expected *PrimaryKeyMeta, actual *PrimaryKeyState, diff *Tab
 	diff.PrimaryKeyDiff = &PrimaryKeyDiff{
 		Expected: clonePrimaryKeyMetaPtr(expected),
 		Actual:   clonePrimaryKeyStatePtr(actual),
-		Issues:   issues,
+		Issues:   collectionx.NewListWithCapacity(len(issues), issues...),
 	}
 }
 
@@ -122,11 +120,11 @@ func diffChecks(expected []CheckMeta, actual []CheckState, diff *TableDiff) {
 	})
 }
 
-func missingByKey[T any, S any](expected []T, actual map[string]S, key func(T) string) []T {
-	return lo.Filter(expected, func(item T, _ int) bool {
+func missingByKey[T any, S any](expected []T, actual map[string]S, key func(T) string) collectionx.List[T] {
+	return collectionx.NewList(lo.Filter(expected, func(item T, _ int) bool {
 		_, ok := actual[key(item)]
 		return !ok
-	})
+	})...)
 }
 
 func buildTableSpec(def schemaDefinition) TableSpec {

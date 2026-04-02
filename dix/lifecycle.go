@@ -163,7 +163,7 @@ func OnStart[T any](fn func(context.Context, T) error) HookFunc {
 	}, HookMetadata{
 		Label:        "OnStart",
 		Kind:         HookKindStart,
-		Dependencies: []ServiceRef{TypedService[T]()},
+		Dependencies: ServiceRefs(TypedService[T]()),
 	})
 }
 
@@ -180,7 +180,7 @@ func OnStop[T any](fn func(context.Context, T) error) HookFunc {
 	}, HookMetadata{
 		Label:        "OnStop",
 		Kind:         HookKindStop,
-		Dependencies: []ServiceRef{TypedService[T]()},
+		Dependencies: ServiceRefs(TypedService[T]()),
 	})
 }
 
@@ -201,7 +201,7 @@ func OnStart2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	}, HookMetadata{
 		Label:        "OnStart2",
 		Kind:         HookKindStart,
-		Dependencies: []ServiceRef{TypedService[T1](), TypedService[T2]()},
+		Dependencies: ServiceRefs(TypedService[T1](), TypedService[T2]()),
 	})
 }
 
@@ -222,7 +222,7 @@ func OnStop2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	}, HookMetadata{
 		Label:        "OnStop2",
 		Kind:         HookKindStop,
-		Dependencies: []ServiceRef{TypedService[T1](), TypedService[T2]()},
+		Dependencies: ServiceRefs(TypedService[T1](), TypedService[T2]()),
 	})
 }
 
@@ -247,7 +247,7 @@ func OnStart3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFu
 	}, HookMetadata{
 		Label:        "OnStart3",
 		Kind:         HookKindStart,
-		Dependencies: []ServiceRef{TypedService[T1](), TypedService[T2](), TypedService[T3]()},
+		Dependencies: ServiceRefs(TypedService[T1](), TypedService[T2](), TypedService[T3]()),
 	})
 }
 
@@ -272,6 +272,6 @@ func OnStop3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFun
 	}, HookMetadata{
 		Label:        "OnStop3",
 		Kind:         HookKindStop,
-		Dependencies: []ServiceRef{TypedService[T1](), TypedService[T2](), TypedService[T3]()},
+		Dependencies: ServiceRefs(TypedService[T1](), TypedService[T2](), TypedService[T3]()),
 	})
 }

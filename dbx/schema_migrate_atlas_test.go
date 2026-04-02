@@ -79,13 +79,14 @@ func TestPlanSchemaChangesWithAtlasIncludesSQLPreview(t *testing.T) {
 	}
 
 	preview := plan.SQLPreview()
-	if len(preview) == 0 {
+	first, ok := preview.Get(0)
+	if !ok {
 		t.Fatal("expected atlas preview sql")
 	}
-	if !strings.Contains(strings.ToLower(preview[0]), "create table") {
+	if !strings.Contains(strings.ToLower(first), "create table") {
 		t.Fatalf("unexpected atlas preview sql: %+v", preview)
 	}
-	if !strings.Contains(strings.ToLower(strings.Join(preview, " ")), "integer not null primary key autoincrement") {
+	if !strings.Contains(strings.ToLower(strings.Join(preview.Values(), " ")), "integer not null primary key autoincrement") {
 		t.Fatalf("expected sqlite autoincrement preview to use integer primary key: %+v", preview)
 	}
 }

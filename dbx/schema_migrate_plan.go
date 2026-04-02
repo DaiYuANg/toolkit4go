@@ -27,7 +27,7 @@ func logPlanSchemaChangesResult(session Session, backend string, plan MigrationP
 		logRuntimeNode(session, "schema.plan.error", "backend", backend, "error", err)
 		return
 	}
-	logRuntimeNode(session, "schema.plan.done", "backend", backend, "actions", len(plan.Actions), "manual_actions", plan.HasManualActions())
+	logRuntimeNode(session, "schema.plan.done", "backend", backend, "actions", plan.Actions.Len(), "manual_actions", plan.HasManualActions())
 }
 
 func planSchemaChangesLegacy(ctx context.Context, session Session, schemas ...SchemaResource) (MigrationPlan, error) {
@@ -48,12 +48,12 @@ func planSchemaChangesLegacy(ctx context.Context, session Session, schemas ...Sc
 	}
 
 	return MigrationPlan{
-		Actions: actions.Values(),
+		Actions: actions,
 		Report: ValidationReport{
-			Tables:   reportTables.Values(),
+			Tables:   reportTables,
 			Backend:  ValidationBackendLegacy,
 			Complete: false,
-			Warnings: []string{"dbx: schema validation is running in legacy mode; extra drift may not be reported"},
+			Warnings: collectionx.NewList("dbx: schema validation is running in legacy mode; extra drift may not be reported"),
 		},
 	}, nil
 }
@@ -75,11 +75,11 @@ func logLegacyDiffSummary(session Session, diff TableDiff) {
 		"schema.plan.legacy.diff_done",
 		"table", diff.Table,
 		"missing_table", diff.MissingTable,
-		"missing_columns", len(diff.MissingColumns),
-		"missing_indexes", len(diff.MissingIndexes),
-		"missing_foreign_keys", len(diff.MissingForeignKeys),
-		"missing_checks", len(diff.MissingChecks),
-		"column_diffs", len(diff.ColumnDiffs),
+		"missing_columns", diff.MissingColumns.Len(),
+		"missing_indexes", diff.MissingIndexes.Len(),
+		"missing_foreign_keys", diff.MissingForeignKeys.Len(),
+		"missing_checks", diff.MissingChecks.Len(),
+		"column_diffs", diff.ColumnDiffs.Len(),
 	)
 }
 
@@ -102,16 +102,16 @@ func buildMissingTableActions(schemaDialect SchemaDialect, spec TableSpec) []Mig
 
 func buildExistingTableActions(schemaDialect SchemaDialect, diff TableDiff) []MigrationAction {
 	return slices.Concat(
-		mappedMigrationActions(diff.MissingColumns, func(column ColumnMeta) MigrationAction {
+		mappedMigrationActions(diff.MissingColumns.Values(), func(column ColumnMeta) MigrationAction {
 			return buildAddColumnAction(schemaDialect, diff.Table, column)
 		}),
-		mappedMigrationActions(diff.MissingIndexes, func(index IndexMeta) MigrationAction {
+		mappedMigrationActions(diff.MissingIndexes.Values(), func(index IndexMeta) MigrationAction {
 			return buildCreateIndexAction(schemaDialect, index)
 		}),
-		mappedMigrationActions(diff.MissingForeignKeys, func(foreignKey ForeignKeyMeta) MigrationAction {
+		mappedMigrationActions(diff.MissingForeignKeys.Values(), func(foreignKey ForeignKeyMeta) MigrationAction {
 			return buildAddForeignKeyAction(schemaDialect, diff.Table, foreignKey)
 		}),
-		mappedMigrationActions(diff.MissingChecks, func(check CheckMeta) MigrationAction {
+		mappedMigrationActions(diff.MissingChecks.Values(), func(check CheckMeta) MigrationAction {
 			return buildAddCheckAction(schemaDialect, diff.Table, check)
 		}),
 		primaryKeyManualActions(diff),
@@ -126,7 +126,7 @@ func ValidateSchemas(ctx context.Context, session Session, schemas ...SchemaReso
 		logRuntimeNode(session, "schema.validate.error", "error", err)
 		return ValidationReport{}, err
 	}
-	logRuntimeNode(session, "schema.validate.done", "valid", plan.Report.Valid(), "tables", len(plan.Report.Tables))
+	logRuntimeNode(session, "schema.validate.done", "valid", plan.Report.Valid(), "tables", plan.Report.Tables.Len())
 	return plan.Report, nil
 }
 
@@ -135,7 +135,8 @@ func (r ValidationReport) withWarning(message string) ValidationReport {
 		return r
 	}
 	next := r
-	next.Warnings = append(append([]string(nil), r.Warnings...), message)
+	next.Warnings = collectionx.NewListWithCapacity(r.Warnings.Len()+1, r.Warnings.Values()...)
+	next.Warnings.Add(message)
 	return next
 }
 

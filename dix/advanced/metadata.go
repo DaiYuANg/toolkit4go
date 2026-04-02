@@ -1,22 +1,6 @@
 package advanced
 
-import (
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
-	"github.com/DaiYuANg/arcgo/dix"
-	"github.com/samber/lo"
-)
-
-func serviceRefs(refs ...dix.ServiceRef) []dix.ServiceRef {
-	if len(refs) == 0 {
-		return nil
-	}
-
-	items := collectionlist.NewListWithCapacity[dix.ServiceRef](len(refs))
-	items.MergeSlice(lo.Filter(refs, func(ref dix.ServiceRef, _ int) bool {
-		return ref.Name != ""
-	}))
-	return items.Values()
-}
+import "github.com/DaiYuANg/arcgo/dix"
 
 func newProvider(
 	label string,
@@ -27,7 +11,7 @@ func newProvider(
 	return dix.NewProviderFunc(register, dix.ProviderMetadata{
 		Label:        label,
 		Output:       output,
-		Dependencies: serviceRefs(deps...),
+		Dependencies: dix.ServiceRefs(deps...),
 	})
 }
 
@@ -42,9 +26,9 @@ func newSetup(
 		return run(c)
 	}, dix.SetupMetadata{
 		Label:         label,
-		Dependencies:  serviceRefs(dependencies...),
-		Provides:      serviceRefs(provides...),
-		Overrides:     serviceRefs(overrides...),
+		Dependencies:  dix.ServiceRefs(dependencies...),
+		Provides:      dix.ServiceRefs(provides...),
+		Overrides:     dix.ServiceRefs(overrides...),
 		GraphMutation: false,
 		Raw:           false,
 	})

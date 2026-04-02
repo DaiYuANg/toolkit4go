@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/samber/lo"
 )
 
 // Validate validates the immutable app spec and current module graph.
@@ -46,7 +45,8 @@ func (r ValidationReport) WarningSummary() string {
 		return ""
 	}
 
-	return strings.Join(lo.Map(r.Warnings.Values(), func(warning ValidationWarning, _ int) string {
+	lines := collectionx.NewListWithCapacity[string](r.Warnings.Len())
+	r.Warnings.Range(func(_ int, warning ValidationWarning) bool {
 		line := string(warning.Kind)
 		if warning.Module != "" {
 			line += " module=" + warning.Module
@@ -57,6 +57,8 @@ func (r ValidationReport) WarningSummary() string {
 		if warning.Details != "" {
 			line += " " + warning.Details
 		}
-		return line
-	}), "\n")
+		lines.Add(line)
+		return true
+	})
+	return strings.Join(lines.Values(), "\n")
 }

@@ -50,23 +50,30 @@ func TestPlanSchemaChangesIncludesDerivedConstraints(t *testing.T) {
 		t.Fatalf("PlanSchemaChanges returned error: %v", err)
 	}
 
-	if len(plan.Actions) != 2 {
-		t.Fatalf("unexpected action count: %d", len(plan.Actions))
+	if plan.Actions.Len() != 2 {
+		t.Fatalf("unexpected action count: %d", plan.Actions.Len())
 	}
-	if plan.Actions[0].Kind != MigrationActionCreateTable {
-		t.Fatalf("unexpected first action: %+v", plan.Actions[0])
+	first, _ := plan.Actions.Get(0)
+	if first.Kind != MigrationActionCreateTable {
+		t.Fatalf("unexpected first action: %+v", first)
 	}
-	if plan.Actions[1].Kind != MigrationActionCreateIndex {
-		t.Fatalf("unexpected second action: %+v", plan.Actions[1])
+	second, _ := plan.Actions.Get(1)
+	if second.Kind != MigrationActionCreateIndex {
+		t.Fatalf("unexpected second action: %+v", second)
 	}
-	if report := plan.Report; len(report.Tables) != 1 || report.Tables[0].PrimaryKeyDiff == nil {
+	if report := plan.Report; report.Tables.Len() != 1 {
 		t.Fatalf("unexpected report: %+v", report)
 	}
-	preview := plan.SQLPreview()
-	if len(preview) != 2 {
-		t.Fatalf("unexpected preview count: %d", len(preview))
+	table, _ := plan.Report.Tables.Get(0)
+	if table.PrimaryKeyDiff == nil {
+		t.Fatalf("unexpected report: %+v", plan.Report)
 	}
-	if !strings.Contains(preview[0], "create table users") {
+	preview := plan.SQLPreview()
+	if preview.Len() != 2 {
+		t.Fatalf("unexpected preview count: %d", preview.Len())
+	}
+	firstPreview, _ := preview.Get(0)
+	if !strings.Contains(firstPreview, "create table users") {
 		t.Fatalf("unexpected preview sql: %+v", preview)
 	}
 }
@@ -205,7 +212,7 @@ func TestAutoMigrateWarnsWhenTransactionSupportIsUnavailable(t *testing.T) {
 	if !report.HasWarnings() {
 		t.Fatal("expected auto migrate warning without transaction support")
 	}
-	if !strings.Contains(strings.Join(report.Warnings, " "), "without transaction") {
+	if !strings.Contains(strings.Join(report.Warnings.Values(), " "), "without transaction") {
 		t.Fatalf("expected non-transactional warning, got: %+v", report.Warnings)
 	}
 }

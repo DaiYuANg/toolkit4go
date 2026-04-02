@@ -210,11 +210,12 @@ func (l *ConcurrentList[T]) Range(fn func(index int, item T) bool) {
 	if fn == nil {
 		return
 	}
-	for index, item := range l.Values() {
-		if !fn(index, item) {
-			return
-		}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	if l.core == nil {
+		return
 	}
+	l.core.Range(fn)
 }
 
 // Snapshot returns an immutable-style copy in a normal List.

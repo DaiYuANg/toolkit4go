@@ -32,10 +32,12 @@ func (s *Server) applyStoredOpenAPIPatches() {
 	if openAPI == nil {
 		return
 	}
-	lo.ForEach(lo.Filter(s.openAPIPatches.Values(), func(patch func(*huma.OpenAPI), _ int) bool {
-		return patch != nil
-	}), func(patch func(*huma.OpenAPI), _ int) {
+	s.openAPIPatches.Range(func(_ int, patch func(*huma.OpenAPI)) bool {
+		if patch == nil {
+			return true
+		}
 		patch(openAPI)
+		return true
 	})
 }
 

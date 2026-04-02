@@ -29,7 +29,7 @@ func TestBuildDebugLogging(t *testing.T) {
 				dix.WithModuleSetups(
 					dix.SetupWithMetadata(func(*dix.Container, dix.Lifecycle) error { return nil }, dix.SetupMetadata{
 						Label:        "DebugSetup",
-						Dependencies: []dix.ServiceRef{dix.TypedService[string]()},
+						Dependencies: dix.ServiceRefs(dix.TypedService[string]()),
 					}),
 				),
 				dix.WithModuleInvokes(

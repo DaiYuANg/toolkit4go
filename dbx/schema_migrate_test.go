@@ -206,7 +206,8 @@ func TestValidateSchemasReportsMissingTable(t *testing.T) {
 	if report.Valid() {
 		t.Fatal("expected invalid report for missing table")
 	}
-	if len(report.Tables) != 1 || !report.Tables[0].MissingTable {
+	firstTable, ok := report.Tables.Get(0)
+	if report.Tables.Len() != 1 || !ok || !firstTable.MissingTable {
 		t.Fatalf("unexpected report: %+v", report)
 	}
 	if report.Complete {
@@ -218,7 +219,7 @@ func TestValidateSchemasReportsMissingTable(t *testing.T) {
 	if !report.HasWarnings() {
 		t.Fatal("expected legacy validation warning")
 	}
-	if report.Tables[0].PrimaryKeyDiff == nil {
+	if firstTable.PrimaryKeyDiff == nil {
 		t.Fatal("expected primary key diff for missing table")
 	}
 }

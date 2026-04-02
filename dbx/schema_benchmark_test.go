@@ -92,7 +92,8 @@ func BenchmarkMigrationPlanSQLPreview(b *testing.B) {
 		b.ResetTimer()
 		for range b.N {
 			preview := plan.SQLPreview()
-			if len(preview) == 0 || !strings.Contains(strings.ToLower(preview[0]), "create table") {
+			first, ok := preview.Get(0)
+			if !ok || !strings.Contains(strings.ToLower(first), "create table") {
 				b.Fatalf("unexpected preview: %+v", preview)
 			}
 		}
