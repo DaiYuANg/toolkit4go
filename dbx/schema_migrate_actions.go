@@ -1,24 +1,24 @@
 package dbx
 
 import (
-	"slices"
 	"strings"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/lo"
 )
 
-func mappedMigrationActions[T any](items []T, mapper func(T) MigrationAction) []MigrationAction {
-	return lo.Map(items, func(item T, _ int) MigrationAction {
+func mappedMigrationActions[T any](items collectionx.List[T], mapper func(T) MigrationAction) collectionx.List[MigrationAction] {
+	return collectionx.MapList(items, func(_ int, item T) MigrationAction {
 		return mapper(item)
 	})
 }
 
-func columnDiffManualActions(diff TableDiff) []MigrationAction {
-	return mappedMigrationActions(diff.ColumnDiffs.Values(), func(cd ColumnDiff) MigrationAction {
+func columnDiffManualActions(diff TableDiff) collectionx.List[MigrationAction] {
+	return mappedMigrationActions(diff.ColumnDiffs, func(cd ColumnDiff) MigrationAction {
 		return MigrationAction{
 			Kind:    MigrationActionManual,
 			Table:   diff.Table,
-			Summary: "manual column migration required for " + cd.Column.Name + ": " + strings.Join(cd.Issues.Values(), "; "),
+			Summary: "manual column migration required for " + cd.Column.Name + ": " + cd.Issues.Join("; "),
 		}
 	})
 }
@@ -141,7 +141,7 @@ func primaryKeyIssues(expected *PrimaryKeyMeta, actual *PrimaryKeyState) []strin
 	}
 }
 
-func indexKey(unique bool, columns []string) string {
+func indexKey(unique bool, columns collectionx.List[string]) string {
 	prefix := "idx:"
 	if unique {
 		prefix = "ux:"
@@ -161,8 +161,8 @@ func checkKey(expression string) string {
 	return normalizeCheckExpression(expression)
 }
 
-func columnsKey(columns []string) string {
-	return strings.Join(columns, ",")
+func columnsKey(columns collectionx.List[string]) string {
+	return columns.Join(",")
 }
 
 func normalizeReferentialAction(action ReferentialAction) ReferentialAction {
@@ -173,7 +173,7 @@ func normalizeReferentialAction(action ReferentialAction) ReferentialAction {
 }
 
 func clonePrimaryKeyState(state PrimaryKeyState) PrimaryKeyState {
-	state.Columns = slices.Clone(state.Columns)
+	state.Columns = state.Columns.Clone()
 	return state
 }
 

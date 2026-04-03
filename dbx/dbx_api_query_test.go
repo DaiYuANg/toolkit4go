@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	dbx "github.com/DaiYuANg/arcgo/dbx"
 	"github.com/samber/mo"
 )
@@ -70,10 +71,26 @@ func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, m
 	return items, nil
 }
 
+func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {
+	items, err := dbx.QueryAllList(ctx, session, query, mapper)
+	if err != nil {
+		return nil, fmt.Errorf("query all list: %w", err)
+	}
+	return items, nil
+}
+
 func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) ([]E, error) {
 	items, err := dbx.QueryAllBound(ctx, session, bound, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all bound: %w", err)
+	}
+	return items, nil
+}
+
+func QueryAllBoundList[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (collectionx.List[E], error) {
+	items, err := dbx.QueryAllBoundList(ctx, session, bound, mapper)
+	if err != nil {
+		return nil, fmt.Errorf("query all bound list: %w", err)
 	}
 	return items, nil
 }
@@ -127,6 +144,14 @@ func SQLList[E any](ctx context.Context, session Session, statement SQLStatement
 	items, err := dbx.SQLList(ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql list: %w", err)
+	}
+	return items, nil
+}
+
+func SQLQueryList[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
+	items, err := dbx.SQLQueryList(ctx, session, statement, params, mapper)
+	if err != nil {
+		return nil, fmt.Errorf("sql query list: %w", err)
 	}
 	return items, nil
 }
