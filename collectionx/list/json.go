@@ -1,6 +1,7 @@
 package list
 
 import (
+	"encoding/json"
 	"fmt"
 
 	common "github.com/DaiYuANg/arcgo/collectionx/internal"
@@ -8,7 +9,10 @@ import (
 
 // ToJSON serializes list values to JSON.
 func (l *List[T]) ToJSON() ([]byte, error) {
-	return marshalListJSON(l.Values(), "list")
+	if l == nil {
+		return marshalListJSON([]T(nil), "list")
+	}
+	return marshalListJSON(l.items, "list")
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -53,7 +57,17 @@ func (g *ConcurrentGrid[T]) String() string {
 
 // ToJSON serializes concurrent list values to JSON.
 func (l *ConcurrentList[T]) ToJSON() ([]byte, error) {
-	return marshalListJSON(l.Values(), "concurrent list")
+	if l == nil {
+		return marshalListJSON([]T(nil), "concurrent list")
+	}
+
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	if l.core == nil {
+		return marshalListJSON([]T(nil), "concurrent list")
+	}
+	return marshalListJSON(l.core.items, "concurrent list")
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -157,7 +171,7 @@ func (pq *PriorityQueue[T]) String() string {
 }
 
 func marshalListJSON(value any, kind string) ([]byte, error) {
-	data, err := common.MarshalJSONValue(value)
+	data, err := json.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %s json: %w", kind, err)
 	}

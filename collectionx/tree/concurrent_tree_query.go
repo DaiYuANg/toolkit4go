@@ -1,7 +1,5 @@
 package tree
 
-import "github.com/samber/lo"
-
 // Get returns node by id as a detached subtree clone.
 func (t *ConcurrentTree[K, V]) Get(id K) (*Node[K, V], bool) {
 	if t == nil {
@@ -67,10 +65,12 @@ func (t *ConcurrentTree[K, V]) Children(id K) []*Node[K, V] {
 		return nil
 	}
 
-	return lo.Map(lo.Range(node.children.Len()), func(index int, _ int) *Node[K, V] {
+	children := make([]*Node[K, V], 0, node.children.Len())
+	for index := 0; index < node.children.Len(); index++ {
 		child, _ := node.children.Get(index)
-		return cloneSubtreeDetached(child)
-	})
+		children = append(children, cloneSubtreeDetached(child))
+	}
+	return children
 }
 
 // Roots returns root nodes snapshot.
@@ -86,10 +86,13 @@ func (t *ConcurrentTree[K, V]) Roots() []*Node[K, V] {
 	if t.tree.roots == nil || t.tree.roots.Len() == 0 {
 		return nil
 	}
-	return lo.Map(lo.Range(t.tree.roots.Len()), func(index int, _ int) *Node[K, V] {
+
+	roots := make([]*Node[K, V], 0, t.tree.roots.Len())
+	for index := 0; index < t.tree.roots.Len(); index++ {
 		root, _ := t.tree.roots.Get(index)
-		return cloneSubtreeDetached(root)
-	})
+		roots = append(roots, cloneSubtreeDetached(root))
+	}
+	return roots
 }
 
 // Ancestors returns parent chain from direct parent to top root.
@@ -144,9 +147,9 @@ func (t *ConcurrentTree[K, V]) Descendants(id K) []*Node[K, V] {
 		t.mu.RUnlock()
 		return nil
 	}
-	cloned := cloneSubtreeDetached(node)
+	_, descendants := cloneSubtreeDetachedWithDescendants(node, true)
 	t.mu.RUnlock()
-	return descendantsFromRoot(cloned)
+	return descendants
 }
 
 // RangeDFS iterates all nodes in DFS pre-order until fn returns false.
@@ -222,8 +225,10 @@ func (t *ConcurrentTree[K, V]) snapshotClonedRoots() []*Node[K, V] {
 		return nil
 	}
 
-	return lo.Map(lo.Range(t.tree.roots.Len()), func(index int, _ int) *Node[K, V] {
+	roots := make([]*Node[K, V], 0, t.tree.roots.Len())
+	for index := 0; index < t.tree.roots.Len(); index++ {
 		root, _ := t.tree.roots.Get(index)
-		return cloneSubtreeDetached(root)
-	})
+		roots = append(roots, cloneSubtreeDetached(root))
+	}
+	return roots
 }

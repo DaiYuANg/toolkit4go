@@ -3,7 +3,6 @@ package list
 import (
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
@@ -59,9 +58,10 @@ func (r *RopeList[T]) Add(items ...T) {
 		r.len = len(items)
 		return
 	}
-	// Append: concat along right spine for O(log n) instead of full split
-	r.root = concatRight(r.root, buildRope(items))
-	r.len += len(items)
+	for _, item := range items {
+		r.root = r.root.insertAt(r.len, item)
+		r.len++
+	}
 }
 
 // AddAt inserts item at index.
@@ -90,10 +90,11 @@ func (r *RopeList[T]) InsertAt(index int, items ...T) bool {
 		r.len = len(items)
 		return true
 	}
-	left, right := r.root.split(index)
-	mid := newRopeLeaf(items)
-	r.root = concat(concat(left, mid), right)
-	r.len += len(items)
+
+	for offset, item := range items {
+		r.root = r.root.insertAt(index+offset, item)
+		r.len++
+	}
 	return true
 }
 
@@ -130,10 +131,12 @@ func (r *RopeList[T]) RemoveAt(index int) (T, bool) {
 	if r == nil || r.root == nil || index < 0 || index >= r.len {
 		return zero, false
 	}
-	left, right := r.root.split(index)
-	_, right = right.split(1)
-	removed := r.root.at(index)
-	r.root = concat(left, right)
+
+	nextRoot, removed, ok := r.root.removeAt(index)
+	if !ok {
+		return zero, false
+	}
+	r.root = nextRoot
 	r.len--
 	return removed, true
 }
@@ -153,9 +156,13 @@ func (r *RopeList[T]) RemoveIf(predicate func(item T) bool) int {
 		return 0
 	}
 	items := r.Values()
-	next := lo.Filter(items, func(item T, _ int) bool {
-		return !predicate(item)
-	})
+	next := make([]T, 0, len(items))
+	for _, item := range items {
+		if predicate(item) {
+			continue
+		}
+		next = append(next, item)
+	}
 	removed := len(items) - len(next)
 	if removed == 0 {
 		return 0

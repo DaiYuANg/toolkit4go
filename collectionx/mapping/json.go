@@ -1,6 +1,7 @@
 package mapping
 
 import (
+	"encoding/json"
 	"fmt"
 
 	common "github.com/DaiYuANg/arcgo/collectionx/internal"
@@ -8,7 +9,10 @@ import (
 
 // ToJSON serializes map entries to JSON.
 func (m *Map[K, V]) ToJSON() ([]byte, error) {
-	return marshalMappingJSON(m.All(), "map")
+	if m == nil || len(m.items) == 0 {
+		return marshalMappingJSON(map[K]V{}, "map")
+	}
+	return marshalMappingJSON(m.items, "map")
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -23,7 +27,17 @@ func (m *Map[K, V]) String() string {
 
 // ToJSON serializes concurrent map entries to JSON.
 func (m *ConcurrentMap[K, V]) ToJSON() ([]byte, error) {
-	return marshalMappingJSON(m.All(), "concurrent map")
+	if m == nil {
+		return marshalMappingJSON(map[K]V{}, "concurrent map")
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.core == nil || len(m.core.items) == 0 {
+		return marshalMappingJSON(map[K]V{}, "concurrent map")
+	}
+	return marshalMappingJSON(m.core.items, "concurrent map")
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -53,7 +67,10 @@ func (m *ShardedConcurrentMap[K, V]) String() string {
 
 // ToJSON serializes bidirectional map entries to JSON.
 func (m *BiMap[K, V]) ToJSON() ([]byte, error) {
-	return marshalMappingJSON(m.All(), "bimap")
+	if m == nil || len(m.kv.items) == 0 {
+		return marshalMappingJSON(map[K]V{}, "bimap")
+	}
+	return marshalMappingJSON(m.kv.items, "bimap")
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -68,7 +85,10 @@ func (m *BiMap[K, V]) String() string {
 
 // ToJSON serializes ordered map entries to JSON.
 func (m *OrderedMap[K, V]) ToJSON() ([]byte, error) {
-	return marshalMappingJSON(m.All(), "ordered map")
+	if m == nil || len(m.items.items) == 0 {
+		return marshalMappingJSON(map[K]V{}, "ordered map")
+	}
+	return marshalMappingJSON(m.items.items, "ordered map")
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -142,7 +162,7 @@ func (t *ConcurrentTable[R, C, V]) String() string {
 }
 
 func marshalMappingJSON(value any, kind string) ([]byte, error) {
-	data, err := common.MarshalJSONValue(value)
+	data, err := json.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %s json: %w", kind, err)
 	}

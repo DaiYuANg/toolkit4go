@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	common "github.com/DaiYuANg/arcgo/collectionx/internal"
-	"github.com/samber/lo"
 )
 
 // All returns all key-value pairs as a copied map.
@@ -14,9 +13,11 @@ func (t *Trie[V]) All() map[string]V {
 		return map[string]V{}
 	}
 
-	return lo.Associate(pairs, func(item keyValue[V]) (string, V) {
-		return item.key, item.value
-	})
+	out := make(map[string]V, len(pairs))
+	for _, item := range pairs {
+		out[item.key] = item.value
+	}
+	return out
 }
 
 // ToJSON serializes all key-value pairs to JSON.

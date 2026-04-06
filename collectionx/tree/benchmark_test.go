@@ -1,6 +1,7 @@
 package tree_test
 
 import (
+	"sync/atomic"
 	"testing"
 
 	tree "github.com/DaiYuANg/arcgo/collectionx/tree"
@@ -200,11 +201,12 @@ func BenchmarkConcurrentTreeAddChildParallel(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
+	var nextChildID atomic.Int64
+	nextChildID.Store(10_000)
 	b.RunParallel(func(pb *testing.PB) {
 		parentID := 1
-		childID := 10000
 		for pb.Next() {
-			childID++
+			childID := int(nextChildID.Add(1))
 			if err := tr.AddChild(parentID, childID, childID); err != nil {
 				b.Fatalf("AddChild(%d, %d) error = %v", parentID, childID, err)
 			}

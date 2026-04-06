@@ -1,7 +1,5 @@
 package tree
 
-import "github.com/samber/lo"
-
 // Get returns node by id.
 func (t *Tree[K, V]) Get(id K) (*Node[K, V], bool) {
 	if t == nil || t.nodes == nil {
@@ -116,9 +114,11 @@ func (t *Tree[K, V]) IsEmpty() bool {
 }
 
 func rangeDFSRoots[K comparable, V any](roots []*Node[K, V], fn func(node *Node[K, V]) bool) {
-	lo.EveryBy(roots, func(root *Node[K, V]) bool {
-		return rangeDFSFromRoot(root, fn)
-	})
+	for _, root := range roots {
+		if !rangeDFSFromRoot(root, fn) {
+			return
+		}
+	}
 }
 
 func rangeDFSFromRoot[K comparable, V any](root *Node[K, V], fn func(node *Node[K, V]) bool) bool {

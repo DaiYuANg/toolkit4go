@@ -1,7 +1,5 @@
 package list
 
-import "slices"
-
 func (n *ropeNode[T]) nodeLen() int {
 	if n == nil {
 		return 0
@@ -31,69 +29,160 @@ func (n *ropeNode[T]) setAt(i int, v T) {
 	}
 }
 
-func (n *ropeNode[T]) split(i int) (*ropeNode[T], *ropeNode[T]) {
+func (n *ropeNode[T]) insertAt(i int, item T) *ropeNode[T] {
 	if n == nil {
-		return nil, nil
+		return newRopeLeaf([]T{item})
 	}
-	if i <= 0 {
-		return nil, n.clone()
+
+	if n.isLeaf() {
+		return n.insertIntoLeaf(i, item)
 	}
-	if i >= n.nodeLen() {
-		return n.clone(), nil
+
+	leftLen := n.left.nodeLen()
+	if i <= leftLen {
+		n.left = n.left.insertAt(i, item)
+	} else {
+		n.right = n.right.insertAt(i-leftLen, item)
+	}
+	n.recomputeLength()
+	return n.rebalanceIfNeeded()
+}
+
+func (n *ropeNode[T]) insertIntoLeaf(i int, item T) *ropeNode[T] {
+	if len(n.leaf) < ropeLeafSize {
+		var zero T
+		n.leaf = append(n.leaf, zero)
+		copy(n.leaf[i+1:], n.leaf[i:])
+		n.leaf[i] = item
+		n.length = len(n.leaf)
+		return n
+	}
+
+	merged := make([]T, len(n.leaf)+1)
+	copy(merged, n.leaf[:i])
+	merged[i] = item
+	copy(merged[i+1:], n.leaf[i:])
+
+	mid := len(merged) / 2
+	n.left = newRopeLeaf(merged[:mid])
+	n.right = newRopeLeaf(merged[mid:])
+	n.leaf = nil
+	n.recomputeLength()
+	return n
+}
+
+func (n *ropeNode[T]) removeAt(i int) (*ropeNode[T], T, bool) {
+	var zero T
+	if n == nil {
+		return nil, zero, false
+	}
+
+	if n.isLeaf() {
+		removed := n.leaf[i]
+		copy(n.leaf[i:], n.leaf[i+1:])
+		last := len(n.leaf) - 1
+		n.leaf[last] = zero
+		n.leaf = n.leaf[:last]
+		n.length = len(n.leaf)
+		if len(n.leaf) == 0 {
+			return nil, removed, true
+		}
+		return n, removed, true
+	}
+
+	leftLen := n.left.nodeLen()
+	var removed T
+	var ok bool
+	if i < leftLen {
+		n.left, removed, ok = n.left.removeAt(i)
+	} else {
+		n.right, removed, ok = n.right.removeAt(i - leftLen)
+	}
+	if !ok {
+		return n, zero, false
+	}
+
+	n = n.compact()
+	if n != nil {
+		n.recomputeLength()
+		n = n.rebalanceIfNeeded()
+	}
+	return n, removed, true
+}
+
+func (n *ropeNode[T]) compact() *ropeNode[T] {
+	if n == nil {
+		return nil
+	}
+	if n.left == nil {
+		return n.right
+	}
+	if n.right == nil {
+		return n.left
+	}
+	if n.left.isLeaf() && n.right.isLeaf() && len(n.left.leaf)+len(n.right.leaf) <= ropeLeafSize {
+		merged := make([]T, 0, len(n.left.leaf)+len(n.right.leaf))
+		merged = append(merged, n.left.leaf...)
+		merged = append(merged, n.right.leaf...)
+		return newRopeLeaf(merged)
+	}
+	return n
+}
+
+func (n *ropeNode[T]) recomputeLength() {
+	if n == nil {
+		return
 	}
 	if n.isLeaf() {
-		left := &ropeNode[T]{leaf: slices.Clone(n.leaf[:i]), length: i}
-		right := &ropeNode[T]{leaf: slices.Clone(n.leaf[i:]), length: len(n.leaf) - i}
-		return left, right
+		n.length = len(n.leaf)
+		return
 	}
-	if i <= n.left.nodeLen() {
-		l, r := n.left.split(i)
-		return l, concat(r, n.right.clone())
-	}
-	l, r := n.right.split(i - n.left.nodeLen())
-	return concat(n.left.clone(), l), r
+	n.length = n.left.nodeLen() + n.right.nodeLen()
 }
 
-func concat[T any](a, b *ropeNode[T]) *ropeNode[T] {
-	if a == nil {
-		return b
+func (n *ropeNode[T]) rebalanceIfNeeded() *ropeNode[T] {
+	if n == nil || n.isLeaf() {
+		return n
 	}
-	if b == nil {
-		return a
-	}
-	return &ropeNode[T]{
-		left:   a,
-		right:  b,
-		length: a.nodeLen() + b.nodeLen(),
-	}
-}
 
-// concatRight appends b to the right of a by cloning only the right spine.
-func concatRight[T any](a, b *ropeNode[T]) *ropeNode[T] {
-	if a == nil {
-		return b
+	leftLen := n.left.nodeLen()
+	rightLen := n.right.nodeLen()
+	smaller := leftLen
+	if rightLen < smaller {
+		smaller = rightLen
 	}
-	if b == nil {
-		return a
+	if smaller == 0 {
+		return n.compact()
 	}
-	if a.isLeaf() {
-		return concat(a, b)
+	if n.length <= ropeLeafSize*2 {
+		return n
 	}
-	return &ropeNode[T]{
-		left:   a.left,
-		right:  concatRight(a.right, b),
-		length: a.nodeLen() + b.nodeLen(),
+	if leftLen <= rightLen*4 && rightLen <= leftLen*4 {
+		return n
 	}
+
+	items := n.flatten()
+	return buildRope(items)
 }
 
 func (n *ropeNode[T]) flatten() []T {
 	if n == nil {
 		return nil
 	}
-	if n.isLeaf() {
-		return slices.Clone(n.leaf)
+
+	out := make([]T, 0, n.nodeLen())
+	return n.appendTo(out)
+}
+
+func (n *ropeNode[T]) appendTo(dst []T) []T {
+	if n == nil {
+		return dst
 	}
-	return append(n.left.flatten(), n.right.flatten()...)
+	if n.isLeaf() {
+		return append(dst, n.leaf...)
+	}
+	dst = n.left.appendTo(dst)
+	return n.right.appendTo(dst)
 }
 
 func (n *ropeNode[T]) clone() *ropeNode[T] {
@@ -118,5 +207,11 @@ func buildRope[T any](items []T) *ropeNode[T] {
 		return newRopeLeaf(items)
 	}
 	mid := len(items) / 2
-	return concat(buildRope(items[:mid]), buildRope(items[mid:]))
+	left := buildRope(items[:mid])
+	right := buildRope(items[mid:])
+	return &ropeNode[T]{
+		left:   left,
+		right:  right,
+		length: left.nodeLen() + right.nodeLen(),
+	}
 }

@@ -3,7 +3,6 @@ package list
 import (
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
@@ -188,11 +187,25 @@ func (l *List[T]) RemoveIf(predicate func(item T) bool) int {
 		return 0
 	}
 
-	next := lo.Filter(l.items, func(item T, _ int) bool {
-		return !predicate(item)
-	})
-	removed := len(l.items) - len(next)
-	l.items = next
+	writeIndex := 0
+	for _, item := range l.items {
+		if predicate(item) {
+			continue
+		}
+		l.items[writeIndex] = item
+		writeIndex++
+	}
+
+	removed := len(l.items) - writeIndex
+	if removed == 0 {
+		return 0
+	}
+
+	var zero T
+	for index := writeIndex; index < len(l.items); index++ {
+		l.items[index] = zero
+	}
+	l.items = l.items[:writeIndex]
 	return removed
 }
 

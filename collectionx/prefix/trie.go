@@ -8,10 +8,11 @@ import (
 )
 
 type trieNode[V any] struct {
-	children  collectionmapping.Map[rune, *trieNode[V]]
-	childKeys []rune
-	hasValue  bool
-	value     V
+	children   collectionmapping.Map[rune, *trieNode[V]]
+	childKeys  []rune
+	hasValue   bool
+	value      V
+	valueCount int
 }
 
 // Trie is a prefix tree for string keys.
@@ -46,6 +47,7 @@ func (t *Trie[V]) Put(key string, value V) bool {
 	t.ensureRoot()
 
 	node := t.root
+	path := []*trieNode[V]{node}
 	for _, ch := range key {
 		next, ok := node.children.Get(ch)
 		if !ok {
@@ -54,12 +56,16 @@ func (t *Trie[V]) Put(key string, value V) bool {
 			node.insertChildKey(ch)
 		}
 		node = next
+		path = append(path, node)
 	}
 
 	isNew := !node.hasValue
 	node.value = value
 	node.hasValue = true
 	if isNew {
+		for _, current := range path {
+			current.valueCount++
+		}
 		t.size++
 	}
 	return isNew
@@ -148,7 +154,7 @@ func (t *Trie[V]) KeysWithPrefix(prefix string) []string {
 		return nil
 	}
 
-	var out []string
+	out := make([]string, 0, startNode.valueCount)
 	t.collectKeys(startNode, new([]rune(prefix)), &out)
 	return out
 }
@@ -164,7 +170,7 @@ func (t *Trie[V]) ValuesWithPrefix(prefix string) []V {
 		return nil
 	}
 
-	var out []V
+	out := make([]V, 0, startNode.valueCount)
 	t.collectValues(startNode, &out)
 	return out
 }
@@ -210,6 +216,7 @@ func (t *Trie[V]) deleteRec(node *trieNode[V], runes []rune, depth int) bool {
 			return false
 		}
 		node.hasValue = false
+		node.valueCount--
 		var zero V
 		node.value = zero
 		return true
@@ -224,6 +231,8 @@ func (t *Trie[V]) deleteRec(node *trieNode[V], runes []rune, depth int) bool {
 	if !removed {
 		return false
 	}
+
+	node.valueCount--
 
 	if !child.hasValue && child.children.Len() == 0 {
 		node.children.Delete(ch)

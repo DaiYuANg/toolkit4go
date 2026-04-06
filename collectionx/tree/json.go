@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	common "github.com/DaiYuANg/arcgo/collectionx/internal"
-	"github.com/samber/lo"
 )
 
 type jsonNode[K comparable, V any] struct {
@@ -47,22 +46,34 @@ func (t *Tree[K, V]) toJSONNodes() []jsonNode[K, V] {
 	if t == nil || t.IsEmpty() {
 		return nil
 	}
-	return lo.Map(t.Roots(), func(root *Node[K, V], _ int) jsonNode[K, V] {
-		return toJSONNode(root)
-	})
+
+	roots := make([]jsonNode[K, V], 0, t.roots.Len())
+	for index := 0; index < t.roots.Len(); index++ {
+		root, _ := t.roots.Get(index)
+		roots = append(roots, toJSONNode(root))
+	}
+	return roots
 }
 
 func toJSONNode[K comparable, V any](node *Node[K, V]) jsonNode[K, V] {
 	if node == nil {
 		return jsonNode[K, V]{}
 	}
-	return jsonNode[K, V]{
+
+	jsonNodeValue := jsonNode[K, V]{
 		ID:    node.ID(),
 		Value: node.Value(),
-		Children: lo.Map(node.Children(), func(child *Node[K, V], _ int) jsonNode[K, V] {
-			return toJSONNode(child)
-		}),
 	}
+	if node.children.Len() == 0 {
+		return jsonNodeValue
+	}
+
+	jsonNodeValue.Children = make([]jsonNode[K, V], 0, node.children.Len())
+	for index := 0; index < node.children.Len(); index++ {
+		child, _ := node.children.Get(index)
+		jsonNodeValue.Children = append(jsonNodeValue.Children, toJSONNode(child))
+	}
+	return jsonNodeValue
 }
 
 func marshalTreeJSON[T any](kind string, value T) ([]byte, error) {
