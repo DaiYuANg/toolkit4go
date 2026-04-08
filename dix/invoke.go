@@ -117,7 +117,7 @@ func Invoke6[T1, T2, T3, T4, T5, T6 any](fn func(T1, T2, T3, T4, T5, T6)) Invoke
 }
 
 func dixInvoke1[T any](c *Container, fn func(T)) error {
-	t, err := ResolveAs[T](c)
+	t, err := resolveDependency1[T](c.Raw())
 	if err != nil {
 		return err
 	}
@@ -126,11 +126,7 @@ func dixInvoke1[T any](c *Container, fn func(T)) error {
 }
 
 func dixInvoke2[T1, T2 any](c *Container, fn func(T1, T2)) error {
-	t1, err := ResolveAs[T1](c)
-	if err != nil {
-		return err
-	}
-	t2, err := ResolveAs[T2](c)
+	t1, t2, err := resolveDependencies2[T1, T2](c.Raw())
 	if err != nil {
 		return err
 	}
@@ -139,15 +135,7 @@ func dixInvoke2[T1, T2 any](c *Container, fn func(T1, T2)) error {
 }
 
 func dixInvoke3[T1, T2, T3 any](c *Container, fn func(T1, T2, T3)) error {
-	t1, err := ResolveAs[T1](c)
-	if err != nil {
-		return err
-	}
-	t2, err := ResolveAs[T2](c)
-	if err != nil {
-		return err
-	}
-	t3, err := ResolveAs[T3](c)
+	t1, t2, t3, err := resolveDependencies3[T1, T2, T3](c.Raw())
 	if err != nil {
 		return err
 	}
@@ -156,19 +144,7 @@ func dixInvoke3[T1, T2, T3 any](c *Container, fn func(T1, T2, T3)) error {
 }
 
 func dixInvoke4[T1, T2, T3, T4 any](c *Container, fn func(T1, T2, T3, T4)) error {
-	t1, err := ResolveAs[T1](c)
-	if err != nil {
-		return err
-	}
-	t2, err := ResolveAs[T2](c)
-	if err != nil {
-		return err
-	}
-	t3, err := ResolveAs[T3](c)
-	if err != nil {
-		return err
-	}
-	t4, err := ResolveAs[T4](c)
+	t1, t2, t3, t4, err := resolveDependencies4[T1, T2, T3, T4](c.Raw())
 	if err != nil {
 		return err
 	}
@@ -177,23 +153,7 @@ func dixInvoke4[T1, T2, T3, T4 any](c *Container, fn func(T1, T2, T3, T4)) error
 }
 
 func dixInvoke5[T1, T2, T3, T4, T5 any](c *Container, fn func(T1, T2, T3, T4, T5)) error {
-	t1, err := ResolveAs[T1](c)
-	if err != nil {
-		return err
-	}
-	t2, err := ResolveAs[T2](c)
-	if err != nil {
-		return err
-	}
-	t3, err := ResolveAs[T3](c)
-	if err != nil {
-		return err
-	}
-	t4, err := ResolveAs[T4](c)
-	if err != nil {
-		return err
-	}
-	t5, err := ResolveAs[T5](c)
+	t1, t2, t3, t4, t5, err := resolveDependencies5[T1, T2, T3, T4, T5](c.Raw())
 	if err != nil {
 		return err
 	}
@@ -202,27 +162,7 @@ func dixInvoke5[T1, T2, T3, T4, T5 any](c *Container, fn func(T1, T2, T3, T4, T5
 }
 
 func dixInvoke6[T1, T2, T3, T4, T5, T6 any](c *Container, fn func(T1, T2, T3, T4, T5, T6)) error {
-	t1, err := ResolveAs[T1](c)
-	if err != nil {
-		return err
-	}
-	t2, err := ResolveAs[T2](c)
-	if err != nil {
-		return err
-	}
-	t3, err := ResolveAs[T3](c)
-	if err != nil {
-		return err
-	}
-	t4, err := ResolveAs[T4](c)
-	if err != nil {
-		return err
-	}
-	t5, err := ResolveAs[T5](c)
-	if err != nil {
-		return err
-	}
-	t6, err := ResolveAs[T6](c)
+	t1, t2, t3, t4, t5, t6, err := resolveDependencies6[T1, T2, T3, T4, T5, T6](c.Raw())
 	if err != nil {
 		return err
 	}

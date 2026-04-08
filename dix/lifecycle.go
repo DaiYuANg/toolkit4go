@@ -156,7 +156,7 @@ func OnStop0(fn func(context.Context) error) HookFunc {
 func OnStart[T any](fn func(context.Context, T) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStart(func(ctx context.Context) error {
-			t, err := ResolveAs[T](c)
+			t, err := resolveDependency1[T](c.Raw())
 			if err != nil {
 				return fmt.Errorf("resolving dependency: %w", err)
 			}
@@ -173,7 +173,7 @@ func OnStart[T any](fn func(context.Context, T) error) HookFunc {
 func OnStop[T any](fn func(context.Context, T) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStop(func(ctx context.Context) error {
-			t, err := ResolveAs[T](c)
+			t, err := resolveDependency1[T](c.Raw())
 			if err != nil {
 				return fmt.Errorf("resolving dependency: %w", err)
 			}
@@ -190,11 +190,7 @@ func OnStop[T any](fn func(context.Context, T) error) HookFunc {
 func OnStart2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStart(func(ctx context.Context) error {
-			t1, err := ResolveAs[T1](c)
-			if err != nil {
-				return err
-			}
-			t2, err := ResolveAs[T2](c)
+			t1, t2, err := resolveDependencies2[T1, T2](c.Raw())
 			if err != nil {
 				return err
 			}
@@ -211,11 +207,7 @@ func OnStart2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 func OnStop2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStop(func(ctx context.Context) error {
-			t1, err := ResolveAs[T1](c)
-			if err != nil {
-				return err
-			}
-			t2, err := ResolveAs[T2](c)
+			t1, t2, err := resolveDependencies2[T1, T2](c.Raw())
 			if err != nil {
 				return err
 			}
@@ -232,15 +224,7 @@ func OnStop2[T1, T2 any](fn func(context.Context, T1, T2) error) HookFunc {
 func OnStart3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStart(func(ctx context.Context) error {
-			t1, err := ResolveAs[T1](c)
-			if err != nil {
-				return err
-			}
-			t2, err := ResolveAs[T2](c)
-			if err != nil {
-				return err
-			}
-			t3, err := ResolveAs[T3](c)
+			t1, t2, t3, err := resolveDependencies3[T1, T2, T3](c.Raw())
 			if err != nil {
 				return err
 			}
@@ -257,15 +241,7 @@ func OnStart3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFu
 func OnStop3[T1, T2, T3 any](fn func(context.Context, T1, T2, T3) error) HookFunc {
 	return NewHookFunc(func(c *Container, lc Lifecycle) {
 		lc.OnStop(func(ctx context.Context) error {
-			t1, err := ResolveAs[T1](c)
-			if err != nil {
-				return err
-			}
-			t2, err := ResolveAs[T2](c)
-			if err != nil {
-				return err
-			}
-			t3, err := ResolveAs[T3](c)
+			t1, t2, t3, err := resolveDependencies3[T1, T2, T3](c.Raw())
 			if err != nil {
 				return err
 			}
