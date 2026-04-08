@@ -28,6 +28,7 @@ go run ./inspect
 | `aggregate_params` | provider graph composition with multiple typed dependencies | [examples/dix/aggregate_params](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/aggregate_params) |
 | `build_runtime` | explicit `Build()` to `Runtime` flow | [examples/dix/build_runtime](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_runtime) |
 | `build_failure` | validation/build failure behavior | [examples/dix/build_failure](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_failure) |
+| `metrics` | `dix/metrics`, external Prometheus handler, runtime metrics | [examples/dix/metrics](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/metrics) |
 
 ## Advanced Examples
 

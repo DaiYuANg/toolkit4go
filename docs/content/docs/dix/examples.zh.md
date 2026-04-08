@@ -28,6 +28,7 @@ go run ./inspect
 | `aggregate_params` | 多个 typed dependency 的 provider graph 组合 | [examples/dix/aggregate_params](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/aggregate_params) |
 | `build_runtime` | 显式 `Build()` 到 `Runtime` 的流程 | [examples/dix/build_runtime](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_runtime) |
 | `build_failure` | validation/build 失败路径 | [examples/dix/build_failure](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_failure) |
+| `metrics` | `dix/metrics`、外部 Prometheus handler、runtime metrics | [examples/dix/metrics](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/metrics) |
 
 ## 高级示例
 
