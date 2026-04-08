@@ -22,7 +22,7 @@ func main() {
 		dix.WithModule(
 			dix.NewModule("transient",
 				dix.Providers(
-					dixadvanced.TransientProvider0(func() int {
+					dixadvanced.Transient(func() int {
 						counter++
 						return counter
 					}),

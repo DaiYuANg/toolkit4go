@@ -29,6 +29,11 @@ func RawInvokeWithMetadata(fn func(*Container) error, meta InvokeMetadata) Invok
 	})
 }
 
+// Invoke registers an invoke callback with no dependencies.
+func Invoke(fn func()) InvokeFunc {
+	return Invoke0(fn)
+}
+
 // Invoke0 registers an invoke callback with no dependencies.
 func Invoke0(fn func()) InvokeFunc {
 	return NewInvokeFunc(func(*Container) error {

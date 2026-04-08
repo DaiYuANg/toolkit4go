@@ -28,11 +28,21 @@ func BindAlias[From, To any]() dix.SetupFunc {
 	}, dix.ServiceRefs(dix.TypedService[From]()), dix.ServiceRefs(dix.TypedService[To]()), nil)
 }
 
+// Alias binds one typed service to another interface or alias type.
+func Alias[From, To any]() dix.SetupFunc {
+	return BindAlias[From, To]()
+}
+
 // BindNamedAlias binds one named service to another named alias.
 func BindNamedAlias[From, To any](sourceName, aliasName string) dix.SetupFunc {
 	return newSetup("BindNamedAlias", func(c *dix.Container) error {
 		return do.AsNamed[From, To](c.Raw(), sourceName, aliasName)
 	}, dix.ServiceRefs(dix.NamedService(sourceName)), dix.ServiceRefs(dix.NamedService(aliasName)), nil)
+}
+
+// NamedAlias binds one named service to another named alias.
+func NamedAlias[From, To any](sourceName, aliasName string) dix.SetupFunc {
+	return BindNamedAlias[From, To](sourceName, aliasName)
 }
 
 // OverrideValue overrides a typed value registration.
@@ -53,9 +63,19 @@ func Override0[T any](fn func() T) dix.SetupFunc {
 	return NamedOverride0(typedName[T](), fn)
 }
 
+// Override overrides a typed provider with no dependencies.
+func Override[T any](fn func() T) dix.SetupFunc {
+	return Override0(fn)
+}
+
 // OverrideErr0 overrides a typed provider with no dependencies.
 func OverrideErr0[T any](fn func() (T, error)) dix.SetupFunc {
 	return NamedOverrideErr0(typedName[T](), fn)
+}
+
+// OverrideErr overrides a typed provider with no dependencies.
+func OverrideErr[T any](fn func() (T, error)) dix.SetupFunc {
+	return OverrideErr0(fn)
 }
 
 // NamedOverride0 overrides a named provider with no dependencies.
@@ -119,9 +139,19 @@ func OverrideTransient0[T any](fn func() T) dix.SetupFunc {
 	return NamedOverrideTransient0(typedName[T](), fn)
 }
 
+// TransientOverride overrides a typed transient provider with no dependencies.
+func TransientOverride[T any](fn func() T) dix.SetupFunc {
+	return OverrideTransient0(fn)
+}
+
 // OverrideTransientErr0 overrides a typed transient provider with no dependencies.
 func OverrideTransientErr0[T any](fn func() (T, error)) dix.SetupFunc {
 	return NamedOverrideTransientErr0(typedName[T](), fn)
+}
+
+// TransientOverrideErr overrides a typed transient provider with no dependencies.
+func TransientOverrideErr[T any](fn func() (T, error)) dix.SetupFunc {
+	return OverrideTransientErr0(fn)
 }
 
 // NamedOverrideTransient0 overrides a named transient provider with no dependencies.

@@ -153,6 +153,29 @@ requestScope := advanced.Scope(rt, "request-42", func(injector do.Injector) {
 
 当构造过程本身可能失败，并且你希望错误沿着正常解析链路向上传递时，优先使用带 `Err` 后缀的 helper。
 
+## 示例：快捷入口
+
+```go
+module := dix.NewModule("shortcuts",
+    dix.Providers(
+        dix.Value(Config{Port: 8080}),
+        advanced.Named("locale.default", "en-US"),
+        advanced.Transient(func() int { return nextID() }),
+    ),
+    dix.Invokes(
+        dix.Invoke(func() {
+            fmt.Println("warmup")
+        }),
+    ),
+    dix.Setups(
+        advanced.Alias[*englishGreeter, greeter](),
+        advanced.Override(func() string { return "override" }),
+    ),
+)
+```
+
+当注册本身没有依赖时，这些快捷入口可以继续减少样板，而不会损失语义信息。
+
 ## 示例：细粒度 Inspection
 
 ```go

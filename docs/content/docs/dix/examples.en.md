@@ -153,6 +153,29 @@ requestScope := advanced.Scope(rt, "request-42", func(injector do.Injector) {
 
 Use the `Err` suffixed helpers when construction can fail and the failure should flow through normal resolution.
 
+## Example: Shortcut APIs
+
+```go
+module := dix.NewModule("shortcuts",
+    dix.Providers(
+        dix.Value(Config{Port: 8080}),
+        advanced.Named("locale.default", "en-US"),
+        advanced.Transient(func() int { return nextID() }),
+    ),
+    dix.Invokes(
+        dix.Invoke(func() {
+            fmt.Println("warmup")
+        }),
+    ),
+    dix.Setups(
+        advanced.Alias[*englishGreeter, greeter](),
+        advanced.Override(func() string { return "override" }),
+    ),
+)
+```
+
+Use these shortcuts when the registration has no dependencies and the longer explicit names add noise without extra information.
+
 ## Example: Fine-Grained Inspection
 
 ```go

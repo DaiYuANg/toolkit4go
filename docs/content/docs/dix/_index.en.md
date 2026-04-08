@@ -47,7 +47,8 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `dix.WithModules(...)`, `dix.WithProfile(...)`, `dix.WithVersion(...)`, `dix.WithLogger(...)`
 - `dix.WithModuleProviders(...)`, `dix.WithModuleHooks(...)`, `dix.WithModuleImports(...)`
 - `dix.WithModuleProvider(...)`, `dix.WithModuleHook(...)`, `dix.WithModuleImport(...)`
-- `dix.ProviderN(...)`, `dix.OnStart(...)`, `dix.OnStop(...)`
+- `dix.Value(...)`, `dix.Invoke(...)`, `dix.ProviderN(...)`, `dix.OnStart(...)`, `dix.OnStop(...)`
+- `advanced.Named(...)`, `advanced.Alias(...)`, `advanced.NamedAlias(...)`, `advanced.Transient(...)`, `advanced.Override(...)`
 - `app.Validate()`, `app.ValidateReport()`, `app.Build()`, `app.Start(ctx)`, `app.RunContext(ctx)`
 - `rt.Start(ctx)`, `rt.Stop(ctx)`, `rt.StopWithReport(ctx)`
 
@@ -56,6 +57,8 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `dix` keeps the existing `WithModule*` option family for compatibility.
 - `dix` also keeps the existing `WithProfile` / `WithVersion` / `WithLogger` / `WithModules` app option family for compatibility.
 - New code can prefer the shorter module option aliases such as `Providers(...)`, `Hooks(...)`, `Imports(...)`, `Invokes(...)`, `Setups(...)`, `Description(...)`, and `Tags(...)`.
+- For zero-dependency registrations, `Value(...)` and `Invoke(...)` reduce the remaining boilerplate on the core path.
+- In `dix/advanced`, the shorter aliases such as `Named(...)`, `Alias(...)`, `Transient(...)`, and `Override(...)` keep the same semantics as the older explicit names.
 - When you want the common build-then-start flow, prefer `app.Start(ctx)`; use `app.Build()` when you need an explicit pre-start runtime handle.
 - When the caller owns cancellation or shutdown timing, prefer `app.RunContext(ctx)` over `app.Run()`.
 

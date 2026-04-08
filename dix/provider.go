@@ -29,6 +29,17 @@ func RawProviderWithMetadata(fn func(*Container), meta ProviderMetadata) Provide
 	})
 }
 
+// Value registers a typed singleton value.
+func Value[T any](value T) ProviderFunc {
+	return NewProviderFunc(
+		func(c *Container) { ProvideValueT(c, value) },
+		ProviderMetadata{
+			Label:  "Value",
+			Output: TypedService[T](),
+		},
+	)
+}
+
 // Provider0 registers a typed singleton provider with no dependencies.
 func Provider0[T any](fn func() T) ProviderFunc {
 	return NewProviderFunc(

@@ -31,27 +31,23 @@ func main() {
 	}
 
 	serviceModule := dix.NewModule("greeter",
-		dix.WithModuleProviders(
+		dix.Providers(
 			dix.Provider1(func(logger *slog.Logger) *englishGreeter {
 				return &englishGreeter{logger: logger}
 			}),
-			dixadvanced.NamedValue("locale.default", "en-US"),
+			dixadvanced.Named("locale.default", "en-US"),
 			dixadvanced.NamedProvider1[*englishGreeter, *slog.Logger]("greeter.en", func(logger *slog.Logger) *englishGreeter {
 				return &englishGreeter{logger: logger}
 			}),
 		),
-		dix.WithModuleSetups(
-			dixadvanced.BindAlias[*englishGreeter, greeter](),
-			dixadvanced.BindNamedAlias[*englishGreeter, greeter]("greeter.en", "greeter.en.alias"),
+		dix.Setups(
+			dixadvanced.Alias[*englishGreeter, greeter](),
+			dixadvanced.NamedAlias[*englishGreeter, greeter]("greeter.en", "greeter.en.alias"),
 		),
 	)
 
-	app := dix.New("named-alias", dix.WithModule(serviceModule), dix.WithLogger(logger))
-	rt, err := app.Build()
-	if err != nil {
-		panic(err)
-	}
-	err = rt.Start(context.Background())
+	app := dix.New("named-alias", dix.Modules(serviceModule), dix.UseLogger(logger))
+	rt, err := app.Start(context.Background())
 	if err != nil {
 		panic(err)
 	}

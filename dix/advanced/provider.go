@@ -12,6 +12,11 @@ func NamedValue[T any](name string, value T) dix.ProviderFunc {
 	})
 }
 
+// Named registers a named singleton value.
+func Named[T any](name string, value T) dix.ProviderFunc {
+	return NamedValue(name, value)
+}
+
 // NamedProvider0 registers a named singleton provider with no dependencies.
 func NamedProvider0[T any](name string, fn func() T) dix.ProviderFunc {
 	return newProvider("NamedProvider0", dix.NamedService(name), func(c *dix.Container) {
@@ -148,12 +153,22 @@ func TransientProvider0[T any](fn func() T) dix.ProviderFunc {
 	})
 }
 
+// Transient registers a typed transient provider with no dependencies.
+func Transient[T any](fn func() T) dix.ProviderFunc {
+	return TransientProvider0(fn)
+}
+
 // TransientProviderErr0 registers a typed transient provider with no dependencies.
 func TransientProviderErr0[T any](fn func() (T, error)) dix.ProviderFunc {
 	name := typedName[T]()
 	return newProvider("TransientProviderErr0", dix.TypedService[T](), func(c *dix.Container) {
 		do.ProvideNamedTransient(c.Raw(), name, func(do.Injector) (T, error) { return fn() })
 	})
+}
+
+// TransientErr registers a typed transient provider with no dependencies.
+func TransientErr[T any](fn func() (T, error)) dix.ProviderFunc {
+	return TransientProviderErr0(fn)
 }
 
 // TransientProvider1 registers a typed transient provider with one dependency.
@@ -193,11 +208,21 @@ func NamedTransientProvider0[T any](name string, fn func() T) dix.ProviderFunc {
 	})
 }
 
+// NamedTransient registers a named transient provider with no dependencies.
+func NamedTransient[T any](name string, fn func() T) dix.ProviderFunc {
+	return NamedTransientProvider0(name, fn)
+}
+
 // NamedTransientProviderErr0 registers a named transient provider with no dependencies.
 func NamedTransientProviderErr0[T any](name string, fn func() (T, error)) dix.ProviderFunc {
 	return newProvider("NamedTransientProviderErr0", dix.NamedService(name), func(c *dix.Container) {
 		do.ProvideNamedTransient(c.Raw(), name, func(do.Injector) (T, error) { return fn() })
 	})
+}
+
+// NamedTransientErr registers a named transient provider with no dependencies.
+func NamedTransientErr[T any](name string, fn func() (T, error)) dix.ProviderFunc {
+	return NamedTransientProviderErr0(name, fn)
 }
 
 // NamedTransientProvider1 registers a named transient provider with one dependency.

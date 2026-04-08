@@ -71,13 +71,53 @@ func TestAdvancedOverrideValue(t *testing.T) {
 	assert.Equal(t, "override", value)
 }
 
+func TestAdvancedShortAliases(t *testing.T) {
+	app := dix.New("advanced-short",
+		dix.WithModule(
+			dix.NewModule("advanced-short",
+				dix.Providers(
+					dix.Provider0(func() *testGreeterImpl { return &testGreeterImpl{} }),
+					dix.Value("base"),
+					dixadvanced.Named("tenant.default", "public"),
+					dixadvanced.NamedProvider0[*testGreeterImpl]("tenant.default.greeter", func() *testGreeterImpl {
+						return &testGreeterImpl{}
+					}),
+				),
+				dix.Setups(
+					dixadvanced.Alias[*testGreeterImpl, testGreeter](),
+					dixadvanced.NamedAlias[*testGreeterImpl, testGreeter]("tenant.default.greeter", "tenant.default.greeter.alias"),
+					dixadvanced.Override(func() string { return "override" }),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+
+	named, err := dixadvanced.ResolveNamedAs[string](rt.Container(), "tenant.default")
+	require.NoError(t, err)
+	assert.Equal(t, "public", named)
+
+	greeterValue, err := dix.ResolveAs[testGreeter](rt.Container())
+	require.NoError(t, err)
+	assert.NotNil(t, greeterValue)
+
+	namedGreeter, err := dixadvanced.ResolveNamedAs[testGreeter](rt.Container(), "tenant.default.greeter.alias")
+	require.NoError(t, err)
+	assert.NotNil(t, namedGreeter)
+
+	value, err := dix.ResolveAs[string](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, "override", value)
+}
+
 func TestAdvancedTransientProvider(t *testing.T) {
 	counter := 0
 	rt := buildRuntime(t, dix.New("transient",
 		dix.WithModule(
 			dix.NewModule("transient",
 				dix.WithModuleProviders(
-					dixadvanced.TransientProvider0(func() int {
+					dixadvanced.Transient(func() int {
 						counter++
 						return counter
 					}),
@@ -103,7 +143,7 @@ func TestAdvancedOverrideTransient(t *testing.T) {
 					dix.Provider0(func() int { return 1 }),
 				),
 				dix.WithModuleSetups(
-					dixadvanced.OverrideTransient0(func() int {
+					dixadvanced.TransientOverride(func() int {
 						counter++
 						return counter
 					}),

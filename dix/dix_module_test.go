@@ -293,6 +293,29 @@ func TestModule_ShortOptionAliases(t *testing.T) {
 	require.NoError(t, rt.Stop(context.Background()))
 }
 
+func TestModule_ValueAndInvokeAliases(t *testing.T) {
+	invoked := false
+
+	module := dix.NewModule("aliases",
+		dix.Providers(
+			dix.Value(Config{Port: 9090, DSN: "sqlite://alias.db"}),
+		),
+		dix.Invokes(
+			dix.Invoke(func() {
+				invoked = true
+			}),
+		),
+	)
+
+	rt := buildRuntime(t, dix.New("aliases", dix.WithModule(module)))
+
+	cfg, err := dix.ResolveAs[Config](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, 9090, cfg.Port)
+	assert.Equal(t, "sqlite://alias.db", cfg.DSN)
+	assert.True(t, invoked)
+}
+
 func TestContainerRegisterProviderDefinitionReturnsError(t *testing.T) {
 	rt := buildRuntime(t, dix.NewApp("test"))
 	err := rt.Container().Register(dix.Definition{Kind: dix.DefinitionProvider})
