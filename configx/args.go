@@ -2,12 +2,12 @@ package configx
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
+	"github.com/samber/oops"
 	"github.com/spf13/pflag"
 )
 
@@ -49,7 +49,9 @@ func loadArgs(k *koanf.Koanf, args []string, fs *pflag.FlagSet, nameFunc func(st
 		return err
 	}
 	if err := k.Load(confmap.Provider(values.All(), "."), nil); err != nil {
-		return fmt.Errorf("configx: load args: %w", errors.Join(ErrArgs, err))
+		return oops.In("configx").
+			With("op", "load_args", "arg_count", len(args), "flag_count", changedFlagCount(fs)).
+			Wrapf(errors.Join(ErrArgs, err), "load args")
 	}
 	return nil
 }
@@ -86,7 +88,9 @@ func parseRawArgs(args []string, nameFunc func(string) string) (collectionx.List
 func parseRawArgEntry(tokens collectionx.List[string], index int, nameFunc func(string) string) (argEntry, bool, error) {
 	token, ok := tokens.Get(index)
 	if !ok {
-		return argEntry{}, false, fmt.Errorf("%w: missing raw arg token at index %d", ErrArgs, index)
+		return argEntry{}, false, oops.In("configx").
+			With("op", "parse_raw_arg_entry", "index", index).
+			Wrapf(ErrArgs, "missing raw arg token")
 	}
 
 	raw := strings.TrimSpace(strings.TrimPrefix(token, "--"))
@@ -159,7 +163,9 @@ func applyArgEntries(values collectionx.Map[string, any], entries collectionx.Li
 	var applyErr error
 	entries.Range(func(_ int, entry argEntry) bool {
 		if existing, ok := namesByPath.Get(entry.Path); ok && existing != entry.Name {
-			applyErr = fmt.Errorf("%w: %s %q and %q resolve to the same config path %q", ErrArgs, sourceLabel, existing, entry.Name, entry.Path)
+			applyErr = oops.In("configx").
+				With("op", "apply_arg_entries", "source", sourceLabel, "existing_name", existing, "name", entry.Name, "path", entry.Path).
+				Wrapf(ErrArgs, "duplicate config path from args")
 			return false
 		}
 		namesByPath.Set(entry.Path, entry.Name)
@@ -171,7 +177,9 @@ func applyArgEntries(values collectionx.Map[string, any], entries collectionx.Li
 
 func flagConfigValue(flag *pflag.Flag) (any, error) {
 	if flag == nil || flag.Value == nil {
-		return nil, fmt.Errorf("%w: nil flag value", ErrArgs)
+		return nil, oops.In("configx").
+			With("op", "flag_config_value").
+			Wrapf(ErrArgs, "nil flag value")
 	}
 	if getter, ok := flag.Value.(flagGetter); ok {
 		return getter.Get(), nil
@@ -185,7 +193,9 @@ func flagConfigValue(flag *pflag.Flag) (any, error) {
 func resolveArgsPath(name string, nameFunc func(string) string, kind string) (string, error) {
 	path := normalizeArgsPath(nameFunc(strings.TrimSpace(name)))
 	if path == "" {
-		return "", fmt.Errorf("%w: %s %q resolved to an empty config path", ErrArgs, kind, name)
+		return "", oops.In("configx").
+			With("op", "resolve_args_path", "kind", kind, "name", name).
+			Wrapf(ErrArgs, "empty config path")
 	}
 	return path, nil
 }

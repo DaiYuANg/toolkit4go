@@ -4,15 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
+	"github.com/samber/oops"
 )
 
 func sessionExecutor(session Session) (*SQLExecutor, error) {
 	if session == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "sql_session").
+			Wrapf(ErrNilDB, "validate session")
 	}
 	exec := session.SQL()
 	if exec == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "sql_session").
+			Wrapf(ErrNilDB, "resolve sql executor")
 	}
 	return exec, nil
 }
@@ -38,8 +44,22 @@ func scanStatementOne[E any](ctx context.Context, exec *SQLExecutor, statement S
 
 func queryStatementRows(ctx context.Context, executor *SQLExecutor, statement SQLStatementSource, params any) (*sql.Rows, error) {
 	if executor == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "sql_query_rows", "statement", statementName(statement)).
+			Wrapf(ErrNilDB, "validate sql executor")
 	}
 	rows, err := executor.Query(ctx, statement, params)
-	return rows, wrapDBError("query statement rows", err)
+	if err != nil {
+		return nil, oops.In("dbx").
+			With("op", "sql_query_rows", "statement", statementName(statement)).
+			Wrapf(err, "query statement rows")
+	}
+	return rows, nil
+}
+
+func statementName(statement SQLStatementSource) string {
+	if statement == nil {
+		return ""
+	}
+	return statement.StatementName()
 }

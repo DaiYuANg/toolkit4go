@@ -3,10 +3,10 @@ package search
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/samber/oops"
 )
 
 // Search provides high-level search operations.
@@ -39,23 +39,57 @@ func NewIndex(client kvx.Search, name, keyPrefix string, schema collectionx.List
 
 // Create creates the search index.
 func (i *Index) Create(ctx context.Context) error {
+	if i == nil {
+		return oops.In("kvx/module/search").
+			With("op", "create_index").
+			New("index is nil")
+	}
+	if i.client == nil {
+		return oops.In("kvx/module/search").
+			With("op", "create_index", "index", i.name, "key_prefix", i.keyPrefix, "schema_field_count", i.schema.Len()).
+			New("search client is nil")
+	}
 	if err := i.client.CreateIndex(ctx, i.name, i.keyPrefix, i.schema.Values()); err != nil {
-		return fmt.Errorf("create search index %q: %w", i.name, err)
+		return oops.In("kvx/module/search").
+			With("op", "create_index", "index", i.name, "key_prefix", i.keyPrefix, "schema_field_count", i.schema.Len()).
+			Wrapf(err, "create search index")
 	}
 	return nil
 }
 
 // Drop drops the search index.
 func (i *Index) Drop(ctx context.Context) error {
+	if i == nil {
+		return oops.In("kvx/module/search").
+			With("op", "drop_index").
+			New("index is nil")
+	}
+	if i.client == nil {
+		return oops.In("kvx/module/search").
+			With("op", "drop_index", "index", i.name).
+			New("search client is nil")
+	}
 	if err := i.client.DropIndex(ctx, i.name); err != nil {
-		return fmt.Errorf("drop search index %q: %w", i.name, err)
+		return oops.In("kvx/module/search").
+			With("op", "drop_index", "index", i.name).
+			Wrapf(err, "drop search index")
 	}
 	return nil
 }
 
 // Search performs a search query on this index.
 func (i *Index) Search(ctx context.Context, query string, opts *Options) (*Result, error) {
+	if i == nil {
+		return nil, oops.In("kvx/module/search").
+			With("op", "search_index", "query", query).
+			New("index is nil")
+	}
 	opts = resolveOptions(opts)
+	if i.client == nil {
+		return nil, oops.In("kvx/module/search").
+			With("op", "search_index", "index", i.name, "query", query, "limit", opts.Limit, "sort_by", opts.SortBy, "ascending", opts.Ascending).
+			New("search client is nil")
+	}
 
 	limit := opts.Limit
 	if limit <= 0 {
@@ -72,7 +106,9 @@ func (i *Index) Search(ctx context.Context, query string, opts *Options) (*Resul
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("search index %q with query %q: %w", i.name, query, err)
+		return nil, oops.In("kvx/module/search").
+			With("op", "search_index", "index", i.name, "query", query, "limit", limit, "sort_by", opts.SortBy, "ascending", opts.Ascending).
+			Wrapf(err, "search index")
 	}
 
 	return &Result{

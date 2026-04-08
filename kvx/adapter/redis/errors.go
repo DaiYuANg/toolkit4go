@@ -2,10 +2,10 @@ package redis
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/DaiYuANg/arcgo/kvx"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/samber/oops"
 )
 
 func wrapRedisError(op string, err error) error {
@@ -13,7 +13,9 @@ func wrapRedisError(op string, err error) error {
 		return nil
 	}
 
-	return fmt.Errorf("redis %s: %w", op, err)
+	return oops.In("kvx/adapter/redis").
+		With("op", op).
+		Wrapf(err, "redis %s", op)
 }
 
 func wrapRedisNilResult[T any](op string, value T, err error) (T, error) {
@@ -23,7 +25,9 @@ func wrapRedisNilResult[T any](op string, value T, err error) (T, error) {
 
 	var zero T
 	if errors.Is(err, goredis.Nil) {
-		return zero, kvx.ErrNil
+		return zero, oops.In("kvx/adapter/redis").
+			With("op", op).
+			Wrapf(kvx.ErrNil, "redis %s", op)
 	}
 
 	return zero, wrapRedisError(op, err)

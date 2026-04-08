@@ -82,7 +82,7 @@ func (r *HashRepository[T]) UpdateField(ctx context.Context, id, fieldName strin
 	}
 
 	if err := r.client.HSet(ctx, state.key, map[string][]byte{state.storageField: state.value}); err != nil {
-		return wrapRepositoryError(err, "write hash field value")
+		return wrapRepositoryError(err, "write hash field value", "op", "write_hash_field_value", "key", state.key, "field", state.storageField)
 	}
 	return r.base.indexer.ApplyIndexDiff(ctx, state.removeEntries, state.addEntries)
 }
@@ -96,11 +96,11 @@ func (r *HashRepository[T]) IncrementField(ctx context.Context, id, fieldName st
 
 	_, fieldTag, exists := metadata.ResolveField(fieldName)
 	if !exists {
-		return 0, ErrFieldNotFound
+		return 0, wrapRepositoryError(ErrFieldNotFound, "resolve hash field metadata", "op", "resolve_hash_field_metadata", "id", id, "field_name", fieldName)
 	}
 
 	result, incrErr := r.client.HIncrBy(ctx, r.base.keyFromID(id), fieldTag.StorageName(), increment)
-	return wrapRepositoryResult(result, incrErr, "increment hash field")
+	return wrapRepositoryResult(result, incrErr, "increment hash field", "op", "increment_hash_field", "id", id, "key", r.base.keyFromID(id), "field_name", fieldName, "storage_field", fieldTag.StorageName(), "increment", increment)
 }
 
 func (r *HashRepository[T]) prepareHashSave(ctx context.Context, entity *T) (hashSaveState[T], error) {
@@ -111,12 +111,12 @@ func (r *HashRepository[T]) prepareHashSave(ctx context.Context, entity *T) (has
 
 	key, err := r.base.keyBuilder.Build(entity, metadata)
 	if err != nil {
-		return hashSaveState[T]{}, wrapRepositoryError(err, "build hash entity key")
+		return hashSaveState[T]{}, wrapRepositoryError(err, "build hash entity key", "op", "build_hash_entity_key")
 	}
 
 	hashData, err := r.codec.Encode(entity, metadata)
 	if err != nil {
-		return hashSaveState[T]{}, wrapRepositoryError(err, "encode hash entity")
+		return hashSaveState[T]{}, wrapRepositoryError(err, "encode hash entity", "op", "encode_hash_entity", "key", key)
 	}
 
 	previous, _, err := r.loadPreviousHashEntity(ctx, key)
@@ -126,7 +126,7 @@ func (r *HashRepository[T]) prepareHashSave(ctx context.Context, entity *T) (has
 
 	removeEntries, addEntries, err := r.base.indexer.ReplaceEntityIndexEntries(ctx, previous, entity, metadata, key)
 	if err != nil {
-		return hashSaveState[T]{}, wrapRepositoryError(err, "compute hash index diff")
+		return hashSaveState[T]{}, wrapRepositoryError(err, "compute hash index diff", "op", "compute_hash_index_diff", "key", key)
 	}
 
 	return hashSaveState[T]{
@@ -143,7 +143,7 @@ func (r *HashRepository[T]) loadPreviousHashEntity(ctx context.Context, key stri
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, wrapRepositoryError(err, "load existing hash entity")
+		return nil, false, wrapRepositoryError(err, "load existing hash entity", "op", "load_existing_hash_entity", "key", key)
 	}
 
 	return entity, true, nil
@@ -163,11 +163,11 @@ func (r *HashRepository[T]) persistHashSave(ctx context.Context, state hashSaveS
 	}
 
 	if err := r.client.HSet(ctx, state.key, state.hashData); err != nil {
-		return wrapRepositoryError(err, "write hash entity")
+		return wrapRepositoryError(err, "write hash entity", "op", "write_hash_entity", "key", state.key, "field_count", len(state.hashData))
 	}
 	if expiration > 0 {
 		if err := r.kv.Expire(ctx, state.key, expiration); err != nil {
-			return wrapRepositoryError(err, "set hash entity expiration")
+			return wrapRepositoryError(err, "set hash entity expiration", "op", "expire_hash_entity", "key", state.key, "expiration", expiration)
 		}
 	}
 
@@ -178,7 +178,7 @@ func (r *HashRepository[T]) prepareHashFieldUpdate(ctx context.Context, id, fiel
 	key := r.base.keyFromID(id)
 	entity, err := r.findByKey(ctx, key)
 	if err != nil {
-		return hashFieldUpdateState{}, wrapRepositoryError(err, "load hash entity for field update")
+		return hashFieldUpdateState{}, wrapRepositoryError(err, "load hash entity for field update", "op", "load_hash_entity_for_field_update", "id", id, "key", key, "field_name", fieldName)
 	}
 
 	metadata, err := r.base.metadata(entity)
@@ -188,17 +188,17 @@ func (r *HashRepository[T]) prepareHashFieldUpdate(ctx context.Context, id, fiel
 
 	resolvedField, fieldTag, exists := metadata.ResolveField(fieldName)
 	if !exists {
-		return hashFieldUpdateState{}, ErrFieldNotFound
+		return hashFieldUpdateState{}, wrapRepositoryError(ErrFieldNotFound, "resolve hash field metadata", "op", "resolve_hash_field_metadata", "id", id, "key", key, "field_name", fieldName)
 	}
 
 	encodedValue, err := r.codec.EncodeSingleValue(value)
 	if err != nil {
-		return hashFieldUpdateState{}, wrapRepositoryError(err, "encode hash field value")
+		return hashFieldUpdateState{}, wrapRepositoryError(err, "encode hash field value", "op", "encode_hash_field_value", "id", id, "key", key, "field_name", fieldName)
 	}
 
 	removeEntries, addEntries, err := r.base.indexer.ReplaceFieldIndexEntries(metadata, resolvedField, key, entity, value)
 	if err != nil {
-		return hashFieldUpdateState{}, wrapRepositoryError(err, "compute hash field index diff")
+		return hashFieldUpdateState{}, wrapRepositoryError(err, "compute hash field index diff", "op", "compute_hash_field_index_diff", "id", id, "key", key, "field_name", fieldName)
 	}
 
 	return hashFieldUpdateState{

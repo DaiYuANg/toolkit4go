@@ -1,13 +1,13 @@
 package preset
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clienthttp "github.com/DaiYuANg/arcgo/clientx/http"
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 )
 
 type edgeHTTPPreset struct {
@@ -82,7 +82,16 @@ func NewEdgeHTTP(cfg clienthttp.Config, opts ...EdgeHTTPOption) (clienthttp.Clie
 	clientOpts := buildEdgeHTTPOptions(preset)
 	client, err := clienthttp.New(tuned, clientOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("build edge http client: %w", err)
+		return nil, oops.In("clientx/preset").
+			With(
+				"op", "new_edge_http",
+				"protocol", "http",
+				"base_url", tuned.BaseURL,
+				"timeout", tuned.Timeout,
+				"user_agent", tuned.UserAgent,
+				"option_count", len(clientOpts),
+			).
+			Wrapf(err, "build edge http client")
 	}
 	return client, nil
 }

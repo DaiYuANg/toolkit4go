@@ -2,7 +2,6 @@ package dix
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -11,6 +10,7 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/DaiYuANg/arcgo/pkg/option"
+	"github.com/samber/oops"
 )
 
 // AppOption configures an App specification during construction.
@@ -210,10 +210,14 @@ func (a *App) Build() (*Runtime, error) {
 func (a *App) Start(ctx context.Context) (*Runtime, error) {
 	rt, err := a.Build()
 	if err != nil {
-		return nil, fmt.Errorf("build failed: %w", err)
+		return nil, oops.In("dix").
+			With("op", "start", "app", a.Name()).
+			Wrapf(err, "build failed")
 	}
 	if err := rt.Start(ctx); err != nil {
-		return nil, fmt.Errorf("start failed: %w", err)
+		return nil, oops.In("dix").
+			With("op", "start", "app", a.Name()).
+			Wrapf(err, "start failed")
 	}
 	return rt, nil
 }
@@ -229,7 +233,9 @@ func (a *App) RunContext(ctx context.Context) error {
 
 	stopCtx := context.WithoutCancel(ctx)
 	if err := rt.Stop(stopCtx); err != nil {
-		return fmt.Errorf("stop failed: %w", err)
+		return oops.In("dix").
+			With("op", "run_context_stop", "app", a.Name()).
+			Wrapf(err, "stop failed")
 	}
 
 	return nil

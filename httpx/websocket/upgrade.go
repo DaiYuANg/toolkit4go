@@ -2,12 +2,12 @@ package websocket
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/lxzan/gws"
+	"github.com/samber/oops"
 )
 
 type gwsConn struct {
@@ -33,8 +33,20 @@ func HandlerFunc(handler Handler, options ...Option) http.HandlerFunc {
 
 // Upgrade upgrades the request to a WebSocket connection and runs handler.
 func Upgrade(w http.ResponseWriter, r *http.Request, handler Handler, options ...Option) error {
+	if w == nil {
+		return oops.In("httpx/websocket").
+			With("op", "upgrade").
+			Wrapf(ErrUpgradeFailed, "response writer is nil")
+	}
+	if r == nil {
+		return oops.In("httpx/websocket").
+			With("op", "upgrade").
+			Wrapf(ErrUpgradeFailed, "request is nil")
+	}
 	if handler == nil {
-		return fmt.Errorf("%w: nil handler", ErrUpgradeFailed)
+		return oops.In("httpx/websocket").
+			With("op", "upgrade", "method", r.Method, "path", r.URL.Path).
+			Wrapf(ErrUpgradeFailed, "nil handler")
 	}
 	cfg := applyOptions(options)
 	bridgeConn := &gwsConn{
@@ -55,7 +67,9 @@ func Upgrade(w http.ResponseWriter, r *http.Request, handler Handler, options ..
 	})
 	socket, err := upgrader.Upgrade(w, r)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrUpgradeFailed, err)
+		return oops.In("httpx/websocket").
+			With("op", "upgrade", "method", r.Method, "path", r.URL.Path).
+			Wrapf(errors.Join(ErrUpgradeFailed, err), "upgrade websocket connection")
 	}
 	bridgeConn.socket = socket
 	go socket.ReadLoop()
@@ -64,9 +78,18 @@ func Upgrade(w http.ResponseWriter, r *http.Request, handler Handler, options ..
 	if runErr := handler(ctx, bridgeConn); runErr != nil {
 		closeErr := bridgeConn.Close(1011, []byte(runErr.Error()))
 		if closeErr != nil {
-			return errors.Join(runErr, fmt.Errorf("httpx/websocket: close connection after handler error: %w", closeErr))
+			return errors.Join(
+				oops.In("httpx/websocket").
+					With("op", "handler", "method", r.Method, "path", r.URL.Path).
+					Wrapf(runErr, "websocket handler failed"),
+				oops.In("httpx/websocket").
+					With("op", "close", "code", 1011, "method", r.Method, "path", r.URL.Path).
+					Wrapf(closeErr, "close connection after handler error"),
+			)
 		}
-		return runErr
+		return oops.In("httpx/websocket").
+			With("op", "handler", "method", r.Method, "path", r.URL.Path).
+			Wrapf(runErr, "websocket handler failed")
 	}
 	return nil
 }
@@ -74,28 +97,38 @@ func Upgrade(w http.ResponseWriter, r *http.Request, handler Handler, options ..
 // Read reads the next WebSocket message or returns when ctx is done.
 func (c *gwsConn) Read(ctx Context) (Message, error) {
 	if ctx == nil {
-		return Message{}, errors.New("httpx/websocket: nil read context")
+		return Message{}, oops.In("httpx/websocket").
+			With("op", "read").
+			New("nil read context")
 	}
 	select {
 	case msg, ok := <-c.recv:
 		if !ok {
-			return Message{}, ErrClosed
+			return Message{}, oops.In("httpx/websocket").
+				With("op", "read").
+				Wrapf(ErrClosed, "websocket connection is closed")
 		}
 		return msg, nil
 	case err := <-c.errCh:
 		if err == nil {
-			return Message{}, ErrClosed
+			return Message{}, oops.In("httpx/websocket").
+				With("op", "read").
+				Wrapf(ErrClosed, "websocket connection is closed")
 		}
 		return Message{}, err
 	case <-ctx.Done():
-		return Message{}, fmt.Errorf("httpx/websocket: read canceled: %w", ctx.Err())
+		return Message{}, oops.In("httpx/websocket").
+			With("op", "read").
+			Wrapf(ctx.Err(), "read canceled")
 	}
 }
 
 // Write writes a typed WebSocket message to the connection.
 func (c *gwsConn) Write(msg Message) (retErr error) {
 	if c.socket == nil {
-		return ErrClosed
+		return oops.In("httpx/websocket").
+			With("op", "write", "message_type", msg.Type).
+			Wrapf(ErrClosed, "websocket connection is closed")
 	}
 	cleanup, err := c.startWrite()
 	if err != nil {
@@ -120,12 +153,16 @@ func (c *gwsConn) startWrite() (func() error, error) {
 	}
 
 	if err := c.socket.SetWriteDeadline(time.Now().Add(c.opts.WriteTimeout)); err != nil {
-		return nil, fmt.Errorf("httpx/websocket: set write deadline: %w", err)
+		return nil, oops.In("httpx/websocket").
+			With("op", "write", "stage", "set_deadline", "write_timeout", c.opts.WriteTimeout).
+			Wrapf(err, "set write deadline")
 	}
 
 	return func() error {
 		if err := c.socket.SetWriteDeadline(time.Time{}); err != nil {
-			return fmt.Errorf("httpx/websocket: reset write deadline: %w", err)
+			return oops.In("httpx/websocket").
+				With("op", "write", "stage", "reset_deadline").
+				Wrapf(err, "reset write deadline")
 		}
 		return nil
 	}, nil
@@ -138,16 +175,22 @@ func noopWriteCleanup() error {
 func (c *gwsConn) writeFrame(msg Message) error {
 	opcode, ok := toGWSOpcode(msg.Type)
 	if !ok {
-		return fmt.Errorf("httpx/websocket: unsupported message type: %d", msg.Type)
+		return oops.In("httpx/websocket").
+			With("op", "write", "message_type", msg.Type).
+			Errorf("unsupported message type: %d", msg.Type)
 	}
 	if msg.Type == MessageClose {
 		if err := c.socket.WriteClose(1000, msg.Data); err != nil {
-			return fmt.Errorf("httpx/websocket: write close frame: %w", err)
+			return oops.In("httpx/websocket").
+				With("op", "write", "message_type", msg.Type, "stage", "close_frame").
+				Wrapf(err, "write close frame")
 		}
 		return nil
 	}
 	if err := c.socket.WriteMessage(opcode, msg.Data); err != nil {
-		return fmt.Errorf("httpx/websocket: write message: %w", err)
+		return oops.In("httpx/websocket").
+			With("op", "write", "message_type", msg.Type, "payload_size", len(msg.Data)).
+			Wrapf(err, "write message")
 	}
 	return nil
 }
@@ -159,7 +202,9 @@ func (c *gwsConn) Close(code uint16, reason []byte) error {
 	}
 	err := c.socket.WriteClose(code, reason)
 	if err != nil && !errors.Is(err, gws.ErrConnClosed) {
-		return fmt.Errorf("httpx/websocket: write close frame: %w", err)
+		return oops.In("httpx/websocket").
+			With("op", "close", "code", code, "reason_size", len(reason)).
+			Wrapf(err, "write close frame")
 	}
 	return nil
 }
@@ -181,7 +226,9 @@ func (b *eventBridge) OnClose(_ *gws.Conn, err error) {
 func (b *eventBridge) OnPing(socket *gws.Conn, payload []byte) {
 	b.refreshReadDeadlines(socket)
 	if err := socket.WritePong(payload); err != nil {
-		b.conn.reportError(fmt.Errorf("httpx/websocket: write pong frame: %w", err))
+		b.conn.reportError(oops.In("httpx/websocket").
+			With("op", "pong", "payload_size", len(payload)).
+			Wrapf(err, "write pong frame"))
 	}
 }
 
@@ -192,7 +239,9 @@ func (b *eventBridge) OnPong(socket *gws.Conn, _ []byte) {
 func (b *eventBridge) OnMessage(socket *gws.Conn, message *gws.Message) {
 	defer func() {
 		if err := message.Close(); err != nil {
-			b.conn.reportError(fmt.Errorf("httpx/websocket: close message: %w", err))
+			b.conn.reportError(oops.In("httpx/websocket").
+				With("op", "read", "stage", "close_message").
+				Wrapf(err, "close message"))
 		}
 	}()
 	msgType, ok := fromGWSOpcode(message.Opcode)
@@ -261,7 +310,9 @@ func (b *eventBridge) refreshReadDeadlines(socket *gws.Conn) {
 	b.refreshIdleDeadline(socket)
 	if b.conn.opts.ReadTimeout > 0 {
 		if err := socket.SetReadDeadline(time.Now().Add(b.conn.opts.ReadTimeout)); err != nil {
-			b.conn.reportError(fmt.Errorf("httpx/websocket: set read deadline: %w", err))
+			b.conn.reportError(oops.In("httpx/websocket").
+				With("op", "read", "stage", "set_deadline", "read_timeout", b.conn.opts.ReadTimeout).
+				Wrapf(err, "set read deadline"))
 		}
 	}
 }
@@ -269,7 +320,9 @@ func (b *eventBridge) refreshReadDeadlines(socket *gws.Conn) {
 func (b *eventBridge) refreshIdleDeadline(socket *gws.Conn) {
 	if b.conn.opts.IdleTimeout > 0 {
 		if err := socket.SetDeadline(time.Now().Add(b.conn.opts.IdleTimeout)); err != nil {
-			b.conn.reportError(fmt.Errorf("httpx/websocket: set idle deadline: %w", err))
+			b.conn.reportError(oops.In("httpx/websocket").
+				With("op", "read", "stage", "set_idle_deadline", "idle_timeout", b.conn.opts.IdleTimeout).
+				Wrapf(err, "set idle deadline"))
 		}
 	}
 }

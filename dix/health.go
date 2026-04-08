@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 )
 
 // HealthKind is the category of a health check.
@@ -89,7 +90,9 @@ func (r HealthReport) Error() error {
 	}
 	items := parts.Values()
 	sort.Strings(items)
-	return fmt.Errorf("health check failed: %s", strings.Join(items, "; "))
+	return oops.In("dix").
+		With("op", "health_report", "kind", r.Kind, "failed_checks", len(items)).
+		Errorf("health check failed: %s", strings.Join(items, "; "))
 }
 
 // MarshalJSON renders a user-friendly JSON payload for HTTP endpoints.
@@ -119,7 +122,9 @@ func (r HealthReport) MarshalJSON() ([]byte, error) {
 
 	data, err := json.Marshal(payload{Kind: r.Kind, Healthy: r.Healthy(), Checks: checks.All()})
 	if err != nil {
-		return nil, fmt.Errorf("marshal health report: %w", err)
+		return nil, oops.In("dix").
+			With("op", "marshal_health_report", "kind", r.Kind).
+			Wrapf(err, "marshal health report")
 	}
 	return data, nil
 }

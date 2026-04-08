@@ -3,10 +3,10 @@ package clientx
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 var backgroundContext = context.Background()
@@ -76,10 +76,18 @@ func InvokeWithPolicies[T any](
 ) (T, error) {
 	var zero T
 	ctx = normalizeContext(ctx)
-	if fn == nil {
-		return zero, errors.New("invoke function is nil")
-	}
 	operation = normalizeOperation(operation)
+	if fn == nil {
+		return zero, oops.In("clientx/policy").
+			With(
+				"op", "invoke",
+				"protocol", operation.Protocol,
+				"operation_kind", operation.Kind,
+				"network", operation.Network,
+				"addr", operation.Addr,
+			).
+			New("invoke function is nil")
+	}
 
 	activePolicies := filterPolicies(policies)
 
@@ -99,7 +107,7 @@ func InvokeWithPolicies[T any](
 		if !retry {
 			return result, execErr
 		}
-		if sleepErr := sleepWithContext(ctx, wait); sleepErr != nil {
+		if sleepErr := sleepWithContext(ctx, operation, attempt, wait); sleepErr != nil {
 			return result, errors.Join(execErr, sleepErr)
 		}
 	}
@@ -209,9 +217,9 @@ func callPolicyBefore(
 		return ctx, nil
 	}
 	if policyCtx == nil {
-		return ctx, wrapPolicyBeforeError(policyErr)
+		return ctx, wrapPolicyBeforeError(operation, policyErr)
 	}
-	return policyCtx, wrapPolicyBeforeError(policyErr)
+	return policyCtx, wrapPolicyBeforeError(operation, policyErr)
 }
 
 func callPolicyAfter(
@@ -227,7 +235,7 @@ func callPolicyAfter(
 			afterErr = nil
 		}
 	}()
-	return true, wrapPolicyAfterError(policy.After(ctx, operation, err))
+	return true, wrapPolicyAfterError(operation, policy.After(ctx, operation, err))
 }
 
 func callShouldRetry(
@@ -249,7 +257,7 @@ func callShouldRetry(
 	return retry, wait, ok
 }
 
-func sleepWithContext(ctx context.Context, d time.Duration) error {
+func sleepWithContext(ctx context.Context, operation Operation, attempt int, d time.Duration) error {
 	if d <= 0 {
 		return nil
 	}
@@ -258,22 +266,48 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("context done: %w", ctx.Err())
+		return oops.In("clientx/policy").
+			With(
+				"op", "retry_wait",
+				"attempt", attempt,
+				"duration", d,
+				"protocol", operation.Protocol,
+				"operation_kind", operation.Kind,
+				"network", operation.Network,
+				"addr", operation.Addr,
+			).
+			Wrapf(ctx.Err(), "context done")
 	case <-timer.C:
 		return nil
 	}
 }
 
-func wrapPolicyBeforeError(err error) error {
+func wrapPolicyBeforeError(operation Operation, err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("policy before: %w", err)
+	return oops.In("clientx/policy").
+		With(
+			"op", "policy_before",
+			"protocol", operation.Protocol,
+			"operation_kind", operation.Kind,
+			"network", operation.Network,
+			"addr", operation.Addr,
+		).
+		Wrapf(err, "policy before")
 }
 
-func wrapPolicyAfterError(err error) error {
+func wrapPolicyAfterError(operation Operation, err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("policy after: %w", err)
+	return oops.In("clientx/policy").
+		With(
+			"op", "policy_after",
+			"protocol", operation.Protocol,
+			"operation_kind", operation.Kind,
+			"network", operation.Network,
+			"addr", operation.Addr,
+		).
+		Wrapf(err, "policy after")
 }

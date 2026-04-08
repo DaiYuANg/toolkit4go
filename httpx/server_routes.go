@@ -2,16 +2,19 @@ package httpx
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // GetRoutes returns related data.
 func (s *Server) GetRoutes() collectionx.List[RouteInfo] {
+	if s == nil {
+		return collectionx.NewList[RouteInfo]()
+	}
 	return collectionx.NewList(s.routesSnapshot()...)
 }
 
@@ -34,6 +37,9 @@ func (s *Server) GetRoutesGroupedByMethod() collectionx.MultiMap[string, RouteIn
 
 // GetRoutesByPath returns routes whose path starts with the given prefix.
 func (s *Server) GetRoutesByPath(prefix string) collectionx.List[RouteInfo] {
+	if s == nil {
+		return collectionx.NewList[RouteInfo]()
+	}
 	if prefix == "" {
 		return s.GetRoutes()
 	}
@@ -54,6 +60,9 @@ func (s *Server) HasRoute(method, path string) bool {
 
 // RouteCount returns the number of unique registered routes.
 func (s *Server) RouteCount() int {
+	if s == nil {
+		return 0
+	}
 	return s.routes.Len()
 }
 
@@ -109,14 +118,21 @@ func (s *Server) addRoute(route RouteInfo) {
 }
 
 func (s *Server) validateRouteRegistration(method, path string) error {
+	method = strings.ToUpper(method)
 	if s == nil {
-		return fmt.Errorf("%w: server is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "validate_route_registration", "method", method, "path", path).
+			Wrapf(ErrRouteNotRegistered, "validate server")
 	}
 	if s.IsFrozen() {
-		return fmt.Errorf("%w: cannot register route %s %s", ErrServerFrozen, strings.ToUpper(method), path)
+		return oops.In("httpx").
+			With("op", "validate_route_registration", "method", method, "path", path).
+			Wrapf(ErrServerFrozen, "server is frozen")
 	}
 	if s.HasRoute(method, path) {
-		return fmt.Errorf("%w: %s %s", ErrRouteAlreadyExists, strings.ToUpper(method), path)
+		return oops.In("httpx").
+			With("op", "validate_route_registration", "method", method, "path", path).
+			Wrapf(ErrRouteAlreadyExists, "route already registered")
 	}
 	return nil
 }

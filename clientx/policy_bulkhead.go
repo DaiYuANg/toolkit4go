@@ -2,7 +2,8 @@ package clientx
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/samber/oops"
 )
 
 type concurrencyLimitPolicy struct {
@@ -17,13 +18,20 @@ func NewConcurrencyLimitPolicy(maxInFlight int) Policy {
 	return &concurrencyLimitPolicy{sem: make(chan struct{}, maxInFlight)}
 }
 
-func (p *concurrencyLimitPolicy) Before(ctx context.Context, _ Operation) (context.Context, error) {
+func (p *concurrencyLimitPolicy) Before(ctx context.Context, operation Operation) (context.Context, error) {
 	ctx = normalizeContext(ctx)
+	if p == nil || p.sem == nil {
+		return ctx, oops.In("clientx").
+			With("op", "policy_before", "policy", "concurrency_limit", "protocol", operation.Protocol, "operation_kind", operation.Kind, "network", operation.Network, "addr", operation.Addr).
+			New("concurrency limit policy is nil")
+	}
 	select {
 	case p.sem <- struct{}{}:
 		return ctx, nil
 	case <-ctx.Done():
-		return ctx, fmt.Errorf("acquire concurrency slot: %w", ctx.Err())
+		return ctx, oops.In("clientx").
+			With("op", "policy_before", "policy", "concurrency_limit", "protocol", operation.Protocol, "operation_kind", operation.Kind, "network", operation.Network, "addr", operation.Addr, "max_in_flight", cap(p.sem), "in_flight", len(p.sem)).
+			Wrapf(ctx.Err(), "acquire concurrency slot")
 	}
 }
 

@@ -4,12 +4,12 @@ package stream
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // Stream provides high-level stream operations.
@@ -26,7 +26,9 @@ func NewStream(client kvx.Stream) *Stream {
 func (s *Stream) Add(ctx context.Context, streamKey string, values map[string]any) (string, error) {
 	byteValues, err := buildByteValues(values)
 	if err != nil {
-		return "", fmt.Errorf("serialize stream values for %s: %w", streamKey, err)
+		return "", oops.In("kvx/module/stream").
+			With("op", "add_stream_entry", "stream", streamKey, "field_count", len(values)).
+			Wrapf(err, "serialize stream values")
 	}
 
 	id, addErr := s.client.XAdd(ctx, streamKey, "*", byteValues)
@@ -37,7 +39,9 @@ func (s *Stream) Add(ctx context.Context, streamKey string, values map[string]an
 func (s *Stream) AddWithID(ctx context.Context, streamKey, id string, values map[string]any) (string, error) {
 	byteValues, err := buildByteValues(values)
 	if err != nil {
-		return "", fmt.Errorf("serialize stream values for %s: %w", streamKey, err)
+		return "", oops.In("kvx/module/stream").
+			With("op", "add_stream_entry_with_id", "stream", streamKey, "id", id, "field_count", len(values)).
+			Wrapf(err, "serialize stream values")
 	}
 
 	entryID, addErr := s.client.XAdd(ctx, streamKey, id, byteValues)
@@ -205,7 +209,17 @@ func NewEventConsumer[T any](group *ConsumerGroup, handler func(ctx context.Cont
 		if data, ok := entry.Values.Get("data"); ok {
 			var event T
 			if err := json.Unmarshal(data, &event); err != nil {
-				return fmt.Errorf("unmarshal stream event: %w", err)
+				streamKey := ""
+				groupName := ""
+				consumerName := ""
+				if group != nil {
+					streamKey = group.streamKey
+					groupName = group.groupName
+					consumerName = group.consumerName
+				}
+				return oops.In("kvx/module/stream").
+					With("op", "unmarshal_stream_event", "stream", streamKey, "group", groupName, "consumer", consumerName, "entry_id", entry.ID, "payload_size", len(data)).
+					Wrapf(err, "unmarshal stream event")
 			}
 			return handler(ctx, event)
 		}

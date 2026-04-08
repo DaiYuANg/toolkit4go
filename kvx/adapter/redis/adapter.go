@@ -3,12 +3,12 @@ package redis
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/redis/go-redis/v9"
+	"github.com/samber/oops"
 )
 
 // Adapter implements kvx.Client using go-redis.
@@ -27,15 +27,21 @@ func New(opts kvx.ClientOptions) (*Adapter, error) {
 	kvx.LogDebug(logger, opts.Debug, "kvx redis adapter create start", "addrs", len(opts.Addrs), "db", opts.DB)
 	if len(opts.Addrs) == 0 {
 		kvx.LogError(logger, "kvx redis adapter create failed", "error", kvx.ErrInvalidClientOptions)
-		return nil, fmt.Errorf("%w: addrs cannot be empty", kvx.ErrInvalidClientOptions)
+		return nil, oops.In("kvx/adapter/redis").
+			With("op", "new", "field", "addrs", "addrs_count", len(opts.Addrs), "db", opts.DB).
+			Wrapf(kvx.ErrInvalidClientOptions, "validate redis client options")
 	}
 	if opts.UseTLS {
 		kvx.LogError(logger, "kvx redis adapter create failed", "error", kvx.ErrUnsupportedOption, "reason", "tls")
-		return nil, fmt.Errorf("%w: redis adapter does not support tls yet", kvx.ErrUnsupportedOption)
+		return nil, oops.In("kvx/adapter/redis").
+			With("op", "new", "field", "use_tls", "addr", opts.Addrs[0], "db", opts.DB).
+			Wrapf(kvx.ErrUnsupportedOption, "redis adapter does not support tls yet")
 	}
 	if opts.MasterName != "" {
 		kvx.LogError(logger, "kvx redis adapter create failed", "error", kvx.ErrUnsupportedOption, "reason", "master_name")
-		return nil, fmt.Errorf("%w: redis adapter does not support sentinel master selection", kvx.ErrUnsupportedOption)
+		return nil, oops.In("kvx/adapter/redis").
+			With("op", "new", "field", "master_name", "addr", opts.Addrs[0], "master_name", opts.MasterName).
+			Wrapf(kvx.ErrUnsupportedOption, "redis adapter does not support sentinel master selection")
 	}
 
 	rdb := redis.NewClient(&redis.Options{
@@ -56,7 +62,9 @@ func New(opts kvx.ClientOptions) (*Adapter, error) {
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		kvx.LogError(logger, "kvx redis adapter ping failed", "addr", opts.Addrs[0], "error", err)
 		return nil, errors.Join(
-			fmt.Errorf("failed to connect to Redis: %w", err),
+			oops.In("kvx/adapter/redis").
+				With("op", "new", "stage", "ping", "addr", opts.Addrs[0], "db", opts.DB).
+				Wrapf(err, "ping redis server"),
 			wrapRedisError("close client after failed ping", rdb.Close()),
 		)
 	}

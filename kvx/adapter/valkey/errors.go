@@ -2,10 +2,10 @@ package valkey
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/samber/oops"
 	"github.com/valkey-io/valkey-go"
 )
 
@@ -14,7 +14,9 @@ func wrapValkeyError(op string, err error) error {
 		return nil
 	}
 
-	return fmt.Errorf("valkey %s: %w", op, err)
+	return oops.In("kvx/adapter/valkey").
+		With("op", op).
+		Wrapf(err, "valkey %s", op)
 }
 
 func wrapValkeyNilError(op string, err error) error {
@@ -23,14 +25,18 @@ func wrapValkeyNilError(op string, err error) error {
 	}
 
 	if valkey.IsValkeyNil(err) {
-		return kvx.ErrNil
+		return oops.In("kvx/adapter/valkey").
+			With("op", op).
+			Wrapf(kvx.ErrNil, "valkey %s", op)
 	}
 
 	return wrapValkeyError(op, err)
 }
 
 func errValkeyUnsupported(feature string) error {
-	return fmt.Errorf("%w: valkey %s is not implemented", kvx.ErrUnsupportedOption, feature)
+	return oops.In("kvx/adapter/valkey").
+		With("op", "unsupported_feature", "feature", feature).
+		Wrapf(kvx.ErrUnsupportedOption, "valkey %s is not implemented", feature)
 }
 
 func bytesFromResult(op string, resp valkey.ValkeyResult) ([]byte, error) {

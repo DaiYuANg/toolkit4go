@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
@@ -53,7 +54,9 @@ func CreateApplicationContainer[L SupportedFxLoggerType](modules ...fx.Option) (
 	built := opts.Values()
 
 	if err := fx.ValidateApp(built...); err != nil {
-		return nil, fmt.Errorf("validate fx app failed: %w", err)
+		return nil, oops.In("pkg/fx").
+			With("op", "create_application_container", "module_count", len(modules)).
+			Wrapf(err, "validate fx app")
 	}
 
 	app := fx.New(built...)

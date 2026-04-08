@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
+	"github.com/samber/oops"
 )
 
 // DefaultClient is the default TCP client implementation.
@@ -148,15 +148,21 @@ func invokeWithPolicies(
 ) (net.Conn, error) {
 	conn, err := clientx.InvokeWithPolicies(ctx, operation, fn, policies...)
 	if err != nil {
-		return nil, fmt.Errorf("execute tcp operation: %w", err)
+		return nil, oops.In("clientx/tcp").
+			With("op", operation.Op, "addr", operation.Addr, "network", operation.Network, "protocol", operation.Protocol, "operation_kind", operation.Kind).
+			Wrapf(err, "execute tcp operation")
 	}
 	return conn, nil
 }
 
 func wrapClientError(op, addr string, err error) error {
-	return fmt.Errorf("tcp %s %s: %w", op, addr, clientx.WrapError(clientx.ProtocolTCP, op, addr, err))
+	return oops.In("clientx/tcp").
+		With("op", op, "addr", addr, "protocol", clientx.ProtocolTCP).
+		Wrapf(clientx.WrapError(clientx.ProtocolTCP, op, addr, err), "tcp %s %s", op, addr)
 }
 
 func wrapCodecError(op, addr string, err error) error {
-	return fmt.Errorf("tcp %s %s: %w", op, addr, clientx.WrapErrorWithKind(clientx.ProtocolTCP, op, addr, clientx.ErrorKindCodec, err))
+	return oops.In("clientx/tcp").
+		With("op", op, "addr", addr, "protocol", clientx.ProtocolTCP, "error_kind", clientx.ErrorKindCodec).
+		Wrapf(clientx.WrapErrorWithKind(clientx.ProtocolTCP, op, addr, clientx.ErrorKindCodec, err), "tcp %s %s", op, addr)
 }

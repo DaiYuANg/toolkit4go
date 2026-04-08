@@ -21,7 +21,7 @@ func (r *HashRepository[T]) FindByIDs(ctx context.Context, ids []string) (map[st
 // Exists reports whether an entity exists for the provided logical ID.
 func (r *HashRepository[T]) Exists(ctx context.Context, id string) (bool, error) {
 	exists, err := r.kv.Exists(ctx, r.base.keyFromID(id))
-	return wrapRepositoryResult(exists, err, "check hash entity existence")
+	return wrapRepositoryResult(exists, err, "check hash entity existence", "op", "exists_hash_entity", "id", id, "key", r.base.keyFromID(id))
 }
 
 // ExistsBatch reports entity existence for each provided logical ID.
@@ -29,7 +29,7 @@ func (r *HashRepository[T]) ExistsBatch(ctx context.Context, ids []string) (map[
 	keys := r.base.keysFromIDs(ids)
 	existsMap, err := r.kv.ExistsMulti(ctx, keys)
 	if err != nil {
-		return nil, wrapRepositoryError(err, "check hash entity existence in batch")
+		return nil, wrapRepositoryError(err, "check hash entity existence in batch", "op", "exists_hash_entity_batch", "id_count", len(ids))
 	}
 
 	return mapExistsResults(ids, keys, existsMap), nil
@@ -93,7 +93,7 @@ func (r *HashRepository[T]) findByKey(ctx context.Context, key string) (*T, erro
 
 	hashData, err := r.client.HGetAll(ctx, key)
 	if err != nil {
-		wrapped := wrapRepositoryError(err, "read hash entity data")
+		wrapped := wrapRepositoryError(err, "read hash entity data", "op", "read_hash_entity", "key", key)
 		r.logError("kvx hash find_by_key failed", "stage", "hgetall", "key", key, "error", wrapped)
 		return nil, wrapped
 	}
@@ -109,7 +109,7 @@ func (r *HashRepository[T]) findByKey(ctx context.Context, key string) (*T, erro
 		return nil, err
 	}
 	if err := r.codec.Decode(hashData, &entity, metadata); err != nil {
-		wrapped := wrapRepositoryError(err, "decode hash entity")
+		wrapped := wrapRepositoryError(err, "decode hash entity", "op", "decode_hash_entity", "key", key, "field_count", len(hashData))
 		r.logError("kvx hash find_by_key failed", "stage", "decode", "key", key, "error", wrapped)
 		return nil, wrapped
 	}

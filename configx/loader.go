@@ -3,8 +3,9 @@ package configx
 import (
 	"context"
 	"errors"
-	"fmt"
+
 	"github.com/samber/mo"
+	"github.com/samber/oops"
 )
 
 const (
@@ -40,13 +41,19 @@ func New(opts ...Option) *Loader {
 func (l *Loader) Load(out any) error {
 	cfg, err := l.loadInternal()
 	if err != nil {
-		return fmt.Errorf("config: %w", errors.Join(ErrLoad, err))
+		return oops.In("configx").
+			With("op", "load").
+			Wrapf(errors.Join(ErrLoad, err), "config")
 	}
 	if err := cfg.k.Unmarshal("", out); err != nil {
-		return fmt.Errorf("config output: %w", errors.Join(ErrUnmarshal, err))
+		return oops.In("configx").
+			With("op", "unmarshal_output").
+			Wrapf(errors.Join(ErrUnmarshal, err), "config output")
 	}
 	if err := cfg.validateStruct(out); err != nil {
-		return fmt.Errorf("config output: %w", errors.Join(ErrValidate, err))
+		return oops.In("configx").
+			With("op", "validate_output").
+			Wrapf(errors.Join(ErrValidate, err), "config output")
 	}
 	return nil
 }
@@ -116,10 +123,14 @@ func (l *LoaderT[T]) Load() mo.Result[T] {
 
 	var out T
 	if err := cfg.k.Unmarshal("", &out); err != nil {
-		return mo.Err[T](fmt.Errorf("typed output: %w", errors.Join(ErrUnmarshal, err)))
+		return mo.Err[T](oops.In("configx").
+			With("op", "unmarshal_typed_output").
+			Wrapf(errors.Join(ErrUnmarshal, err), "typed output"))
 	}
 	if err := cfg.validateStruct(out); err != nil {
-		return mo.Err[T](fmt.Errorf("typed output: %w", errors.Join(ErrValidate, err)))
+		return mo.Err[T](oops.In("configx").
+			With("op", "validate_typed_output").
+			Wrapf(errors.Join(ErrValidate, err), "typed output"))
 	}
 	return mo.Ok(out)
 }
@@ -200,7 +211,9 @@ func LoadTErr[T any](opts ...Option) (T, error) {
 	result := LoadT[T](opts...)
 	value, err := result.Get()
 	if err != nil {
-		return value, fmt.Errorf("load typed config: %w", err)
+		return value, oops.In("configx").
+			With("op", "load_typed").
+			Wrapf(err, "load typed config")
 	}
 
 	return value, nil

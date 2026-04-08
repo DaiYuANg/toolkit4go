@@ -2,11 +2,11 @@ package tcp
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
+	"github.com/samber/oops"
 )
 
 // Config configures the TCP client implementation.
@@ -35,16 +35,30 @@ func (cfg Config) NormalizeAndValidate() (Config, error) {
 		out.Network = "tcp"
 	}
 	if out.Address == "" {
-		return Config{}, fmt.Errorf("%w: address is required", ErrInvalidConfig)
+		return Config{}, oops.In("clientx/tcp").
+			With("op", "normalize_validate", "field", "address", "network", out.Network).
+			Wrapf(ErrInvalidConfig, "address is required")
 	}
 	if out.DialTimeout == 0 {
 		out.DialTimeout = defaultDialTimeout
 	}
 	if out.DialTimeout < 0 || out.ReadTimeout < 0 || out.WriteTimeout < 0 || out.KeepAlive < 0 {
-		return Config{}, fmt.Errorf("%w: timeout values must be >= 0", ErrInvalidConfig)
+		return Config{}, oops.In("clientx/tcp").
+			With(
+				"op", "normalize_validate",
+				"field", "timeout",
+				"network", out.Network,
+				"dial_timeout", out.DialTimeout,
+				"read_timeout", out.ReadTimeout,
+				"write_timeout", out.WriteTimeout,
+				"keep_alive", out.KeepAlive,
+			).
+			Wrapf(ErrInvalidConfig, "timeout values must be >= 0")
 	}
 	if out.TLS.Enabled && !strings.HasPrefix(out.Network, "tcp") {
-		return Config{}, fmt.Errorf("%w: tls requires tcp network", ErrInvalidConfig)
+		return Config{}, oops.In("clientx/tcp").
+			With("op", "normalize_validate", "field", "network", "network", out.Network, "tls_enabled", out.TLS.Enabled).
+			Wrapf(ErrInvalidConfig, "tls requires tcp network")
 	}
 
 	return out, nil

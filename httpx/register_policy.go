@@ -1,16 +1,19 @@
 package httpx
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // RouteWithPolicies registers a typed handler with runtime/OpenAPI policies.
 func RouteWithPolicies[I, O any](s ServerRuntime, method, path string, handler TypedHandler[I, O], policies ...RoutePolicy[I, O]) error {
 	server := unwrapServer(s)
 	if server == nil {
-		return fmt.Errorf("%w: server is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "route_with_policies", "method", strings.ToUpper(method), "path", path, "policy_count", len(policies)).
+			Wrapf(ErrRouteNotRegistered, "validate server")
 	}
 	fullPath := joinRoutePath(server.basePath, path)
 	return registerTyped(server, server.HumaAPI(), method, fullPath, fullPath, handler, nil, policies)
@@ -19,7 +22,9 @@ func RouteWithPolicies[I, O any](s ServerRuntime, method, path string, handler T
 // GroupRouteWithPolicies registers a grouped typed handler with policies.
 func GroupRouteWithPolicies[I, O any](g *Group, method, path string, handler TypedHandler[I, O], policies ...RoutePolicy[I, O]) error {
 	if g == nil || g.server == nil {
-		return fmt.Errorf("%w: route group is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "group_route_with_policies", "method", strings.ToUpper(method), "path", path, "policy_count", len(policies)).
+			Wrapf(ErrRouteNotRegistered, "validate route group")
 	}
 	fullPath := joinRoutePath(g.server.basePath, joinRoutePath(g.prefix, path))
 

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/samber/do/v2"
+	"github.com/samber/oops"
 )
 
 func newRuntime(spec *appSpec, plan *buildPlan) *Runtime {
@@ -88,10 +89,14 @@ func (r *Runtime) Raw() do.Injector {
 // Start executes lifecycle start hooks for the runtime.
 func (r *Runtime) Start(ctx context.Context) error {
 	if r == nil {
-		return errors.New("runtime is nil")
+		return oops.In("dix").
+			With("op", "start").
+			New("runtime is nil")
 	}
 	if r.state != AppStateBuilt {
-		return errors.New("runtime must be built before starting")
+		return oops.In("dix").
+			With("op", "start", "app", r.Name(), "state", r.state.String()).
+			Errorf("runtime must be built before starting")
 	}
 
 	r.transitionState(ctx, AppStateStarting, "start requested")
@@ -202,13 +207,19 @@ func (r *Runtime) transitionState(ctx context.Context, next AppState, reason str
 
 func (r *Runtime) validateStoppable() error {
 	if r == nil {
-		return errors.New("runtime is nil")
+		return oops.In("dix").
+			With("op", "stop").
+			New("runtime is nil")
 	}
 	if r.state == AppStateStarting {
-		return errors.New("runtime is still starting")
+		return oops.In("dix").
+			With("op", "stop", "app", r.Name(), "state", r.state.String()).
+			Errorf("runtime is still starting")
 	}
 	if r.state != AppStateStarted {
-		return errors.New("runtime must be started before stopping")
+		return oops.In("dix").
+			With("op", "stop", "app", r.Name(), "state", r.state.String()).
+			Errorf("runtime must be started before stopping")
 	}
 	return nil
 }

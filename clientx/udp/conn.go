@@ -1,11 +1,11 @@
 package udp
 
 import (
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
+	"github.com/samber/oops"
 )
 
 type timeoutConn struct {
@@ -97,7 +97,9 @@ func applyDeadline(setDeadline func(time.Time) error, timeout time.Duration, op,
 		return nil
 	}
 	if err := setDeadline(time.Now().Add(timeout)); err != nil {
-		return fmt.Errorf("set udp %s deadline for %s: %w", op, addr, err)
+		return oops.In("clientx/udp").
+			With("op", op, "addr", addr, "protocol", clientx.ProtocolUDP, "stage", "set_deadline", "timeout", timeout).
+			Wrapf(err, "set udp deadline")
 	}
 	return nil
 }

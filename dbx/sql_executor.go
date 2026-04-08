@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/mo"
+	"github.com/samber/oops"
 	scanlib "github.com/stephenafamo/scan"
 )
 
@@ -20,7 +21,9 @@ type oneRowScanner[E any] interface {
 
 func (x *SQLExecutor) Bind(statement SQLStatementSource, params any) (BoundQuery, error) {
 	if statement == nil {
-		return BoundQuery{}, ErrNilStatement
+		return BoundQuery{}, oops.In("dbx").
+			With("op", "sql_bind").
+			Wrapf(ErrNilStatement, "validate sql statement")
 	}
 
 	bound, err := statement.Bind(params)
@@ -70,14 +73,18 @@ func (x *SQLExecutor) Query(ctx context.Context, statement SQLStatementSource, p
 
 func (x *SQLExecutor) sessionOrErr() (Session, error) {
 	if x == nil || x.session == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "sql_session").
+			Wrapf(ErrNilDB, "validate sql executor session")
 	}
 	return x.session, nil
 }
 
 func SQLList[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
-		return nil, ErrNilMapper
+		return nil, oops.In("dbx").
+			With("op", "sql_list", "statement", statementName(statement)).
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 
 	exec, err := sessionExecutor(session)
@@ -112,13 +119,15 @@ func SQLQueryList[E any](ctx context.Context, session Session, statement SQLStat
 	if err != nil {
 		return nil, err
 	}
-	return collectionx.NewList(items...), nil
+	return collectionx.NewList(items.Values()...), nil
 }
 
 func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (E, error) {
 	if mapper == nil {
 		var zero E
-		return zero, ErrNilMapper
+		return zero, oops.In("dbx").
+			With("op", "sql_get", "statement", statementName(statement)).
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 
 	exec, err := sessionExecutor(session)
@@ -136,7 +145,9 @@ func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementS
 		if !found {
 			logRuntimeNode(session, "sql.get.not_found")
 			var zero E
-			return zero, sql.ErrNoRows
+			return zero, oops.In("dbx").
+				With("op", "sql_get", "statement", statementName(statement)).
+				Wrapf(sql.ErrNoRows, "sql get returned no rows")
 		}
 		logRuntimeNode(session, "sql.get.done")
 		return value, nil
@@ -152,7 +163,9 @@ func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementS
 	case 0:
 		logRuntimeNode(session, "sql.get.not_found")
 		var zero E
-		return zero, sql.ErrNoRows
+		return zero, oops.In("dbx").
+			With("op", "sql_get", "statement", statementName(statement)).
+			Wrapf(sql.ErrNoRows, "sql get returned no rows")
 	case 1:
 		logRuntimeNode(session, "sql.get.done")
 		item, _ := items.GetFirst()
@@ -160,13 +173,17 @@ func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementS
 	default:
 		logRuntimeNode(session, "sql.get.error", "stage", "too_many_rows")
 		var zero E
-		return zero, ErrTooManyRows
+		return zero, oops.In("dbx").
+			With("op", "sql_get", "statement", statementName(statement)).
+			Wrapf(ErrTooManyRows, "sql get returned too many rows")
 	}
 }
 
 func SQLFind[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (mo.Option[E], error) {
 	if mapper == nil {
-		return mo.None[E](), ErrNilMapper
+		return mo.None[E](), oops.In("dbx").
+			With("op", "sql_find", "statement", statementName(statement)).
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 
 	exec, err := sessionExecutor(session)
@@ -201,7 +218,9 @@ func SQLFind[E any](ctx context.Context, session Session, statement SQLStatement
 		return mo.Some(item), nil
 	default:
 		logRuntimeNode(session, "sql.find.error", "stage", "too_many_rows")
-		return mo.None[E](), ErrTooManyRows
+		return mo.None[E](), oops.In("dbx").
+			With("op", "sql_find", "statement", statementName(statement)).
+			Wrapf(ErrTooManyRows, "sql find returned too many rows")
 	}
 }
 
@@ -215,7 +234,9 @@ func SQLScalar[T any](ctx context.Context, session Session, statement SQLStateme
 	if !found {
 		logRuntimeNode(session, "sql.scalar.not_found")
 		var zero T
-		return zero, sql.ErrNoRows
+		return zero, oops.In("dbx").
+			With("op", "sql_scalar", "statement", statementName(statement)).
+			Wrapf(sql.ErrNoRows, "sql scalar returned no rows")
 	}
 	logRuntimeNode(session, "sql.scalar.done")
 	return value, nil
@@ -262,7 +283,12 @@ func sqlScalar[T any](ctx context.Context, session Session, statement SQLStateme
 	if rows.Next() {
 		closeErr := closeRows(rows)
 		var zero T
-		return zero, false, errors.Join(ErrTooManyRows, closeErr)
+		return zero, false, errors.Join(
+			oops.In("dbx").
+				With("op", "sql_scalar", "statement", statementName(statement)).
+				Wrapf(ErrTooManyRows, "sql scalar returned too many rows"),
+			closeErr,
+		)
 	}
 	if err := rowsIterError(rows); err != nil {
 		closeErr := closeRows(rows)

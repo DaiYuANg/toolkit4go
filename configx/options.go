@@ -13,6 +13,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
+	"github.com/samber/oops"
 	"github.com/spf13/pflag"
 )
 
@@ -248,14 +249,20 @@ func WithTypedDefaults[T any](cfg T) Option {
 func typedDefaultsToMap(v any) (map[string]any, error) {
 	raw, err := json.Marshal(v)
 	if err != nil {
-		return nil, fmt.Errorf("marshal typed defaults: %w", errors.Join(ErrDefaults, err))
+		return nil, oops.In("configx").
+			With("op", "typed_defaults_to_map", "stage", "marshal", "value_type", fmt.Sprintf("%T", v)).
+			Wrapf(errors.Join(ErrDefaults, err), "marshal typed defaults")
 	}
 	var out map[string]any
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal typed defaults: %w", errors.Join(ErrDefaults, err))
+		return nil, oops.In("configx").
+			With("op", "typed_defaults_to_map", "stage", "unmarshal", "value_type", fmt.Sprintf("%T", v)).
+			Wrapf(errors.Join(ErrDefaults, err), "unmarshal typed defaults")
 	}
 	if out == nil {
-		return nil, fmt.Errorf("%w: typed defaults must be an object-like value", ErrDefaults)
+		return nil, oops.In("configx").
+			With("op", "typed_defaults_to_map", "stage", "validate", "value_type", fmt.Sprintf("%T", v)).
+			Wrapf(ErrDefaults, "typed defaults must be an object-like value")
 	}
 	return out, nil
 }

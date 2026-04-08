@@ -1,12 +1,12 @@
 package preset
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clientudp "github.com/DaiYuANg/arcgo/clientx/udp"
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 )
 
 type lowLatencyUDPPreset struct {
@@ -72,7 +72,18 @@ func NewLowLatencyUDP(cfg clientudp.Config, opts ...LowLatencyUDPOption) (client
 	clientOpts := buildLowLatencyUDPOptions(preset)
 	client, err := clientudp.New(tuned, clientOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("build low latency udp client: %w", err)
+		return nil, oops.In("clientx/preset").
+			With(
+				"op", "new_low_latency_udp",
+				"protocol", "udp",
+				"network", tuned.Network,
+				"addr", tuned.Address,
+				"dial_timeout", tuned.DialTimeout,
+				"read_timeout", tuned.ReadTimeout,
+				"write_timeout", tuned.WriteTimeout,
+				"option_count", len(clientOpts),
+			).
+			Wrapf(err, "build low latency udp client")
 	}
 	return client, nil
 }

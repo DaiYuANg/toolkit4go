@@ -3,13 +3,13 @@ package configx
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // loadConfigFromOptions is the single authoritative code path that builds a
@@ -93,7 +93,9 @@ func loadConfiguredDefaults(k *koanf.Koanf, opts *Options) error {
 
 	defaults, _ := opts.defaults.Get()
 	if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
-		return fmt.Errorf("defaults map: %w", errors.Join(ErrDefaults, err))
+		return oops.In("configx").
+			With("op", "load_defaults").
+			Wrapf(errors.Join(ErrDefaults, err), "defaults map")
 	}
 
 	logDebug(opts, "configx defaults loaded")
@@ -107,11 +109,15 @@ func loadTypedDefaults(k *koanf.Koanf, opts *Options) error {
 
 	defaults, _ := opts.typedDefaults.Get()
 	if errMsg, bad := defaults["__configx_invalid_typed_defaults__"].(string); bad {
-		return fmt.Errorf("typed defaults: %w", errors.Join(ErrDefaults, errors.New(errMsg)))
+		return oops.In("configx").
+			With("op", "load_typed_defaults").
+			Wrapf(errors.Join(ErrDefaults, errors.New(errMsg)), "typed defaults")
 	}
 
 	if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
-		return fmt.Errorf("typed defaults map: %w", errors.Join(ErrDefaults, err))
+		return oops.In("configx").
+			With("op", "load_typed_defaults").
+			Wrapf(errors.Join(ErrDefaults, err), "typed defaults map")
 	}
 
 	logDebug(opts, "configx typed defaults loaded")
@@ -130,7 +136,9 @@ func loadConfiguredSources(
 		}
 		return loadConfiguredSource(ctx, obs, k, opts, src)
 	}, error(nil)); err != nil {
-		return fmt.Errorf("configx: load configured sources: %w", err)
+		return oops.In("configx").
+			With("op", "load_sources").
+			Wrapf(err, "configx: load configured sources")
 	}
 	return nil
 }
@@ -148,7 +156,9 @@ func loadConfiguredSource(
 		if err := loadSourceWithObservability(ctx, obs, src, func() error {
 			return loadDotenv(opts.dotenvFiles, opts.ignoreDotenvErr)
 		}); err != nil {
-			return fmt.Errorf("dotenv source: %w", errors.Join(ErrLoad, err))
+			return oops.In("configx").
+				With("op", "load_source", "source", src.String()).
+				Wrapf(errors.Join(ErrLoad, err), "dotenv source")
 		}
 		logDebug(opts, "configx source loaded", "source", src.String())
 
@@ -157,7 +167,9 @@ func loadConfiguredSource(
 		if err := loadSourceWithObservability(ctx, obs, src, func() error {
 			return loadFiles(k, opts.files)
 		}); err != nil {
-			return fmt.Errorf("file source: %w", errors.Join(ErrLoad, err))
+			return oops.In("configx").
+				With("op", "load_source", "source", src.String(), "file_count", len(opts.files)).
+				Wrapf(errors.Join(ErrLoad, err), "file source")
 		}
 		logDebug(opts, "configx source loaded", "source", src.String())
 
@@ -166,7 +178,9 @@ func loadConfiguredSource(
 		if err := loadSourceWithObservability(ctx, obs, src, func() error {
 			return loadEnv(k, opts.envPrefix, opts.envSeparator)
 		}); err != nil {
-			return fmt.Errorf("env source: %w", errors.Join(ErrLoad, err))
+			return oops.In("configx").
+				With("op", "load_source", "source", src.String(), "env_prefix", opts.envPrefix).
+				Wrapf(errors.Join(ErrLoad, err), "env source")
 		}
 		logDebug(opts, "configx source loaded", "source", src.String())
 
@@ -180,7 +194,9 @@ func loadConfiguredSource(
 		if err := loadSourceWithObservability(ctx, obs, src, func() error {
 			return loadArgs(k, opts.args, opts.argsFlagSet, opts.argsNameFunc)
 		}); err != nil {
-			return fmt.Errorf("args source: %w", errors.Join(ErrLoad, err))
+			return oops.In("configx").
+				With("op", "load_source", "source", src.String(), "arg_count", len(opts.args)).
+				Wrapf(errors.Join(ErrLoad, err), "args source")
 		}
 		logDebug(opts, "configx source loaded", "source", src.String())
 	}

@@ -2,10 +2,10 @@ package json
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/samber/oops"
 )
 
 // DocumentRepository provides repository-style access to JSON documents.
@@ -41,7 +41,9 @@ func (r *DocumentRepository[T]) FindByID(ctx context.Context, id string) (*T, er
 	key := r.buildKey(id)
 	var doc T
 	if err := r.json.Get(ctx, key, &doc); err != nil {
-		return nil, fmt.Errorf("find document %q: %w", key, err)
+		return nil, oops.In("kvx/module/json").
+			With("op", "repository_find_by_id", "key", key, "id", id).
+			Wrapf(err, "find document")
 	}
 	return &doc, nil
 }

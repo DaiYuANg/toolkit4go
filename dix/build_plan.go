@@ -3,11 +3,11 @@ package dix
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/samber/do/v2"
+	"github.com/samber/oops"
 )
 
 type buildPlan struct {
@@ -22,7 +22,9 @@ func newBuildPlan(app *App) (*buildPlan, error) {
 
 func newUnvalidatedBuildPlan(app *App) (*buildPlan, error) {
 	if app == nil || app.spec == nil {
-		return nil, errors.New("app is nil")
+		return nil, oops.In("dix").
+			With("op", "new_unvalidated_build_plan").
+			New("app is nil")
 	}
 
 	modules, err := flattenModuleList(&app.spec.modules, app.spec.profile)
@@ -31,7 +33,9 @@ func newUnvalidatedBuildPlan(app *App) (*buildPlan, error) {
 		if logger != nil {
 			logger.Error("module flatten failed", "app", app.Name(), "error", err)
 		}
-		return nil, fmt.Errorf("module flatten failed: %w", err)
+		return nil, oops.In("dix").
+			With("op", "flatten_modules", "app", app.Name()).
+			Wrapf(err, "module flatten failed")
 	}
 
 	plan := &buildPlan{
@@ -44,7 +48,9 @@ func newUnvalidatedBuildPlan(app *App) (*buildPlan, error) {
 
 func (p *buildPlan) Build() (*Runtime, error) {
 	if p == nil || p.spec == nil {
-		return nil, errors.New("build plan is nil")
+		return nil, oops.In("dix").
+			With("op", "build_runtime").
+			New("build plan is nil")
 	}
 
 	logger := p.spec.logger
@@ -139,15 +145,21 @@ func registerRuntimeCoreServices(rt *Runtime) {
 
 func (p *buildPlan) resolveFrameworkLogger(rt *Runtime) (*slog.Logger, error) {
 	if p == nil || p.spec == nil || rt == nil || p.spec.loggerFromContainer == nil {
-		return nil, errors.New("resolve framework logger failed: resolver is not configured")
+		return nil, oops.In("dix").
+			With("op", "resolve_framework_logger").
+			New("resolve framework logger failed: resolver is not configured")
 	}
 
 	logger, err := p.spec.loggerFromContainer(rt.container)
 	if err != nil {
-		return nil, fmt.Errorf("resolve framework logger failed: %w", err)
+		return nil, oops.In("dix").
+			With("op", "resolve_framework_logger", "app", rt.Name()).
+			Wrapf(err, "resolve framework logger failed")
 	}
 	if logger == nil {
-		return nil, errors.New("resolve framework logger failed: resolver returned nil logger")
+		return nil, oops.In("dix").
+			With("op", "resolve_framework_logger", "app", rt.Name()).
+			New("resolve framework logger failed: resolver returned nil logger")
 	}
 
 	rt.logger = logger
@@ -253,7 +265,9 @@ func runModuleSetups(mod *moduleSpec, rt *Runtime, logger *slog.Logger, debugEna
 		}
 		if err := setup.apply(rt.container, rt.lifecycle); err != nil {
 			logger.Error("module setup failed", "module", mod.name, "label", setup.meta.Label, "error", err)
-			setupErr = fmt.Errorf("setup failed for module %s via %s: %w", mod.name, setup.meta.Label, err)
+			setupErr = oops.In("dix").
+				With("op", "module_setup", "module", mod.name, "label", setup.meta.Label).
+				Wrapf(err, "setup failed for module %s via %s", mod.name, setup.meta.Label)
 			return false
 		}
 		if debugEnabled {
@@ -292,7 +306,9 @@ func runModuleInvokes(mod *moduleSpec, rt *Runtime, logger *slog.Logger, debugEn
 	})
 	if invokeErr != nil {
 		logger.Error("invoke failed", "module", mod.name, "error", invokeErr)
-		return fmt.Errorf("invoke failed in module %s: %w", mod.name, invokeErr)
+		return oops.In("dix").
+			With("op", "module_invoke", "module", mod.name).
+			Wrapf(invokeErr, "invoke failed in module %s", mod.name)
 	}
 	return nil
 }

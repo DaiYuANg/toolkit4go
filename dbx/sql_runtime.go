@@ -3,9 +3,9 @@ package dbx
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 )
 
 func wrapDBError(op string, err error) error {
@@ -13,12 +13,16 @@ func wrapDBError(op string, err error) error {
 		return nil
 	}
 
-	return fmt.Errorf("dbx %s: %w", op, err)
+	return oops.In("dbx").
+		With("op", op).
+		Wrapf(err, "dbx %s", op)
 }
 
 func requireContext(ctx context.Context, op string) (context.Context, error) {
 	if ctx == nil {
-		return nil, fmt.Errorf("dbx %s: context is nil", op)
+		return nil, oops.In("dbx").
+			With("op", op).
+			Errorf("dbx %s: context is nil", op)
 	}
 
 	return ctx, nil

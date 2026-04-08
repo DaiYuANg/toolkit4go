@@ -1,16 +1,19 @@
 package httpx
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // RouteSSEWithPolicies registers a typed SSE handler with runtime/OpenAPI SSE policies.
 func RouteSSEWithPolicies[I any](s ServerRuntime, method, path string, eventTypeMap map[string]any, handler SSEHandler[I], policies ...SSERoutePolicy[I]) error {
 	server := unwrapServer(s)
 	if server == nil {
-		return fmt.Errorf("%w: server is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "route_sse_with_policies", "method", strings.ToUpper(method), "path", path, "policy_count", len(policies), "event_type_count", len(eventTypeMap)).
+			Wrapf(ErrRouteNotRegistered, "validate server")
 	}
 	fullPath := joinRoutePath(server.basePath, path)
 	return registerSSE(server, server.HumaAPI(), method, fullPath, fullPath, eventTypeMap, handler, nil, policies)
@@ -19,7 +22,9 @@ func RouteSSEWithPolicies[I any](s ServerRuntime, method, path string, eventType
 // GroupRouteSSEWithPolicies registers a grouped typed SSE handler with policies.
 func GroupRouteSSEWithPolicies[I any](g *Group, method, path string, eventTypeMap map[string]any, handler SSEHandler[I], policies ...SSERoutePolicy[I]) error {
 	if g == nil || g.server == nil {
-		return fmt.Errorf("%w: route group is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "group_route_sse_with_policies", "method", strings.ToUpper(method), "path", path, "policy_count", len(policies), "event_type_count", len(eventTypeMap)).
+			Wrapf(ErrRouteNotRegistered, "validate route group")
 	}
 	fullPath := joinRoutePath(g.server.basePath, joinRoutePath(g.prefix, path))
 

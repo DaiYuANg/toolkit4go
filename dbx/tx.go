@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/samber/oops"
 )
 
 type Tx struct {
@@ -36,10 +37,14 @@ func (tx *Tx) QueryContext(ctx context.Context, query string, args ...any) (*sql
 
 func (tx *Tx) queryContext(ctx context.Context, statement, query string, args ...any) (*sql.Rows, error) {
 	if tx == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "query", "statement", statement, "scope", "tx").
+			Wrapf(ErrNilDB, "validate transaction")
 	}
 	if tx.raw == nil {
-		return nil, ErrNilSQLDB
+		return nil, oops.In("dbx").
+			With("op", "query", "statement", statement, "scope", "tx").
+			Wrapf(ErrNilSQLDB, "validate sql tx")
 	}
 
 	return observedQueryContext(ctx, tx.observe, statement, query, args, tx.raw.QueryContext)
@@ -51,10 +56,14 @@ func (tx *Tx) ExecContext(ctx context.Context, query string, args ...any) (sql.R
 
 func (tx *Tx) execContext(ctx context.Context, statement, query string, args ...any) (sql.Result, error) {
 	if tx == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "exec", "statement", statement, "scope", "tx").
+			Wrapf(ErrNilDB, "validate transaction")
 	}
 	if tx.raw == nil {
-		return nil, ErrNilSQLDB
+		return nil, oops.In("dbx").
+			With("op", "exec", "statement", statement, "scope", "tx").
+			Wrapf(ErrNilSQLDB, "validate sql tx")
 	}
 
 	return observedExecContext(ctx, tx.observe, statement, query, args, tx.raw.ExecContext)
@@ -62,10 +71,14 @@ func (tx *Tx) execContext(ctx context.Context, statement, query string, args ...
 
 func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *Row {
 	if tx == nil {
-		return errorRow(ErrNilDB)
+		return errorRow(oops.In("dbx").
+			With("op", "query_row", "scope", "tx").
+			Wrapf(ErrNilDB, "validate transaction"))
 	}
 	if tx.raw == nil {
-		return errorRow(ErrNilSQLDB)
+		return errorRow(oops.In("dbx").
+			With("op", "query_row", "scope", "tx").
+			Wrapf(ErrNilSQLDB, "validate sql tx"))
 	}
 	ctx, event, err := tx.observe.before(ctx, HookEvent{Operation: OperationQueryRow, SQL: query, Args: collectionx.NewList(args...)})
 	if err != nil {
@@ -74,9 +87,11 @@ func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *R
 	}
 	rows, queryErr := tx.raw.QueryContext(ctx, query, args...)
 	if queryErr != nil {
-		event.Err = queryErr
+		event.Err = oops.In("dbx").
+			With("op", "query_row", "scope", "tx").
+			Wrapf(queryErr, "query row")
 		tx.observe.after(ctx, event)
-		return errorRow(queryErr)
+		return errorRow(event.Err)
 	}
 	return observedRow(ctx, tx.observe, event, rows)
 }
@@ -97,7 +112,9 @@ func (tx *Tx) Commit() error {
 // CommitContext commits the transaction using the provided context.
 func (tx *Tx) CommitContext(ctx context.Context) error {
 	if tx == nil || tx.raw == nil {
-		return ErrNilSQLDB
+		return oops.In("dbx").
+			With("op", "commit_tx").
+			Wrapf(ErrNilSQLDB, "validate sql tx")
 	}
 	ctx, err := requireContext(ctx, "commit transaction")
 	if err != nil {
@@ -122,7 +139,9 @@ func (tx *Tx) Rollback() error {
 // RollbackContext rolls the transaction back using the provided context.
 func (tx *Tx) RollbackContext(ctx context.Context) error {
 	if tx == nil || tx.raw == nil {
-		return ErrNilSQLDB
+		return oops.In("dbx").
+			With("op", "rollback_tx").
+			Wrapf(ErrNilSQLDB, "validate sql tx")
 	}
 	ctx, err := requireContext(ctx, "rollback transaction")
 	if err != nil {

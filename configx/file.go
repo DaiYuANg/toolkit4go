@@ -2,7 +2,6 @@ package configx
 
 import (
 	"errors"
-	"fmt"
 	"path/filepath"
 
 	"github.com/knadh/koanf/parsers/json"
@@ -11,6 +10,7 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // ErrUnsupportedFileFormat is returned when a config file has an extension
@@ -50,16 +50,21 @@ func loadFiles(k *koanf.Koanf, files []string) error {
 		ext := filepath.Ext(path)
 		parser := parserFor(ext)
 		if parser == nil {
-			return fmt.Errorf("%w: %q (got %q, want one of %v)",
-				ErrUnsupportedFileFormat, path, ext, supportedExtensions)
+			return oops.In("configx").
+				With("op", "load_file", "path", path, "extension", ext).
+				Wrapf(ErrUnsupportedFileFormat, "%q (got %q, want one of %v)", path, ext, supportedExtensions)
 		}
 
 		if err := k.Load(file.Provider(path), parser); err != nil {
-			return fmt.Errorf("configx: load config file %q: %w", path, err)
+			return oops.In("configx").
+				With("op", "load_file", "path", path, "extension", ext).
+				Wrapf(err, "configx: load config file %q", path)
 		}
 		return nil
 	}, error(nil)); err != nil {
-		return fmt.Errorf("configx: load files: %w", err)
+		return oops.In("configx").
+			With("op", "load_files", "file_count", len(files)).
+			Wrapf(err, "configx: load files")
 	}
 	return nil
 }

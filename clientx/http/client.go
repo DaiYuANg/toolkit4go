@@ -3,12 +3,12 @@ package http
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
+	"github.com/samber/oops"
 	"resty.dev/v3"
 )
 
@@ -158,11 +158,15 @@ func invokeWithPolicies(
 ) (*resty.Response, error) {
 	resp, err := clientx.InvokeWithPolicies(ctx, operation, fn, policies...)
 	if err != nil {
-		return nil, fmt.Errorf("execute http operation: %w", err)
+		return nil, oops.In("clientx/http").
+			With("op", operation.Op, "addr", operation.Addr, "network", operation.Network, "protocol", operation.Protocol, "operation_kind", operation.Kind).
+			Wrapf(err, "execute http operation")
 	}
 	return resp, nil
 }
 
 func wrapClientError(op, addr string, err error) error {
-	return fmt.Errorf("http %s %s: %w", op, addr, clientx.WrapError(clientx.ProtocolHTTP, op, addr, err))
+	return oops.In("clientx/http").
+		With("op", op, "addr", addr, "protocol", clientx.ProtocolHTTP).
+		Wrapf(clientx.WrapError(clientx.ProtocolHTTP, op, addr, err), "http %s %s", op, addr)
 }

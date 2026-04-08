@@ -1,12 +1,12 @@
 package dix
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	collectionset "github.com/DaiYuANg/arcgo/collectionx/set"
+	"github.com/samber/oops"
 )
 
 func validateTypedGraph(plan *buildPlan) error {
@@ -62,7 +62,9 @@ func collectProviderOutputs(mod *moduleSpec, state *validationState) {
 		meta := provider.meta
 		if meta.Output.Name != "" {
 			if state.known.Contains(meta.Output.Name) {
-				state.err.Add(fmt.Errorf("duplicate provider output `%s` in module `%s` via %s", meta.Output.Name, mod.name, meta.Label))
+				state.err.Add(oops.In("dix").
+					With("op", "validate_provider_output", "module", mod.name, "label", meta.Label, "service", meta.Output.Name).
+					Errorf("duplicate provider output `%s` in module `%s` via %s", meta.Output.Name, mod.name, meta.Label))
 				return true
 			}
 			state.known.Add(meta.Output.Name)
@@ -85,7 +87,9 @@ func collectSetupOutputs(mod *moduleSpec, state *validationState) {
 		meta := setup.meta
 		meta.Provides.Range(func(_ int, provide ServiceRef) bool {
 			if state.known.Contains(provide.Name) {
-				state.err.Add(fmt.Errorf("duplicate setup output `%s` in module `%s` via %s", provide.Name, mod.name, meta.Label))
+				state.err.Add(oops.In("dix").
+					With("op", "validate_setup_output", "module", mod.name, "label", meta.Label, "service", provide.Name).
+					Errorf("duplicate setup output `%s` in module `%s` via %s", provide.Name, mod.name, meta.Label))
 				return true
 			}
 			state.known.Add(provide.Name)
@@ -137,7 +141,9 @@ func validateSetupDependencies(mod *moduleSpec, state *validationState) {
 		meta := setup.meta
 		meta.Overrides.Range(func(_ int, override ServiceRef) bool {
 			if !state.known.Contains(override.Name) {
-				state.err.Add(fmt.Errorf("override target `%s` not found in module `%s` via %s", override.Name, mod.name, meta.Label))
+				state.err.Add(oops.In("dix").
+					With("op", "validate_setup_override", "module", mod.name, "label", meta.Label, "service", override.Name).
+					Errorf("override target `%s` not found in module `%s` via %s", override.Name, mod.name, meta.Label))
 			}
 			return true
 		})
@@ -201,7 +207,9 @@ func validateDependencies(
 ) {
 	deps.Range(func(_ int, dep ServiceRef) bool {
 		if !known.Contains(dep.Name) {
-			err.Add(fmt.Errorf("missing dependency `%s` for %s %s in module `%s`", dep.Name, kind, label, moduleName))
+			err.Add(oops.In("dix").
+				With("op", "validate_dependency", "module", moduleName, "label", label, "dependency", dep.Name, "kind", kind).
+				Errorf("missing dependency `%s` for %s %s in module `%s`", dep.Name, kind, label, moduleName))
 		}
 		return true
 	})

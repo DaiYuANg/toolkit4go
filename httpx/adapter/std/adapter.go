@@ -3,13 +3,13 @@ package std
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/oops"
 )
 
 type lifecycleState struct {
@@ -57,7 +57,9 @@ func (a *Adapter) shutdownContext(ctx context.Context) error {
 		return nil
 	}
 	if err := server.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("httpx/std: shutdown: %w", err)
+		return oops.In("httpx/adapter/std").
+			With("op", "shutdown", "addr", server.Addr).
+			Wrapf(err, "httpx/std: shutdown")
 	}
 	return nil
 }
@@ -85,7 +87,9 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		return wrapListenError(addr, err)
 	case <-ctx.Done():
 		if err := a.shutdownContext(ctx); err != nil {
-			return fmt.Errorf("httpx/std: shutdown on %q: %w", addr, err)
+			return oops.In("httpx/adapter/std").
+				With("op", "shutdown", "addr", addr).
+				Wrapf(err, "httpx/std: shutdown on %q", addr)
 		}
 		err := <-errCh
 		if errors.Is(err, http.ErrServerClosed) {
@@ -137,5 +141,7 @@ func (a *Adapter) activeServer() *http.Server {
 }
 
 func wrapListenError(addr string, err error) error {
-	return fmt.Errorf("httpx/std: listen on %q: %w", addr, err)
+	return oops.In("httpx/adapter/std").
+		With("op", "listen", "addr", addr).
+		Wrapf(err, "httpx/std: listen on %q", addr)
 }

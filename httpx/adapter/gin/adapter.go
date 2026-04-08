@@ -5,7 +5,6 @@ package gin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humagin"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/oops"
 )
 
 type lifecycleState struct {
@@ -83,7 +83,9 @@ func (a *Adapter) shutdownContext(ctx context.Context) error {
 		return nil
 	}
 	if err := server.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("httpx/gin: shutdown: %w", err)
+		return oops.In("httpx/adapter/gin").
+			With("op", "shutdown", "addr", server.Addr).
+			Wrapf(err, "httpx/gin: shutdown")
 	}
 	return nil
 }
@@ -111,7 +113,9 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		return wrapGinListenError(addr, err)
 	case <-ctx.Done():
 		if err := a.shutdownContext(ctx); err != nil {
-			return fmt.Errorf("httpx/gin: shutdown on %q: %w", addr, err)
+			return oops.In("httpx/adapter/gin").
+				With("op", "shutdown", "addr", addr).
+				Wrapf(err, "httpx/gin: shutdown on %q", addr)
 		}
 		err := <-errCh
 		if errors.Is(err, http.ErrServerClosed) {
@@ -163,5 +167,7 @@ func (a *Adapter) activeServer() *http.Server {
 }
 
 func wrapGinListenError(addr string, err error) error {
-	return fmt.Errorf("httpx/gin: listen on %q: %w", addr, err)
+	return oops.In("httpx/adapter/gin").
+		With("op", "listen", "addr", addr).
+		Wrapf(err, "httpx/gin: listen on %q", addr)
 }

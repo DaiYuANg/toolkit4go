@@ -46,7 +46,7 @@ func (r *HashRepository[T]) prepareHashDelete(ctx context.Context, id string) (h
 		return hashDeleteState{key: key}, false, nil
 	}
 	if err != nil {
-		return hashDeleteState{key: key}, false, wrapRepositoryError(err, "load hash entity for delete")
+		return hashDeleteState{key: key}, false, wrapRepositoryError(err, "load hash entity for delete", "op", "load_hash_entity_for_delete", "id", id, "key", key)
 	}
 
 	metadata, err := r.base.metadata(entity)
@@ -56,7 +56,7 @@ func (r *HashRepository[T]) prepareHashDelete(ctx context.Context, id string) (h
 
 	removeEntries, err := r.base.indexer.EntityIndexEntries(entity, metadata, key)
 	if err != nil {
-		return hashDeleteState{key: key}, false, wrapRepositoryError(err, "collect hash index entries for delete")
+		return hashDeleteState{key: key}, false, wrapRepositoryError(err, "collect hash index entries for delete", "op", "collect_hash_index_entries_for_delete", "id", id, "key", key)
 	}
 
 	return hashDeleteState{
@@ -72,15 +72,15 @@ func (r *HashRepository[T]) persistHashDelete(ctx context.Context, state hashDel
 
 	fields, err := r.client.HKeys(ctx, state.key)
 	if err != nil {
-		return wrapRepositoryError(err, "list hash fields for delete")
+		return wrapRepositoryError(err, "list hash fields for delete", "op", "list_hash_fields_for_delete", "key", state.key)
 	}
 	if !fields.IsEmpty() {
 		if err := r.client.HDel(ctx, state.key, fields.Values()...); err != nil {
-			return wrapRepositoryError(err, "delete hash fields")
+			return wrapRepositoryError(err, "delete hash fields", "op", "delete_hash_fields", "key", state.key, "field_count", fields.Len())
 		}
 	}
 	if err := r.kv.Delete(ctx, state.key); err != nil {
-		return wrapRepositoryError(err, "delete hash entity key")
+		return wrapRepositoryError(err, "delete hash entity key", "op", "delete_hash_entity_key", "key", state.key)
 	}
 
 	return r.base.indexer.ApplyIndexDiff(ctx, state.removeEntries, nil)

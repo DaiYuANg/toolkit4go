@@ -3,12 +3,12 @@ package udp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clientcodec "github.com/DaiYuANg/arcgo/clientx/codec"
+	"github.com/samber/oops"
 )
 
 // DefaultClient is the default UDP client implementation.
@@ -168,7 +168,9 @@ func invokeWithDialPolicies(
 ) (net.Conn, error) {
 	conn, err := clientx.InvokeWithPolicies(ctx, operation, fn, policies...)
 	if err != nil {
-		return nil, fmt.Errorf("execute udp dial operation: %w", err)
+		return nil, oops.In("clientx/udp").
+			With("op", operation.Op, "addr", operation.Addr, "network", operation.Network, "protocol", operation.Protocol, "operation_kind", operation.Kind).
+			Wrapf(err, "execute udp dial operation")
 	}
 	return conn, nil
 }
@@ -181,15 +183,21 @@ func invokeWithListenPolicies(
 ) (net.PacketConn, error) {
 	conn, err := clientx.InvokeWithPolicies(ctx, operation, fn, policies...)
 	if err != nil {
-		return nil, fmt.Errorf("execute udp listen operation: %w", err)
+		return nil, oops.In("clientx/udp").
+			With("op", operation.Op, "addr", operation.Addr, "network", operation.Network, "protocol", operation.Protocol, "operation_kind", operation.Kind).
+			Wrapf(err, "execute udp listen operation")
 	}
 	return conn, nil
 }
 
 func wrapClientError(op, addr string, err error) error {
-	return fmt.Errorf("udp %s %s: %w", op, addr, clientx.WrapError(clientx.ProtocolUDP, op, addr, err))
+	return oops.In("clientx/udp").
+		With("op", op, "addr", addr, "protocol", clientx.ProtocolUDP).
+		Wrapf(clientx.WrapError(clientx.ProtocolUDP, op, addr, err), "udp %s %s", op, addr)
 }
 
 func wrapCodecError(op, addr string, err error) error {
-	return fmt.Errorf("udp %s %s: %w", op, addr, clientx.WrapErrorWithKind(clientx.ProtocolUDP, op, addr, clientx.ErrorKindCodec, err))
+	return oops.In("clientx/udp").
+		With("op", op, "addr", addr, "protocol", clientx.ProtocolUDP, "error_kind", clientx.ErrorKindCodec).
+		Wrapf(clientx.WrapErrorWithKind(clientx.ProtocolUDP, op, addr, clientx.ErrorKindCodec, err), "udp %s %s", op, addr)
 }

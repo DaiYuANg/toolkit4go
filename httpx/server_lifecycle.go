@@ -7,12 +7,20 @@ import (
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/httpx/adapter"
+	"github.com/samber/oops"
 )
 
 // ListenPort starts related services on the provided port.
 func (s *Server) ListenPort(port int) error {
+	if s == nil {
+		return oops.In("httpx").
+			With("op", "listen_port", "port", port).
+			New("server is nil")
+	}
 	if port < 0 || port > 65535 {
-		return fmt.Errorf("httpx: invalid port %d", port)
+		return oops.In("httpx").
+			With("op", "listen_port", "port", port).
+			Errorf("httpx: invalid port %d", port)
 	}
 	return s.Listen(fmt.Sprintf(":%d", port))
 }
@@ -20,7 +28,9 @@ func (s *Server) ListenPort(port int) error {
 // Shutdown stops related services through the underlying adapter.
 func (s *Server) Shutdown() error {
 	if s == nil || s.adapter == nil {
-		return fmt.Errorf("%w: adapter does not support shutdown", ErrAdapterNotFound)
+		return oops.In("httpx").
+			With("op", "shutdown").
+			Wrapf(ErrAdapterNotFound, "adapter does not support shutdown")
 	}
 	if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
 		s.logger.Debug("httpx shutdown requested",
@@ -37,7 +47,9 @@ func (s *Server) Shutdown() error {
 				slog.String("adapter", s.adapter.Name()),
 				slog.String("error", shutdownErr.Error()),
 			)
-			return fmt.Errorf("httpx: shutdown adapter %q: %w", s.adapter.Name(), shutdownErr)
+			return oops.In("httpx").
+				With("op", "shutdown", "adapter", s.adapter.Name()).
+				Wrapf(shutdownErr, "shutdown adapter")
 		} else if s.logger != nil && s.logger.Enabled(context.Background(), slog.LevelDebug) {
 			s.logger.Debug("httpx shutdown completed",
 				slog.String("adapter", s.adapter.Name()),
@@ -46,11 +58,18 @@ func (s *Server) Shutdown() error {
 		return nil
 	}
 
-	return fmt.Errorf("%w: adapter %q does not support shutdown", ErrAdapterNotFound, s.adapter.Name())
+	return oops.In("httpx").
+		With("op", "shutdown", "adapter", s.adapter.Name()).
+		Wrapf(ErrAdapterNotFound, "adapter does not support shutdown")
 }
 
 // Listen starts related services.
 func (s *Server) Listen(addr string) error {
+	if s == nil {
+		return oops.In("httpx").
+			With("op", "listen", "addr", addr).
+			New("server is nil")
+	}
 	s.freezeConfiguration(context.TODO())
 
 	name := "unknown"
@@ -78,7 +97,9 @@ func (s *Server) Listen(addr string) error {
 				slog.String("adapter", name),
 				slog.String("error", listenErr.Error()),
 			)
-			return fmt.Errorf("httpx: adapter %q listen on %q: %w", name, addr, listenErr)
+			return oops.In("httpx").
+				With("op", "listen", "addr", addr, "adapter", name).
+				Wrapf(listenErr, "adapter listen")
 		}
 		logServerDebug(s.logger, "httpx listen returned",
 			slog.String("address", addr),
@@ -87,7 +108,9 @@ func (s *Server) Listen(addr string) error {
 		return nil
 	}
 
-	return fmt.Errorf("%w: adapter %q does not support direct listening", ErrAdapterNotFound, name)
+	return oops.In("httpx").
+		With("op", "listen", "addr", addr, "adapter", name).
+		Wrapf(ErrAdapterNotFound, "adapter does not support direct listening")
 }
 
 // ListenAndServe starts related services.
@@ -97,6 +120,11 @@ func (s *Server) ListenAndServe(addr string) error {
 
 // ListenAndServeContext starts related services.
 func (s *Server) ListenAndServeContext(ctx context.Context, addr string) error {
+	if s == nil {
+		return oops.In("httpx").
+			With("op", "listen_context", "addr", addr).
+			New("server is nil")
+	}
 	s.freezeConfiguration(ctx)
 	ctx = normalizeServerContext(ctx)
 
@@ -131,7 +159,9 @@ func (s *Server) listenWithContextCapability(ctx context.Context, addr, name str
 		return false, nil
 	}
 	if listenErr != nil {
-		return true, fmt.Errorf("httpx: adapter %q listen with context on %q: %w", name, addr, listenErr)
+		return true, oops.In("httpx").
+			With("op", "listen_context", "addr", addr, "adapter", name).
+			Wrapf(listenErr, "adapter listen with context")
 	}
 	return true, nil
 }
@@ -146,7 +176,9 @@ func (s *Server) contextFallbackAdapters(
 	}) || !useHostCapability(s, func(host adapter.ShutdownAdapter) {
 		shutdownable = host
 	}) {
-		return nil, nil, fmt.Errorf("%w: adapter %q does not support context listening", ErrAdapterNotFound, name)
+		return nil, nil, oops.In("httpx").
+			With("op", "listen_context", "adapter", name).
+			Wrapf(ErrAdapterNotFound, "adapter does not support context listening")
 	}
 	return listenable, shutdownable, nil
 }
@@ -192,7 +224,9 @@ func handleFallbackListenResult(ctx context.Context, logger *slog.Logger, addr, 
 			slog.String("adapter", name),
 			slog.String("error", err.Error()),
 		)
-		return fmt.Errorf("httpx: adapter %q listen on %q: %w", name, addr, err)
+		return oops.In("httpx").
+			With("op", "listen_context", "addr", addr, "adapter", name).
+			Wrapf(err, "adapter listen")
 	}
 
 	logServerDebugContext(ctx, logger, "httpx context listen exited",
@@ -226,7 +260,9 @@ func handleFallbackCancellation(
 			slog.String("address", addr),
 			slog.String("adapter", name),
 		)
-		return fmt.Errorf("httpx: context canceled while serving %q: %w", addr, ctx.Err())
+		return oops.In("httpx").
+			With("op", "listen_context", "addr", addr, "adapter", name).
+			Wrapf(ctx.Err(), "context canceled while serving")
 	}
 }
 
@@ -242,7 +278,9 @@ func shutdownFallbackAdapter(
 			slog.String("adapter", name),
 			slog.String("error", err.Error()),
 		)
-		return fmt.Errorf("httpx: shutdown server on %q: %w", addr, err)
+		return oops.In("httpx").
+			With("op", "shutdown", "addr", addr, "adapter", name).
+			Wrapf(err, "shutdown server")
 	}
 	return nil
 }
@@ -254,7 +292,9 @@ func handlePostCancelListenResult(ctx context.Context, logger *slog.Logger, addr
 			slog.String("adapter", name),
 			slog.String("error", err.Error()),
 		)
-		return fmt.Errorf("httpx: adapter %q listen on %q after context cancellation: %w", name, addr, err)
+		return oops.In("httpx").
+			With("op", "listen_context", "addr", addr, "adapter", name, "stage", "after_cancel").
+			Wrapf(err, "adapter listen after context cancellation")
 	}
 
 	logServerDebugContext(ctx, logger, "httpx listen returned after context cancellation",

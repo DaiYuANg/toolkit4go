@@ -1,6 +1,6 @@
 package repository
 
-import "fmt"
+import "github.com/samber/oops"
 
 // ErrNotFound reports that a repository entity does not exist.
 var ErrNotFound = &repositoryError{"not found"}
@@ -15,18 +15,24 @@ type repositoryError struct{ msg string }
 
 func (e *repositoryError) Error() string { return "kvx: " + e.msg }
 
-func wrapRepositoryError(err error, action string) error {
+func wrapRepositoryError(err error, action string, fields ...any) error {
 	if err != nil {
-		return fmt.Errorf("%s: %w", action, err)
+		args := append([]any{"action", action}, fields...)
+		return oops.In("kvx/repository").
+			With(args...).
+			Wrapf(err, "%s", action)
 	}
 
 	return nil
 }
 
-func wrapRepositoryResult[T any](value T, err error, action string) (T, error) {
+func wrapRepositoryResult[T any](value T, err error, action string, fields ...any) (T, error) {
 	if err != nil {
 		var zero T
-		return zero, fmt.Errorf("%s: %w", action, err)
+		args := append([]any{"action", action}, fields...)
+		return zero, oops.In("kvx/repository").
+			With(args...).
+			Wrapf(err, "%s", action)
 	}
 
 	return value, nil

@@ -2,12 +2,12 @@ package configx
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/go-playground/validator/v10"
 	"github.com/knadh/koanf/v2"
+	"github.com/samber/oops"
 )
 
 // Config documents related behavior.
@@ -31,12 +31,19 @@ func newConfig(k *koanf.Koanf, opts *Options) *Config {
 
 // validateStruct documents related behavior.
 func (c *Config) validateStruct(out any) error {
+	if c == nil {
+		return oops.In("configx").
+			With("op", "validate_struct").
+			Wrapf(errNilConfig, "validate config")
+	}
 	switch c.level {
 	case ValidateLevelNone:
 		return nil
 	case ValidateLevelStruct:
 		if err := c.validate.Struct(out); err != nil {
-			return fmt.Errorf("validate struct: %w", err)
+			return oops.In("configx").
+				With("op", "validate_struct", "level", c.level).
+				Wrapf(err, "validate struct")
 		}
 		return nil
 	default:
@@ -94,8 +101,15 @@ func (c *Config) GetIntSlice(path string) collectionx.List[int] {
 // Unmarshal documents related behavior.
 // path documents related behavior.
 func (c *Config) Unmarshal(path string, out any) error {
+	if c == nil {
+		return oops.In("configx").
+			With("op", "unmarshal", "path", path).
+			Wrapf(errNilConfig, "validate config")
+	}
 	if err := c.k.Unmarshal(path, out); err != nil {
-		return fmt.Errorf("unmarshal %q: %w", path, errors.Join(ErrUnmarshal, err))
+		return oops.In("configx").
+			With("op", "unmarshal", "path", path).
+			Wrapf(errors.Join(ErrUnmarshal, err), "unmarshal config path")
 	}
 	return nil
 }
@@ -103,11 +117,20 @@ func (c *Config) Unmarshal(path string, out any) error {
 // UnmarshalWithValidate documents related behavior.
 // path documents related behavior.
 func (c *Config) UnmarshalWithValidate(path string, out any) error {
+	if c == nil {
+		return oops.In("configx").
+			With("op", "unmarshal_with_validate", "path", path).
+			Wrapf(errNilConfig, "validate config")
+	}
 	if err := c.k.Unmarshal(path, out); err != nil {
-		return fmt.Errorf("unmarshal %q: %w", path, errors.Join(ErrUnmarshal, err))
+		return oops.In("configx").
+			With("op", "unmarshal_with_validate", "path", path).
+			Wrapf(errors.Join(ErrUnmarshal, err), "unmarshal config path")
 	}
 	if err := c.validateStruct(out); err != nil {
-		return fmt.Errorf("validate %q: %w", path, errors.Join(ErrValidate, err))
+		return oops.In("configx").
+			With("op", "unmarshal_with_validate", "path", path).
+			Wrapf(errors.Join(ErrValidate, err), "validate config path")
 	}
 	return nil
 }
@@ -124,8 +147,15 @@ func (c *Config) All() collectionx.Map[string, any] {
 
 // Validate documents related behavior.
 func (c *Config) Validate(out any) error {
+	if c == nil {
+		return oops.In("configx").
+			With("op", "validate").
+			Wrapf(errNilConfig, "validate config")
+	}
 	if err := c.validateStruct(out); err != nil {
-		return fmt.Errorf("validate: %w", errors.Join(ErrValidate, err))
+		return oops.In("configx").
+			With("op", "validate").
+			Wrapf(errors.Join(ErrValidate, err), "validate config value")
 	}
 	return nil
 }

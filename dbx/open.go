@@ -2,12 +2,12 @@ package dbx
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
 	"github.com/DaiYuANg/arcgo/pkg/option"
+	"github.com/samber/oops"
 )
 
 // OpenOption configures Open. Required: WithDriver, WithDSN, WithDialect.
@@ -70,7 +70,9 @@ func Open(opts ...OpenOption) (*DB, error) {
 	logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.start", "options", len(opts))
 	if err := option.ApplyErr(&config, opts...); err != nil {
 		logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.error", "stage", "apply_option", "error", err)
-		return nil, fmt.Errorf("dbx: apply open options: %w", err)
+		return nil, oops.In("dbx").
+			With("op", "open", "stage", "apply_options", "option_count", len(opts)).
+			Wrapf(err, "apply open options")
 	}
 	logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug,
 		"db.open.configured",
@@ -81,21 +83,29 @@ func Open(opts ...OpenOption) (*DB, error) {
 
 	if config.driver == "" {
 		logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.error", "stage", "validate", "error", ErrMissingDriver)
-		return nil, ErrMissingDriver
+		return nil, oops.In("dbx").
+			With("op", "open", "stage", "validate").
+			Wrapf(ErrMissingDriver, "validate open config")
 	}
 	if config.dsn == "" {
 		logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.error", "stage", "validate", "error", ErrMissingDSN)
-		return nil, ErrMissingDSN
+		return nil, oops.In("dbx").
+			With("op", "open", "stage", "validate", "driver", config.driver).
+			Wrapf(ErrMissingDSN, "validate open config")
 	}
 	if config.dialect == nil {
 		logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.error", "stage", "validate", "error", ErrMissingDialect)
-		return nil, ErrMissingDialect
+		return nil, oops.In("dbx").
+			With("op", "open", "stage", "validate", "driver", config.driver).
+			Wrapf(ErrMissingDialect, "validate open config")
 	}
 
 	raw, err := sql.Open(config.driver, config.dsn)
 	if err != nil {
 		logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.error", "stage", "sql_open", "error", err)
-		return nil, wrapDBError("open database", err)
+		return nil, oops.In("dbx").
+			With("op", "open", "stage", "sql_open", "driver", config.driver, "dialect", dialectName(config.dialect)).
+			Wrapf(err, "open database")
 	}
 	logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.sql_opened", "driver", config.driver)
 
@@ -113,7 +123,9 @@ func Open(opts ...OpenOption) (*DB, error) {
 	db, err := NewWithOptionsList(raw, config.dialect, dbOpts)
 	if err != nil {
 		logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.error", "stage", "new_with_options", "error", err)
-		return nil, err
+		return nil, oops.In("dbx").
+			With("op", "open", "stage", "build_runtime", "driver", config.driver, "dialect", dialectName(config.dialect)).
+			Wrapf(err, "build db runtime")
 	}
 	logRuntimeNodeWithLogger(config.observe.logger, config.observe.debug, "db.open.done", "driver", config.driver, "dialect", dialectName(config.dialect))
 	return db, nil

@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ import (
 	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 var (
@@ -75,10 +75,14 @@ func resolveOptions(opts *Options) *Options {
 func (l *Lock) Acquire(ctx context.Context) error {
 	acquired, err := l.client.Acquire(ctx, l.key, l.identifier, l.ttl)
 	if err != nil {
-		return fmt.Errorf("failed to acquire lock: %w", err)
+		return oops.In("kvx/module/lock").
+			With("op", "acquire", "key", l.key, "ttl", l.ttl, "auto_extend", l.autoExtend).
+			Wrapf(err, "acquire lock")
 	}
 	if !acquired {
-		return ErrLockNotAcquired
+		return oops.In("kvx/module/lock").
+			With("op", "acquire", "key", l.key, "ttl", l.ttl, "auto_extend", l.autoExtend).
+			Wrapf(ErrLockNotAcquired, "acquire lock")
 	}
 
 	if l.autoExtend {
@@ -93,7 +97,9 @@ func (l *Lock) TryAcquire(ctx context.Context, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
 		if time.Now().After(deadline) {
-			return ErrLockNotAcquired
+			return oops.In("kvx/module/lock").
+				With("op", "try_acquire", "key", l.key, "timeout", timeout, "ttl", l.ttl).
+				Wrapf(ErrLockNotAcquired, "acquire lock before deadline")
 		}
 
 		err := l.Acquire(ctx)
@@ -107,7 +113,9 @@ func (l *Lock) TryAcquire(ctx context.Context, timeout time.Duration) error {
 		// Wait a bit before retrying
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("lock acquisition canceled: %w", ctx.Err())
+			return oops.In("kvx/module/lock").
+				With("op", "try_acquire", "key", l.key, "timeout", timeout, "ttl", l.ttl).
+				Wrapf(ctx.Err(), "lock acquisition canceled")
 		case <-time.After(100 * time.Millisecond):
 			continue
 		}
@@ -120,10 +128,14 @@ func (l *Lock) Release(ctx context.Context) error {
 
 	released, err := l.client.Release(ctx, l.key, l.identifier)
 	if err != nil {
-		return fmt.Errorf("failed to release lock: %w", err)
+		return oops.In("kvx/module/lock").
+			With("op", "release", "key", l.key).
+			Wrapf(err, "release lock")
 	}
 	if !released {
-		return ErrLockNotHeld
+		return oops.In("kvx/module/lock").
+			With("op", "release", "key", l.key).
+			Wrapf(ErrLockNotHeld, "release lock")
 	}
 	return nil
 }
@@ -132,10 +144,14 @@ func (l *Lock) Release(ctx context.Context) error {
 func (l *Lock) Extend(ctx context.Context, ttl time.Duration) error {
 	extended, err := l.client.Extend(ctx, l.key, l.identifier, ttl)
 	if err != nil {
-		return fmt.Errorf("failed to extend lock: %w", err)
+		return oops.In("kvx/module/lock").
+			With("op", "extend", "key", l.key, "ttl", ttl).
+			Wrapf(err, "extend lock")
 	}
 	if !extended {
-		return ErrLockNotHeld
+		return oops.In("kvx/module/lock").
+			With("op", "extend", "key", l.key, "ttl", ttl).
+			Wrapf(ErrLockNotHeld, "extend lock")
 	}
 	return nil
 }
@@ -145,7 +161,9 @@ func (l *Lock) IsHeld(ctx context.Context) (bool, error) {
 	// Try to extend with 0 TTL - this will only succeed if we hold the lock
 	held, err := l.client.Extend(ctx, l.key, l.identifier, l.ttl)
 	if err != nil {
-		return false, fmt.Errorf("check lock state: %w", err)
+		return false, oops.In("kvx/module/lock").
+			With("op", "is_held", "key", l.key, "ttl", l.ttl).
+			Wrapf(err, "check lock state")
 	}
 	return held, nil
 }
@@ -234,7 +252,9 @@ func (m *Manager) Release(ctx context.Context, key string) error {
 	if lock, ok := m.locks.LoadAndDelete(key); ok {
 		return lock.Release(ctx)
 	}
-	return ErrLockNotHeld
+	return oops.In("kvx/module/lock").
+		With("op", "manager_release", "key", key).
+		Wrapf(ErrLockNotHeld, "release managed lock")
 }
 
 // ReleaseAll releases all managed locks.
@@ -286,7 +306,9 @@ func WithTryLock(ctx context.Context, client kvx.Lock, key string, timeout time.
 
 func releaseLockOnExit(ctx context.Context, lock *Lock) error {
 	if err := lock.Release(ctx); err != nil {
-		return fmt.Errorf("release lock %q: %w", lock.key, err)
+		return oops.In("kvx/module/lock").
+			With("op", "release_on_exit", "key", lock.key).
+			Wrapf(err, "release lock on exit")
 	}
 	return nil
 }

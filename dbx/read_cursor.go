@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 	scanlib "github.com/stephenafamo/scan"
 )
 
@@ -61,7 +62,9 @@ func (c *sliceCursor[E]) Next() bool {
 func (c *sliceCursor[E]) Get() (E, error) {
 	if c.index < 0 || c.index >= c.items.Len() {
 		var zero E
-		return zero, sql.ErrNoRows
+		return zero, oops.In("dbx").
+			With("op", "cursor_get", "index", c.index, "item_count", c.items.Len()).
+			Wrapf(sql.ErrNoRows, "cursor is not positioned on a row")
 	}
 	item, _ := c.items.Get(c.index)
 	return item, nil
@@ -73,7 +76,9 @@ func (c *sliceCursor[E]) Err() error {
 
 func QueryCursor[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
-		return nil, ErrNilMapper
+		return nil, oops.In("dbx").
+			With("op", "query_cursor").
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 	bound, err := Build(session, query)
 	if err != nil {
@@ -86,10 +91,14 @@ func QueryCursor[E any](ctx context.Context, session Session, query QueryBuilder
 // for reuse when executing the same query multiple times.
 func QueryCursorBound[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
-		return nil, ErrNilMapper
+		return nil, oops.In("dbx").
+			With("op", "query_cursor_bound", "statement", bound.Name).
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 	if session == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "query_cursor_bound", "statement", bound.Name).
+			Wrapf(ErrNilDB, "validate session")
 	}
 	rows, err := session.QueryBoundContext(ctx, bound)
 	if err != nil {
@@ -133,7 +142,9 @@ func QueryEach[E any](ctx context.Context, session Session, query QueryBuilder, 
 
 func SQLCursor[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
-		return nil, ErrNilMapper
+		return nil, oops.In("dbx").
+			With("op", "sql_cursor", "statement", statementName(statement)).
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 
 	exec, err := sessionExecutor(session)
@@ -184,7 +195,9 @@ func structMapperCursor[E any](ctx context.Context, rows *sql.Rows, mapper RowsS
 		return cursor, true, err
 	case *StructMapper[E]:
 		if typed == nil {
-			return nil, true, ErrNilMapper
+			return nil, true, oops.In("dbx").
+				With("op", "cursor_mapper").
+				Wrapf(ErrNilMapper, "validate struct mapper")
 		}
 		cursor, err := typed.scanCursor(ctx, rows)
 		return cursor, true, err

@@ -8,6 +8,7 @@ import (
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // Pipeline creates a new pipeline.
@@ -24,7 +25,9 @@ type redisPipeline struct {
 // Enqueue adds a command to the pipeline.
 func (p *redisPipeline) Enqueue(command string, args ...[]byte) error {
 	if len(args) > kvx.MaxPipelineArgs {
-		return kvx.ErrTooManyArgs
+		return oops.In("kvx/adapter/redis").
+			With("op", "enqueue_pipeline_command", "command", command, "arg_count", len(args), "max_pipeline_args", kvx.MaxPipelineArgs).
+			Wrapf(kvx.ErrTooManyArgs, "enqueue redis pipeline command")
 	}
 
 	ifaceArgs := lo.Concat([]any{command}, lo.Map(args, func(v []byte, _ int) any { return v }))
@@ -57,7 +60,9 @@ func (p *redisPipeline) Exec(ctx context.Context) ([][]byte, error) {
 func decodePipelineCommand(cmder redis.Cmder) ([]byte, bool, error) {
 	cmd, ok := cmder.(*redis.Cmd)
 	if !ok {
-		return nil, false, fmt.Errorf("redis execute pipeline: unexpected command type %T", cmder)
+		return nil, false, oops.In("kvx/adapter/redis").
+			With("op", "decode_pipeline_command", "command_type", fmt.Sprintf("%T", cmder)).
+			Errorf("redis execute pipeline: unexpected command type")
 	}
 
 	if err := cmd.Err(); err != nil {

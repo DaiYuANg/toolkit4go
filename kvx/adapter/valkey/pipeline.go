@@ -5,6 +5,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 	"github.com/valkey-io/valkey-go"
 )
 
@@ -23,7 +24,9 @@ type valkeyPipeline struct {
 // Enqueue adds a command to the pipeline.
 func (p *valkeyPipeline) Enqueue(command string, args ...[]byte) error {
 	if len(args) > kvx.MaxPipelineArgs {
-		return kvx.ErrTooManyArgs
+		return oops.In("kvx/adapter/valkey").
+			With("op", "enqueue_pipeline_command", "command", command, "arg_count", len(args), "max_pipeline_args", kvx.MaxPipelineArgs).
+			Wrapf(kvx.ErrTooManyArgs, "enqueue valkey pipeline command")
 	}
 
 	cmd := p.client.B().Arbitrary(command).Args(binaryArgs(args)...).Build()

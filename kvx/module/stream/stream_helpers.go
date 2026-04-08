@@ -1,11 +1,10 @@
 package stream
 
 import (
-	"fmt"
-
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 func buildByteValues(values map[string]any) (map[string][]byte, error) {
@@ -18,7 +17,9 @@ func buildByteValues(values map[string]any) (map[string][]byte, error) {
 		return byteValues, nil
 	}, make(map[string][]byte, len(values)))
 	if err != nil {
-		return nil, fmt.Errorf("build stream values: %w", err)
+		return nil, oops.In("kvx/module/stream").
+			With("op", "build_stream_values", "field_count", len(values)).
+			Wrapf(err, "build stream values")
 	}
 	return byteValues, nil
 }

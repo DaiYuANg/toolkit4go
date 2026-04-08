@@ -2,13 +2,14 @@ package httpx
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/danielgtaylor/huma/v2"
 	humasse "github.com/danielgtaylor/huma/v2/sse"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // GetSSE registers a typed SSE GET handler on the server.
@@ -41,13 +42,19 @@ func registerSSE[I any](
 	policies []SSERoutePolicy[I],
 ) error {
 	if s == nil {
-		return fmt.Errorf("%w: server is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "register_sse_route", "method", strings.ToUpper(method), "path", fullPath, "register_path", registerPath).
+			Wrapf(ErrRouteNotRegistered, "validate server")
 	}
 	if api == nil {
-		return ErrAdapterNotFound
+		return oops.In("httpx").
+			With("op", "register_sse_route", "method", strings.ToUpper(method), "path", fullPath, "register_path", registerPath).
+			Wrapf(ErrAdapterNotFound, "resolve adapter api")
 	}
 	if err := validateSSERouteRegistration(eventTypeMap, handler); err != nil {
-		return err
+		return oops.In("httpx").
+			With("op", "register_sse_route", "method", strings.ToUpper(method), "path", fullPath, "register_path", registerPath, "event_type_count", len(eventTypeMap)).
+			Wrapf(err, "validate sse route registration")
 	}
 	wrappedHandler := applySSERoutePolicies(handler, policies)
 	op := newSSEOperation(method, registerPath, fullPath, operationOptions, policies)
@@ -73,7 +80,9 @@ func registerSSE[I any](
 				"error", err,
 			)
 		}
-		return err
+		return oops.In("httpx").
+			With("op", "register_sse_route", "method", strings.ToUpper(method), "path", fullPath, "register_path", registerPath, "operation_id", op.OperationID, "event_type_count", len(eventTypeMap)).
+			Wrapf(err, "validate route registration")
 	}
 	humasse.Register(api, op, eventTypeMap, func(ctx context.Context, input *I, send SSESender) {
 		wrappedHandler(ctx, input, send)
@@ -98,15 +107,21 @@ func registerSSE[I any](
 
 func validateSSERouteRegistration[I any](eventTypeMap map[string]any, handler SSEHandler[I]) error {
 	if len(eventTypeMap) == 0 {
-		return fmt.Errorf("%w: sse event map is empty", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "validate_sse_route_registration", "event_type_count", 0).
+			Wrapf(ErrRouteNotRegistered, "sse event map is empty")
 	}
 	if invalidEvent, ok := lo.Find(lo.Entries(eventTypeMap), func(entry lo.Entry[string, any]) bool {
 		return entry.Value == nil
 	}); ok {
-		return fmt.Errorf("%w: sse event type is nil for event %q", ErrRouteNotRegistered, invalidEvent.Key)
+		return oops.In("httpx").
+			With("op", "validate_sse_route_registration", "event_type_count", len(eventTypeMap), "event_name", invalidEvent.Key).
+			Wrapf(ErrRouteNotRegistered, "sse event type is nil")
 	}
 	if handler == nil {
-		return fmt.Errorf("%w: sse handler is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "validate_sse_route_registration", "event_type_count", len(eventTypeMap)).
+			Wrapf(ErrRouteNotRegistered, "sse handler is nil")
 	}
 	return nil
 }

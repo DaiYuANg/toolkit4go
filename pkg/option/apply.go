@@ -1,9 +1,8 @@
 package option
 
 import (
-	"fmt"
-
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // Apply executes non-nil option functions against the target in order.
@@ -31,7 +30,9 @@ func ApplyErr[T any, O ~func(*T) error](target *T, opts ...O) error {
 		return struct{}{}, opt(target)
 	}, struct{}{})
 	if err != nil {
-		return fmt.Errorf("apply options: %w", err)
+		return oops.In("pkg/option").
+			With("op", "apply_err", "option_count", len(opts)).
+			Wrapf(err, "apply options")
 	}
 	return nil
 }

@@ -111,7 +111,7 @@ func (r *JSONRepository[T]) UpdateField(ctx context.Context, id, fieldPath strin
 		)
 	}
 	if err := r.client.JSONSetField(ctx, state.key, state.fieldPath, state.payload); err != nil {
-		return wrapRepositoryError(err, "write JSON field value")
+		return wrapRepositoryError(err, "write JSON field value", "op", "write_json_field_value", "key", state.key, "field_path", state.fieldPath)
 	}
 
 	return r.base.indexer.ApplyIndexDiff(ctx, state.removeEntries, state.addEntries)
@@ -125,12 +125,12 @@ func (r *JSONRepository[T]) prepareJSONSave(ctx context.Context, entity *T) (jso
 
 	key, err := r.base.keyBuilder.Build(entity, metadata)
 	if err != nil {
-		return jsonSaveState[T]{}, wrapRepositoryError(err, "build JSON entity key")
+		return jsonSaveState[T]{}, wrapRepositoryError(err, "build JSON entity key", "op", "build_json_entity_key")
 	}
 
 	payload, err := r.serializer.Marshal(entity)
 	if err != nil {
-		return jsonSaveState[T]{}, wrapRepositoryError(err, "marshal JSON entity")
+		return jsonSaveState[T]{}, wrapRepositoryError(err, "marshal JSON entity", "op", "marshal_json_entity", "key", key)
 	}
 
 	previous, _, err := r.loadPreviousJSONEntity(ctx, key)
@@ -140,7 +140,7 @@ func (r *JSONRepository[T]) prepareJSONSave(ctx context.Context, entity *T) (jso
 
 	removeEntries, addEntries, err := r.base.indexer.ReplaceEntityIndexEntries(ctx, previous, entity, metadata, key)
 	if err != nil {
-		return jsonSaveState[T]{}, wrapRepositoryError(err, "compute JSON index diff")
+		return jsonSaveState[T]{}, wrapRepositoryError(err, "compute JSON index diff", "op", "compute_json_index_diff", "key", key)
 	}
 
 	return jsonSaveState[T]{
@@ -157,7 +157,7 @@ func (r *JSONRepository[T]) loadPreviousJSONEntity(ctx context.Context, key stri
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, wrapRepositoryError(err, "load existing JSON entity")
+		return nil, false, wrapRepositoryError(err, "load existing JSON entity", "op", "load_existing_json_entity", "key", key)
 	}
 
 	return entity, true, nil
@@ -177,7 +177,7 @@ func (r *JSONRepository[T]) persistJSONSave(ctx context.Context, state jsonSaveS
 	}
 
 	if err := r.client.JSONSet(ctx, state.key, "$", state.payload, expiration); err != nil {
-		return wrapRepositoryError(err, "write JSON entity")
+		return wrapRepositoryError(err, "write JSON entity", "op", "write_json_entity", "key", state.key, "payload_size", len(state.payload), "expiration", expiration)
 	}
 
 	return r.base.indexer.ApplyIndexDiff(ctx, state.removeEntries, state.addEntries)
@@ -192,7 +192,7 @@ func (r *JSONRepository[T]) prepareJSONDelete(ctx context.Context, id string) (j
 		return jsonDeleteState{key: key}, false, nil
 	}
 	if err != nil {
-		return jsonDeleteState{key: key}, false, wrapRepositoryError(err, "load JSON entity for delete")
+		return jsonDeleteState{key: key}, false, wrapRepositoryError(err, "load JSON entity for delete", "op", "load_json_entity_for_delete", "id", id, "key", key)
 	}
 
 	metadata, err := r.base.metadata(entity)
@@ -202,7 +202,7 @@ func (r *JSONRepository[T]) prepareJSONDelete(ctx context.Context, id string) (j
 
 	removeEntries, err := r.base.indexer.EntityIndexEntries(entity, metadata, key)
 	if err != nil {
-		return jsonDeleteState{key: key}, false, wrapRepositoryError(err, "collect JSON index entries for delete")
+		return jsonDeleteState{key: key}, false, wrapRepositoryError(err, "collect JSON index entries for delete", "op", "collect_json_index_entries_for_delete", "id", id, "key", key)
 	}
 
 	return jsonDeleteState{
@@ -216,7 +216,7 @@ func (r *JSONRepository[T]) persistJSONDelete(ctx context.Context, state jsonDel
 		return execDeleteScript(ctx, script, state.key, state.removeEntries)
 	}
 	if err := r.client.JSONDelete(ctx, state.key, "$"); err != nil {
-		return wrapRepositoryError(err, "delete JSON entity")
+		return wrapRepositoryError(err, "delete JSON entity", "op", "delete_json_entity", "key", state.key)
 	}
 
 	return r.base.indexer.ApplyIndexDiff(ctx, state.removeEntries, nil)
@@ -226,7 +226,7 @@ func (r *JSONRepository[T]) prepareJSONFieldUpdate(ctx context.Context, id, fiel
 	key := r.base.keyFromID(id)
 	entity, err := r.findByKey(ctx, key)
 	if err != nil {
-		return jsonFieldUpdateState{}, wrapRepositoryError(err, "load JSON entity for field update")
+		return jsonFieldUpdateState{}, wrapRepositoryError(err, "load JSON entity for field update", "op", "load_json_entity_for_field_update", "id", id, "key", key, "field_path", fieldPath)
 	}
 
 	metadata, err := r.base.metadata(entity)
@@ -239,7 +239,7 @@ func (r *JSONRepository[T]) prepareJSONFieldUpdate(ctx context.Context, id, fiel
 
 	payload, err := r.serializer.Marshal(value)
 	if err != nil {
-		return jsonFieldUpdateState{}, wrapRepositoryError(err, "marshal JSON field value")
+		return jsonFieldUpdateState{}, wrapRepositoryError(err, "marshal JSON field value", "op", "marshal_json_field_value", "id", id, "key", key, "field_path", fieldPath)
 	}
 
 	removeEntries := []string(nil)
@@ -247,7 +247,7 @@ func (r *JSONRepository[T]) prepareJSONFieldUpdate(ctx context.Context, id, fiel
 	if exists && fieldTag.Index {
 		removeEntries, addEntries, err = r.base.indexer.ReplaceFieldIndexEntries(metadata, resolvedField, key, entity, value)
 		if err != nil {
-			return jsonFieldUpdateState{}, wrapRepositoryError(err, "compute JSON field index diff")
+			return jsonFieldUpdateState{}, wrapRepositoryError(err, "compute JSON field index diff", "op", "compute_json_field_index_diff", "id", id, "key", key, "field_path", fieldPath, "field_name", fieldName)
 		}
 	}
 

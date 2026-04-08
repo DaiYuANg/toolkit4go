@@ -216,21 +216,21 @@ func TestInsertBuilderValuesGridTracksAssignmentState(t *testing.T) {
 }
 
 func TestOptionsPresets(t *testing.T) {
-	db, err := NewWithOptions((*sql.DB)(nil), testSQLiteDialect{}, TestOptions().Values()...)
+	db, err := NewWithOptions((*sql.DB)(nil), testSQLiteDialect{}, TestOptions()...)
 	if err != nil {
 		t.Fatalf("NewWithOptions returned error: %v", err)
 	}
 	if !db.Debug() {
 		t.Error("TestOptions should enable debug")
 	}
-	db, err = NewWithOptions((*sql.DB)(nil), testSQLiteDialect{}, ProductionOptions().Values()...)
+	db, err = NewWithOptions((*sql.DB)(nil), testSQLiteDialect{}, ProductionOptions()...)
 	if err != nil {
 		t.Fatalf("NewWithOptions returned error: %v", err)
 	}
 	if db.Debug() {
 		t.Error("ProductionOptions should disable debug")
 	}
-	db, err = NewWithOptions((*sql.DB)(nil), testSQLiteDialect{}, DefaultOptions().Values()...)
+	db, err = NewWithOptions((*sql.DB)(nil), testSQLiteDialect{}, DefaultOptions()...)
 	if err != nil {
 		t.Fatalf("NewWithOptions returned error: %v", err)
 	}

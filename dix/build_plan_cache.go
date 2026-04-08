@@ -1,10 +1,10 @@
 package dix
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 )
 
 type appPlanCache struct {
@@ -16,7 +16,9 @@ type appPlanCache struct {
 
 func (a *App) cachedBuildPlan() (*buildPlan, ValidationReport, error) {
 	if a == nil || a.spec == nil {
-		err := errors.New("app is nil")
+		err := oops.In("dix").
+			With("op", "cached_build_plan").
+			New("app is nil")
 		return nil, ValidationReport{Errors: collectionx.NewList(err)}, err
 	}
 

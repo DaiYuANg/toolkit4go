@@ -2,9 +2,10 @@ package udp
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
+
+	"github.com/samber/oops"
 )
 
 // Config configures the UDP client implementation.
@@ -31,16 +32,29 @@ func (cfg Config) NormalizeAndValidate() (Config, error) {
 		out.Network = "udp"
 	}
 	if out.Address == "" {
-		return Config{}, fmt.Errorf("%w: address is required", ErrInvalidConfig)
+		return Config{}, oops.In("clientx/udp").
+			With("op", "normalize_validate", "field", "address", "network", out.Network).
+			Wrapf(ErrInvalidConfig, "address is required")
 	}
 	if out.DialTimeout == 0 {
 		out.DialTimeout = defaultDialTimeout
 	}
 	if out.DialTimeout < 0 || out.ReadTimeout < 0 || out.WriteTimeout < 0 {
-		return Config{}, fmt.Errorf("%w: timeout values must be >= 0", ErrInvalidConfig)
+		return Config{}, oops.In("clientx/udp").
+			With(
+				"op", "normalize_validate",
+				"field", "timeout",
+				"network", out.Network,
+				"dial_timeout", out.DialTimeout,
+				"read_timeout", out.ReadTimeout,
+				"write_timeout", out.WriteTimeout,
+			).
+			Wrapf(ErrInvalidConfig, "timeout values must be >= 0")
 	}
 	if !strings.HasPrefix(out.Network, "udp") {
-		return Config{}, fmt.Errorf("%w: network must be udp/udp4/udp6", ErrInvalidConfig)
+		return Config{}, oops.In("clientx/udp").
+			With("op", "normalize_validate", "field", "network", "network", out.Network).
+			Wrapf(ErrInvalidConfig, "network must be udp/udp4/udp6")
 	}
 
 	return out, nil

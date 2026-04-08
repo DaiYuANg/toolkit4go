@@ -2,11 +2,12 @@ package authx
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"reflect"
 	"sync"
 
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // ProviderManager routes authentication credential to provider by credential concrete type.
@@ -48,23 +49,37 @@ func (manager *ProviderManager) Authenticate(
 	credential any,
 ) (AuthenticationResult, error) {
 	if credential == nil {
-		return AuthenticationResult{}, ErrInvalidAuthenticationCredential
+		return AuthenticationResult{}, oops.In("authx").
+			With("op", "authenticate", "stage", "validate_credential").
+			Wrapf(ErrInvalidAuthenticationCredential, "validate authentication credential")
 	}
 	if manager == nil {
-		return AuthenticationResult{}, ErrAuthenticationManagerNotConfigured
+		return AuthenticationResult{}, oops.In("authx").
+			With("op", "authenticate", "stage", "validate_manager").
+			Wrapf(ErrAuthenticationManagerNotConfigured, "validate authentication manager")
 	}
 
 	credentialType := reflect.TypeOf(credential)
 	manager.mu.RLock()
 	provider, ok := manager.providers[credentialType]
+	providerCount := len(manager.providers)
 	manager.mu.RUnlock()
 	if !ok {
-		return AuthenticationResult{}, fmt.Errorf("%w: %v", ErrAuthenticationProviderNotFound, credentialType)
+		return AuthenticationResult{}, oops.In("authx").
+			With(
+				"op", "authenticate",
+				"stage", "resolve_provider",
+				"credential_type", credentialType,
+				"provider_count", providerCount,
+			).
+			Wrapf(ErrAuthenticationProviderNotFound, "resolve authentication provider")
 	}
 
 	result, err := provider.AuthenticateAny(ctx, credential)
 	if err != nil {
-		return AuthenticationResult{}, fmt.Errorf("%w: %w", ErrUnauthenticated, err)
+		return AuthenticationResult{}, oops.In("authx").
+			With("op", "authenticate", "stage", "provider_authenticate", "credential_type", credentialType).
+			Wrapf(errors.Join(ErrUnauthenticated, err), "authenticate credential")
 	}
 	return result, nil
 }

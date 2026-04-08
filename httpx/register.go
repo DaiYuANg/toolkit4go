@@ -2,7 +2,6 @@ package httpx
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"reflect"
 	"runtime"
@@ -12,13 +11,16 @@ import (
 	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // Route registers a typed handler on the server.
 func Route[I, O any](s ServerRuntime, method, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) error {
 	server := unwrapServer(s)
 	if server == nil {
-		return fmt.Errorf("%w: server is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "route", "method", strings.ToUpper(method), "path", path).
+			Wrapf(ErrRouteNotRegistered, "validate server")
 	}
 	fullPath := joinRoutePath(server.basePath, path)
 	return registerTyped(server, server.HumaAPI(), method, fullPath, fullPath, handler, operationOptions, nil)
@@ -62,7 +64,9 @@ func Options[I, O any](s ServerRuntime, path string, handler TypedHandler[I, O],
 // GroupRoute registers a typed handler under a route group.
 func GroupRoute[I, O any](g *Group, method, path string, handler TypedHandler[I, O], operationOptions ...OperationOption) error {
 	if g == nil || g.server == nil {
-		return fmt.Errorf("%w: route group is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "group_route", "method", strings.ToUpper(method), "path", path).
+			Wrapf(ErrRouteNotRegistered, "validate route group")
 	}
 	fullPath := joinRoutePath(g.server.basePath, joinRoutePath(g.prefix, path))
 
@@ -181,10 +185,14 @@ func registerTyped[I, O any](
 	policies []RoutePolicy[I, O],
 ) error {
 	if s == nil {
-		return fmt.Errorf("%w: server is nil", ErrRouteNotRegistered)
+		return oops.In("httpx").
+			With("op", "register_route", "method", strings.ToUpper(method), "path", fullPath, "register_path", registerPath).
+			Wrapf(ErrRouteNotRegistered, "validate server")
 	}
 	if api == nil {
-		return ErrAdapterNotFound
+		return oops.In("httpx").
+			With("op", "register_route", "method", strings.ToUpper(method), "path", fullPath, "register_path", registerPath).
+			Wrapf(ErrAdapterNotFound, "resolve adapter api")
 	}
 
 	wrappedHandler := applyRoutePolicies(withInputValidation(s, handler), policies)
@@ -212,7 +220,9 @@ func registerTyped[I, O any](
 				"error", err,
 			)
 		}
-		return err
+		return oops.In("httpx").
+			With("op", "register_route", "method", strings.ToUpper(method), "path", fullPath, "register_path", registerPath, "operation_id", op.OperationID).
+			Wrapf(err, "validate route registration")
 	}
 	huma.Register(api, op, func(ctx context.Context, input *I) (*O, error) {
 		return wrappedHandler(ctx, input)

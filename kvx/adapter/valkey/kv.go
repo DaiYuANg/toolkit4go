@@ -2,7 +2,6 @@ package valkey
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 	"github.com/valkey-io/valkey-go"
 )
 
@@ -136,7 +136,9 @@ func (a *Adapter) Scan(ctx context.Context, pattern string, cursor uint64, count
 		return nil, 0, err
 	}
 	if cursor > uint64(math.MaxInt) {
-		return nil, 0, fmt.Errorf("valkey scan cursor exceeds int range: %d", cursor)
+		return nil, 0, oops.In("kvx/adapter/valkey").
+			With("op", "scan", "pattern", pattern, "cursor", cursor, "count", count).
+			Errorf("valkey scan cursor exceeds int range")
 	}
 
 	start := int(cursor)
@@ -162,7 +164,9 @@ func (a *Adapter) Scan(ctx context.Context, pattern string, cursor uint64, count
 func scanCursorFromIndex(index int) (uint64, error) {
 	value, err := strconv.ParseUint(strconv.Itoa(index), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("parse valkey scan cursor: %w", err)
+		return 0, oops.In("kvx/adapter/valkey").
+			With("op", "scan_cursor_from_index", "index", index).
+			Wrapf(err, "parse valkey scan cursor")
 	}
 	return value, nil
 }

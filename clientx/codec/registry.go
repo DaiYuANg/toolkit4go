@@ -2,13 +2,13 @@ package codec
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
+	"github.com/samber/oops"
 )
 
 var (
@@ -40,22 +40,36 @@ func NewRegistry(codecs ...Codec) *Registry {
 
 // Register adds c to the registry under its normalized name.
 func (r *Registry) Register(c Codec) error {
+	if r == nil || r.codecs == nil {
+		return oops.In("clientx/codec").
+			With("op", "register_codec").
+			New("codec registry is nil")
+	}
 	if c == nil {
-		return ErrNilCodec
+		return oops.In("clientx/codec").
+			With("op", "register_codec").
+			Wrapf(ErrNilCodec, "validate codec")
 	}
 	name := strings.TrimSpace(strings.ToLower(c.Name()))
 	if name == "" {
-		return ErrCodecNameEmpty
+		return oops.In("clientx/codec").
+			With("op", "register_codec").
+			Wrapf(ErrCodecNameEmpty, "validate codec name")
 	}
 
 	if _, loaded := r.codecs.GetOrStore(name, c); loaded {
-		return fmt.Errorf("%w: %s", ErrCodecExists, name)
+		return oops.In("clientx/codec").
+			With("op", "register_codec", "codec", name).
+			Wrapf(ErrCodecExists, "codec already exists")
 	}
 	return nil
 }
 
 // Get looks up a codec by name.
 func (r *Registry) Get(name string) (Codec, bool) {
+	if r == nil || r.codecs == nil {
+		return nil, false
+	}
 	c, ok := r.codecs.Get(strings.TrimSpace(strings.ToLower(name)))
 	return c, ok
 }
@@ -73,13 +87,18 @@ func (r *Registry) GetOption(name string) mo.Option[Codec] {
 func (r *Registry) Must(name string) Codec {
 	c, ok := r.GetOption(name).Get()
 	if !ok {
-		panic(fmt.Sprintf("%v: %s", ErrCodecNotFound, name))
+		panic(oops.In("clientx/codec").
+			With("op", "must_get_codec", "codec", strings.TrimSpace(strings.ToLower(name))).
+			Wrapf(ErrCodecNotFound, "codec not found"))
 	}
 	return c
 }
 
 // Names returns the registered codec names in sorted order.
 func (r *Registry) Names() collectionx.List[string] {
+	if r == nil || r.codecs == nil {
+		return collectionx.NewList[string]()
+	}
 	names := collectionx.NewListWithCapacity[string](r.codecs.Len())
 	r.codecs.Range(func(name string, _ Codec) bool {
 		names.Add(name)
@@ -130,6 +149,12 @@ func Names() collectionx.List[string] {
 
 func mustRegisterCodec(r *Registry, c Codec) {
 	if err := r.Register(c); err != nil {
-		panic(fmt.Sprintf("register builtin codec: %v", err))
+		codecName := ""
+		if c != nil {
+			codecName = strings.TrimSpace(strings.ToLower(c.Name()))
+		}
+		panic(oops.In("clientx/codec").
+			With("op", "register_builtin_codec", "codec", codecName).
+			Wrapf(err, "register builtin codec"))
 	}
 }

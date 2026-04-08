@@ -1,12 +1,12 @@
 package preset
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/clientx"
 	clienttcp "github.com/DaiYuANg/arcgo/clientx/tcp"
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 )
 
 type internalRPCPreset struct {
@@ -97,7 +97,18 @@ func NewInternalRPC(cfg clienttcp.Config, opts ...InternalRPCOption) (clienttcp.
 	clientOpts := buildInternalRPCOptions(preset)
 	client, err := clienttcp.New(tuned, clientOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("build internal rpc client: %w", err)
+		return nil, oops.In("clientx/preset").
+			With(
+				"op", "new_internal_rpc",
+				"protocol", "tcp",
+				"network", tuned.Network,
+				"addr", tuned.Address,
+				"dial_timeout", tuned.DialTimeout,
+				"read_timeout", tuned.ReadTimeout,
+				"write_timeout", tuned.WriteTimeout,
+				"option_count", len(clientOpts),
+			).
+			Wrapf(err, "build internal rpc client")
 	}
 	return client, nil
 }

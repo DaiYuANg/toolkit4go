@@ -1,10 +1,8 @@
 package dix
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/samber/do/v2"
+	"github.com/samber/oops"
 )
 
 // Definition describes a backward-compatible container registration.
@@ -30,6 +28,11 @@ const (
 
 // Register registers a backward-compatible definition.
 func (c *Container) Register(def Definition) error {
+	if c == nil || c.injector == nil {
+		return oops.In("dix").
+			With("op", "register_legacy_definition", "name", def.Name, "kind", def.Kind, "module", def.ModuleName, "lazy", def.Lazy, "transient", def.Transient).
+			New("container is nil")
+	}
 	switch def.Kind {
 	case DefinitionValue:
 		if def.Name != "" {
@@ -39,13 +42,19 @@ func (c *Container) Register(def Definition) error {
 		}
 		return nil
 	case DefinitionProvider:
-		return errors.New("provider definition registration is not implemented; use typed ProviderN helpers instead")
+		return oops.In("dix").
+			With("op", "register_legacy_definition", "name", def.Name, "kind", def.Kind, "module", def.ModuleName, "lazy", def.Lazy, "transient", def.Transient).
+			Errorf("provider definition registration is not implemented; use typed ProviderN helpers instead")
 	default:
-		return fmt.Errorf("unknown definition kind: %v", def.Kind)
+		return oops.In("dix").
+			With("op", "register_legacy_definition", "name", def.Name, "kind", def.Kind, "module", def.ModuleName, "lazy", def.Lazy, "transient", def.Transient).
+			Errorf("unknown definition kind: %v", def.Kind)
 	}
 }
 
 // Resolve keeps backward compatibility for legacy resolve(target) calls.
 func (c *Container) Resolve(any) error {
-	return errors.New("resolve(target) is not supported; use ResolveAs[T]() for type-safe resolution")
+	return oops.In("dix").
+		With("op", "resolve_legacy").
+		Errorf("resolve(target) is not supported; use ResolveAs[T]() for type-safe resolution")
 }

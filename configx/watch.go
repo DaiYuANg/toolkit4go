@@ -3,12 +3,12 @@ package configx
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/knadh/koanf/providers/file"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // ChangeHandler is the signature for callbacks registered with [Watcher.OnChange].
@@ -89,7 +89,9 @@ func newWatcherFromOptions(ctx context.Context, opts *Options) (*Watcher, error)
 	cfg, err := loadConfigFromOptions(ctx, opts)
 	if err != nil {
 		logError(opts, "configx watcher initial load failed", "error", err)
-		return nil, fmt.Errorf("configx: watcher initial load: %w", err)
+		return nil, oops.In("configx").
+			With("op", "watcher_initial_load").
+			Wrapf(err, "configx: watcher initial load")
 	}
 
 	w := &Watcher{
@@ -166,7 +168,9 @@ func (w *Watcher) Close() error {
 
 	errs := lo.FilterMap(w.providers, func(fp *file.File, _ int) (error, bool) {
 		err := fp.Unwatch()
-		return fmt.Errorf("configx: unwatch provider: %w", err), err != nil
+		return oops.In("configx").
+			With("op", "watcher_close").
+			Wrapf(err, "configx: unwatch provider"), err != nil
 	})
 	if len(errs) > 0 {
 		logError(w.opts, "configx watcher close completed with errors", "errors", len(errs))
@@ -190,10 +194,14 @@ func newWatcherTFromOptions[T any](ctx context.Context, opts *Options) (*Watcher
 
 	var initial T
 	if err := base.Config().Unmarshal("", &initial); err != nil {
-		return nil, fmt.Errorf("initial typed watcher unmarshal: %w", errors.Join(ErrUnmarshal, err))
+		return nil, oops.In("configx").
+			With("op", "typed_watcher_initial_unmarshal").
+			Wrapf(errors.Join(ErrUnmarshal, err), "initial typed watcher unmarshal")
 	}
 	if err := base.Config().validateStruct(initial); err != nil {
-		return nil, fmt.Errorf("initial typed watcher value: %w", errors.Join(ErrValidate, err))
+		return nil, oops.In("configx").
+			With("op", "typed_watcher_initial_validate").
+			Wrapf(errors.Join(ErrValidate, err), "initial typed watcher value")
 	}
 
 	w := &WatcherT[T]{base: base}
@@ -230,13 +238,17 @@ func (w *WatcherT[T]) OnChange(fn ChangeHandlerT[T]) {
 		}
 		var out T
 		if err := cfg.Unmarshal("", &out); err != nil {
-			wrapped := fmt.Errorf("watcher typed callback decode: %w", errors.Join(ErrUnmarshal, err))
+			wrapped := oops.In("configx").
+				With("op", "typed_watcher_callback_unmarshal").
+				Wrapf(errors.Join(ErrUnmarshal, err), "watcher typed callback decode")
 			w.base.handleErr(wrapped)
 			fn(zero, wrapped)
 			return
 		}
 		if err := cfg.validateStruct(out); err != nil {
-			wrapped := fmt.Errorf("watcher typed callback value: %w", errors.Join(ErrValidate, err))
+			wrapped := oops.In("configx").
+				With("op", "typed_watcher_callback_validate").
+				Wrapf(errors.Join(ErrValidate, err), "watcher typed callback value")
 			w.base.handleErr(wrapped)
 			fn(zero, wrapped)
 			return

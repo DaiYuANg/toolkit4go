@@ -3,23 +3,25 @@ package eventx
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/panjf2000/ants/v2"
+	"github.com/samber/oops"
 )
 
 // Publish dispatches one event synchronously to all matching subscribers.
 func (b *Bus) Publish(ctx context.Context, event Event) error {
-	if err := validatePublishRequest(b, event); err != nil {
+	if err := validatePublishRequest("publish", b, event); err != nil {
 		return err
 	}
 	ctx = normalizeContext(ctx)
 
 	if !b.beginDispatch() {
-		return ErrBusClosed
+		return oops.In("eventx").
+			With("op", "publish", "mode", "sync", "event_name", eventName(event), "event_type", reflect.TypeOf(event)).
+			Wrapf(ErrBusClosed, "eventx: publish sync")
 	}
 	defer b.dispatchWG.Done()
 
@@ -34,7 +36,7 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 
 // PublishAsync enqueues one event for asynchronous dispatch.
 func (b *Bus) PublishAsync(ctx context.Context, event Event) error {
-	if err := validatePublishRequest(b, event); err != nil {
+	if err := validatePublishRequest("publish_async", b, event); err != nil {
 		return err
 	}
 	ctx = normalizeContext(ctx)
@@ -98,12 +100,16 @@ func (b *Bus) executeTask(task publishTask) {
 	)
 }
 
-func validatePublishRequest(b *Bus, event Event) error {
+func validatePublishRequest(op string, b *Bus, event Event) error {
 	if b == nil {
-		return ErrNilBus
+		return oops.In("eventx").
+			With("op", op, "event_type", reflect.TypeOf(event)).
+			Wrapf(ErrNilBus, "eventx: validate publish bus")
 	}
 	if event == nil {
-		return ErrNilEvent
+		return oops.In("eventx").
+			With("op", op).
+			Wrapf(ErrNilEvent, "eventx: validate publish event")
 	}
 	return nil
 }
@@ -112,7 +118,9 @@ func (b *Bus) asyncRuntimeUnavailable() error {
 	if b == nil || b.initErr == nil {
 		return nil
 	}
-	return errors.Join(ErrAsyncRuntimeUnavailable, b.initErr)
+	return oops.In("eventx").
+		With("op", "publish_async").
+		Wrapf(errors.Join(ErrAsyncRuntimeUnavailable, b.initErr), "eventx: async runtime unavailable")
 }
 
 func (b *Bus) finishAsyncEnqueueError(
@@ -135,7 +143,9 @@ func (b *Bus) finishAsyncEnqueueError(
 
 func (b *Bus) submitAsyncTask(ctx context.Context, event Event, handlers []HandlerFunc) error {
 	if !b.beginDispatch() {
-		return ErrBusClosed
+		return oops.In("eventx").
+			With("op", "submit_async_task", "event_name", eventName(event), "event_type", reflect.TypeOf(event), "handler_count", len(handlers)).
+			Wrapf(ErrBusClosed, "eventx: submit async task")
 	}
 
 	task := publishTask{
@@ -149,9 +159,13 @@ func (b *Bus) submitAsyncTask(ctx context.Context, event Event, handlers []Handl
 	}); err != nil {
 		b.dispatchWG.Done()
 		if errors.Is(err, ants.ErrPoolClosed) {
-			return ErrBusClosed
+			return oops.In("eventx").
+				With("op", "submit_async_task", "event_name", eventName(event), "event_type", reflect.TypeOf(event), "handler_count", len(handlers)).
+				Wrapf(ErrBusClosed, "eventx: submit async task")
 		}
-		return fmt.Errorf("eventx: submit async task: %w", err)
+		return oops.In("eventx").
+			With("op", "submit_async_task", "event_name", eventName(event), "handler_count", len(handlers)).
+			Wrapf(err, "eventx: submit async task")
 	}
 	return nil
 }

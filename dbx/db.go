@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/samber/oops"
 )
 
 type DB struct {
@@ -144,10 +145,14 @@ func (db *DB) QueryContext(ctx context.Context, query string, args ...any) (*sql
 
 func (db *DB) queryContext(ctx context.Context, statement, query string, args ...any) (*sql.Rows, error) {
 	if db == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "query", "statement", statement).
+			Wrapf(ErrNilDB, "validate db")
 	}
 	if db.raw == nil {
-		return nil, ErrNilSQLDB
+		return nil, oops.In("dbx").
+			With("op", "query", "statement", statement).
+			Wrapf(ErrNilSQLDB, "validate sql db")
 	}
 
 	return observedQueryContext(ctx, db.observe, statement, query, args, db.raw.QueryContext)
@@ -159,10 +164,14 @@ func (db *DB) ExecContext(ctx context.Context, query string, args ...any) (sql.R
 
 func (db *DB) execContext(ctx context.Context, statement, query string, args ...any) (sql.Result, error) {
 	if db == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "exec", "statement", statement).
+			Wrapf(ErrNilDB, "validate db")
 	}
 	if db.raw == nil {
-		return nil, ErrNilSQLDB
+		return nil, oops.In("dbx").
+			With("op", "exec", "statement", statement).
+			Wrapf(ErrNilSQLDB, "validate sql db")
 	}
 
 	return observedExecContext(ctx, db.observe, statement, query, args, db.raw.ExecContext)
@@ -170,10 +179,14 @@ func (db *DB) execContext(ctx context.Context, statement, query string, args ...
 
 func (db *DB) QueryRowContext(ctx context.Context, query string, args ...any) *Row {
 	if db == nil {
-		return errorRow(ErrNilDB)
+		return errorRow(oops.In("dbx").
+			With("op", "query_row").
+			Wrapf(ErrNilDB, "validate db"))
 	}
 	if db.raw == nil {
-		return errorRow(ErrNilSQLDB)
+		return errorRow(oops.In("dbx").
+			With("op", "query_row").
+			Wrapf(ErrNilSQLDB, "validate sql db"))
 	}
 	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationQueryRow, SQL: query, Args: collectionx.NewList(args...)})
 	if err != nil {
@@ -182,9 +195,11 @@ func (db *DB) QueryRowContext(ctx context.Context, query string, args ...any) *R
 	}
 	rows, queryErr := db.raw.QueryContext(ctx, query, args...)
 	if queryErr != nil {
-		event.Err = queryErr
+		event.Err = oops.In("dbx").
+			With("op", "query_row").
+			Wrapf(queryErr, "query row")
 		db.observe.after(ctx, event)
-		return errorRow(queryErr)
+		return errorRow(event.Err)
 	}
 	return observedRow(ctx, db.observe, event, rows)
 }
@@ -203,10 +218,14 @@ func (db *DB) ExecBoundContext(ctx context.Context, bound BoundQuery) (sql.Resul
 
 func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	if db == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "begin_tx").
+			Wrapf(ErrNilDB, "validate db")
 	}
 	if db.raw == nil {
-		return nil, ErrNilSQLDB
+		return nil, oops.In("dbx").
+			With("op", "begin_tx").
+			Wrapf(ErrNilSQLDB, "validate sql db")
 	}
 	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationBeginTx})
 	if err != nil {
@@ -215,7 +234,9 @@ func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	}
 	tx, err := db.raw.BeginTx(ctx, opts)
 	if err != nil {
-		event.Err = wrapDBError("begin transaction", err)
+		event.Err = oops.In("dbx").
+			With("op", "begin_tx").
+			Wrapf(err, "begin transaction")
 		db.observe.after(ctx, event)
 		return nil, event.Err
 	}

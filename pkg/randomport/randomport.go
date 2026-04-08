@@ -3,11 +3,11 @@ package randomport
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/samber/oops"
 )
 
 var (
@@ -37,10 +37,14 @@ func Find() (int, error) {
 	}
 
 	if lastErr != nil {
-		return 0, fmt.Errorf("randomport: failed to find available port after %d attempts: %w", maxFindAttempts, lastErr)
+		return 0, oops.In("pkg/randomport").
+			With("op", "find_port", "attempts", maxFindAttempts).
+			Wrapf(lastErr, "find available port")
 	}
 
-	return 0, errors.New("randomport: failed to find available port after 50 attempts")
+	return 0, oops.In("pkg/randomport").
+		With("op", "find_port", "attempts", maxFindAttempts).
+		New("failed to find available port")
 }
 
 // findAvailablePort finds a single available port by listening on port 0.
@@ -48,18 +52,24 @@ func findAvailablePort(ctx context.Context) (port int, err error) {
 	var listenConfig net.ListenConfig
 	listener, err := listenConfig.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
-		return 0, fmt.Errorf("listen for random port: %w", err)
+		return 0, oops.In("pkg/randomport").
+			With("op", "listen_port", "network", "tcp", "addr", "127.0.0.1:0").
+			Wrapf(err, "listen for random port")
 	}
 	defer func() {
 		closeErr := listener.Close()
 		if err == nil && closeErr != nil {
-			err = fmt.Errorf("close random port listener: %w", closeErr)
+			err = oops.In("pkg/randomport").
+				With("op", "close_listener", "network", "tcp", "addr", listener.Addr().String()).
+				Wrapf(closeErr, "close random port listener")
 		}
 	}()
 
 	addr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
-		return 0, fmt.Errorf("randomport: unexpected listener address type %T", listener.Addr())
+		return 0, oops.In("pkg/randomport").
+			With("op", "resolve_port", "addr_type", fmt.Sprintf("%T", listener.Addr())).
+			Errorf("unexpected listener address type %T", listener.Addr())
 	}
 
 	return addr.Port, nil
@@ -75,7 +85,9 @@ func Release(port int) {
 func MustFind() int {
 	port, err := Find()
 	if err != nil {
-		panic(err)
+		panic(oops.In("pkg/randomport").
+			With("op", "must_find_port").
+			Wrapf(err, "find available port"))
 	}
 
 	return port

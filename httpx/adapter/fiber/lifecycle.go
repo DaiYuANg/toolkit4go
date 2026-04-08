@@ -3,9 +3,10 @@ package fiber
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/samber/oops"
 )
 
 // Listen starts the fiber server.
@@ -19,7 +20,9 @@ func (a *Adapter) Listen(addr string) error {
 // Shutdown stops the fiber server.
 func (a *Adapter) Shutdown() error {
 	if err := a.app.Shutdown(); err != nil && !isExpectedFiberClose(err) {
-		return fmt.Errorf("httpx/fiber: shutdown: %w", err)
+		return oops.In("httpx/adapter/fiber").
+			With("op", "shutdown").
+			Wrapf(err, "httpx/fiber: shutdown")
 	}
 	return nil
 }
@@ -45,7 +48,9 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 		shutdownErr := a.Shutdown()
 		listenErr := <-errCh
 		if shutdownErr != nil {
-			return fmt.Errorf("httpx/fiber: shutdown on %q: %w", addr, shutdownErr)
+			return oops.In("httpx/adapter/fiber").
+				With("op", "shutdown", "addr", addr).
+				Wrapf(shutdownErr, "httpx/fiber: shutdown on %q", addr)
 		}
 		if isExpectedFiberClose(listenErr) {
 			return nil
@@ -55,7 +60,9 @@ func (a *Adapter) ListenContext(ctx context.Context, addr string) error {
 }
 
 func wrapFiberListenError(addr string, err error) error {
-	return fmt.Errorf("httpx/fiber: listen on %q: %w", addr, err)
+	return oops.In("httpx/adapter/fiber").
+		With("op", "listen", "addr", addr).
+		Wrapf(err, "httpx/fiber: listen on %q", addr)
 }
 
 func isExpectedFiberClose(err error) bool {

@@ -2,13 +2,13 @@ package fx
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	pkgfx "github.com/DaiYuANg/arcgo/pkg/fx"
 	"go.uber.org/fx"
 
 	"github.com/DaiYuANg/arcgo/configx"
+	"github.com/samber/oops"
 )
 
 // ── plain Config module ───────────────────────────────────────────────────────
@@ -39,7 +39,9 @@ type ConfigResult struct {
 func NewConfig(params ConfigParams) (ConfigResult, error) {
 	cfg, err := configx.NewConfig(params.Options...)
 	if err != nil {
-		return ConfigResult{}, fmt.Errorf("new config: %w", err)
+		return ConfigResult{}, oops.In("configx/fx").
+			With("op", "new_config", "option_count", len(params.Options)).
+			Wrapf(err, "new config")
 	}
 	return ConfigResult{Config: cfg}, nil
 }
@@ -116,7 +118,9 @@ type WatcherResult struct {
 func NewFxWatcher(lc fx.Lifecycle, params WatcherParams) (WatcherResult, error) {
 	w, err := configx.NewWatcher(params.Options...)
 	if err != nil {
-		return WatcherResult{}, fmt.Errorf("new watcher: %w", err)
+		return WatcherResult{}, oops.In("configx/fx").
+			With("op", "new_watcher", "option_count", len(params.Options)).
+			Wrapf(err, "new watcher")
 	}
 
 	// A dedicated context lets OnStop cancel the watch loop independently of

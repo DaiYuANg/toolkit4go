@@ -33,7 +33,7 @@ func (i *Indexer[T]) IndexEntity(ctx context.Context, entity *T, metadata *mappi
 	entityID := extractIDFromKey(entityKey)
 	return runAll(i.entityFieldIndexKeys(entity, metadata), func(entry lo.Entry[string, string]) error {
 		if err := i.addToIndex(ctx, entry.Value, entityID); err != nil {
-			return fmt.Errorf("failed to index field %s: %w", entry.Key, err)
+			return wrapRepositoryError(err, "index entity field", "op", "index_entity_field", "field_name", entry.Key, "index_key", entry.Value, "entity_id", entityID)
 		}
 		return nil
 	})
@@ -49,7 +49,7 @@ func (i *Indexer[T]) RemoveEntityFromIndexes(ctx context.Context, entity *T, met
 
 	return runAll(i.entityFieldIndexKeys(entity, metadata), func(entry lo.Entry[string, string]) error {
 		if err := i.removeFromIndex(ctx, entry.Value, entityID); err != nil {
-			return fmt.Errorf("failed to remove index for field %s: %w", entry.Key, err)
+			return wrapRepositoryError(err, "remove entity field index", "op", "remove_entity_field_index", "field_name", entry.Key, "index_key", entry.Value, "entity_id", entityID)
 		}
 		return nil
 	})
@@ -104,13 +104,13 @@ func (i *Indexer[T]) ReplaceFieldIndexEntries(metadata *mapping.EntityMetadata, 
 // ApplyIndexDiff removes stale index entries and writes the new ones.
 func (i *Indexer[T]) ApplyIndexDiff(ctx context.Context, removeEntries, addEntries []string) error {
 	if err := runAll(removeEntries, func(entry string) error {
-		return wrapRepositoryError(i.kv.Delete(ctx, entry), "remove stale index entry")
+		return wrapRepositoryError(i.kv.Delete(ctx, entry), "remove stale index entry", "op", "remove_stale_index_entry", "entry", entry)
 	}); err != nil {
 		return err
 	}
 
 	return runAll(addEntries, func(entry string) error {
-		return wrapRepositoryError(i.kv.Set(ctx, entry, []byte("1"), 0), "write index entry")
+		return wrapRepositoryError(i.kv.Set(ctx, entry, []byte("1"), 0), "write index entry", "op", "write_index_entry", "entry", entry)
 	})
 }
 
@@ -135,17 +135,19 @@ func (i *Indexer[T]) indexEntryKey(fieldName, fieldValue, entityID string) strin
 }
 
 func (i *Indexer[T]) addToIndex(ctx context.Context, indexKey, entityID string) error {
-	return wrapRepositoryError(i.kv.Set(ctx, indexKey+":"+entityID, []byte("1"), 0), "write index entry")
+	entry := indexKey + ":" + entityID
+	return wrapRepositoryError(i.kv.Set(ctx, entry, []byte("1"), 0), "write index entry", "op", "write_index_entry", "index_key", indexKey, "entity_id", entityID, "entry", entry)
 }
 
 func (i *Indexer[T]) removeFromIndex(ctx context.Context, indexKey, entityID string) error {
-	return wrapRepositoryError(i.kv.Delete(ctx, indexKey+":"+entityID), "delete index entry")
+	entry := indexKey + ":" + entityID
+	return wrapRepositoryError(i.kv.Delete(ctx, entry), "delete index entry", "op", "delete_index_entry", "index_key", indexKey, "entity_id", entityID, "entry", entry)
 }
 
 func (i *Indexer[T]) getIndexMembers(ctx context.Context, indexKey string) ([]string, error) {
 	keys, err := i.kv.Keys(ctx, indexKey+":*")
 	if err != nil {
-		return nil, wrapRepositoryError(err, "list index members")
+		return nil, wrapRepositoryError(err, "list index members", "op", "list_index_members", "index_key", indexKey)
 	}
 	prefixLen := len(indexKey) + 1
 	return collectionx.FilterMapList(keys, func(_ int, key string) (string, bool) {

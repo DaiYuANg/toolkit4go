@@ -22,7 +22,7 @@ func (r *JSONRepository[T]) FindByIDs(ctx context.Context, ids []string) (map[st
 // Exists reports whether an entity exists for the provided logical ID.
 func (r *JSONRepository[T]) Exists(ctx context.Context, id string) (bool, error) {
 	exists, err := r.kv.Exists(ctx, r.base.keyFromID(id))
-	return wrapRepositoryResult(exists, err, "check JSON entity existence")
+	return wrapRepositoryResult(exists, err, "check JSON entity existence", "op", "exists_json_entity", "id", id, "key", r.base.keyFromID(id))
 }
 
 // ExistsBatch reports entity existence for each provided logical ID.
@@ -30,7 +30,7 @@ func (r *JSONRepository[T]) ExistsBatch(ctx context.Context, ids []string) (map[
 	keys := r.base.keysFromIDs(ids)
 	existsMap, err := r.kv.ExistsMulti(ctx, keys)
 	if err != nil {
-		return nil, wrapRepositoryError(err, "check JSON entity existence in batch")
+		return nil, wrapRepositoryError(err, "check JSON entity existence in batch", "op", "exists_json_entity_batch", "id_count", len(ids))
 	}
 
 	return mapExistsResults(ids, keys, existsMap), nil
@@ -99,7 +99,7 @@ func (r *JSONRepository[T]) findByKey(ctx context.Context, key string) (*T, erro
 			return nil, ErrNotFound
 		}
 
-		wrapped := wrapRepositoryError(err, "read JSON entity")
+		wrapped := wrapRepositoryError(err, "read JSON entity", "op", "read_json_entity", "key", key)
 		r.logError("kvx json find_by_key failed", "stage", "json_get", "key", key, "error", wrapped)
 		return nil, wrapped
 	}
@@ -110,7 +110,7 @@ func (r *JSONRepository[T]) findByKey(ctx context.Context, key string) (*T, erro
 
 	var entity T
 	if unmarshalErr := r.serializer.Unmarshal(data, &entity); unmarshalErr != nil {
-		wrapped := wrapRepositoryError(unmarshalErr, "unmarshal JSON entity")
+		wrapped := wrapRepositoryError(unmarshalErr, "unmarshal JSON entity", "op", "unmarshal_json_entity", "key", key, "payload_size", len(data))
 		r.logError("kvx json find_by_key failed", "stage", "unmarshal", "key", key, "error", wrapped)
 		return nil, wrapped
 	}

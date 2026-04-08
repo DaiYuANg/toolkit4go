@@ -2,10 +2,11 @@ package eventx
 
 import (
 	"context"
-	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // HandlerFunc is the runtime event handler signature after type adaptation.
@@ -29,7 +30,15 @@ func RecoverMiddleware() Middleware {
 		return func(ctx context.Context, event Event) (err error) {
 			defer func() {
 				if recovered := recover(); recovered != nil {
-					err = fmt.Errorf("eventx: recovered panic: %v", recovered)
+					if recoveredErr, ok := recovered.(error); ok {
+						err = oops.In("eventx").
+							With("op", "middleware_recover", "middleware", "recover", "event_type", reflect.TypeOf(event), "panic_type", reflect.TypeOf(recovered)).
+							Wrapf(recoveredErr, "eventx: recovered panic")
+						return
+					}
+					err = oops.In("eventx").
+						With("op", "middleware_recover", "middleware", "recover", "event_type", reflect.TypeOf(event), "panic_type", reflect.TypeOf(recovered), "panic", recovered).
+						Errorf("eventx: recovered panic: %v", recovered)
 				}
 			}()
 			return next(ctx, event)

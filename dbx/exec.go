@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/samber/oops"
 )
 
 type Executor interface {
@@ -35,14 +36,20 @@ type QueryBuilder interface {
 // ExecBound, QueryAllBound, QueryCursorBound, or QueryEachBound in a loop.
 func Build(session Session, query QueryBuilder) (BoundQuery, error) {
 	if session == nil {
-		return BoundQuery{}, ErrNilDB
+		return BoundQuery{}, oops.In("dbx").
+			With("op", "build_query").
+			Wrapf(ErrNilDB, "validate session")
 	}
 	if session.Dialect() == nil {
-		return BoundQuery{}, ErrNilDialect
+		return BoundQuery{}, oops.In("dbx").
+			With("op", "build_query").
+			Wrapf(ErrNilDialect, "validate dialect")
 	}
 	if query == nil {
 		logRuntimeNode(session, "build.error", "error", ErrNilQuery)
-		return BoundQuery{}, ErrNilQuery
+		return BoundQuery{}, oops.In("dbx").
+			With("op", "build_query").
+			Wrapf(ErrNilQuery, "validate query")
 	}
 	logRuntimeNode(session, "build.start")
 	bound, err := query.Build(session.Dialect())
@@ -67,7 +74,9 @@ func Exec(ctx context.Context, session Session, query QueryBuilder) (sql.Result,
 // executing the same query multiple times (e.g. in a loop).
 func ExecBound(ctx context.Context, session Session, bound BoundQuery) (sql.Result, error) {
 	if session == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "exec_bound", "statement", bound.Name).
+			Wrapf(ErrNilDB, "validate session")
 	}
 	logRuntimeNode(session, "exec_bound.start", "statement", bound.Name, "args_count", bound.Args.Len())
 	result, err := session.ExecBoundContext(ctx, bound)
@@ -76,7 +85,9 @@ func ExecBound(ctx context.Context, session Session, bound BoundQuery) (sql.Resu
 
 func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
-		return nil, ErrNilMapper
+		return nil, oops.In("dbx").
+			With("op", "query_all").
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 	bound, err := Build(session, query)
 	if err != nil {
@@ -88,7 +99,9 @@ func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, m
 // QueryAllList builds a query and maps all rows into a collectionx.List.
 func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
-		return nil, ErrNilMapper
+		return nil, oops.In("dbx").
+			With("op", "query_all_list").
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 	bound, err := Build(session, query)
 	if err != nil {
@@ -103,10 +116,14 @@ func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilde
 // pre-allocated slice to reduce append growth.
 func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
-		return nil, ErrNilMapper
+		return nil, oops.In("dbx").
+			With("op", "query_all_bound", "statement", bound.Name).
+			Wrapf(ErrNilMapper, "validate mapper")
 	}
 	if session == nil {
-		return nil, ErrNilDB
+		return nil, oops.In("dbx").
+			With("op", "query_all_bound", "statement", bound.Name).
+			Wrapf(ErrNilDB, "validate session")
 	}
 	rows, err := session.QueryBoundContext(ctx, bound)
 	if err != nil {
@@ -139,7 +156,7 @@ func QueryAllBoundList[E any](ctx context.Context, session Session, bound BoundQ
 	if err != nil {
 		return nil, err
 	}
-	return collectionx.NewList(items...), nil
+	return collectionx.NewList(items.Values()...), nil
 }
 
 func capacityHintScannerFor[E any](mapper RowsScanner[E], capacityHint int) (CapacityHintScanner[E], bool) {

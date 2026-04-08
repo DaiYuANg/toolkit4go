@@ -2,14 +2,13 @@ package otel
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 
 	collectionmapping "github.com/DaiYuANg/arcgo/collectionx/mapping"
 	"github.com/DaiYuANg/arcgo/observabilityx"
 	"github.com/DaiYuANg/arcgo/pkg/option"
+	"github.com/samber/oops"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -122,9 +121,21 @@ func (a *adapter) RecordHistogram(
 }
 
 func (a *adapter) counter(name string) (metric.Int64Counter, error) {
+	if a == nil {
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_counter").
+			New("adapter is nil")
+	}
 	clean := strings.TrimSpace(name)
 	if clean == "" {
-		return nil, errors.New("metric counter name is empty")
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_counter").
+			New("metric counter name is empty")
+	}
+	if a.meter == nil {
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_counter", "metric", clean).
+			New("meter is nil")
 	}
 
 	if existing, ok := a.counters.Get(clean); ok {
@@ -133,7 +144,9 @@ func (a *adapter) counter(name string) (metric.Int64Counter, error) {
 
 	created, err := a.meter.Int64Counter(clean)
 	if err != nil {
-		return nil, wrapOTelError(err, "create OTel counter")
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_counter", "metric", clean).
+			Wrapf(err, "create OTel counter")
 	}
 
 	actual, _ := a.counters.GetOrStore(clean, created)
@@ -141,9 +154,21 @@ func (a *adapter) counter(name string) (metric.Int64Counter, error) {
 }
 
 func (a *adapter) histogram(name string) (metric.Float64Histogram, error) {
+	if a == nil {
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_histogram").
+			New("adapter is nil")
+	}
 	clean := strings.TrimSpace(name)
 	if clean == "" {
-		return nil, errors.New("metric histogram name is empty")
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_histogram").
+			New("metric histogram name is empty")
+	}
+	if a.meter == nil {
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_histogram", "metric", clean).
+			New("meter is nil")
 	}
 
 	if existing, ok := a.histograms.Get(clean); ok {
@@ -152,7 +177,9 @@ func (a *adapter) histogram(name string) (metric.Float64Histogram, error) {
 
 	created, err := a.meter.Float64Histogram(clean)
 	if err != nil {
-		return nil, wrapOTelError(err, "create OTel histogram")
+		return nil, oops.In("observabilityx/otel").
+			With("op", "create_histogram", "metric", clean).
+			Wrapf(err, "create OTel histogram")
 	}
 
 	actual, _ := a.histograms.GetOrStore(clean, created)
@@ -203,12 +230,4 @@ func normalizeSpanName(name string) string {
 func startTraceSpan(ctx context.Context, tracer trace.Tracer, name string, attrs []observabilityx.Attribute) (context.Context, observabilityx.Span) {
 	nextCtx, span := tracer.Start(ctx, name, trace.WithAttributes(toOTelAttributes(attrs)...))
 	return nextCtx, otelSpan{span: span}
-}
-
-func wrapOTelError(err error, action string) error {
-	if err != nil {
-		return fmt.Errorf("%s: %w", action, err)
-	}
-
-	return nil
 }

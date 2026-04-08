@@ -3,11 +3,11 @@ package dix
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
+	"github.com/samber/oops"
 )
 
 // StartHook is executed when the application starts.
@@ -80,7 +80,9 @@ func (l *lifecycleImpl) executeStartHooks(ctx context.Context, _ *Container) (in
 			if l.logger != nil {
 				l.logger.Error("start hook failed", "index", i, "error", err)
 			}
-			startErr = fmt.Errorf("start hook %d failed: %w", i, err)
+			startErr = oops.In("dix").
+				With("op", "start_hook", "index", i).
+				Wrapf(err, "start hook %d failed", i)
 			return false
 		}
 		l.logDebug(debugEnabled, "start hook completed", "index", i)
@@ -114,7 +116,9 @@ func (l *lifecycleImpl) executeStopHooksSubset(ctx context.Context, count int) e
 			if l.logger != nil {
 				l.logger.Error("stop hook failed", "index", count-1-i, "error", err)
 			}
-			errs.Add(fmt.Errorf("stop hook %d failed: %w", count-1-i, err))
+			errs.Add(oops.In("dix").
+				With("op", "stop_hook", "index", count-1-i).
+				Wrapf(err, "stop hook %d failed", count-1-i))
 			continue
 		}
 		l.logDebug(debugEnabled, "stop hook completed", "index", count-1-i)
@@ -158,7 +162,9 @@ func OnStart[T any](fn func(context.Context, T) error) HookFunc {
 		lc.OnStart(func(ctx context.Context) error {
 			t, err := resolveDependency1[T](c.Raw())
 			if err != nil {
-				return fmt.Errorf("resolving dependency: %w", err)
+				return oops.In("dix").
+					With("op", "resolve_hook_dependency", "hook", "OnStart").
+					Wrapf(err, "resolving dependency")
 			}
 			return fn(ctx, t)
 		})
@@ -175,7 +181,9 @@ func OnStop[T any](fn func(context.Context, T) error) HookFunc {
 		lc.OnStop(func(ctx context.Context) error {
 			t, err := resolveDependency1[T](c.Raw())
 			if err != nil {
-				return fmt.Errorf("resolving dependency: %w", err)
+				return oops.In("dix").
+					With("op", "resolve_hook_dependency", "hook", "OnStop").
+					Wrapf(err, "resolving dependency")
 			}
 			return fn(ctx, t)
 		})

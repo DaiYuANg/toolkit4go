@@ -7,6 +7,7 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	collectionset "github.com/DaiYuANg/arcgo/collectionx/set"
+	"github.com/samber/oops"
 )
 
 type moduleVisitAction uint8
@@ -149,7 +150,9 @@ func (s *moduleWalkState) beginVisit(spec *moduleSpec) (string, bool, error) {
 	key := moduleKey(spec)
 	if spec.name != "" {
 		if known, ok := s.knownNames.Get(spec.name); ok && known != spec {
-			return "", false, fmt.Errorf("duplicate module name detected: %s", spec.name)
+			return "", false, oops.In("dix").
+				With("op", "begin_module_visit", "module", spec.name).
+				Errorf("duplicate module name detected: %s", spec.name)
 		}
 		s.knownNames.Set(spec.name, spec)
 	}
@@ -157,7 +160,9 @@ func (s *moduleWalkState) beginVisit(spec *moduleSpec) (string, bool, error) {
 		return key, true, nil
 	}
 	if s.visiting.Contains(spec) {
-		return "", false, fmt.Errorf("module import cycle detected: %s -> %s", formatModulePath(*s.path), key)
+		return "", false, oops.In("dix").
+			With("op", "begin_module_visit", "module", key, "path", formatModulePath(*s.path)).
+			Errorf("module import cycle detected: %s -> %s", formatModulePath(*s.path), key)
 	}
 
 	s.path.Add(key)
@@ -176,7 +181,9 @@ func (s *moduleWalkState) currentContext() moduleVisitContext {
 func (s *moduleWalkState) enterModule(key string, ctx moduleVisitContext, spec *moduleSpec) (moduleVisitAction, error) {
 	action, err := s.visitor.Enter(ctx, spec)
 	if err != nil {
-		return 0, fmt.Errorf("enter module %s: %w", key, err)
+		return 0, oops.In("dix").
+			With("op", "enter_module", "module", key, "depth", ctx.Depth).
+			Wrapf(err, "enter module %s", key)
 	}
 	return action, nil
 }
@@ -214,7 +221,9 @@ func (s *moduleWalkState) finishVisit(key string, ctx moduleVisitContext, spec *
 	leaveErr := s.visitor.Leave(ctx, spec)
 	_, _ = s.path.RemoveAt(s.path.Len() - 1)
 	if leaveErr != nil {
-		return fmt.Errorf("leave module %s: %w", key, leaveErr)
+		return oops.In("dix").
+			With("op", "leave_module", "module", key, "depth", ctx.Depth).
+			Wrapf(leaveErr, "leave module %s", key)
 	}
 	return nil
 }

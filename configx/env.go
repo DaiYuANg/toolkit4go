@@ -1,7 +1,6 @@
 package configx
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -9,6 +8,7 @@ import (
 	envProvider "github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 // loadDotenv loads each dotenv file in order. If ignoreErr is true, missing
@@ -21,7 +21,9 @@ func loadDotenv(files []string, ignoreErr bool) error {
 		}
 		return loadDotenvFile(path, ignoreErr)
 	}, error(nil)); err != nil {
-		return fmt.Errorf("configx: load dotenv files: %w", err)
+		return oops.In("configx").
+			With("op", "load_dotenv", "file_count", len(files), "ignore_error", ignoreErr).
+			Wrapf(err, "load dotenv files")
 	}
 	return nil
 }
@@ -32,16 +34,22 @@ func loadDotenvFile(path string, ignoreErr bool) error {
 			return nil
 		}
 		if os.IsNotExist(err) {
-			return fmt.Errorf("configx: dotenv file %q not found: %w", path, err)
+			return oops.In("configx").
+				With("op", "load_dotenv_file", "path", path, "ignore_error", ignoreErr).
+				Wrapf(err, "dotenv file not found")
 		}
-		return fmt.Errorf("configx: stat dotenv file %q: %w", path, err)
+		return oops.In("configx").
+			With("op", "load_dotenv_file", "path", path, "ignore_error", ignoreErr).
+			Wrapf(err, "stat dotenv file")
 	}
 
 	if err := godotenv.Load(path); err != nil {
 		if ignoreErr {
 			return nil
 		}
-		return fmt.Errorf("configx: load dotenv file %q: %w", path, err)
+		return oops.In("configx").
+			With("op", "load_dotenv_file", "path", path, "ignore_error", ignoreErr).
+			Wrapf(err, "load dotenv file")
 	}
 
 	return nil
@@ -86,7 +94,9 @@ func loadEnv(k *koanf.Koanf, prefix, separator string) error {
 	})
 
 	if err := k.Load(p, nil); err != nil {
-		return fmt.Errorf("configx: load env prefix %q: %w", normalizedPrefix, err)
+		return oops.In("configx").
+			With("op", "load_env", "prefix", normalizedPrefix, "separator", separator).
+			Wrapf(err, "load environment variables")
 	}
 	return nil
 }

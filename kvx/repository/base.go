@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/collectionx/set"
@@ -23,13 +22,13 @@ type repositoryBase[T any] struct {
 
 func (b repositoryBase[T]) metadata(entity *T) (*mapping.EntityMetadata, error) {
 	metadata, err := b.tagParser.ParseType(entity)
-	return wrapRepositoryResult(metadata, err, "parse entity metadata")
+	return wrapRepositoryResult(metadata, err, "parse entity metadata", "op", "parse_entity_metadata")
 }
 
 func (b repositoryBase[T]) metadataForType() (*mapping.EntityMetadata, error) {
 	var zero T
 	metadata, err := b.tagParser.ParseType(&zero)
-	return wrapRepositoryResult(metadata, err, "parse repository metadata")
+	return wrapRepositoryResult(metadata, err, "parse repository metadata", "op", "parse_repository_metadata")
 }
 
 func (b repositoryBase[T]) keyFromID(id string) string {
@@ -49,13 +48,13 @@ func (b repositoryBase[T]) idsByField(ctx context.Context, fieldName, fieldValue
 	}
 	_, fieldTag, ok := metadata.ResolveField(fieldName)
 	if !ok {
-		return nil, ErrFieldNotFound
+		return nil, wrapRepositoryError(ErrFieldNotFound, "resolve field metadata", "op", "resolve_field_metadata", "field_name", fieldName, "field_value", fieldValue)
 	}
 	return b.indexer.GetEntityIDsByField(ctx, fieldTag.IndexNameOrDefault(), fieldValue)
 }
 
 func (b repositoryBase[T]) hydrateEntityID(entity *T, metadata *mapping.EntityMetadata, key string) error {
-	return wrapRepositoryError(metadata.SetEntityID(entity, extractIDFromKey(key)), "hydrate entity ID")
+	return wrapRepositoryError(metadata.SetEntityID(entity, extractIDFromKey(key)), "hydrate entity ID", "op", "hydrate_entity_id", "key", key, "entity_id", extractIDFromKey(key))
 }
 
 func (b repositoryBase[T]) scanAllKeys(ctx context.Context, kv kvx.KV) (collectionx.List[string], error) {
@@ -65,7 +64,7 @@ func (b repositoryBase[T]) scanAllKeys(ctx context.Context, kv kvx.KV) (collecti
 	for {
 		keys, next, err := kv.Scan(ctx, b.keyFromID("*"), cursor, scanBatchSize)
 		if err != nil {
-			return nil, wrapRepositoryError(err, "scan repository keys")
+			return nil, wrapRepositoryError(err, "scan repository keys", "op", "scan_repository_keys", "pattern", b.keyFromID("*"), "cursor", cursor, "batch_size", scanBatchSize)
 		}
 
 		seen.Add(keys.Values()...)
@@ -103,7 +102,7 @@ func collectPresentMap[K comparable, T any](items []K, load func(K) (*T, error))
 		return results, nil
 	}, make(map[K]*T, len(items)))
 	if err != nil {
-		return nil, fmt.Errorf("collect present map: %w", err)
+		return nil, wrapRepositoryError(err, "collect present map", "op", "collect_present_map", "item_count", len(items))
 	}
 	return results, nil
 }
@@ -120,7 +119,7 @@ func collectPresentList[K any, T any](items []K, load func(K) (*T, error)) (coll
 		return results, nil
 	}, collectionx.NewListWithCapacity[*T](len(items)))
 	if err != nil {
-		return nil, fmt.Errorf("collect present list: %w", err)
+		return nil, wrapRepositoryError(err, "collect present list", "op", "collect_present_list", "item_count", len(items))
 	}
 	return results, nil
 }
@@ -151,7 +150,7 @@ func loadFieldIDGroups(fields map[string]string, load func(fieldName, fieldValue
 		return lo.Concat(result, [][]string{ids}), nil
 	}, make([][]string, 0, len(fields)))
 	if err != nil {
-		return nil, fmt.Errorf("load field id groups: %w", err)
+		return nil, wrapRepositoryError(err, "load field id groups", "op", "load_field_id_groups", "field_count", len(fields))
 	}
 	return groups, nil
 }
@@ -161,7 +160,7 @@ func runAll[T any](items []T, fn func(T) error) error {
 		return struct{}{}, fn(item)
 	}, struct{}{})
 	if err != nil {
-		return fmt.Errorf("run all items: %w", err)
+		return wrapRepositoryError(err, "run all items", "op", "run_all_items", "item_count", len(items))
 	}
 	return nil
 }

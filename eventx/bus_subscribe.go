@@ -2,23 +2,29 @@ package eventx
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
+
+	"github.com/samber/oops"
 )
 
 // Subscribe registers a strongly typed handler and returns an unsubscribe function.
 func Subscribe[T Event](b BusRuntime, handler func(context.Context, T) error, opts ...SubscribeOption) (func(), error) {
+	eventType := reflect.TypeFor[T]()
 	if b == nil {
-		return nil, ErrNilBus
+		return nil, oops.In("eventx").
+			With("op", "subscribe", "expected_event_type", eventType.String()).
+			Wrapf(ErrNilBus, "eventx: validate subscribe bus")
 	}
 	if handler == nil {
-		return nil, ErrNilHandler
+		return nil, oops.In("eventx").
+			With("op", "subscribe", "expected_event_type", eventType.String()).
+			Wrapf(ErrNilHandler, "eventx: validate subscribe handler")
 	}
 
 	cfg := buildSubscribeOptions(opts...)
-	eventType, base := typedEventHandler(handler)
+	_, base := typedEventHandler(handler)
 
 	return b.subscribe(eventType, base, cfg.middleware, 0)
 }
@@ -32,18 +38,25 @@ func SubscribeOnce[T Event](b BusRuntime, handler func(context.Context, T) error
 // SubscribeN registers a strongly typed handler that will auto-unsubscribe
 // after handling n events.
 func SubscribeN[T Event](b BusRuntime, n int, handler func(context.Context, T) error, opts ...SubscribeOption) (func(), error) {
+	eventType := reflect.TypeFor[T]()
 	if n <= 0 {
-		return nil, ErrInvalidSubscribeCount
+		return nil, oops.In("eventx").
+			With("op", "subscribe", "expected_event_type", eventType.String(), "max_calls", n).
+			Wrapf(ErrInvalidSubscribeCount, "eventx: validate subscribe count")
 	}
 	if b == nil {
-		return nil, ErrNilBus
+		return nil, oops.In("eventx").
+			With("op", "subscribe", "expected_event_type", eventType.String(), "max_calls", n).
+			Wrapf(ErrNilBus, "eventx: validate subscribe bus")
 	}
 	if handler == nil {
-		return nil, ErrNilHandler
+		return nil, oops.In("eventx").
+			With("op", "subscribe", "expected_event_type", eventType.String(), "max_calls", n).
+			Wrapf(ErrNilHandler, "eventx: validate subscribe handler")
 	}
 
 	cfg := buildSubscribeOptions(opts...)
-	eventType, base := typedEventHandler(handler)
+	_, base := typedEventHandler(handler)
 
 	return b.subscribe(eventType, base, cfg.middleware, n)
 }
@@ -53,7 +66,9 @@ func typedEventHandler[T Event](handler func(context.Context, T) error) (reflect
 	return eventType, func(ctx context.Context, event Event) error {
 		typed, ok := any(event).(T)
 		if !ok {
-			return fmt.Errorf("eventx: event type mismatch, expect %v, got %T", eventType, event)
+			return oops.In("eventx").
+				With("op", "dispatch", "expected_event_type", eventType.String(), "actual_event_type", reflect.TypeOf(event)).
+				Errorf("eventx: event type mismatch, expect %v, got %T", eventType, event)
 		}
 		return handler(ctx, typed)
 	}
@@ -61,7 +76,9 @@ func typedEventHandler[T Event](handler func(context.Context, T) error) (reflect
 
 func (b *Bus) subscribe(eventType reflect.Type, base HandlerFunc, subscriberMiddleware []Middleware, maxCalls int) (func(), error) {
 	if b == nil {
-		return nil, ErrNilBus
+		return nil, oops.In("eventx").
+			With("op", "subscribe", "expected_event_type", eventType.String(), "max_calls", maxCalls).
+			Wrapf(ErrNilBus, "eventx: validate subscribe bus")
 	}
 
 	finalHandler := b.subscriptionHandler(base, subscriberMiddleware)

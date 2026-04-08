@@ -2,11 +2,11 @@ package stream
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/kvx"
+	"github.com/samber/oops"
 )
 
 // ConsumerGroup provides high-level consumer group operations.
@@ -135,7 +135,9 @@ func (cg *ConsumerGroup) AutoClaim(ctx context.Context, minIdleTime time.Duratio
 		count,
 	)
 	if err != nil {
-		return "", nil, fmt.Errorf("%s: %w", cg.consumerAction("auto claim pending entries"), err)
+		return "", nil, oops.In("kvx/module/stream").
+			With("op", "auto_claim_pending_entries", "stream", cg.streamKey, "group", cg.groupName, "consumer", cg.consumerName, "min_idle_time", minIdleTime, "count", count).
+			Wrapf(err, "auto claim pending entries")
 	}
 
 	return nextID, entries, nil
@@ -153,7 +155,9 @@ func (cg *ConsumerGroup) Info(ctx context.Context) (*kvx.GroupInfo, error) {
 		return group.Name == cg.groupName
 	}).Get()
 	if !ok {
-		return nil, fmt.Errorf("consumer group %s not found", cg.groupName)
+		return nil, oops.In("kvx/module/stream").
+			With("op", "read_consumer_group_info", "stream", cg.streamKey, "group", cg.groupName).
+			Errorf("consumer group %s not found", cg.groupName)
 	}
 	return &group, nil
 }
@@ -170,7 +174,9 @@ func (cg *ConsumerGroup) ConsumerInfo(ctx context.Context) (*kvx.ConsumerInfo, e
 		return consumer.Name == cg.consumerName
 	}).Get()
 	if !ok {
-		return nil, fmt.Errorf("consumer %s not found in group %s", cg.consumerName, cg.groupName)
+		return nil, oops.In("kvx/module/stream").
+			With("op", "read_consumer_info", "stream", cg.streamKey, "group", cg.groupName, "consumer", cg.consumerName).
+			Errorf("consumer %s not found in group %s", cg.consumerName, cg.groupName)
 	}
 	return &consumer, nil
 }
