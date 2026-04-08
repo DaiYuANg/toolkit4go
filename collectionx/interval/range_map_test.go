@@ -70,3 +70,29 @@ func TestRangeMap_PutKeepsEntriesSorted(t *testing.T) {
 		m.Entries(),
 	)
 }
+
+func TestRangeMap_CachesReturnDefensiveCopies(t *testing.T) {
+	t.Parallel()
+
+	m := interval.NewRangeMap[int, string]()
+	require.True(t, m.Put(1, 3, "A"))
+
+	entries := m.Entries()
+	require.Equal(t, []interval.RangeEntry[int, string]{
+		{Range: interval.Range[int]{Start: 1, End: 3}, Value: "A"},
+	}, entries)
+	entries[0] = interval.RangeEntry[int, string]{Range: interval.Range[int]{Start: 9, End: 10}, Value: "B"}
+	require.Equal(t, []interval.RangeEntry[int, string]{
+		{Range: interval.Range[int]{Start: 1, End: 3}, Value: "A"},
+	}, m.Entries())
+
+	data, err := m.ToJSON()
+	require.NoError(t, err)
+	require.Equal(t, `[{"Range":{"Start":1,"End":3},"Value":"A"}]`, string(data))
+	require.Equal(t, `[{"Range":{"Start":1,"End":3},"Value":"A"}]`, m.String())
+
+	data[0] = '{'
+	fresh, err := m.ToJSON()
+	require.NoError(t, err)
+	require.Equal(t, `[{"Range":{"Start":1,"End":3},"Value":"A"}]`, string(fresh))
+}

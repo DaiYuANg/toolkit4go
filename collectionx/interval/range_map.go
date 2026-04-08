@@ -19,6 +19,12 @@ type RangeEntry[T cmp.Ordered, V any] struct {
 // Internal entries are kept sorted and non-overlapping.
 type RangeMap[T cmp.Ordered, V any] struct {
 	entries []RangeEntry[T, V]
+
+	entriesCache []RangeEntry[T, V]
+	entriesDirty bool
+	jsonCache    []byte
+	stringCache  string
+	jsonDirty    bool
 }
 
 // NewRangeMap creates an empty range map.
@@ -38,6 +44,7 @@ func (m *RangeMap[T, V]) Put(start, end T, value V) bool {
 		return false
 	}
 	m.entries = putRangeEntry(m.entries, input)
+	m.invalidateDerivedCaches()
 	return true
 }
 
@@ -77,6 +84,7 @@ func (m *RangeMap[T, V]) DeleteRange(start, end T) bool {
 	next, changed := deleteRangeEntries(m.entries, input)
 	if changed {
 		m.entries = next
+		m.invalidateDerivedCaches()
 	}
 	return changed
 }
@@ -86,7 +94,12 @@ func (m *RangeMap[T, V]) Entries() []RangeEntry[T, V] {
 	if m == nil || len(m.entries) == 0 {
 		return nil
 	}
-	return slices.Clone(m.entries)
+	if !m.entriesDirty && len(m.entriesCache) > 0 {
+		return slices.Clone(m.entriesCache)
+	}
+	m.entriesCache = slices.Clone(m.entries)
+	m.entriesDirty = false
+	return slices.Clone(m.entriesCache)
 }
 
 // Len returns non-overlapping entry count.
@@ -108,6 +121,11 @@ func (m *RangeMap[T, V]) Clear() {
 		return
 	}
 	m.entries = nil
+	m.entriesCache = nil
+	m.entriesDirty = false
+	m.jsonCache = nil
+	m.stringCache = ""
+	m.jsonDirty = false
 }
 
 // Range iterates entries in start order until fn returns false.
@@ -246,4 +264,15 @@ func spliceRangeEntries[T cmp.Ordered, V any](entries []RangeEntry[T, V], start,
 	next = append(next, replacement...)
 	next = append(next, entries[end:]...)
 	return next
+}
+
+func (m *RangeMap[T, V]) invalidateDerivedCaches() {
+	if m == nil {
+		return
+	}
+	m.entriesCache = nil
+	m.entriesDirty = true
+	m.jsonCache = nil
+	m.stringCache = ""
+	m.jsonDirty = true
 }

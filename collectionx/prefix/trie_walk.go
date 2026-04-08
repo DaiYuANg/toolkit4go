@@ -1,12 +1,12 @@
 package prefix
 
-func (t *Trie[V]) collectPairs(node *trieNode[V], path *[]rune, out *[]keyValue[V]) {
+func (t *Trie[V]) collectPairs(node *trieNode[V], path []rune, out *[]keyValue[V]) {
 	if node == nil {
 		return
 	}
 	if node.hasValue {
 		*out = append(*out, keyValue[V]{
-			key:   string(*path),
+			key:   string(path),
 			value: node.value,
 		})
 	}
@@ -15,29 +15,25 @@ func (t *Trie[V]) collectPairs(node *trieNode[V], path *[]rune, out *[]keyValue[
 	}
 
 	for _, ch := range node.childKeys {
-		*path = append(*path, ch)
 		child, _ := node.children.Get(ch)
-		t.collectPairs(child, path, out)
-		*path = (*path)[:len(*path)-1]
+		t.collectPairs(child, append(path, ch), out)
 	}
 }
 
-func (t *Trie[V]) collectKeys(node *trieNode[V], path *[]rune, out *[]string) {
+func (t *Trie[V]) collectKeys(node *trieNode[V], path []rune, out *[]string) {
 	if node == nil {
 		return
 	}
 	if node.hasValue {
-		*out = append(*out, string(*path))
+		*out = append(*out, string(path))
 	}
 	if node.children.Len() == 0 {
 		return
 	}
 
 	for _, ch := range node.childKeys {
-		*path = append(*path, ch)
 		child, _ := node.children.Get(ch)
-		t.collectKeys(child, path, out)
-		*path = (*path)[:len(*path)-1]
+		t.collectKeys(child, append(path, ch), out)
 	}
 }
 
@@ -58,11 +54,11 @@ func (t *Trie[V]) collectValues(node *trieNode[V], out *[]V) {
 	}
 }
 
-func (t *Trie[V]) rangePrefix(node *trieNode[V], path *[]rune, fn func(key string, value V) bool) bool {
+func (t *Trie[V]) rangePrefix(node *trieNode[V], path []rune, fn func(key string, value V) bool) bool {
 	if node == nil {
 		return true
 	}
-	if node.hasValue && !fn(string(*path), node.value) {
+	if node.hasValue && !fn(string(path), node.value) {
 		return false
 	}
 	if node.children.Len() == 0 {
@@ -70,13 +66,10 @@ func (t *Trie[V]) rangePrefix(node *trieNode[V], path *[]rune, fn func(key strin
 	}
 
 	for _, ch := range node.childKeys {
-		*path = append(*path, ch)
 		child, _ := node.children.Get(ch)
-		if !t.rangePrefix(child, path, fn) {
-			*path = (*path)[:len(*path)-1]
+		if !t.rangePrefix(child, append(path, ch), fn) {
 			return false
 		}
-		*path = (*path)[:len(*path)-1]
 	}
 	return true
 }
@@ -91,6 +84,6 @@ func (t *Trie[V]) pairsWithPrefix(prefix string) []keyValue[V] {
 	}
 
 	out := make([]keyValue[V], 0, startNode.valueCount)
-	t.collectPairs(startNode, new([]rune(prefix)), &out)
+	t.collectPairs(startNode, []rune(prefix), &out)
 	return out
 }

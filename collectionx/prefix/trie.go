@@ -155,7 +155,7 @@ func (t *Trie[V]) KeysWithPrefix(prefix string) []string {
 	}
 
 	out := make([]string, 0, startNode.valueCount)
-	t.collectKeys(startNode, new([]rune(prefix)), &out)
+	t.collectKeys(startNode, []rune(prefix), &out)
 	return out
 }
 
@@ -186,7 +186,7 @@ func (t *Trie[V]) RangePrefix(prefix string, fn func(key string, value V) bool) 
 		return
 	}
 
-	t.rangePrefix(startNode, new([]rune(prefix)), fn)
+	t.rangePrefix(startNode, []rune(prefix), fn)
 }
 
 func (t *Trie[V]) ensureRoot() {

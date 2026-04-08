@@ -56,3 +56,25 @@ func TestRangeSet_BoundariesAndOverlaps(t *testing.T) {
 	require.True(t, s.Overlaps(9, 11))
 	require.True(t, s.Overlaps(29, 40))
 }
+
+func TestRangeSet_CachesReturnDefensiveCopies(t *testing.T) {
+	t.Parallel()
+
+	s := interval.NewRangeSet[int]()
+	require.True(t, s.Add(1, 3))
+
+	ranges := s.Ranges()
+	require.Equal(t, []interval.Range[int]{{Start: 1, End: 3}}, ranges)
+	ranges[0] = interval.Range[int]{Start: 9, End: 10}
+	require.Equal(t, []interval.Range[int]{{Start: 1, End: 3}}, s.Ranges())
+
+	data, err := s.ToJSON()
+	require.NoError(t, err)
+	require.Equal(t, `[{"Start":1,"End":3}]`, string(data))
+	require.Equal(t, `[{"Start":1,"End":3}]`, s.String())
+
+	data[0] = '{'
+	fresh, err := s.ToJSON()
+	require.NoError(t, err)
+	require.Equal(t, `[{"Start":1,"End":3}]`, string(fresh))
+}

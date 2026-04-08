@@ -10,6 +10,12 @@ import (
 // Internal ranges are kept sorted and non-overlapping.
 type RangeSet[T cmp.Ordered] struct {
 	ranges []Range[T]
+
+	rangesCache []Range[T]
+	rangesDirty bool
+	jsonCache   []byte
+	stringCache string
+	jsonDirty   bool
 }
 
 // NewRangeSet creates an empty range set.
@@ -30,6 +36,7 @@ func (s *RangeSet[T]) AddRange(r Range[T]) bool {
 		return false
 	}
 	s.ranges = addRangeToSet(s.ranges, r)
+	s.invalidateDerivedCaches()
 	return true
 }
 
@@ -45,6 +52,7 @@ func (s *RangeSet[T]) Remove(start, end T) bool {
 	next, changed := removeRangeFromSet(s.ranges, cut)
 	if changed {
 		s.ranges = next
+		s.invalidateDerivedCaches()
 	}
 	return changed
 }
@@ -80,7 +88,12 @@ func (s *RangeSet[T]) Ranges() []Range[T] {
 	if s == nil || len(s.ranges) == 0 {
 		return nil
 	}
-	return slices.Clone(s.ranges)
+	if !s.rangesDirty && len(s.rangesCache) > 0 {
+		return slices.Clone(s.rangesCache)
+	}
+	s.rangesCache = slices.Clone(s.ranges)
+	s.rangesDirty = false
+	return slices.Clone(s.rangesCache)
 }
 
 // Len returns number of normalized ranges.
@@ -102,6 +115,11 @@ func (s *RangeSet[T]) Clear() {
 		return
 	}
 	s.ranges = nil
+	s.rangesCache = nil
+	s.rangesDirty = false
+	s.jsonCache = nil
+	s.stringCache = ""
+	s.jsonDirty = false
 }
 
 // Range iterates normalized ranges until fn returns false.
@@ -209,4 +227,15 @@ func spliceRanges[T cmp.Ordered](ranges []Range[T], start, end int, replacement 
 	next = append(next, replacement...)
 	next = append(next, ranges[end:]...)
 	return next
+}
+
+func (s *RangeSet[T]) invalidateDerivedCaches() {
+	if s == nil {
+		return
+	}
+	s.rangesCache = nil
+	s.rangesDirty = true
+	s.jsonCache = nil
+	s.stringCache = ""
+	s.jsonDirty = true
 }
