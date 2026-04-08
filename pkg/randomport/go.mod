@@ -1,6 +1,6 @@
 module github.com/DaiYuANg/arcgo/pkg/randomport
 
-go 1.26.1
+go 1.26.2
 
 require github.com/samber/oops v1.21.0
 

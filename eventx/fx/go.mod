@@ -1,6 +1,6 @@
 module github.com/DaiYuANg/arcgo/eventx/fx
 
-go 1.26
+go 1.26.2
 
 require go.uber.org/fx v1.24.0
 
@@ -11,5 +11,5 @@ require (
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 )

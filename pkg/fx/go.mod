@@ -1,6 +1,6 @@
 module github.com/DaiYuANg/arcgo/pkg/fx
 
-go 1.26
+go 1.26.2
 
 require (
 	github.com/samber/lo v1.53.0
@@ -18,6 +18,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 )

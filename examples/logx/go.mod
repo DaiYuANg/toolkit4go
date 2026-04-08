@@ -1,6 +1,6 @@
 module github.com/DaiYuANg/arcgo/examples/logx
 
-go 1.26
+go 1.26.2
 
 require go.opentelemetry.io/otel/trace v1.43.0
 

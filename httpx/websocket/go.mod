@@ -1,9 +1,9 @@
 module github.com/DaiYuANg/arcgo/httpx/websocket
 
-go 1.26.1
+go 1.26.2
 
 require (
-	github.com/lxzan/gws v1.9.0
+	github.com/lxzan/gws v1.9.1
 	github.com/samber/oops v1.21.0
 )
 

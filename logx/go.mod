@@ -1,6 +1,6 @@
 module github.com/DaiYuANg/arcgo/logx
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/rs/zerolog v1.35.0

@@ -27,7 +27,7 @@ func ScanList(input string) (collectionx.List[Token], error) {
 		if textBuf.Len() == 0 {
 			return
 		}
-		tokens = append(tokens, Token{Kind: Text, Value: textBuf.String()})
+		tokens.Add(Token{Kind: Text, Value: textBuf.String()})
 		textBuf.Reset()
 	}
 
@@ -53,7 +53,7 @@ func ScanList(input string) (collectionx.List[Token], error) {
 
 		if isTemplateDirective(raw) {
 			flushText()
-			tokens = append(tokens, Token{Kind: Directive, Value: raw})
+			tokens.Add(Token{Kind: Directive, Value: raw})
 			continue
 		}
 

@@ -1,6 +1,6 @@
 module github.com/DaiYuANg/arcgo/dbx/sqltmplx
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/expr-lang/expr v1.17.8
@@ -26,7 +26,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/samber/go-singleflightx v0.3.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
