@@ -30,6 +30,7 @@ weight: 3
 
 ## 文档导航
 
+- 版本说明：[configx v0.3.0](./release-v0.3.0)
 - 强类型最小示例（含校验）：[快速开始](./getting-started)
 - 文件、环境变量、命令行参数与合并顺序：[配置源与优先级](./sources-and-priority)
 - 自定义校验器与动态访问：[校验与动态访问](./validation-and-dynamic)

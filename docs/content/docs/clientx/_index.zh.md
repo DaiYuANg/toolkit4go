@@ -30,6 +30,7 @@ weight: 8
 
 ## 文档导航
 
+- 版本说明：[clientx v0.3.0](./release-v0.3.0)
 - 仅 HTTP 的快速路径：[快速开始](./getting-started)
 - TCP / UDP 拨号：[TCP 与 UDP](./tcp-and-udp)
 - 编解码与 hooks：[Codec 与 hooks](./codec-and-hooks)

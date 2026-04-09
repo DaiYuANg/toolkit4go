@@ -30,6 +30,7 @@ weight: 8
 
 ## Documentation map
 
+- Release notes: [clientx v0.3.0](./release-v0.3.0)
 - HTTP-only quick path: [Getting Started](./getting-started)
 - TCP and UDP dial: [TCP and UDP](./tcp-and-udp)
 - Codecs (TCP/UDP) and hooks: [Codec and hooks](./codec-and-hooks)

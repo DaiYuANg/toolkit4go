@@ -32,6 +32,7 @@ and a runtime model without forcing most users to deal with `do` directly.
 - Runtime metrics and observability: [Metrics and observability](./metrics-and-observability)
 - Health checks and HTTP handlers: [Health and lifecycle](./health-and-lifecycle)
 - Fallible provider construction: [Error-returning providers](./error-providers)
+- Release notes: [dix v0.4.0](./release-v0.4.0)
 - Release notes: [dix v0.3.0](./release-v0.3.0)
 - Runnable example index: [dix examples](./examples)
 

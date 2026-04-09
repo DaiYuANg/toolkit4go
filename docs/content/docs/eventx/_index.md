@@ -31,6 +31,7 @@ go get github.com/DaiYuANg/arcgo/eventx@latest
 
 ## Documentation map
 
+- Release notes: [eventx v0.3.0](./release-v0.3.0)
 - Minimal sync pub/sub: [Getting Started](./getting-started)
 - Async + middleware: [Async and middleware](./async-and-middleware)
 - Errors, Close semantics, ordering notes: [Errors and lifecycle](./errors-and-lifecycle)

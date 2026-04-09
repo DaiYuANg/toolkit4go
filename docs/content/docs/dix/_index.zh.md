@@ -30,6 +30,7 @@ weight: 6
 - 运行时指标与可观测性：[指标与可观测性](./metrics-and-observability)
 - 健康检查与 HTTP handler：[健康检查与生命周期](./health-and-lifecycle)
 - 可失败的 provider 构造：[返回错误的 Provider](./error-providers)
+- 版本说明：[dix v0.4.0](./release-v0.4.0)
 - 版本说明：[dix v0.3.0](./release-v0.3.0)
 - 可运行示例导航：[dix 示例](./examples)
 

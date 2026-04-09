@@ -31,6 +31,7 @@ go get github.com/DaiYuANg/arcgo/eventx@latest
 
 ## 文档导航
 
+- 版本说明：[eventx v0.3.0](./release-v0.3.0)
 - 最小同步 pub/sub：[快速开始](./getting-started)
 - 异步 + 中间件：[异步与中间件](./async-and-middleware)
 - 错误、Close 语义与顺序说明：[错误与生命周期](./errors-and-lifecycle)

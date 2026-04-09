@@ -30,6 +30,7 @@ Sources are merged by priority. Later sources override earlier ones. The default
 
 ## Documentation map
 
+- Release notes: [configx v0.3.0](./release-v0.3.0)
 - Minimal typed load with validation: [Getting Started](./getting-started)
 - Files, env vars, command-line inputs, merge order: [Sources and priority](./sources-and-priority)
 - Custom validator and dynamic config: [Validation and dynamic config](./validation-and-dynamic)
