@@ -110,13 +110,16 @@ func WithSecurity(opts SecurityOptions) ServerOption {
 // WithGlobalHeaders adds header parameters to future operations.
 func WithGlobalHeaders(headers ...*huma.Param) ServerOption {
 	return func(s *Server) {
-		lo.ForEach(lo.Filter(headers, func(header *huma.Param, _ int) bool {
-			return header != nil
-		}), func(header *huma.Param, _ int) {
+		lo.ForEach(lo.FilterMap(headers, func(header *huma.Param, _ int) (*huma.Param, bool) {
+			if header == nil {
+				return nil, false
+			}
 			cloned := cloneParam(header)
 			cloned.In = "header"
+			return cloned, true
+		}), func(header *huma.Param, _ int) {
 			s.operationModifiers.Add(func(op *huma.Operation) {
-				appendOperationParameter(op, cloned)
+				appendOperationParameter(op, header)
 			})
 		})
 	}

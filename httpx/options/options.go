@@ -266,7 +266,7 @@ func applyContextValues(ctx context.Context, values map[contextValueKey]any) con
 		return ctx
 	}
 
-	return lo.Reduce(lo.Keys(values), func(current context.Context, key contextValueKey, _ int) context.Context {
-		return context.WithValue(current, key, values[key])
+	return lo.Reduce(lo.Entries(values), func(current context.Context, entry lo.Entry[contextValueKey, any], _ int) context.Context {
+		return context.WithValue(current, entry.Key, entry.Value)
 	}, ctx)
 }

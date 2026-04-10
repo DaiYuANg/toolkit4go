@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/pkg/option"
 )
 
 type config struct {
@@ -15,11 +16,7 @@ type Option func(*config)
 
 func applyOptions(opts []Option) config {
 	cfg := config{}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&cfg)
-		}
-	}
+	option.Apply(&cfg, opts...)
 	return cfg
 }
 

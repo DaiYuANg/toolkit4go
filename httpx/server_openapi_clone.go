@@ -81,13 +81,14 @@ func cloneSecurityRequirements(requirements []map[string][]string) []map[string]
 }
 
 func cloneStringSliceMap(values map[string][]string) map[string][]string {
+	if len(values) == 0 {
+		return nil
+	}
 	return lo.MapValues(values, func(scopes []string, _ string) []string {
-		if scopes == nil {
+		if len(scopes) == 0 {
 			return []string{}
 		}
-		return lo.Map(scopes, func(scope string, _ int) string {
-			return scope
-		})
+		return append([]string(nil), scopes...)
 	})
 }
 

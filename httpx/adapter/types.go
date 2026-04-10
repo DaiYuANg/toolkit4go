@@ -70,19 +70,18 @@ func DefaultHumaOptions() HumaOptions {
 // MergeHumaOptions merges multiple HumaOptions into one.
 // Later options override earlier options for non-empty fields.
 func MergeHumaOptions(opts ...HumaOptions) HumaOptions {
-	result := DefaultHumaOptions()
-	lo.ForEach(opts, func(opt HumaOptions, _ int) {
-		result.Title = lo.Ternary(opt.Title != "", opt.Title, result.Title)
-		result.Version = lo.Ternary(opt.Version != "", opt.Version, result.Version)
-		result.Description = lo.Ternary(opt.Description != "", opt.Description, result.Description)
-		result.DocsPath = lo.Ternary(opt.DocsPath != "", opt.DocsPath, result.DocsPath)
-		result.OpenAPIPath = lo.Ternary(opt.OpenAPIPath != "", opt.OpenAPIPath, result.OpenAPIPath)
-		result.SchemasPath = lo.Ternary(opt.SchemasPath != "", opt.SchemasPath, result.SchemasPath)
-		result.DocsRenderer = lo.Ternary(opt.DocsRenderer != "", opt.DocsRenderer, result.DocsRenderer)
-		result.DisableDocsRoutes = lo.Ternary(opt.DisableDocsRoutes, true, result.DisableDocsRoutes)
-		result.Transformers = lo.Concat(result.Transformers, opt.Transformers)
-	})
-	return result
+	return lo.Reduce(opts, func(current HumaOptions, next HumaOptions, _ int) HumaOptions {
+		current.Title = lo.Ternary(next.Title != "", next.Title, current.Title)
+		current.Version = lo.Ternary(next.Version != "", next.Version, current.Version)
+		current.Description = lo.Ternary(next.Description != "", next.Description, current.Description)
+		current.DocsPath = lo.Ternary(next.DocsPath != "", next.DocsPath, current.DocsPath)
+		current.OpenAPIPath = lo.Ternary(next.OpenAPIPath != "", next.OpenAPIPath, current.OpenAPIPath)
+		current.SchemasPath = lo.Ternary(next.SchemasPath != "", next.SchemasPath, current.SchemasPath)
+		current.DocsRenderer = lo.Ternary(next.DocsRenderer != "", next.DocsRenderer, current.DocsRenderer)
+		current.DisableDocsRoutes = current.DisableDocsRoutes || next.DisableDocsRoutes
+		current.Transformers = lo.Concat(current.Transformers, next.Transformers)
+		return current
+	}, DefaultHumaOptions())
 }
 
 // ApplyHumaConfig copies adapter Huma options into a Huma config.

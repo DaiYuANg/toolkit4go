@@ -5,8 +5,10 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dix"
 	"github.com/DaiYuANg/arcgo/httpx"
+	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/samber/oops"
 )
 
@@ -25,29 +27,25 @@ func NewModule(name string, provider dix.ProviderFunc, opts ...ModuleOption) dix
 	cfg := moduleOptions{
 		includeShutdown: true,
 	}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&cfg)
-		}
-	}
+	option.Apply(&cfg, opts...)
 
-	moduleOpts := make([]dix.ModuleOption, 0, len(cfg.moduleOptions)+3)
+	moduleOpts := collectionx.NewListWithCapacity[dix.ModuleOption](len(cfg.moduleOptions) + 3)
 	if len(cfg.imports) > 0 {
-		moduleOpts = append(moduleOpts, dix.Imports(cfg.imports...))
+		moduleOpts.Add(dix.Imports(cfg.imports...))
 	}
-	moduleOpts = append(moduleOpts, dix.Providers(provider))
+	moduleOpts.Add(dix.Providers(provider))
 
-	hooks := make([]dix.HookFunc, 0, len(cfg.hooks)+1)
+	hooks := collectionx.NewListWithCapacity[dix.HookFunc](len(cfg.hooks) + 1)
 	if cfg.includeShutdown {
-		hooks = append(hooks, Shutdown())
+		hooks.Add(Shutdown())
 	}
-	hooks = append(hooks, cfg.hooks...)
-	if len(hooks) > 0 {
-		moduleOpts = append(moduleOpts, dix.Hooks(hooks...))
+	hooks.MergeSlice(cfg.hooks)
+	if hooks.Len() > 0 {
+		moduleOpts.Add(dix.Hooks(hooks.Values()...))
 	}
 
-	moduleOpts = append(moduleOpts, cfg.moduleOptions...)
-	return dix.NewModule(name, moduleOpts...)
+	moduleOpts.MergeSlice(cfg.moduleOptions)
+	return dix.NewModule(name, moduleOpts.Values()...)
 }
 
 // WithImports adds imported dix modules.
