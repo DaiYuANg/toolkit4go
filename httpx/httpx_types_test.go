@@ -146,6 +146,10 @@ func PolicyOperation[I, O any](operationOptions ...OperationOption) RoutePolicy[
 	return httpx.PolicyOperation[I, O](operationOptions...)
 }
 
+func PolicyTimeout[I, O any](timeout time.Duration) RoutePolicy[I, O] {
+	return httpx.PolicyTimeout[I, O](timeout)
+}
+
 func SSEPolicyOperation[I any](operationOptions ...OperationOption) SSERoutePolicy[I] {
 	return httpx.SSEPolicyOperation[I](operationOptions...)
 }

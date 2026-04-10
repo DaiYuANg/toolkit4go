@@ -104,3 +104,19 @@ func TestServer_RouteWithPolicies_ImageResponse(t *testing.T) {
 		assert.Contains(t, pathItem.Get.Tags, "media")
 	}
 }
+
+func TestServer_RouteWithPolicies_Timeout(t *testing.T) {
+	server := newServer()
+
+	err := RouteWithPolicies(server, MethodGet, "/policy/timeout", func(ctx context.Context, _ *struct{}) (*pingOutput, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}, PolicyTimeout[struct{}, pingOutput](10*time.Millisecond))
+	assert.NoError(t, err)
+
+	req := newTestRequest(http.MethodGet, "/policy/timeout", nil)
+	rec := serveRequest(t, server, req)
+
+	assert.Equal(t, http.StatusGatewayTimeout, rec.Code)
+	assert.Contains(t, rec.Body.String(), "request timeout")
+}
