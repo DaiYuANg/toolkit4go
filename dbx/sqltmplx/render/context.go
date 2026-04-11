@@ -32,6 +32,9 @@ func exprEnv(params any) map[string]any {
 }
 
 func envMap(params any) map[string]any {
+	if provider, ok := params.(paramEnv); ok {
+		return provider.SQLTemplateParamEnv()
+	}
 	v, ok := indirectValue(params)
 	if !ok {
 		return map[string]any{}

@@ -29,6 +29,12 @@ func lookup(params any, name string) mo.Option[any] {
 }
 
 func lookupOne(params any, name string) mo.Option[any] {
+	if provider, ok := params.(paramLookup); ok {
+		value, exists := provider.LookupSQLTemplateParam(name)
+		if exists {
+			return mo.Some(value)
+		}
+	}
 	v, ok := indirectValue(params)
 	if !ok {
 		return mo.None[any]()
