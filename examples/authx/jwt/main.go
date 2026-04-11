@@ -14,21 +14,13 @@ import (
 	"github.com/DaiYuANg/arcgo/authx"
 	authhttp "github.com/DaiYuANg/arcgo/authx/http"
 	authstd "github.com/DaiYuANg/arcgo/authx/http/std"
+	authjwt "github.com/DaiYuANg/arcgo/authx/jwt"
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/examples/authx/shared"
 	"github.com/DaiYuANg/arcgo/logx"
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
+	jwtlib "github.com/golang-jwt/jwt/v5"
 )
-
-type jwtCredential struct {
-	Token string
-}
-
-type jwtClaims struct {
-	Roles []string `json:"roles"`
-	jwt.RegisteredClaims
-}
 
 var demoJWTSecret = []byte("arcgo-demo-secret")
 
@@ -102,35 +94,7 @@ func newJWTGuard() *authhttp.Guard {
 
 func newJWTManager() *authx.ProviderManager {
 	return authx.NewProviderManager(
-		authx.NewAuthenticationProviderFunc(func(_ context.Context, credential jwtCredential) (authx.AuthenticationResult, error) {
-			claims := &jwtClaims{}
-			token, err := jwt.ParseWithClaims(
-				credential.Token,
-				claims,
-				func(token *jwt.Token) (any, error) {
-					if token.Method != jwt.SigningMethodHS256 {
-						return nil, errors.New("unsupported signing method")
-					}
-					return demoJWTSecret, nil
-				},
-			)
-			if err != nil || !token.Valid {
-				return authx.AuthenticationResult{}, authx.ErrUnauthenticated
-			}
-			if claims.Subject == "" {
-				return authx.AuthenticationResult{}, authx.ErrUnauthenticated
-			}
-
-			return authx.AuthenticationResult{
-				Principal: authx.Principal{
-					ID:    claims.Subject,
-					Roles: collectionx.NewListWithCapacity(len(claims.Roles), claims.Roles...),
-					Attributes: collectionx.NewMapFrom(map[string]any{
-						"issuer": claims.Issuer,
-					}),
-				},
-			}, nil
-		}),
+		authjwt.NewAuthenticationProvider(authjwt.WithHMACSecret(demoJWTSecret)),
 	)
 }
 
@@ -160,7 +124,7 @@ func resolveJWTCredential(_ context.Context, req authhttp.RequestInfo) (any, err
 	if !ok {
 		return nil, authx.ErrInvalidAuthenticationCredential
 	}
-	return jwtCredential{Token: token}, nil
+	return authjwt.NewTokenCredential(token), nil
 }
 
 func resolveJWTAuthorization(_ context.Context, req authhttp.RequestInfo, principal any) (authx.AuthorizationModel, error) {
@@ -185,16 +149,16 @@ func resolveJWTAuthorization(_ context.Context, req authhttp.RequestInfo, princi
 }
 
 func issueDemoJWT(subject string, roles []string, secret []byte, expiresAt time.Time) (string, error) {
-	claims := jwtClaims{
+	claims := authjwt.Claims{
 		Roles: roles,
-		RegisteredClaims: jwt.RegisteredClaims{
+		RegisteredClaims: jwtlib.RegisteredClaims{
 			Subject:   subject,
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwtlib.NewNumericDate(expiresAt),
+			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
 			Issuer:    "arcgo-authx-example",
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims)
 	signed, err := token.SignedString(secret)
 	if err != nil {
 		return "", fmt.Errorf("sign demo JWT: %w", err)

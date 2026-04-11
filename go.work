@@ -6,6 +6,7 @@ use (
 	.
 	./authx
 	./authx/fx
+	./authx/jwt
 	./authx/http/echo
 	./authx/http/fiber
 	./authx/http/gin
