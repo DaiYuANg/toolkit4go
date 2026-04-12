@@ -8,7 +8,6 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/mo"
 	"github.com/samber/oops"
-	scanlib "github.com/stephenafamo/scan"
 )
 
 type SQLExecutor struct {
@@ -61,11 +60,22 @@ func (x *SQLExecutor) Query(ctx context.Context, statement SQLStatementSource, p
 	if err != nil {
 		return nil, err
 	}
-
 	bound, err := x.Bind(statement, params)
 	if err != nil {
 		return nil, err
 	}
+	return querySessionBound(ctx, session, bound)
+}
+
+func (x *SQLExecutor) queryBound(ctx context.Context, bound BoundQuery) (*sql.Rows, error) {
+	session, err := x.sessionOrErr()
+	if err != nil {
+		return nil, err
+	}
+	return querySessionBound(ctx, session, bound)
+}
+
+func querySessionBound(ctx context.Context, session Session, bound BoundQuery) (*sql.Rows, error) {
 	logRuntimeNode(session, "sql.query.start", "statement", bound.Name, "args_count", bound.Args.Len())
 	rows, queryErr := session.QueryBoundContext(ctx, bound)
 	return rows, wrapDBError("query sql statement", queryErr)
@@ -91,12 +101,17 @@ func SQLList[E any](ctx context.Context, session Session, statement SQLStatement
 	if err != nil {
 		return nil, err
 	}
-	rows, err := queryStatementRows(ctx, exec, statement, params)
+	rows, bound, err := queryStatementBoundRows(ctx, exec, statement, params)
 	if err != nil {
 		logRuntimeNode(session, "sql.list.error", "stage", "query_rows", "error", err)
 		return nil, err
 	}
 
+	if withCap, ok := capacityHintScannerFor(mapper, bound.CapacityHint); ok {
+		return scanSQLListRowsWithCapacity(session, rows, bound, withCap)
+	}
+
+	logRuntimeNode(session, "sql.list.scan")
 	items, scanErr := mapper.ScanRows(rows)
 	scanErr = errors.Join(wrapDBError("scan statement rows", scanErr), rowsIterError(rows))
 	closeErr := closeRows(rows)
@@ -250,51 +265,4 @@ func SQLScalarOption[T any](ctx context.Context, session Session, statement SQLS
 	}
 	logRuntimeNode(session, "sql.scalar_option.done", "found", true)
 	return mo.Some(value), nil
-}
-
-func sqlScalar[T any](ctx context.Context, session Session, statement SQLStatementSource, params any) (T, bool, error) {
-	exec, err := sessionExecutor(session)
-	if err != nil {
-		var zero T
-		return zero, false, err
-	}
-	rows, err := queryStatementRows(ctx, exec, statement, params)
-	if err != nil {
-		var zero T
-		return zero, false, err
-	}
-
-	value, err := scanlib.OneFromRows[T](ctx, scanlib.SingleColumnMapper[T], rows)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			closeErr := closeRows(rows)
-			var zero T
-			return zero, false, closeErr
-		}
-		closeErr := closeRows(rows)
-		var zero T
-		return zero, false, errors.Join(wrapDBError("scan scalar row", err), closeErr)
-	}
-
-	if rows.Next() {
-		closeErr := closeRows(rows)
-		var zero T
-		return zero, false, errors.Join(
-			oops.In("dbx").
-				With("op", "sql_scalar", "statement", statementName(statement)).
-				Wrapf(ErrTooManyRows, "sql scalar returned too many rows"),
-			closeErr,
-		)
-	}
-	if err := rowsIterError(rows); err != nil {
-		closeErr := closeRows(rows)
-		var zero T
-		return zero, false, errors.Join(err, closeErr)
-	}
-	closeErr := closeRows(rows)
-	if closeErr != nil {
-		var zero T
-		return zero, false, closeErr
-	}
-	return value, true, nil
 }

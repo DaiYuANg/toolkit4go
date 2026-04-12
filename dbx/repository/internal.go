@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -46,6 +47,10 @@ func cloneForCount(query *dbx.SelectQuery) *dbx.SelectQuery {
 }
 
 func countQueryRequiresWrap(query *dbx.SelectQuery) bool {
+	return queryRequiresProjectionWrap(query)
+}
+
+func queryRequiresProjectionWrap(query *dbx.SelectQuery) bool {
 	return query != nil &&
 		(query.Distinct || query.Groups.Len() > 0 || query.HavingExp != nil || query.Unions.Len() > 0)
 }
@@ -63,6 +68,91 @@ func wrappedCountBound(session dbx.Session, query *dbx.SelectQuery) (dbx.BoundQu
 		Args:         bound.Args,
 		CapacityHint: 1,
 	}, nil
+}
+
+func (r *Base[E, S]) existsBound(query *dbx.SelectQuery) (dbx.BoundQuery, error) {
+	if queryRequiresProjectionWrap(query) {
+		return wrappedExistsBound(r.session, query)
+	}
+	source, err := r.existsSelect(query)
+	if err != nil {
+		return dbx.BoundQuery{}, err
+	}
+	bound, err := dbx.Build(r.session, source)
+	if err != nil {
+		return dbx.BoundQuery{}, fmt.Errorf("build exists query: %w", err)
+	}
+	return bound, nil
+}
+
+func (r *Base[E, S]) existsSelect(query *dbx.SelectQuery) (*dbx.SelectQuery, error) {
+	item, err := r.existsSelectItem()
+	if err != nil {
+		return nil, err
+	}
+	source := cloneOrDefault(r, query)
+	source.Items = collectionx.NewList[dbx.SelectItem](item)
+	source.Orders = nil
+	source.LimitN = nil
+	source.Limit(1)
+	return source, nil
+}
+
+func (r *Base[E, S]) existsSelectItem() (dbx.SelectItem, error) {
+	field, ok := r.mapper.Fields().GetFirst()
+	if !ok {
+		return nil, fmt.Errorf("dbx: repository %s mapper has no selectable fields", r.schema.TableName())
+	}
+	return dbx.NamedColumn[any](r.schema, field.Column), nil
+}
+
+func wrappedExistsBound(session dbx.Session, query *dbx.SelectQuery) (dbx.BoundQuery, error) {
+	source := cloneForExists(query)
+	bound, err := dbx.Build(session, source)
+	if err != nil {
+		return dbx.BoundQuery{}, fmt.Errorf("build wrapped exists query: %w", err)
+	}
+	quotedAlias := session.Dialect().QuoteIdent("dbx_exists_source")
+	return dbx.BoundQuery{
+		SQL:          "SELECT 1 FROM (" + bound.SQL + ") AS " + quotedAlias + " LIMIT 1",
+		Args:         bound.Args,
+		CapacityHint: 1,
+	}, nil
+}
+
+func cloneForExists(query *dbx.SelectQuery) *dbx.SelectQuery {
+	cloned := query.Clone()
+	if cloned == nil {
+		return nil
+	}
+	cloned.Orders = nil
+	cloned.LimitN = nil
+	cloned.Limit(1)
+	return cloned
+}
+
+func queryExistsBound(ctx context.Context, session dbx.Session, bound dbx.BoundQuery) (exists bool, err error) {
+	rows, err := session.QueryBoundContext(ctx, bound)
+	if err != nil {
+		return false, fmt.Errorf("query exists rows: %w", err)
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close exists rows: %w", closeErr))
+		}
+	}()
+
+	exists = rows.Next()
+	if exists {
+		var discard any
+		if scanErr := rows.Scan(&discard); scanErr != nil {
+			return false, fmt.Errorf("scan exists row: %w", scanErr)
+		}
+	}
+	if iterErr := rows.Err(); iterErr != nil {
+		return false, fmt.Errorf("iterate exists rows: %w", iterErr)
+	}
+	return exists, nil
 }
 
 func firstCount(rows collectionx.List[countRow]) int64 {

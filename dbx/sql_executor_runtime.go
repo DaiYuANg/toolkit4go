@@ -43,18 +43,29 @@ func scanStatementOne[E any](ctx context.Context, exec *SQLExecutor, statement S
 }
 
 func queryStatementRows(ctx context.Context, executor *SQLExecutor, statement SQLStatementSource, params any) (*sql.Rows, error) {
+	rows, _, err := queryStatementBoundRows(ctx, executor, statement, params)
+	return rows, err
+}
+
+func queryStatementBoundRows(ctx context.Context, executor *SQLExecutor, statement SQLStatementSource, params any) (*sql.Rows, BoundQuery, error) {
 	if executor == nil {
-		return nil, oops.In("dbx").
+		return nil, BoundQuery{}, oops.In("dbx").
 			With("op", "sql_query_rows", "statement", statementName(statement)).
 			Wrapf(ErrNilDB, "validate sql executor")
 	}
-	rows, err := executor.Query(ctx, statement, params)
+	bound, err := executor.Bind(statement, params)
 	if err != nil {
-		return nil, oops.In("dbx").
+		return nil, BoundQuery{}, oops.In("dbx").
+			With("op", "sql_query_rows", "statement", statementName(statement)).
+			Wrapf(err, "bind statement rows")
+	}
+	rows, err := executor.queryBound(ctx, bound)
+	if err != nil {
+		return nil, BoundQuery{}, oops.In("dbx").
 			With("op", "sql_query_rows", "statement", statementName(statement)).
 			Wrapf(err, "query statement rows")
 	}
-	return rows, nil
+	return rows, bound, nil
 }
 
 func statementName(statement SQLStatementSource) string {

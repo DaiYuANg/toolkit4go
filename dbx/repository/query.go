@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -105,14 +104,22 @@ func (r *Base[E, S]) CountSpec(ctx context.Context, specs ...Spec) (int64, error
 
 // Exists reports whether the query matches at least one row.
 func (r *Base[E, S]) Exists(ctx context.Context, query *dbx.SelectQuery) (bool, error) {
-	_, err := r.First(ctx, query)
-	if err == nil {
-		return true, nil
+	if r == nil || r.session == nil {
+		return false, dbx.ErrNilDB
 	}
-	if errors.Is(err, ErrNotFound) {
-		return false, nil
+	dbx.LogRuntimeNode(r.session, "repository.exists.start", "table", r.schema.TableName(), "has_query", query != nil)
+	bound, err := r.existsBound(query)
+	if err != nil {
+		dbx.LogRuntimeNode(r.session, "repository.exists.error", "table", r.schema.TableName(), "stage", "build_bound", "error", err)
+		return false, err
 	}
-	return false, err
+	exists, err := queryExistsBound(ctx, r.session, bound)
+	if err != nil {
+		dbx.LogRuntimeNode(r.session, "repository.exists.error", "table", r.schema.TableName(), "stage", "query_rows", "error", err)
+		return false, err
+	}
+	dbx.LogRuntimeNode(r.session, "repository.exists.done", "table", r.schema.TableName(), "exists", exists)
+	return exists, nil
 }
 
 // ExistsSpec reports whether the provided specs match at least one row.
