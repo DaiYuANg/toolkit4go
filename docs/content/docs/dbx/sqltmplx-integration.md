@@ -109,6 +109,19 @@ func main() {
 - You want parser-backed SQL validation in development.
 - You still want dbx execution hooks/logging/transactions.
 
+## Template Cache
+
+`Engine.Render` and `Engine.Compile` use a compiled-template LRU cache by default. The default cache size is 128 entries, keyed by template name and text. This makes repeated rendering of the same inline template close to precompiled `Template.Render` without changing call sites.
+
+```go
+engine := sqltmplx.New(core.Dialect())
+
+// Disable the compiled-template cache when templates are intentionally one-shot.
+engineNoCache := sqltmplx.New(core.Dialect(), sqltmplx.WithTemplateCacheSize(0))
+```
+
+For file-backed SQL, prefer `Registry` / `MustStatement` so statement names stay stable for hooks and logs.
+
 ## Pagination
 
 `sqltmplx` reuses `dbx.PageRequest` directly. In SQL templates, bind the normalized page under `Page`:

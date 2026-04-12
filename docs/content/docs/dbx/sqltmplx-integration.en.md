@@ -14,6 +14,17 @@ Use `dbx/sqltmplx` for SQL templates and `dbx` for execution, transactions, hook
 - SQL is maintained primarily in `.sql` files.
 - You need statement reuse plus dbx runtime behaviors.
 
+## Template Cache
+
+`Engine.Render` and `Engine.Compile` use a compiled-template LRU cache by default. The default cache size is 128 entries, keyed by template name and text. Use `WithTemplateCacheSize(0)` to disable caching for intentionally one-shot templates.
+
+```go
+engine := sqltmplx.New(core.Dialect())
+engineNoCache := sqltmplx.New(core.Dialect(), sqltmplx.WithTemplateCacheSize(0))
+```
+
+For file-backed SQL, prefer `Registry` / `MustStatement` so statement names stay stable for hooks and logs.
+
 ## Complete Example
 
 ```go

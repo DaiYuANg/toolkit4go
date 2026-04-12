@@ -14,6 +14,17 @@ weight: 12
 - SQL 主要以 `.sql` 文件维护。
 - 需要 statement 复用，同时保留 dbx 的执行与观测能力。
 
+## 模板缓存
+
+`Engine.Render` 与 `Engine.Compile` 默认会使用编译后模板的 LRU 缓存。默认缓存大小是 128，按模板名称与模板文本作为 key。对有意一次性渲染的模板，可通过 `WithTemplateCacheSize(0)` 关闭缓存。
+
+```go
+engine := sqltmplx.New(core.Dialect())
+engineNoCache := sqltmplx.New(core.Dialect(), sqltmplx.WithTemplateCacheSize(0))
+```
+
+对于文件 SQL，仍建议优先使用 `Registry` / `MustStatement`，这样 Hook 与日志中的 statement 名称更稳定。
+
 ## 安装 / 导入
 
 ```bash

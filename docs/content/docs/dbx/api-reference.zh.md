@@ -15,7 +15,7 @@ weight: 18
 - 分页（`PageRequest`、`PageResult`、`Page`、`ListPageRequest`、`ListPageSpecRequest`）
 - 迁移（`PlanSchemaChanges`、`ValidateSchemas`、`AutoMigrate`）
 - ID 选项（`WithNodeID`、`WithIDGenerator`、`NewSnowflakeGenerator`）
-- sqltmplx 集成（`NewRegistry`、`MustStatement`、`WithPage`、`RenderPage`、`BindPage`、`SQLList`）
+- sqltmplx 集成（`NewRegistry`、`MustStatement`、`WithTemplateCacheSize`、`WithPage`、`RenderPage`、`BindPage`、`SQLList`）
 
 ## 完整参考
 

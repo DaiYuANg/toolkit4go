@@ -21,6 +21,7 @@ weight: 17
 - schema 层声明单列与复合索引
 - CI 中审阅迁移计划（`PlanSchemaChanges` / `SQLPreview`）
 - `sqltmplx` 使用 registry statement 复用
+- 对重复 inline `Engine.Render` 配置编译模板缓存（`WithTemplateCacheSize`）
 - 打开运行时 hooks 与慢查询可观测能力
 
 ## 完整清单

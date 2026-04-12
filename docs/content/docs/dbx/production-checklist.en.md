@@ -21,6 +21,7 @@ Checklist before production rollout:
 - schema-level index declaration (single and composite)
 - migration plan review in CI (`PlanSchemaChanges` / `SQLPreview`)
 - template SQL reuse via `sqltmplx` registry statements
+- compiled-template cache tuning for repeated inline `Engine.Render` (`WithTemplateCacheSize`)
 - runtime hooks and slow-query observability
 
 ## Complete Checklist

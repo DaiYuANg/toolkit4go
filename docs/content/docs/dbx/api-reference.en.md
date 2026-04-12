@@ -15,7 +15,7 @@ weight: 18
 - Pagination (`PageRequest`, `PageResult`, `Page`, `ListPageRequest`, `ListPageSpecRequest`)
 - Migration (`PlanSchemaChanges`, `ValidateSchemas`, `AutoMigrate`)
 - ID options (`WithNodeID`, `WithIDGenerator`, `NewSnowflakeGenerator`)
-- sqltmplx integration (`NewRegistry`, `MustStatement`, `WithPage`, `RenderPage`, `BindPage`, `SQLList`)
+- sqltmplx integration (`NewRegistry`, `MustStatement`, `WithTemplateCacheSize`, `WithPage`, `RenderPage`, `BindPage`, `SQLList`)
 
 ## Full Reference
 

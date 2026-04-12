@@ -49,6 +49,7 @@ Use this checklist before production rollout.
 ## 6) Pure SQL (sqltmplx)
 
 - keep SQL in `.sql` files and use registry statements (`MustStatement`) for reuse
+- rely on the default compiled-template cache for repeated inline `Engine.Render`; tune with `WithTemplateCacheSize`
 - enable parser-backed validator in development pipelines
 - avoid dynamic SQL string concatenation in runtime code
 

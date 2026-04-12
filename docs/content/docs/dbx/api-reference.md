@@ -56,6 +56,8 @@ weight: 18
 ## sqltmplx Integration
 
 - `sqltmplx.New(dialect, options...)`
+- `sqltmplx.WithTemplateCacheSize(size)` - configure the compiled-template LRU cache for `Engine.Render` / `Compile`.
+- `sqltmplx.WithValidator(validator)` - validate rendered SQL during development or CI.
 - `sqltmplx.NewRegistry(fs, dialect)`
 - `registry.MustStatement(path)`
 - `sqltmplx.Page(page, pageSize)` / `sqltmplx.NewPageRequest(page, pageSize)`
