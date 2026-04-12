@@ -241,7 +241,7 @@ if err := dbx.LoadBelongsTo(
 
 ## 纯 SQL 入口
 
-`sqltmplx` 继续负责模板 compile / render / validate，`dbx` 负责执行、事务、hook 和日志。
+`sqltmplx` 继续负责模板 compile / render / validate，`dbx` 负责执行、事务、hook、日志，以及共享的 `PageRequest` 分页模型。
 
 ```go
 //go:embed sql/**/*.sql
@@ -250,16 +250,16 @@ var sqlFS embed.FS
 registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 
 items, err := dbx.SQLList(
-    ctx,
-    core,
-    registry.MustStatement("sql/user/find_active.sql"),
-    struct {
-        Status int `dbx:"status"`
-    }{Status: 1},
-    dbx.MustStructMapper[UserSummary](),
+	ctx,
+	core,
+	registry.MustStatement("sql/user/find_active.sql"),
+	sqltmplx.WithPage(struct {
+		Status int `dbx:"status"`
+	}{Status: 1}, dbx.Page(1, 20)),
+	dbx.MustStructMapper[UserSummary](),
 )
 if err != nil {
-    panic(err)
+	panic(err)
 }
 ```
 

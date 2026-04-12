@@ -38,13 +38,14 @@ FROM users
 /*%end */
 /*%end */
 ORDER BY id DESC
+LIMIT /* Page.Limit */20 OFFSET /* Page.Offset */0
 `
 
-	bound, err := engine.Render(tpl, Query{
+	bound, err := engine.RenderPage(tpl, Query{
 		Tenant: "acme",
 		Name:   "alice",
 		IDs:    []int{1, 2, 3},
-	})
+	}, sqltmplx.Page(1, 20))
 	if err != nil {
 		panic(err)
 	}

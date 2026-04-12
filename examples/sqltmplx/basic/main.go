@@ -28,12 +28,13 @@ FROM users
 /*%end */
 /*%end */
 ORDER BY id DESC
+LIMIT /* Page.Limit */20 OFFSET /* Page.Offset */0
 `
 
-	bound, err := engine.Render(tpl, map[string]any{
+	bound, err := engine.RenderPage(tpl, map[string]any{
 		"name": "alice",
 		"ids":  []int{1, 2, 3},
-	})
+	}, sqltmplx.Page(1, 20))
 	if err != nil {
 		panic(err)
 	}

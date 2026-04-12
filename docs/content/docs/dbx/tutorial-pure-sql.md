@@ -36,6 +36,7 @@ FROM users
 /*%end */
 /*%end */
 ORDER BY id DESC
+LIMIT /* Page.Limit */20 OFFSET /* Page.Offset */0
 ```
 
 ## Complete Runnable `main.go`
@@ -86,9 +87,9 @@ func main() {
 		ctx,
 		core,
 		stmt,
-		struct {
+		sqltmplx.WithPage(struct {
 			Status int `dbx:"status"`
-		}{Status: 1},
+		}{Status: 1}, dbx.Page(1, 20)),
 		dbx.MustStructMapper[UserSummary](),
 	)
 	if err != nil {

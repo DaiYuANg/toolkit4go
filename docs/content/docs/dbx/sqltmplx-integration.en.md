@@ -7,7 +7,7 @@ weight: 12
 
 ## sqltmplx Integration
 
-Use `dbx/sqltmplx` for SQL templates and `dbx` for execution, transactions, hooks, and logging.
+Use `dbx/sqltmplx` for SQL templates and `dbx` for execution, transactions, hooks, logging, and the shared `PageRequest` pagination model.
 
 ## When to Use
 
@@ -55,15 +55,38 @@ func main() {
 	registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 	stmt := registry.MustStatement("sql/user/find_active.sql")
 
-	items, err := dbx.SQLList(ctx, core, stmt, struct {
-		Status int `dbx:"status"`
-	}{Status: 1}, dbx.MustStructMapper[UserSummary]())
+	items, err := dbx.SQLList(
+		ctx,
+		core,
+		stmt,
+		sqltmplx.WithPage(struct {
+			Status int `dbx:"status"`
+		}{Status: 1}, dbx.Page(1, 20)),
+		dbx.MustStructMapper[UserSummary](),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Printf("rows=%d\n", len(items))
 }
+```
+
+## Pagination
+
+`sqltmplx` reuses `dbx.PageRequest` through `sqltmplx.Page`, `WithPage`, `RenderPage`, and `BindPage`.
+
+```sql
+SELECT id, username
+FROM users
+WHERE status = /* status */1
+ORDER BY id DESC
+LIMIT /* Page.Limit */20 OFFSET /* Page.Offset */0
+```
+
+```go
+bound, err := template.RenderPage(params, sqltmplx.Page(1, 20))
+params := sqltmplx.WithPage(params, dbx.Page(1, 20))
 ```
 
 ## Pitfalls

@@ -12,9 +12,10 @@ weight: 18
 - DB 构造（`Open`、`NewWithOptions`）
 - Schema 与 Mapper（`MustSchema`、`MustMapper`、`InsertAssignments`）
 - 查询与执行（`Select`、`InsertInto`、`Exec`、`QueryAll`）
+- 分页（`PageRequest`、`PageResult`、`Page`、`ListPageRequest`、`ListPageSpecRequest`）
 - 迁移（`PlanSchemaChanges`、`ValidateSchemas`、`AutoMigrate`）
 - ID 选项（`WithNodeID`、`WithIDGenerator`、`NewSnowflakeGenerator`）
-- sqltmplx 集成（`NewRegistry`、`MustStatement`、`SQLList`）
+- sqltmplx 集成（`NewRegistry`、`MustStatement`、`WithPage`、`RenderPage`、`BindPage`、`SQLList`）
 
 ## 完整参考
 

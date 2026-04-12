@@ -22,6 +22,7 @@ FROM orders
 /*%end */
 /*%end */
 ORDER BY id DESC
+LIMIT /* Page.Limit */20 OFFSET /* Page.Offset */0
 `)
 	if err != nil {
 		panic(err)
@@ -31,7 +32,7 @@ ORDER BY id DESC
 		{"Tenant": "acme", "Status": "PAID"},
 		{"Tenant": "acme", "Status": "SHIPPED"},
 	} {
-		bound, err := tpl.Render(params)
+		bound, err := tpl.RenderPage(params, sqltmplx.Page(1, 20))
 		if err != nil {
 			panic(err)
 		}

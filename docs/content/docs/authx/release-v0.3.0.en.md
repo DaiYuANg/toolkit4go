@@ -99,9 +99,9 @@ router.Use(authstd.Require(guard))
 
 ## Examples
 
-- Shared example: `authx/http/examples/shared`
-- JWT example: `authx/http/examples/jwt`
-- Framework examples: `authx/http/examples/std|gin|echo|fiber`
+- Shared example: `examples/authx/shared`
+- JWT example: `examples/authx/jwt`
+- Framework examples: `examples/authx/std|gin|echo|fiber`
 
 ## Benchmark Commands
 

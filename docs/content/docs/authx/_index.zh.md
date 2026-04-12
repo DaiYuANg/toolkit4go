@@ -12,19 +12,21 @@ weight: 1
 - **认证** — `Engine.Check(ctx, credential)` 解析身份。
 - **鉴权** — `Engine.Can(ctx, AuthorizationModel)` 基于主体与 action/resource 做策略判断。
 
-`authx` **不绑定具体机制**：不内置密码哈希、JWT 解析、OTP 校验等。由业务定义凭证结构并实现 `AuthenticationProvider`；再接入自定义 `Authorizer`（RBAC/ABAC/Rego 等）。
+`authx` 核心 **不绑定具体机制**：不内置密码哈希、JWT 解析、OTP 校验等。由业务定义凭证结构并实现 `AuthenticationProvider`；如果需要内置 JWT provider，使用独立的 `authx/jwt` 模块。
 
 ## 当前能力
 
 - **`Engine`** — 编排 `Check` / `Can`，可选 `Hook`。
 - **`ProviderManager`** — 按凭证动态类型分发到泛型 `AuthenticationProvider[C]`。
 - **`authx/http`** — `Guard` 从 `RequestInfo` 解析凭证与鉴权模型，再调用引擎。
+- **`authx/jwt`** — 可选 JWT provider 模块；因 JWT 依赖独立于 core 模块维护。
 - **HTTP 中间件** — `authx/http/std`（chi + net/http）、`gin`、`echo`、`fiber` 适配常见栈。
 - **Context 辅助** — `WithPrincipal`、`PrincipalFromContext`、泛型 `PrincipalFromContextAs`。
 
 ## 包结构
 
 - 核心 API：`github.com/DaiYuANg/arcgo/authx`
+- JWT provider：`github.com/DaiYuANg/arcgo/authx/jwt`
 - HTTP Guard 与 `RequestInfo`：`github.com/DaiYuANg/arcgo/authx/http`
 - std 中间件（`chi + net/http`）：`github.com/DaiYuANg/arcgo/authx/http/std`
 - Gin：`github.com/DaiYuANg/arcgo/authx/http/gin`
@@ -34,6 +36,7 @@ weight: 1
 ## 文档导航
 
 - 核心最小示例（`Check` / `Can`）：[快速开始](./getting-started)
+- JWT provider 示例：[examples/authx/jwt](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/jwt)
 - `Guard` + std adapter（`chi + net/http`）：[HTTP 集成](./http-integration)
 - 版本说明（v0.3.0 重构）：[authx v0.3.0](./release-v0.3.0)
 
@@ -41,6 +44,7 @@ weight: 1
 
 ```bash
 go get github.com/DaiYuANg/arcgo/authx@latest
+go get github.com/DaiYuANg/arcgo/authx/jwt@latest
 go get github.com/DaiYuANg/arcgo/authx/http/std@latest
 go get github.com/DaiYuANg/arcgo/authx/http/gin@latest
 go get github.com/DaiYuANg/arcgo/authx/http/echo@latest

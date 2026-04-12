@@ -9,7 +9,7 @@ weight: 2
 
 本页演示一个不依赖 Web 框架的 **`authx` 核心示例**：自定义凭证类型、`ProviderManager`、`Engine.Check` 与 `Engine.Can`。
 
-`authx` **不提供**内置的密码 / JWT / OTP 等具体凭证类型；由业务定义 struct，并实现对应的 `AuthenticationProvider`。
+`authx` 核心 **不提供**内置的密码 / OTP / 自定义 token 等具体凭证类型；由业务定义 struct，并实现对应的 `AuthenticationProvider`。如果需要 JWT，使用可选的 `github.com/DaiYuANg/arcgo/authx/jwt` 模块。
 
 ## 1）安装
 
@@ -97,4 +97,5 @@ go run .
 ## 下一步
 
 - HTTP `Guard` 与 std adapter（`chi + net/http`）：[HTTP 集成](./http-integration)
+- JWT provider 模块：[examples/authx/jwt](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/jwt)
 - 各框架适配与更多示例：见 [authx 文档首页](../) 的包布局与仓库示例链接

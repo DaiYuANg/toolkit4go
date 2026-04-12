@@ -29,6 +29,15 @@ weight: 18
 - `dbx.DeleteFrom(schema).Where(...)`
 - `dbx.Exec(ctx, session, query)` / `dbx.QueryAll(ctx, session, query, scanner)`
 - `dbx.Build(session, query)` then `ExecBound` / `QueryAllBound` for reuse.
+- `dbx.Page(page, pageSize)` / `dbx.NewPageRequest(page, pageSize)` for shared pagination requests.
+- `dbx.NewPageResult(items, total, request)` / `dbx.MapPageResult(...)` for pagination metadata.
+
+## Repository Pagination
+
+- `repository.Page(page, pageSize)` and `repository.PageByRequest(request)` specs.
+- `repo.ListPage(ctx, query, page, pageSize)` and `repo.ListPageRequest(ctx, query, request)`.
+- `repo.ListPageSpec(ctx, page, pageSize, specs...)` and `repo.ListPageSpecRequest(ctx, request, specs...)`.
+- `repository.PageRequest` / `repository.PageResult[T]` are aliases of the shared `dbx` pagination model.
 
 ## Migration and Schema Validation
 
@@ -49,6 +58,9 @@ weight: 18
 - `sqltmplx.New(dialect, options...)`
 - `sqltmplx.NewRegistry(fs, dialect)`
 - `registry.MustStatement(path)`
+- `sqltmplx.Page(page, pageSize)` / `sqltmplx.NewPageRequest(page, pageSize)`
+- `sqltmplx.WithPage(params, request)`
+- `template.RenderPage(params, request)` / `template.BindPage(params, request)`
 - `dbx.SQLList/SQLGet/SQLFind/SQLScalar/SQLScalarOption`
 
 ## Common Error Sentinels and Types

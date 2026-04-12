@@ -48,7 +48,7 @@ go run ./examples/dbx/id_generation
 | `query_advanced` | `WITH`, `UNION ALL`, `CASE WHEN`, named tables, result columns | [examples/dbx/query_advanced](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/query_advanced) |
 | `relations` | alias + relation metadata + `JoinRelation`, plus `LoadBelongsTo` and `LoadManyToMany` | [examples/dbx/relations](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/relations) |
 | `migration` | `PlanSchemaChanges`, `SQLPreview`, `AutoMigrate`, `ValidateSchemas`, `migrate.NewRunner(core.SQLDB(), core.Dialect(), ...).UpGo/UpSQL` | [examples/dbx/migration](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/migration) |
-| `pure_sql` | `sqltmplx` registry, `dbx.SQLList/SQLGet/SQLFind/SQLScalar`, statement-name logging, `tx.SQL().Exec(...)` | [examples/dbx/pure_sql](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/pure_sql) |
+| `pure_sql` | `sqltmplx` registry, shared `PageRequest` pagination, `dbx.SQLList/SQLGet/SQLFind/SQLScalar`, statement-name logging, `tx.SQL().Exec(...)` | [examples/dbx/pure_sql](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/pure_sql) |
 | `id_generation` | typed ID strategy markers: `IDAuto`, `IDSnowflake`, `IDUUIDv7`, and `IDColumn` | [examples/dbx/id_generation](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/id_generation) |
 
 ## Example: Codec and StructMapper
@@ -134,15 +134,15 @@ if err != nil {
 registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 
 items, err := dbx.SQLList(
-    ctx,
-    core,
-    registry.MustStatement("sql/user/find_active.sql"),
-    struct {
-        Status int `dbx:"status"`
-    }{Status: 1},
-    dbx.MustStructMapper[shared.UserSummary](),
+	ctx,
+	core,
+	registry.MustStatement("sql/user/find_active.sql"),
+	sqltmplx.WithPage(struct {
+		Status int `dbx:"status"`
+	}{Status: 1}, dbx.Page(1, 20)),
+	dbx.MustStructMapper[shared.UserSummary](),
 )
 if err != nil {
-    panic(err)
+	panic(err)
 }
 ```

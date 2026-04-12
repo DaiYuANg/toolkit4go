@@ -9,7 +9,7 @@ weight: 2
 
 This page walks through a **self-contained** `authx` core example: typed credential, `ProviderManager`, `Engine.Check`, and `Engine.Can`.
 
-`authx` does **not** ship concrete credential types (password, JWT, OTP). You define structs and register `AuthenticationProvider` implementations.
+`authx` core does **not** ship concrete credential types (password, OTP, custom tokens). You define structs and register `AuthenticationProvider` implementations. For JWT, use the optional `github.com/DaiYuANg/arcgo/authx/jwt` module.
 
 ## 1) Install
 
@@ -97,4 +97,5 @@ go run .
 ## Next
 
 - HTTP `Guard` and the std adapter (`chi + net/http`): [HTTP integration](./http-integration)
+- JWT provider module: [examples/authx/jwt](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/jwt)
 - Typed HTTP guard variants and framework adapters: see the [authx landing page](../) package layout

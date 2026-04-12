@@ -12,19 +12,21 @@ weight: 1
 - **Authentication** — `Engine.Check(ctx, credential)` resolves identity.
 - **Authorization** — `Engine.Can(ctx, AuthorizationModel)` evaluates policy for a principal and action/resource.
 
-`authx` is **mechanism-agnostic**: it does not embed password hashing, JWT parsing, or OTP validation. You define credential structs and register `AuthenticationProvider` implementations; you plug an `Authorizer` for RBAC/ABAC/Rego/etc.
+`authx` core is **mechanism-agnostic**: it does not embed password hashing, JWT parsing, or OTP validation. You define credential structs and register `AuthenticationProvider` implementations; use the optional `authx/jwt` module when you want the provided JWT provider.
 
 ## Current capabilities
 
 - **`Engine`** — orchestrates `Check` / `Can` with optional hooks.
 - **`ProviderManager`** — routes `Authenticate` to typed `AuthenticationProvider[C]` by credential dynamic type.
 - **`authx/http`** — `Guard` resolves credentials and authorization from `RequestInfo`, then calls the engine.
+- **`authx/jwt`** — optional JWT provider module, kept outside the core module because it has JWT-specific dependencies.
 - **HTTP middleware** — `authx/http/std` (chi + net/http), `authx/http/gin`, `authx/http/echo`, `authx/http/fiber` integrate with common stacks.
 - **Context helpers** — `WithPrincipal`, `PrincipalFromContext`, typed `PrincipalFromContextAs`.
 
 ## Package layout
 
 - Core API: `github.com/DaiYuANg/arcgo/authx`
+- JWT provider: `github.com/DaiYuANg/arcgo/authx/jwt`
 - HTTP guard and `RequestInfo`: `github.com/DaiYuANg/arcgo/authx/http`
 - std middleware (`chi + net/http`): `github.com/DaiYuANg/arcgo/authx/http/std`
 - Gin: `github.com/DaiYuANg/arcgo/authx/http/gin`
@@ -34,6 +36,7 @@ weight: 1
 ## Documentation map
 
 - Minimal core (`Check` / `Can`): [Getting Started](./getting-started)
+- JWT provider example: [examples/authx/jwt](https://github.com/DaiYuANg/arcgo/tree/main/examples/authx/jwt)
 - `Guard` + std adapter (`chi + net/http`): [HTTP integration](./http-integration)
 - Release notes (v0.3.0 refactor): [authx v0.3.0](./release-v0.3.0)
 
@@ -41,6 +44,7 @@ weight: 1
 
 ```bash
 go get github.com/DaiYuANg/arcgo/authx@latest
+go get github.com/DaiYuANg/arcgo/authx/jwt@latest
 go get github.com/DaiYuANg/arcgo/authx/http/std@latest
 go get github.com/DaiYuANg/arcgo/authx/http/gin@latest
 go get github.com/DaiYuANg/arcgo/authx/http/echo@latest

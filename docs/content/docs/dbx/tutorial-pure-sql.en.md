@@ -12,7 +12,7 @@ This tutorial shows `.sql` template execution with `sqltmplx` and `dbx.SQL*`.
 ## When to Use
 
 - SQL-first teams that keep query logic in `.sql` files.
-- Workloads that need template statement reuse with dbx execution APIs.
+- Workloads that need template statement reuse, shared `PageRequest` pagination, and dbx execution APIs.
 
 ## Complete Example
 

@@ -260,7 +260,7 @@ if err := dbx.LoadBelongsTo(
 
 ## Pure SQL Entry
 
-`sqltmplx` stays responsible for template compile / render / validate. `dbx` owns execution, transaction handling, hooks, and logging.
+`sqltmplx` stays responsible for template compile / render / validate. `dbx` owns execution, transaction handling, hooks, logging, and the shared `PageRequest` pagination model.
 
 ```go
 //go:embed sql/**/*.sql
@@ -269,16 +269,16 @@ var sqlFS embed.FS
 registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 
 items, err := dbx.SQLList(
-    ctx,
-    core,
-    registry.MustStatement("sql/user/find_active.sql"),
-    struct {
-        Status int `dbx:"status"`
-    }{Status: 1},
-    dbx.MustStructMapper[UserSummary](),
+	ctx,
+	core,
+	registry.MustStatement("sql/user/find_active.sql"),
+	sqltmplx.WithPage(struct {
+		Status int `dbx:"status"`
+	}{Status: 1}, dbx.Page(1, 20)),
+	dbx.MustStructMapper[UserSummary](),
 )
 if err != nil {
-    panic(err)
+	panic(err)
 }
 ```
 

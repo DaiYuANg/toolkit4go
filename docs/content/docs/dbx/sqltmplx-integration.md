@@ -31,6 +31,7 @@ go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
 - Slice expansion: `/* IDs */(1, 2, 3)`
 - Expression helpers: `empty(x)`, `blank(x)`, `present(x)`
 - Struct binding by field name first, then `sqltmpl`, `db`, `json` aliases
+- Shared pagination helpers: `WithPage`, `RenderPage`, `BindPage` with `Page.Limit` / `Page.Offset`
 
 ## Minimal Project Layout
 
@@ -89,9 +90,9 @@ func main() {
 		ctx,
 		core,
 		stmt,
-		struct {
+		sqltmplx.WithPage(struct {
 			Status int `dbx:"status"`
-		}{Status: 1},
+		}{Status: 1}, dbx.Page(1, 20)),
 		dbx.MustStructMapper[UserSummary](),
 	)
 	if err != nil {
@@ -107,6 +108,32 @@ func main() {
 - SQL is complex and easier to maintain as `.sql` files.
 - You want parser-backed SQL validation in development.
 - You still want dbx execution hooks/logging/transactions.
+
+## Pagination
+
+`sqltmplx` reuses `dbx.PageRequest` directly. In SQL templates, bind the normalized page under `Page`:
+
+```sql
+SELECT id, username
+FROM users
+WHERE status = /* status */1
+ORDER BY id DESC
+LIMIT /* Page.Limit */20 OFFSET /* Page.Offset */0
+```
+
+For direct template rendering, use `RenderPage` / `BindPage`:
+
+```go
+bound, err := template.RenderPage(params, sqltmplx.Page(1, 20))
+```
+
+When executing through `dbx.SQL*`, use `WithPage` to overlay the shared request onto your existing params:
+
+```go
+params := sqltmplx.WithPage(struct {
+	Status int `dbx:"status"`
+}{Status: 1}, dbx.Page(1, 20))
+```
 
 ## Related Docs
 

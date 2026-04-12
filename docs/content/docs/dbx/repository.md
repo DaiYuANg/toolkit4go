@@ -51,7 +51,8 @@ func main() {
 	repo := repository.NewWithOptions[User](core, Users, repository.WithByIDNotFoundAsError(true))
 	_ = repo.CreateMany(ctx, &User{Name: "alice"}, &User{Name: "bob"})
 	_ = repo.Upsert(ctx, &User{ID: 1, Name: "alice-v2"})
-	_, _ = repo.ListPageSpec(ctx, 1, 20, repository.Where(Users.Name.Eq("alice-v2")))
+	page, _ := repo.ListPageSpecRequest(ctx, dbx.Page(1, 20), repository.Where(Users.Name.Eq("alice-v2")))
+	_ = page.HasNext
 }
 ```
 
@@ -60,11 +61,35 @@ func main() {
 - CRUD: `Create`, `CreateMany`, `List`, `First`, `Update`, `Delete`
 - PK helpers: `GetByID`, `UpdateByID`, `DeleteByID`
 - Composite key helpers: `GetByKey`, `UpdateByKey`, `DeleteByKey`
-- Pagination: `ListPage`, `ListPageSpec`
+- Pagination: `dbx.PageRequest`, `dbx.PageResult`, `ListPage`, `ListPageRequest`, `ListPageSpec`, `ListPageSpecRequest`
 - Upsert: `Upsert(ctx, entity, conflictColumns...)`
 - Transactions: `InTx`
-- Specs: `Where`, `OrderBy`, `Limit`, `Offset`
+- Specs: `Where`, `OrderBy`, `Limit`, `Offset`, `Page`, `PageByRequest`
 - Optional single-row reads: `GetByIDOption`, `GetByKeyOption`, `FirstOption`, `FirstSpecOption` (see below)
+
+## Pagination
+
+Use `dbx.Page(page, pageSize)` or `dbx.NewPageRequest(page, pageSize)` when you need one pagination model across repository, active-record, and template SQL code paths.
+
+```go
+request := dbx.Page(1, 20)
+
+page, err := repo.ListPageSpecRequest(
+	ctx,
+	request,
+	repository.Where(Users.Name.Eq("alice")),
+	repository.OrderBy(Users.ID.Desc()),
+)
+if err != nil {
+	return err
+}
+
+_ = page.Items
+_ = page.TotalPages
+_ = page.HasNext
+```
+
+`ListPage(ctx, query, page, pageSize)` and `ListPageSpec(ctx, page, pageSize, specs...)` remain available for direct page/size calls. The `*Request` variants are preferred when the page request is passed through service boundaries or reused by `sqltmplx`.
 
 ## Optional reads (`mo.Option`)
 

@@ -30,6 +30,7 @@ go get github.com/DaiYuANg/arcgo/dbx/sqltmplx@latest
 - 切片展开：`/* IDs */(1, 2, 3)`
 - 表达式辅助：`empty(x)`、`blank(x)`、`present(x)`
 - 参数绑定：优先按字段名，其次尝试 `sqltmpl` / `db` / `json` 别名
+- 共享分页辅助：`WithPage`、`RenderPage`、`BindPage`，模板内使用 `Page.Limit` / `Page.Offset`
 
 ## 完整示例
 
@@ -72,15 +73,47 @@ func main() {
 	registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 	stmt := registry.MustStatement("sql/user/find_active.sql")
 
-	items, err := dbx.SQLList(ctx, core, stmt, struct {
-		Status int `dbx:"status"`
-	}{Status: 1}, dbx.MustStructMapper[UserSummary]())
+	items, err := dbx.SQLList(
+		ctx,
+		core,
+		stmt,
+		sqltmplx.WithPage(struct {
+			Status int `dbx:"status"`
+		}{Status: 1}, dbx.Page(1, 20)),
+		dbx.MustStructMapper[UserSummary](),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Printf("rows=%d\n", len(items))
 }
+```
+
+## 分页
+
+`sqltmplx` 直接复用 `dbx.PageRequest`。SQL 模板里通过 `Page` 读取归一化后的 limit/offset：
+
+```sql
+SELECT id, username
+FROM users
+WHERE status = /* status */1
+ORDER BY id DESC
+LIMIT /* Page.Limit */20 OFFSET /* Page.Offset */0
+```
+
+直接渲染模板时使用 `RenderPage` / `BindPage`：
+
+```go
+bound, err := template.RenderPage(params, sqltmplx.Page(1, 20))
+```
+
+通过 `dbx.SQL*` 执行时，用 `WithPage` 把共享分页请求叠加到现有参数上：
+
+```go
+params := sqltmplx.WithPage(struct {
+	Status int `dbx:"status"`
+}{Status: 1}, dbx.Page(1, 20))
 ```
 
 ## 常见坑

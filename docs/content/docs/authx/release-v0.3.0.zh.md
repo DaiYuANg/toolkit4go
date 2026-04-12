@@ -99,9 +99,9 @@ router.Use(authstd.Require(guard))
 
 ## 示例
 
-- 通用示例：`authx/http/examples/shared`
-- JWT 示例：`authx/http/examples/jwt`
-- 框架示例：`authx/http/examples/std|gin|echo|fiber`
+- 通用示例：`examples/authx/shared`
+- JWT 示例：`examples/authx/jwt`
+- 框架示例：`examples/authx/std|gin|echo|fiber`
 
 ## 基准命令
 
