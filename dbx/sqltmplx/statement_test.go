@@ -30,6 +30,34 @@ where status = /* status */1
 	require.NotEmpty(t, bound.SQL)
 }
 
+func TestEngineCompileUsesTemplateCache(t *testing.T) {
+	engine := sqltmplx.New(sqlite.New())
+	text := `select id from users where status = /* status */1`
+
+	first, err := engine.CompileNamed("users/find.sql", text)
+	require.NoError(t, err)
+	second, err := engine.CompileNamed("users/find.sql", text)
+	require.NoError(t, err)
+
+	require.Same(t, first, second)
+
+	other, err := engine.CompileNamed("users/other.sql", text)
+	require.NoError(t, err)
+	require.NotSame(t, first, other)
+}
+
+func TestEngineCompileCacheCanBeDisabled(t *testing.T) {
+	engine := sqltmplx.New(sqlite.New(), sqltmplx.WithTemplateCacheSize(0))
+	text := `select id from users where status = /* status */1`
+
+	first, err := engine.Compile(text)
+	require.NoError(t, err)
+	second, err := engine.Compile(text)
+	require.NoError(t, err)
+
+	require.NotSame(t, first, second)
+}
+
 func TestRegistryLoadsAndCachesTemplates(t *testing.T) {
 	registry := sqltmplx.NewRegistry(fstest.MapFS{
 		"sql/user/find_active.sql": {

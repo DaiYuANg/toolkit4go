@@ -25,7 +25,7 @@ func RenderList(nodes collectionx.List[parse.Node], params any, d dialect.Contra
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Query: compactWhitespace(query), Args: st.args.Clone()}, nil
+	return Result{Query: compactWhitespace(query), Args: st.args}, nil
 }
 
 func renderNodes(nodes collectionx.List[parse.Node], st *state) (string, error) {
@@ -62,7 +62,7 @@ func renderNode(node parse.Node, st *state) (string, error) {
 }
 
 func renderIfNode(node *parse.IfNode, st *state) (string, error) {
-	ok, err := evalIf(node.Program, st.params)
+	ok, err := evalIf(node.Program, st)
 	if err != nil {
 		return "", err
 	}
@@ -84,8 +84,8 @@ func renderCleanedBlock(body collectionx.List[parse.Node], st *state, cleanup fu
 	return " " + cleaned + " ", nil
 }
 
-func evalIf(program *vm.Program, params any) (bool, error) {
-	out, err := exprRun(program, exprEnv(params))
+func evalIf(program *vm.Program, st *state) (bool, error) {
+	out, err := exprRun(program, st.exprEnv())
 	if err != nil {
 		return false, err
 	}

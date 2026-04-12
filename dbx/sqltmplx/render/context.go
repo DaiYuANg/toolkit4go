@@ -12,6 +12,7 @@ type state struct {
 	params  any
 	args    collectionx.List[any]
 	bindN   int
+	env     map[string]any
 }
 
 func newState(params any, d dialect.Contract) *state {
@@ -21,6 +22,13 @@ func newState(params any, d dialect.Contract) *state {
 func (s *state) nextBind() string {
 	s.bindN++
 	return s.dialect.BindVar(s.bindN)
+}
+
+func (s *state) exprEnv() map[string]any {
+	if s.env == nil {
+		s.env = exprEnv(s.params)
+	}
+	return s.env
 }
 
 func exprEnv(params any) map[string]any {
@@ -62,7 +70,7 @@ func mapEnv(value reflect.Value) map[string]any {
 
 func structEnv(value reflect.Value) map[string]any {
 	meta := cachedStructMetadata(value.Type())
-	out := make(map[string]any, meta.fields.Len()*2)
+	out := make(map[string]any, meta.envKeyCount)
 	meta.fields.Range(func(_ int, field structFieldMetadata) bool {
 		assignStructField(out, field, value.Field(field.index).Interface())
 		return true
@@ -71,10 +79,8 @@ func structEnv(value reflect.Value) map[string]any {
 }
 
 func assignStructField(out map[string]any, field structFieldMetadata, value any) {
-	out[field.name] = value
-	out[field.foldedName] = value
-	field.aliases.Range(func(_ int, alias string) bool {
-		out[alias] = value
+	field.envKeys.Range(func(_ int, key string) bool {
+		out[key] = value
 		return true
 	})
 }

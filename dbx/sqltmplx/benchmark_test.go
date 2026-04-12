@@ -31,7 +31,7 @@ type benchmarkQuery struct {
 }
 
 func BenchmarkCompile(b *testing.B) {
-	engine := sqltmplx.New(mysqlDialect.New())
+	engine := sqltmplx.New(mysqlDialect.New(), sqltmplx.WithTemplateCacheSize(0))
 
 	for b.Loop() {
 		if _, err := engine.Compile(benchmarkTemplateText); err != nil {

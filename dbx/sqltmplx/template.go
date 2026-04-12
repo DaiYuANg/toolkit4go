@@ -51,7 +51,7 @@ func (t *Template) Render(params any) (BoundSQL, error) {
 			return BoundSQL{}, fmt.Errorf("validate rendered sql: %w", err)
 		}
 	}
-	return BoundSQL{Query: bound.Query, Args: bound.Args.Clone()}, nil
+	return BoundSQL{Query: bound.Query, Args: bound.Args}, nil
 }
 
 // Bind renders the template into a dbx bound query.
@@ -67,6 +67,6 @@ func (t *Template) Bind(params any) (dbx.BoundQuery, error) {
 	return dbx.BoundQuery{
 		Name: t.name,
 		SQL:  bound.Query,
-		Args: bound.Args.Clone(),
+		Args: bound.Args,
 	}, nil
 }

@@ -20,6 +20,7 @@ var (
 
 func bindText(input string, st *state) (string, error) {
 	var out strings.Builder
+	out.Grow(len(input))
 	for i := 0; i < len(input); {
 		if i+1 < len(input) && input[i] == '/' && input[i+1] == '*' {
 			text, next, handled, err := bindCommentPlaceholder(input, i, st)
@@ -98,11 +99,11 @@ func placeholderSampleStart(input string, commentEnd int, raw string) (int, erro
 }
 
 func lookupParam(params any, name string) (any, error) {
-	valOpt := lookup(params, name)
-	if valOpt.IsAbsent() {
+	val, ok := lookupValue(params, name)
+	if !ok {
 		return nil, fmt.Errorf("sqltmplx: parameter %q not found", name)
 	}
-	return valOpt.MustGet(), nil
+	return val, nil
 }
 
 func bindSpreadParam(val any, st *state) (string, error) {
@@ -113,6 +114,7 @@ func bindSpreadParam(val any, st *state) (string, error) {
 
 	var out strings.Builder
 	length := rv.Len()
+	out.Grow(length * 4)
 	for j := range length {
 		appendSpreadBind(&out, j, st.nextBind())
 		st.args.Add(rv.Index(j).Interface())

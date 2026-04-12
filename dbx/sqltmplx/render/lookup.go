@@ -6,38 +6,37 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/lo"
-	"github.com/samber/mo"
 )
 
-func lookup(params any, name string) mo.Option[any] {
+func lookupValue(params any, name string) (any, bool) {
 	cur := params
 	remaining := name
 	for remaining != "" {
 		part, rest, found := strings.Cut(remaining, ".")
 		remaining = rest
 
-		next := lookupOne(cur, part)
-		if next.IsAbsent() {
-			return mo.None[any]()
+		next, ok := lookupOneValue(cur, part)
+		if !ok {
+			return nil, false
 		}
-		cur = next.MustGet()
+		cur = next
 		if !found {
 			break
 		}
 	}
-	return mo.Some(cur)
+	return cur, true
 }
 
-func lookupOne(params any, name string) mo.Option[any] {
+func lookupOneValue(params any, name string) (any, bool) {
 	if provider, ok := params.(paramLookup); ok {
 		value, exists := provider.LookupSQLTemplateParam(name)
 		if exists {
-			return mo.Some(value)
+			return value, true
 		}
 	}
 	v, ok := indirectValue(params)
 	if !ok {
-		return mo.None[any]()
+		return nil, false
 	}
 	if v.Kind() == reflect.Map {
 		return lookupMapValue(v, name)
@@ -45,18 +44,29 @@ func lookupOne(params any, name string) mo.Option[any] {
 	if v.Kind() == reflect.Struct {
 		return lookupStructValue(v, name)
 	}
-	return mo.None[any]()
+	return nil, false
 }
 
-func lookupStructValue(v reflect.Value, name string) mo.Option[any] {
+func lookupStructValue(v reflect.Value, name string) (any, bool) {
 	meta := cachedStructMetadata(v.Type())
-	if field, exists := meta.lookup.Get(strings.ToLower(name)); exists {
-		return mo.Some(v.Field(field.index).Interface())
+	if field, exists := lookupStructField(meta, name); exists {
+		return v.Field(field.index).Interface(), true
 	}
 	if value, ok := callZeroArgMethod(v, name); ok {
-		return mo.Some(value)
+		return value, true
 	}
-	return mo.None[any]()
+	return nil, false
+}
+
+func lookupStructField(meta *structMetadata, name string) (structFieldMetadata, bool) {
+	if field, exists := meta.lookup.Get(name); exists {
+		return field, true
+	}
+	folded := strings.ToLower(name)
+	if folded == name {
+		return structFieldMetadata{}, false
+	}
+	return meta.lookup.Get(folded)
 }
 
 func callZeroArgMethod(v reflect.Value, name string) (any, bool) {
@@ -70,34 +80,42 @@ func callZeroArgMethod(v reflect.Value, name string) (any, bool) {
 }
 
 func callZeroArgMethodOn(v reflect.Value, name string) (any, bool) {
-	for index := range v.Type().NumMethod() {
-		method := v.Type().Method(index)
-		if !strings.EqualFold(method.Name, name) {
-			continue
-		}
-		value := v.Method(index)
-		if value.Type().NumIn() != 0 || value.Type().NumOut() != 1 {
-			continue
-		}
-		return value.Call(nil)[0].Interface(), true
+	index, ok := lookupZeroArgMethodIndex(cachedMethodMetadata(v.Type()), name)
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	return v.Method(index).Call(nil)[0].Interface(), true
 }
 
-func lookupMapValue(v reflect.Value, name string) mo.Option[any] {
+func lookupZeroArgMethodIndex(meta *methodMetadata, name string) (int, bool) {
+	if index, exists := meta.lookup.Get(name); exists {
+		return index, true
+	}
+	folded := strings.ToLower(name)
+	if folded == name {
+		return 0, false
+	}
+	return meta.lookup.Get(folded)
+}
+
+func lookupMapValue(v reflect.Value, name string) (any, bool) {
 	if v.Type().Key().Kind() != reflect.String {
-		return mo.None[any]()
+		return nil, false
 	}
 	if value, ok := reflectMapStringValue(v, name); ok {
-		return mo.Some(value)
+		return value, true
 	}
-	if value, ok := reflectMapStringValue(v, strings.ToLower(name)); ok {
-		return mo.Some(value)
+	if folded := strings.ToLower(name); folded != name {
+		if value, ok := reflectMapStringValue(v, folded); ok {
+			return value, true
+		}
 	}
-	if value, ok := reflectMapStringValue(v, strings.ToUpper(name)); ok {
-		return mo.Some(value)
+	if upper := strings.ToUpper(name); upper != name {
+		if value, ok := reflectMapStringValue(v, upper); ok {
+			return value, true
+		}
 	}
-	return mo.None[any]()
+	return nil, false
 }
 
 func reflectMapStringValue(v reflect.Value, key string) (any, bool) {

@@ -19,6 +19,10 @@ type queryParams struct {
 	Filter nestedFilter `json:"filter"`
 }
 
+func (p queryParams) UpperStatus() string {
+	return p.Status
+}
+
 func TestLookupPrefersFieldThenTag(t *testing.T) {
 	params := queryParams{
 		Name:   "alice",
@@ -32,4 +36,15 @@ func TestLookupPrefersFieldThenTag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "name = $1 AND alias = $2 AND status = $3 AND id IN ($4, $5, $6)", result.Query)
 	require.Equal(t, []any{"alice", "alice", "ACTIVE", 1, 2, 3}, result.Args.Values())
+}
+
+func TestLookupSupportsZeroArgMethods(t *testing.T) {
+	params := queryParams{Status: "ACTIVE"}
+
+	result, err := render.Render([]parse.Node{
+		parse.TextNode{Text: "status = /* upperstatus */'x'"},
+	}, params, postgres.New())
+	require.NoError(t, err)
+	require.Equal(t, "status = $1", result.Query)
+	require.Equal(t, []any{"ACTIVE"}, result.Args.Values())
 }

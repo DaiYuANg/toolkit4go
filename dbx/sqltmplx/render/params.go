@@ -55,11 +55,7 @@ func (p paramOverlay) LookupSQLTemplateParam(name string) (any, bool) {
 	if param, ok := p.values.Get(normalizeParamName(name)); ok {
 		return param.value, true
 	}
-	value := lookupOne(p.base, name)
-	if value.IsAbsent() {
-		return nil, false
-	}
-	return value.MustGet(), true
+	return lookupOneValue(p.base, name)
 }
 
 func (p paramOverlay) SQLTemplateParamEnv() map[string]any {
