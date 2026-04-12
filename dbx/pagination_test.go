@@ -12,6 +12,7 @@ func TestPageRequestNormalizeAndApply(t *testing.T) {
 	request := dbx.Page(0, 0).WithMaxPageSize(10)
 	require.Equal(t, 1, request.Page)
 	require.Equal(t, 10, request.PageSize)
+	require.Equal(t, 10, request.Limit())
 	require.Equal(t, 0, request.Offset())
 
 	users := MustSchema("users", UserSchema{})

@@ -11,14 +11,6 @@ type PageRequest = dbx.PageRequest
 // PageResult contains the items and metadata for a paginated query.
 type PageResult[E any] = dbx.PageResult[E]
 
-// Pagination is the normalized template-facing pagination payload.
-type Pagination struct {
-	Page     int `db:"page"      json:"page"      sqltmpl:"page"`
-	PageSize int `db:"page_size" json:"page_size" sqltmpl:"page_size"`
-	Limit    int `db:"limit"     json:"limit"     sqltmpl:"limit"`
-	Offset   int `db:"offset"    json:"offset"    sqltmpl:"offset"`
-}
-
 // Page creates a normalized page request.
 func Page(page, pageSize int) PageRequest {
 	return dbx.Page(page, pageSize)
@@ -29,20 +21,9 @@ func NewPageRequest(page, pageSize int) PageRequest {
 	return dbx.NewPageRequest(page, pageSize)
 }
 
-// NewPagination creates the template-facing pagination payload.
-func NewPagination(request PageRequest) Pagination {
-	request = request.Normalize()
-	return Pagination{
-		Page:     request.Page,
-		PageSize: request.PageSize,
-		Limit:    request.PageSize,
-		Offset:   request.Offset(),
-	}
-}
-
-// WithPage overlays normalized pagination fields under the Page template parameter.
+// WithPage overlays a normalized dbx.PageRequest under the Page template parameter.
 func WithPage(params any, request PageRequest) any {
-	return render.WithParam(params, "Page", NewPagination(request))
+	return render.WithParam(params, "Page", request.Normalize())
 }
 
 // RenderPage renders the template with normalized pagination parameters.
@@ -57,7 +38,7 @@ func (t *Template) BindPage(params any, request PageRequest) (dbx.BoundQuery, er
 	if err != nil {
 		return dbx.BoundQuery{}, err
 	}
-	bound.CapacityHint = request.PageSize
+	bound.CapacityHint = request.Limit()
 	return bound, nil
 }
 

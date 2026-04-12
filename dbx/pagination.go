@@ -52,13 +52,18 @@ func (r PageRequest) Offset() int {
 	return safePageOffset(r.Page, r.PageSize)
 }
 
+// Limit returns the normalized page size as a SQL LIMIT value.
+func (r PageRequest) Limit() int {
+	return r.Normalize().PageSize
+}
+
 // Apply applies this request as LIMIT/OFFSET on a select query.
 func (r PageRequest) Apply(query *SelectQuery) *SelectQuery {
 	if query == nil {
 		return nil
 	}
 	r = r.Normalize()
-	return query.Limit(r.PageSize).Offset(r.Offset())
+	return query.Limit(r.Limit()).Offset(r.Offset())
 }
 
 // PageResult contains the items and metadata for a paginated query.

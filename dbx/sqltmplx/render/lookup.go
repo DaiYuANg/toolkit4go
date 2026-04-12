@@ -43,12 +43,45 @@ func lookupOne(params any, name string) mo.Option[any] {
 		return lookupMapValue(v, name)
 	}
 	if v.Kind() == reflect.Struct {
-		meta := cachedStructMetadata(v.Type())
-		if field, exists := meta.lookup.Get(strings.ToLower(name)); exists {
-			return mo.Some(v.Field(field.index).Interface())
-		}
+		return lookupStructValue(v, name)
 	}
 	return mo.None[any]()
+}
+
+func lookupStructValue(v reflect.Value, name string) mo.Option[any] {
+	meta := cachedStructMetadata(v.Type())
+	if field, exists := meta.lookup.Get(strings.ToLower(name)); exists {
+		return mo.Some(v.Field(field.index).Interface())
+	}
+	if value, ok := callZeroArgMethod(v, name); ok {
+		return mo.Some(value)
+	}
+	return mo.None[any]()
+}
+
+func callZeroArgMethod(v reflect.Value, name string) (any, bool) {
+	if value, ok := callZeroArgMethodOn(v, name); ok {
+		return value, true
+	}
+	if v.Kind() != reflect.Pointer && v.CanAddr() {
+		return callZeroArgMethodOn(v.Addr(), name)
+	}
+	return nil, false
+}
+
+func callZeroArgMethodOn(v reflect.Value, name string) (any, bool) {
+	for index := range v.Type().NumMethod() {
+		method := v.Type().Method(index)
+		if !strings.EqualFold(method.Name, name) {
+			continue
+		}
+		value := v.Method(index)
+		if value.Type().NumIn() != 0 || value.Type().NumOut() != 1 {
+			continue
+		}
+		return value.Call(nil)[0].Interface(), true
+	}
+	return nil, false
 }
 
 func lookupMapValue(v reflect.Value, name string) mo.Option[any] {
