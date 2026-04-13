@@ -22,8 +22,8 @@ func (d *Deque[T]) PushFront(items ...T) {
 		return
 	}
 	// Keep argument order near front.
-	for i := len(items) - 1; i >= 0; i-- {
-		d.pushFrontOne(items[i])
+	for _, item := range items {
+		d.pushFrontOne(item)
 	}
 }
 

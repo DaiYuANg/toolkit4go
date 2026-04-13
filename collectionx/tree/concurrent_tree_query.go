@@ -122,8 +122,8 @@ func (t *ConcurrentTree[K, V]) Ancestors(id K) []*Node[K, V] {
 
 	out := make([]*Node[K, V], len(ancestors))
 	var parentClone *Node[K, V]
-	for i := len(ancestors) - 1; i >= 0; i-- {
-		currentClone := newNode(ancestors[i].ID(), ancestors[i].Value())
+	for i, ancestor := range ancestors {
+		currentClone := newNode(ancestor.ID(), ancestor.Value())
 		currentClone.parent = parentClone
 		if parentClone != nil {
 			parentClone.children.Add(currentClone)

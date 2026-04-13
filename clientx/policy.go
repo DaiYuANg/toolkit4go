@@ -117,8 +117,8 @@ func InvokeWithPolicies[T any](
 
 func applyAfterPolicies(ctx context.Context, policies []Policy, operation Operation, baseErr error) error {
 	aggErr := baseErr
-	for index := len(policies) - 1; index >= 0; index-- {
-		afterOK, afterErr := callPolicyAfter(ctx, policies[index], operation, aggErr)
+	for _, policy := range policies {
+		afterOK, afterErr := callPolicyAfter(ctx, policy, operation, aggErr)
 		if afterOK && afterErr != nil {
 			aggErr = errors.Join(aggErr, afterErr)
 		}
