@@ -55,9 +55,9 @@ type lifecycleImpl struct {
 	eventLogger EventLogger
 }
 
-func newLifecycle() *lifecycleImpl {
+func newLifecycle(logger *slog.Logger) *lifecycleImpl {
 	return &lifecycleImpl{
-		logger: slog.Default(),
+		logger: logger,
 	}
 }
 

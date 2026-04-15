@@ -2,6 +2,7 @@ package dix
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
@@ -18,10 +19,20 @@ type Container struct {
 	eventLogger  EventLogger
 }
 
-func newContainer() *Container {
+func newContainer(logger *slog.Logger) *Container {
 	return &Container{
-		injector: do.New(),
-		logger:   slog.Default(),
+		injector: do.NewWithOpts(&do.InjectorOpts{
+			HookBeforeRegistration: nil,
+			HookAfterRegistration:  nil,
+			HookBeforeInvocation:   nil,
+			HookAfterInvocation:    nil,
+			HookBeforeShutdown:     nil,
+			HookAfterShutdown:      nil,
+			Logf: func(format string, args ...any) {
+				logger.Debug(fmt.Sprintf(format, args...))
+			},
+		}),
+		logger: slog.Default(),
 	}
 }
 

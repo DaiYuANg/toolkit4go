@@ -23,8 +23,8 @@ func newRuntime(spec *appSpec, plan *buildPlan) *Runtime {
 	rt := &Runtime{
 		spec:        spec,
 		plan:        plan,
-		container:   newContainer(),
-		lifecycle:   newLifecycle(),
+		container:   newContainer(logger),
+		lifecycle:   newLifecycle(logger),
 		logger:      logger,
 		eventLogger: eventLogger,
 		state:       AppStateCreated,
