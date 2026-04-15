@@ -93,7 +93,7 @@ func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, m
 	if err != nil {
 		return nil, err
 	}
-	return QueryAllBound(ctx, session, bound, mapper)
+	return QueryAllBound[E](ctx, session, bound, mapper)
 }
 
 // QueryAllList builds a query and maps all rows into a collectionx.List.
@@ -107,7 +107,7 @@ func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilde
 	if err != nil {
 		return nil, err
 	}
-	return QueryAllBoundList(ctx, session, bound, mapper)
+	return QueryAllBoundList[E](ctx, session, bound, mapper)
 }
 
 // QueryAllBound executes a pre-built BoundQuery and maps all rows. Use with Build
@@ -130,8 +130,8 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery
 		logRuntimeNode(session, "query_all_bound.query_error", "statement", bound.Name, "error", err)
 		return nil, wrapDBError("query bound rows", err)
 	}
-	if withCap, ok := capacityHintScannerFor(mapper, bound.CapacityHint); ok {
-		return scanAllBoundWithCapacity(session, rows, bound, withCap)
+	if withCap, ok := capacityHintScannerFor[E](mapper, bound.CapacityHint); ok {
+		return scanAllBoundWithCapacity[E](session, rows, bound, withCap)
 	}
 	logRuntimeNode(session, "query_all_bound.scan")
 	items, scanErr := mapper.ScanRows(rows)
@@ -152,7 +152,7 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery
 
 // QueryAllBoundList executes a pre-built BoundQuery and maps all rows into a collectionx.List.
 func QueryAllBoundList[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	return QueryAllBound(ctx, session, bound, mapper)
+	return QueryAllBound[E](ctx, session, bound, mapper)
 }
 
 func capacityHintScannerFor[E any](mapper RowsScanner[E], capacityHint int) (CapacityHintScanner[E], bool) {

@@ -105,17 +105,21 @@ func (r *Runner) applyPendingRepeatables(
 	repeatables collectionx.List[loadedSQLMigration],
 	indexed map[string]AppliedRecord,
 ) (collectionx.List[AppliedRecord], error) {
-	applied, err := collectionx.ReduceErrList(repeatables, collectionx.NewListWithCapacity[AppliedRecord](repeatables.Len()), func(items collectionx.List[AppliedRecord], _ int, migration loadedSQLMigration) (collectionx.List[AppliedRecord], error) {
-		if !shouldApplyRepeatableMigration(migration, indexed) {
+	applied, err := collectionx.ReduceErrList(
+		repeatables,
+		collectionx.NewListWithCapacity[AppliedRecord](repeatables.Len()),
+		func(items collectionx.List[AppliedRecord], _ int, migration loadedSQLMigration) (collectionx.List[AppliedRecord], error) {
+			if !shouldApplyRepeatableMigration(migration, indexed) {
+				return items, nil
+			}
+			record, recordErr := r.applySQLMigration(ctx, migration)
+			if recordErr != nil {
+				return nil, recordErr
+			}
+			items.Add(record)
 			return items, nil
-		}
-		record, recordErr := r.applySQLMigration(ctx, migration)
-		if recordErr != nil {
-			return nil, recordErr
-		}
-		items.Add(record)
-		return items, nil
-	})
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("dbx/migrate: apply pending repeatables: %w", err)
 	}

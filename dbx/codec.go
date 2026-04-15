@@ -8,9 +8,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 
-	"github.com/samber/hot"
+	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 type Codec interface {
@@ -20,8 +19,7 @@ type Codec interface {
 }
 
 type codecRegistry struct {
-	mu     sync.RWMutex
-	codecs *hot.HotCache[string, Codec]
+	codecs collectionx.ConcurrentMap[string, Codec]
 }
 
 type typedCodec[T any] struct {
@@ -56,7 +54,7 @@ func LookupCodec(name string) (Codec, bool) {
 
 func newCodecRegistry() *codecRegistry {
 	return &codecRegistry{
-		codecs: hot.NewHotCache[string, Codec](hot.LRU, 32).Build(),
+		codecs: collectionx.NewConcurrentMapWithCapacity[string, Codec](10),
 	}
 }
 
@@ -65,9 +63,7 @@ func (r *codecRegistry) clone() *codecRegistry {
 		return newCodecRegistry()
 	}
 	cloned := newCodecRegistry()
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	cloned.codecs.SetMany(r.codecs.All())
+	cloned.codecs = r.codecs
 	return cloned
 }
 
@@ -81,9 +77,7 @@ func (r *codecRegistry) register(codec Codec) error {
 		return errors.New("dbx: codec name cannot be empty")
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if _, ok := r.codecs.Peek(name); ok {
+	if _, ok := r.codecs.Get(name); ok {
 		return fmt.Errorf("dbx: codec %q is already registered", name)
 	}
 	r.codecs.Set(name, codec)
@@ -97,9 +91,7 @@ func (r *codecRegistry) mustRegister(codec Codec) {
 }
 
 func (r *codecRegistry) get(name string) (Codec, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.codecs.Peek(normalizeCodecName(name))
+	return r.codecs.Get(normalizeCodecName(name))
 }
 
 func (c typedCodec[T]) Name() string {

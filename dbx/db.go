@@ -14,7 +14,7 @@ type DB struct {
 	raw         *sql.DB
 	dialect     dialect.Dialect
 	observe     runtimeObserver
-	relation    *relationRuntime
+	relation    *RelationRuntime
 	idGenerator IDGenerator
 	nodeID      uint16
 }
@@ -106,7 +106,7 @@ func (db *DB) WithSQLDB(raw *sql.DB) *DB {
 
 // RelationRuntime returns the relation load runtime (cache and pools) for this DB.
 // Used by LoadBelongsTo, LoadHasMany, LoadManyToMany.
-func (db *DB) RelationRuntime() *relationRuntime {
+func (db *DB) RelationRuntime() *RelationRuntime {
 	if db == nil || db.relation == nil {
 		return defaultRelationRuntime
 	}

@@ -18,7 +18,7 @@ type relationKeyPair struct {
 	target any
 }
 
-func collectSourceRelationKeys[E any](rt *relationRuntime, entities []E, mapper Mapper[E], schema schemaDefinition, meta RelationMeta) (collectionx.List[any], []relationLookupValue, error) {
+func collectSourceRelationKeys[E any](rt *RelationRuntime, entities []E, mapper Mapper[E], schema schemaDefinition, meta RelationMeta) (collectionx.List[any], []relationLookupValue, error) {
 	localColumn, err := relationSourceColumn(schemaAdapter[E]{def: schema}, meta)
 	if err != nil {
 		return nil, nil, err
@@ -111,7 +111,7 @@ func relationTargetColumnForSchema(schema relationSchemaSource, meta RelationMet
 	return column, nil
 }
 
-func queryRelationTargets[E any](ctx context.Context, session Session, rt *relationRuntime, schema SchemaSource[E], mapper Mapper[E], targetColumn ColumnMeta, keys collectionx.List[any]) (collectionx.List[E], error) {
+func queryRelationTargets[E any](ctx context.Context, session Session, rt *RelationRuntime, schema SchemaSource[E], mapper Mapper[E], targetColumn ColumnMeta, keys collectionx.List[any]) (collectionx.List[E], error) {
 	if keys.Len() == 0 {
 		return collectionx.NewList[E](), nil
 	}
@@ -149,7 +149,7 @@ func queryRelationTargets[E any](ctx context.Context, session Session, rt *relat
 	return items, nil
 }
 
-func buildRelationTargetsBoundQuery(session Session, rt *relationRuntime, schema relationSchemaSource, targetColumn ColumnMeta, keys collectionx.List[any]) (BoundQuery, error) {
+func buildRelationTargetsBoundQuery(session Session, rt *RelationRuntime, schema relationSchemaSource, targetColumn ColumnMeta, keys collectionx.List[any]) (BoundQuery, error) {
 	def := schema.schemaRef()
 	dialectName := session.Dialect().Name()
 	tableName := schema.tableRef().Name()
@@ -222,7 +222,7 @@ func indexRelationTargets[E any](targets collectionx.List[E], mapper Mapper[E], 
 	return indexed, nil
 }
 
-func groupRelationTargets[E any](_ *relationRuntime, targets collectionx.List[E], mapper Mapper[E], column string) (collectionx.MultiMap[any, E], error) {
+func groupRelationTargets[E any](_ *RelationRuntime, targets collectionx.List[E], mapper Mapper[E], column string) (collectionx.MultiMap[any, E], error) {
 	grouped := collectionx.NewMultiMapWithCapacity[any, E](targets.Len())
 	var resultErr error
 	targets.Range(func(_ int, target E) bool {

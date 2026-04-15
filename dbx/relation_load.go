@@ -9,7 +9,7 @@ import (
 )
 
 type relationSourceState struct {
-	rt     *relationRuntime
+	rt     *RelationRuntime
 	keys   collectionx.List[any]
 	lookup []relationLookupValue
 }
@@ -120,7 +120,7 @@ func loadMultiRelation[S any, T any](ctx context.Context, session Session, sourc
 		logRuntimeNode(session, "relation.load.multi.error", "stage", "query_targets", "error", err)
 		return err
 	}
-	grouped, err := groupRelationTargets(rt, targets, targetMapper, targetColumn.Name)
+	grouped, err := groupRelationTargets[T](rt, targets, targetMapper, targetColumn.Name)
 	if err != nil {
 		logRuntimeNode(session, "relation.load.multi.error", "stage", "group_targets", "error", err)
 		return err
@@ -183,7 +183,7 @@ func prepareRelationSourceState[E any](session Session, sources []E, sourceSchem
 	return relationSourceState{rt: rt, keys: keys, lookup: lookup}, nil
 }
 
-func loadManyToManyGroupedTargets[T any](ctx context.Context, session Session, rt *relationRuntime, sourceSchema schemaDefinition, meta RelationMeta, targetSchema SchemaSource[T], targetMapper Mapper[T], sourceKeys collectionx.List[any], logPrefix string) (collectionx.MultiMap[any, T], int, bool, error) {
+func loadManyToManyGroupedTargets[T any](ctx context.Context, session Session, rt *RelationRuntime, sourceSchema schemaDefinition, meta RelationMeta, targetSchema SchemaSource[T], targetMapper Mapper[T], sourceKeys collectionx.List[any], logPrefix string) (collectionx.MultiMap[any, T], int, bool, error) {
 	targetColumn, err := relationTargetColumnForSchema(targetSchema, meta)
 	if err != nil {
 		logRelationLoadError(session, logPrefix, "resolve_target_column", err)
@@ -203,7 +203,7 @@ func loadManyToManyGroupedTargets[T any](ctx context.Context, session Session, r
 		logRelationLoadError(session, logPrefix, "query_targets", err)
 		return nil, 0, false, err
 	}
-	targetsByKey, err := indexRelationTargets(targets, targetMapper, targetColumn.Name, "", false)
+	targetsByKey, err := indexRelationTargets[T](targets, targetMapper, targetColumn.Name, "", false)
 	if err != nil {
 		logRelationLoadError(session, logPrefix, "index_targets", err)
 		return nil, 0, false, err
@@ -211,7 +211,7 @@ func loadManyToManyGroupedTargets[T any](ctx context.Context, session Session, r
 	return groupManyToManyTargets(rt, pairs, targetsByKey), targets.Len(), true, nil
 }
 
-func loadSingleRelationTargets[T any](ctx context.Context, session Session, rt *relationRuntime, meta RelationMeta, targetSchema SchemaSource[T], targetMapper Mapper[T], sourceKeys collectionx.List[any], logPrefix string) (map[any]T, int, error) {
+func loadSingleRelationTargets[T any](ctx context.Context, session Session, rt *RelationRuntime, meta RelationMeta, targetSchema SchemaSource[T], targetMapper Mapper[T], sourceKeys collectionx.List[any], logPrefix string) (map[any]T, int, error) {
 	targetColumn, err := relationTargetColumnForSchema(targetSchema, meta)
 	if err != nil {
 		logRelationLoadError(session, logPrefix, "resolve_target_column", err)
@@ -222,7 +222,7 @@ func loadSingleRelationTargets[T any](ctx context.Context, session Session, rt *
 		logRelationLoadError(session, logPrefix, "query_targets", err)
 		return nil, 0, err
 	}
-	targetsByKey, err := indexRelationTargets(targets, targetMapper, targetColumn.Name, meta.Name, meta.Kind == RelationHasOne)
+	targetsByKey, err := indexRelationTargets[T](targets, targetMapper, targetColumn.Name, meta.Name, meta.Kind == RelationHasOne)
 	if err != nil {
 		logRelationLoadError(session, logPrefix, "index_targets", err)
 		return nil, 0, err

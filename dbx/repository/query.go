@@ -151,7 +151,7 @@ func (r *Base[E, S]) ListPageRequest(ctx context.Context, query *dbx.SelectQuery
 		return PageResult[E]{}, err
 	}
 	dbx.LogRuntimeNode(r.session, "repository.list_page.done", "table", r.schema.TableName(), "items", items.Len(), "total", total)
-	return dbx.NewPageResult(items, total, request), nil
+	return dbx.NewPageResult[E](items, total, request), nil
 }
 
 // ListPageSpec returns one page of results for the provided specs.

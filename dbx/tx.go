@@ -14,7 +14,7 @@ type Tx struct {
 	raw         *sql.Tx
 	dialect     dialect.Dialect
 	observe     runtimeObserver
-	relation    *relationRuntime
+	relation    *RelationRuntime
 	idGenerator IDGenerator
 	nodeID      uint16
 }
@@ -185,7 +185,7 @@ func (tx *Tx) NodeID() uint16 {
 }
 
 // RelationRuntime returns the relation load runtime for this Tx.
-func (tx *Tx) RelationRuntime() *relationRuntime {
+func (tx *Tx) RelationRuntime() *RelationRuntime {
 	if tx == nil || tx.relation == nil {
 		return defaultRelationRuntime
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
-func relationSeenSet(rt *relationRuntime) (collectionx.Map[any, struct{}], error) {
+func relationSeenSet(rt *RelationRuntime) (collectionx.Map[any, struct{}], error) {
 	seen, ok := rt.seenSetPool.Get().(collectionx.Map[any, struct{}])
 	if !ok {
 		return collectionx.NewMap[any, struct{}](), errors.New("dbx: invalid relation seen-set pool value")
@@ -17,7 +17,7 @@ func relationSeenSet(rt *relationRuntime) (collectionx.Map[any, struct{}], error
 	return seen, nil
 }
 
-func relationCachedQuery(rt *relationRuntime, cacheKey string) (string, bool, error) {
+func relationCachedQuery(rt *RelationRuntime, cacheKey string) (string, bool, error) {
 	value, ok, err := rt.queryCache.Get(cacheKey)
 	return value, ok, wrapDBError("read relation query cache", err)
 }
