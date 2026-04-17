@@ -77,13 +77,13 @@ func ExampleWithModuleHooks() {
 	_ = app
 }
 
-func TestResolveOptionalAs(t *testing.T) {
+func TestResolveOptional(t *testing.T) {
 	rt := buildRuntime(t, dix.NewApp("test"))
-	_, ok := dix.ResolveOptionalAs[string](rt.Container())
+	_, ok := dix.ResolveOptional[string](rt.Container())
 	assert.False(t, ok)
 }
 
-func TestResolveOrElse(t *testing.T) {
+func TestResolveOptionAndResolveOr(t *testing.T) {
 	rt := buildRuntime(t, dix.NewApp("test",
 		dix.NewModule("deps",
 			dix.WithModuleProviders(
@@ -92,8 +92,13 @@ func TestResolveOrElse(t *testing.T) {
 		),
 	))
 
-	assert.Equal(t, "configured", dix.ResolveOrElse[string](rt.Container(), "fallback"))
-	assert.Equal(t, 42, dix.ResolveOrElse[int](rt.Container(), 42))
+	option := dix.ResolveOption[string](rt.Container())
+	value, ok := option.Get()
+	require.True(t, ok)
+	assert.Equal(t, "configured", value)
+
+	assert.Equal(t, "configured", dix.ResolveOr[string](rt.Container(), "fallback"))
+	assert.Equal(t, 42, dix.ResolveOr[int](rt.Container(), 42))
 }
 
 func TestProfileFromEnv(t *testing.T) {

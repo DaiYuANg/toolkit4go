@@ -131,8 +131,7 @@ func newBenchmarkApp() *dix.App {
 
 	return dix.New(
 		"benchmark",
-		dix.WithLogger(benchmarkLogger()),
-		dix.WithModules(coreModule, domainModule, transportModule),
+		dix.WithModules(loggerModule(benchmarkLogger()), coreModule, domainModule, transportModule),
 	)
 }
 
@@ -160,8 +159,7 @@ func newAdvancedBenchmarkApp() *dix.App {
 
 	return dix.New(
 		"advanced-benchmark",
-		dix.WithLogger(benchmarkLogger()),
-		dix.WithModules(coreModule, domainModule, transportModule, advancedModule),
+		dix.WithModules(loggerModule(benchmarkLogger()), coreModule, domainModule, transportModule, advancedModule),
 	)
 }
 

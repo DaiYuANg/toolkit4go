@@ -18,12 +18,21 @@ func ResolveAs[T any](c *Container) (T, error) {
 
 // ResolveOptionalAs resolves an optional typed value from the container.
 func ResolveOptionalAs[T any](c *Container) (value T, ok bool) {
-	option := ResolveOptionAs[T](c)
-	return option.Get()
+	return ResolveOptional[T](c)
+}
+
+// ResolveOptional resolves an optional typed value from the container.
+func ResolveOptional[T any](c *Container) (value T, ok bool) {
+	return ResolveOption[T](c).Get()
 }
 
 // ResolveOptionAs resolves an optional dependency as mo.Option.
 func ResolveOptionAs[T any](c *Container) mo.Option[T] {
+	return ResolveOption[T](c)
+}
+
+// ResolveOption resolves an optional dependency as mo.Option.
+func ResolveOption[T any](c *Container) mo.Option[T] {
 	value, err := ResolveAs[T](c)
 	if err == nil {
 		return mo.Some(value)
@@ -33,7 +42,12 @@ func ResolveOptionAs[T any](c *Container) mo.Option[T] {
 
 // ResolveOrElse resolves a typed value or returns the provided fallback.
 func ResolveOrElse[T any](c *Container, fallback T) T {
-	return ResolveOptionAs[T](c).OrElse(fallback)
+	return ResolveOr[T](c, fallback)
+}
+
+// ResolveOr resolves a typed value or returns the provided fallback.
+func ResolveOr[T any](c *Container, fallback T) T {
+	return ResolveOption[T](c).OrElse(fallback)
 }
 
 // MustResolveAs resolves a typed value and panics on failure.

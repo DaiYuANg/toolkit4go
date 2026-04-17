@@ -47,11 +47,11 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 
 - `dix.New(name, ...)` / `dix.NewDefault(...)`
 - `dix.NewModule(name, ...)`
-- `dix.Modules(...)`, `dix.UseProfile(...)`, `dix.Version(...)`, `dix.UseLogger(...)`, `dix.UseLogger0/1(...)`
+- `dix.Modules(...)`, `dix.UseProfile(...)`, `dix.Version(...)`, `dix.UseLogger(...)`, `dix.LoggerFrom(...)`, `dix.UseLogger0/1(...)`
 - `dix.UseEventLogger(...)`, `dix.UseEventLogger0/1(...)`
 - `dix.WithObserver(...)` / `dix.WithObservers(...)`
 - `dix.Providers(...)`, `dix.Hooks(...)`, `dix.Imports(...)`, `dix.Setups(...)`
-- `dix.WithModules(...)`, `dix.WithProfile(...)`, `dix.WithVersion(...)`, `dix.WithLogger(...)`
+- `dix.WithModules(...)`, `dix.WithProfile(...)`, `dix.WithVersion(...)`, `dix.WithLogger(...)`, `dix.WithLoggerFrom(...)`
 - `dix.WithModuleProviders(...)`, `dix.WithModuleHooks(...)`, `dix.WithModuleImports(...)`
 - `dix.WithModuleProvider(...)`, `dix.WithModuleHook(...)`, `dix.WithModuleImport(...)`
 - `dix.Value(...)`, `dix.Invoke(...)`, `dix.ProviderN(...)`, `dix.OnStart(...)`, `dix.OnStop(...)`
@@ -64,8 +64,8 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `dix` keeps the existing `WithModule*` option family for compatibility.
 - `dix` also keeps the existing `WithProfile` / `WithVersion` / `WithLogger` / `WithModules` app option family for compatibility.
 - New code can prefer the shorter module option aliases such as `Providers(...)`, `Hooks(...)`, `Imports(...)`, `Invokes(...)`, `Setups(...)`, `Description(...)`, and `Tags(...)`.
-- For framework logging, prefer `UseLogger(...)` for a plain `*slog.Logger`, `UseLogger0/1(...)` when the logger comes from DI, and `UseEventLogger...` when you want to fully control dix internal event logging.
-- `WithLoggerFrom...` remains supported as a compatibility path, but new code should prefer `UseLogger0/1/Err0/Err1`.
+- Framework logger priority is: internal default, module-provided or resolver-provided `*slog.Logger`, then direct `UseLogger(...)` / `WithLogger(...)`. `UseEventLogger...` can still replace the internal event logger.
+- `WithLoggerFrom...` remains supported for custom resolver flows, but a normal logger should live in the module graph.
 - `Observers(...)` remain the extension path for sidecar consumers such as metrics, not the primary framework logger hook.
 - For zero-dependency registrations, `Value(...)` and `Invoke(...)` reduce the remaining boilerplate on the core path.
 - In `dix/advanced`, the shorter aliases such as `Named(...)`, `Alias(...)`, `Transient(...)`, and `Override(...)` keep the same semantics as the older explicit names.

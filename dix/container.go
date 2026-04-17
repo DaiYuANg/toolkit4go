@@ -20,6 +20,9 @@ type Container struct {
 }
 
 func newContainer(logger *slog.Logger) *Container {
+	if logger == nil {
+		logger = defaultLogger()
+	}
 	return &Container{
 		injector: do.NewWithOpts(&do.InjectorOpts{
 			HookBeforeRegistration: nil,
@@ -32,17 +35,12 @@ func newContainer(logger *slog.Logger) *Container {
 				logger.Debug(fmt.Sprintf(format, args...))
 			},
 		}),
-		logger: slog.Default(),
+		logger: logger,
 	}
 }
 
 // Raw returns the underlying do injector for advanced integrations.
 func (c *Container) Raw() do.Injector { return c.injector }
-
-// Injector returns the underlying do injector.
-//
-// Deprecated: prefer Raw() to make advanced usage explicit at call sites.
-func (c *Container) Injector() do.Injector { return c.injector }
 
 // Shutdown shuts down all registered container services.
 func (c *Container) Shutdown(ctx context.Context) error {

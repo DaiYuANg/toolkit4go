@@ -59,16 +59,21 @@ func AppDescription(description string) AppOption {
 	return WithAppDescription(description)
 }
 
-// WithLogger sets the framework logger.
+// WithLogger sets the framework slog logger.
+//
+// The logger also becomes the default dix EventLogger, so internal build,
+// lifecycle, health, and debug events are emitted through the same instance.
 func WithLogger(logger *slog.Logger) AppOption {
 	return func(spec *appSpec) {
 		if logger != nil {
 			spec.logger = logger
+			spec.loggerConfigured = true
+			spec.eventLogger = NewSlogEventLogger(logger)
 		}
 	}
 }
 
-// UseLogger sets the framework logger.
+// UseLogger sets the framework slog logger.
 func UseLogger(logger *slog.Logger) AppOption {
 	return WithLogger(logger)
 }

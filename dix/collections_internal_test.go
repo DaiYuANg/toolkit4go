@@ -63,8 +63,24 @@ func TestWithModules_StoresSpecModules(t *testing.T) {
 	assert.Equal(t, "right", values[1].Name())
 }
 
+func TestRuntimeDefaultLogger_IsSharedWithInternalComponents(t *testing.T) {
+	app := New("logger-sharing")
+
+	rt, err := app.Build()
+	require.NoError(t, err)
+	require.NotNil(t, rt)
+
+	require.Same(t, app.Logger(), rt.Logger())
+	require.Same(t, rt.Logger(), rt.container.logger)
+	require.Same(t, rt.Logger(), rt.lifecycle.logger)
+
+	eventLogger, ok := rt.eventLogger.(*slogEventLogger)
+	require.True(t, ok)
+	require.Same(t, rt.Logger(), eventLogger.logger)
+}
+
 func TestContainerHealthChecks_UsesCollectionList(t *testing.T) {
-	c := newContainer()
+	c := newContainer(defaultLogger())
 
 	c.RegisterHealthCheck("general", func(context.Context) error { return nil })
 	c.RegisterLivenessCheck("live", func(context.Context) error { return nil })
@@ -79,7 +95,8 @@ func TestContainerHealthChecks_UsesCollectionList(t *testing.T) {
 }
 
 func TestLifecycle_UsesCollectionBackedHooks(t *testing.T) {
-	lc := newLifecycle()
+	logger := defaultLogger()
+	lc := newLifecycle(logger)
 	order := make([]string, 0, 4)
 
 	lc.OnStart(func(context.Context) error {
@@ -99,10 +116,10 @@ func TestLifecycle_UsesCollectionBackedHooks(t *testing.T) {
 		return nil
 	})
 
-	started, err := lc.executeStartHooks(context.Background(), newContainer())
+	started, err := lc.executeStartHooks(context.Background(), newContainer(logger))
 	require.NoError(t, err)
 	assert.Equal(t, 2, started)
-	require.NoError(t, lc.executeStopHooks(context.Background(), newContainer()))
+	require.NoError(t, lc.executeStopHooks(context.Background(), newContainer(logger)))
 	assert.Equal(t, []string{"start-1", "start-2", "stop-1", "stop-2"}, order)
 }
 

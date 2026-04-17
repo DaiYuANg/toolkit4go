@@ -108,9 +108,9 @@ go run .
 
 ## Optional: resolve framework logger from DI (`logx`)
 
-If you want `dix` internal logs to use a logger produced by your module graph, prefer `dix.UseLogger0/1/...`.
+If you want `dix` internal logs to use a logger produced by your module graph, provide `*slog.Logger` from a module. `dix` resolves that service before build logging and uses it instead of the framework default. A direct `UseLogger(...)` option still takes priority when both are present.
 
-The examples below use the newer short module and app option aliases. The older `WithModule*`, `With*`, and `WithLoggerFrom...` forms remain valid as compatibility entry points.
+The examples below use the newer short module and app option aliases. The older `WithModule*`, `WithProfile`, `WithVersion`, and `WithLoggerFrom...` forms remain valid as compatibility entry points.
 
 ```go
 package main
@@ -135,6 +135,9 @@ func main() {
 					Logger: logx.MustNew(logx.WithConsole(true), logx.WithDebugLevel()),
 				}
 			}),
+			dix.Provider1(func(logs *LogBundle) *slog.Logger {
+				return logs.Logger
+			}),
 		),
 		dix.Hooks(
 			dix.OnStop(func(_ context.Context, logs *LogBundle) error {
@@ -146,9 +149,6 @@ func main() {
 	app := dix.New(
 		"demo",
 		dix.Modules(logModule /*, other modules... */),
-		dix.UseLogger1(func(logs *LogBundle) *slog.Logger {
-			return logs.Logger
-		}),
 	)
 
 	_, _ = app.Build()

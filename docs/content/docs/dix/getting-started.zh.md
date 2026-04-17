@@ -108,9 +108,9 @@ go run .
 
 ## 可选：从 DI 解析框架 logger（结合 `logx`）
 
-如果你希望 `dix` 框架内部日志直接使用模块图里构建的 logger，优先使用 `dix.UseLogger0/1/...`。
+如果你希望 `dix` 框架内部日志直接使用模块图里构建的 logger，在模块中提供 `*slog.Logger`。`dix` 会在 build 日志开始前优先解析这个服务，并用它替换框架默认 logger。如果同时配置了 `UseLogger(...)`，则 `UseLogger(...)` 优先。
 
-下面的示例使用了新的短模块 option 和 App option 写法；旧的 `WithModule*`、`With*` 以及 `WithLoggerFrom...` 形式仍然作为兼容入口保留。
+下面的示例使用了新的短模块 option 和 App option 写法；旧的 `WithModule*`、`WithProfile`、`WithVersion` 以及 `WithLoggerFrom...` 形式仍然作为兼容入口保留。
 
 ```go
 package main
@@ -135,6 +135,9 @@ func main() {
 					Logger: logx.MustNew(logx.WithConsole(true), logx.WithDebugLevel()),
 				}
 			}),
+			dix.Provider1(func(logs *LogBundle) *slog.Logger {
+				return logs.Logger
+			}),
 		),
 		dix.Hooks(
 			dix.OnStop(func(_ context.Context, logs *LogBundle) error {
@@ -146,9 +149,6 @@ func main() {
 	app := dix.New(
 		"demo",
 		dix.Modules(logModule /*, other modules... */),
-		dix.UseLogger1(func(logs *LogBundle) *slog.Logger {
-			return logs.Logger
-		}),
 	)
 
 	_, _ = app.Build()

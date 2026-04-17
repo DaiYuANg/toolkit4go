@@ -127,6 +127,12 @@ func newDebugLogger() (*slog.Logger, *bytes.Buffer) {
 	return logger, buf
 }
 
+func loggerModule(logger *slog.Logger) dix.Module {
+	return dix.NewModule("logger",
+		dix.WithModuleProvider(dix.Value(logger)),
+	)
+}
+
 func TestApp_Build(t *testing.T) {
 	app := dix.NewApp("testapp", ServerModule)
 	rt := buildRuntime(t, app)

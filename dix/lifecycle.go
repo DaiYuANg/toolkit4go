@@ -56,6 +56,9 @@ type lifecycleImpl struct {
 }
 
 func newLifecycle(logger *slog.Logger) *lifecycleImpl {
+	if logger == nil {
+		logger = defaultLogger()
+	}
 	return &lifecycleImpl{
 		logger: logger,
 	}

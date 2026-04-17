@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/samber/do/v2"
 	"github.com/samber/oops"
@@ -56,7 +57,7 @@ func (p *buildPlan) Build(ctx context.Context) (_ *Runtime, err error) {
 	}
 
 	rt = newRuntime(p.spec, p)
-	registerRuntimeCoreServices(rt)
+	p.registerRuntimeCoreServices(rt)
 
 	providersRegistered, err := p.prepareBuildLogging(ctx, rt)
 	if err != nil {
@@ -105,18 +106,36 @@ func (p *buildPlan) emitBuildResult(ctx context.Context, rt *Runtime, duration t
 }
 
 func (p *buildPlan) prepareBuildLogging(ctx context.Context, rt *Runtime) (bool, error) {
-	if !p.needsBuildLogging(rt) {
+	if rt == nil || rt.container == nil {
+		return false, oops.In("dix").
+			With("op", "prepare_build_logging").
+			New("runtime container is nil")
+	}
+
+	declaresSlogLogger := p.declaresProviderOutput(TypedService[*slog.Logger]())
+	needsProviderRegistration := p.needsBuildLogging(rt) || declaresSlogLogger
+	if !needsProviderRegistration {
 		return false, nil
 	}
 
 	p.registerProviders(ctx, rt, false)
 
-	if p.spec.eventLoggerFromContainer != nil {
-		return true, p.applyResolvedEventLogger(rt)
+	if p.spec.loggerConfigured {
+		p.applyConfiguredLogger(rt)
+	} else if p.spec.loggerFromContainer != nil {
+		if err := p.applyResolvedLogger(rt); err != nil {
+			return true, err
+		}
+	} else if declaresSlogLogger {
+		if err := p.applyDeclaredSlogLogger(rt); err != nil {
+			return true, err
+		}
 	}
 
-	if p.spec.loggerFromContainer != nil {
-		return true, p.applyResolvedLogger(rt)
+	if p.spec.eventLoggerFromContainer != nil {
+		if err := p.applyResolvedEventLogger(rt); err != nil {
+			return true, err
+		}
 	}
 
 	return true, nil
@@ -145,17 +164,32 @@ func (p *buildPlan) applyResolvedLogger(rt *Runtime) error {
 	if err != nil {
 		return err
 	}
-	rt.logger = resolvedLogger
-	rt.container.logger = resolvedLogger
-	rt.lifecycle.logger = resolvedLogger
-	if p.spec.eventLogger == nil {
-		resolvedEventLogger := NewSlogEventLogger(resolvedLogger)
+	p.applyRuntimeLogger(rt, resolvedLogger)
+	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[*slog.Logger](), resolvedLogger)
+	return nil
+}
+
+func (p *buildPlan) applyConfiguredLogger(rt *Runtime) {
+	if rt == nil || rt.container == nil || rt.spec == nil || rt.spec.logger == nil {
+		return
+	}
+	p.applyRuntimeLogger(rt, rt.spec.logger)
+	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[*slog.Logger](), rt.spec.logger)
+}
+
+func (p *buildPlan) applyRuntimeLogger(rt *Runtime, logger *slog.Logger) {
+	if rt == nil || logger == nil {
+		return
+	}
+	rt.logger = logger
+	rt.container.logger = logger
+	rt.lifecycle.logger = logger
+	if p == nil || p.spec == nil || p.spec.eventLogger == nil {
+		resolvedEventLogger := NewSlogEventLogger(logger)
 		rt.eventLogger = resolvedEventLogger
 		rt.container.eventLogger = resolvedEventLogger
 		rt.lifecycle.eventLogger = resolvedEventLogger
 	}
-	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[*slog.Logger](), resolvedLogger)
-	return nil
 }
 
 func cleanupBuildFailure(ctx context.Context, rt *Runtime, buildErr error) error {
@@ -187,10 +221,43 @@ func (p *buildPlan) logBuildStart(ctx context.Context, rt *Runtime, infoEnabled,
 	}
 }
 
-func registerRuntimeCoreServices(rt *Runtime) {
-	ProvideValueT[*slog.Logger](rt.container, rt.logger)
+func (p *buildPlan) registerRuntimeCoreServices(rt *Runtime) {
+	if rt == nil || rt.container == nil || rt.spec == nil {
+		return
+	}
+	if !p.declaresProviderOutput(TypedService[*slog.Logger]()) {
+		ProvideValueT[*slog.Logger](rt.container, rt.logger)
+	}
 	ProvideValueT[AppMeta](rt.container, rt.spec.meta)
 	ProvideValueT[Profile](rt.container, rt.spec.profile)
+}
+
+func (p *buildPlan) declaresProviderOutput(ref ServiceRef) bool {
+	if p == nil || p.modules == nil || ref.Name == "" {
+		return false
+	}
+	_, found := collectionx.FindList(p.modules, func(_ int, mod *moduleSpec) bool {
+		return mod != nil && mod.providers.AnyMatch(func(_ int, provider ProviderFunc) bool {
+			return provider.meta.Output.Name == ref.Name
+		})
+	})
+	return found
+}
+
+func (p *buildPlan) applyDeclaredSlogLogger(rt *Runtime) error {
+	logger, err := ResolveAs[*slog.Logger](rt.container)
+	if err != nil {
+		return oops.In("dix").
+			With("op", "resolve_declared_slog_logger", "app", rt.Name(), "service", serviceNameOf[*slog.Logger]()).
+			Wrapf(err, "resolve declared slog logger failed")
+	}
+	if logger == nil {
+		return oops.In("dix").
+			With("op", "resolve_declared_slog_logger", "app", rt.Name(), "service", serviceNameOf[*slog.Logger]()).
+			New("resolve declared slog logger failed: provider returned nil logger")
+	}
+	p.applyRuntimeLogger(rt, logger)
+	return nil
 }
 
 func (p *buildPlan) resolveFrameworkLogger(rt *Runtime) (*slog.Logger, error) {

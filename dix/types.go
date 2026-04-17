@@ -90,6 +90,7 @@ type appSpec struct {
 	profile                  Profile
 	modules                  collectionlist.List[Module]
 	logger                   *slog.Logger
+	loggerConfigured         bool
 	loggerFromContainer      func(*Container) (*slog.Logger, error)
 	eventLogger              EventLogger
 	eventLoggerFromContainer func(*Container) (EventLogger, error)

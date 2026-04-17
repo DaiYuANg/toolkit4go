@@ -93,10 +93,102 @@ func TestBuildDebugLogging(t *testing.T) {
 	assert.True(t, strings.Contains(logs, "invoke completed"), logs)
 }
 
+func TestWithLoggerRoutesInternalEventsThroughSlog(t *testing.T) {
+	logger, buf := newDebugLogger()
+	app := dix.New("slog-event-logger",
+		dix.UseLogger(logger),
+		dix.WithModule(
+			dix.NewModule("slog-event-logger",
+				dix.WithModuleProviders(
+					dix.Provider0(func() string { return "value" }),
+				),
+				dix.WithModuleSetups(
+					dix.SetupContainer(func(c *dix.Container) error {
+						c.RegisterHealthCheck("ready", func(context.Context) error { return nil })
+						return nil
+					}),
+				),
+				dix.WithModuleHooks(
+					dix.OnStartFunc(func() error { return nil }),
+					dix.OnStopFunc(func() error { return nil }),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	require.NoError(t, rt.Start(context.Background()))
+	assert.True(t, rt.CheckHealth(context.Background()).Healthy())
+	require.NoError(t, rt.Stop(context.Background()))
+
+	logs := buf.String()
+	assert.Contains(t, logs, "app built")
+	assert.Contains(t, logs, "app started")
+	assert.Contains(t, logs, "health check passed")
+	assert.Contains(t, logs, "app stopped")
+}
+
+func TestWithLoggerTakesPriorityOverDIProvidedLogger(t *testing.T) {
+	configuredLogger, configuredBuf := newDebugLogger()
+	diLogger, diBuf := newDebugLogger()
+
+	app := dix.New("logger-priority",
+		dix.UseLogger(configuredLogger),
+		dix.WithModule(
+			dix.NewModule("logger",
+				dix.WithModuleProviders(
+					dix.Value(diLogger),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	resolved, err := dix.ResolveAs[*slog.Logger](rt.Container())
+	require.NoError(t, err)
+
+	require.Same(t, configuredLogger, rt.Logger())
+	require.Same(t, configuredLogger, resolved)
+
+	require.NoError(t, rt.Start(context.Background()))
+	require.NoError(t, rt.Stop(context.Background()))
+
+	assert.Contains(t, configuredBuf.String(), "app built")
+	assert.Empty(t, diBuf.String())
+}
+
+func TestWithLoggerTakesPriorityOverLoggerFromContainer(t *testing.T) {
+	configuredLogger, _ := newDebugLogger()
+	diLogger, _ := newDebugLogger()
+
+	app := dix.New("logger-priority-resolver",
+		dix.UseLogger(configuredLogger),
+		dix.UseLogger1(func(carrier *frameworkLoggerCarrier) *slog.Logger {
+			return carrier.logger
+		}),
+		dix.WithModule(
+			dix.NewModule("logger",
+				dix.WithModuleProvider(
+					dix.Provider0(func() *frameworkLoggerCarrier {
+						return &frameworkLoggerCarrier{logger: diLogger}
+					}),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	resolved, err := dix.ResolveAs[*slog.Logger](rt.Container())
+	require.NoError(t, err)
+
+	require.Same(t, configuredLogger, rt.Logger())
+	require.Same(t, configuredLogger, resolved)
+}
+
 func TestRuntimeStartRollbackDebugLogging(t *testing.T) {
 	logger, buf := newDebugLogger()
 	app := dix.New("debug-start",
-		dix.WithLogger(logger),
+		dix.WithModule(loggerModule(logger)),
 		dix.WithModule(
 			dix.NewModule("debug-start",
 				dix.WithModuleProviders(
@@ -276,14 +368,13 @@ func TestApp_ShortOptionAliases(t *testing.T) {
 	app := dix.New("aliases",
 		dix.UseProfile(dix.ProfileDev),
 		dix.Version("1.2.3"),
-		dix.UseLogger(slog.Default()),
-		dix.Modules(DatabaseModule),
+		dix.Modules(loggerModule(slog.Default()), DatabaseModule),
 	)
 
 	assert.Equal(t, dix.ProfileDev, app.Profile())
 	assert.Equal(t, "1.2.3", app.Meta().Version)
 	assert.NotNil(t, app.Logger())
-	assert.Equal(t, 1, app.Modules().Len())
+	assert.Equal(t, 2, app.Modules().Len())
 
 	rt := buildRuntime(t, app)
 	cfg, err := dix.ResolveAs[Config](rt.Container())
@@ -426,8 +517,8 @@ func TestUseEventLogger1_RoutesAllDixLogsThroughConfiguredLogger(t *testing.T) {
 		dix.UseEventLogger1(func(carrier *frameworkEventLoggerCarrier) dix.EventLogger {
 			return carrier.logger
 		}),
-		dix.UseLogger(baseLogger),
 		dix.Modules(
+			loggerModule(baseLogger),
 			dix.NewModule("event-logger",
 				dix.Providers(
 					dix.Provider0(func() *frameworkEventLoggerCarrier {

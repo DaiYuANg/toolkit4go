@@ -45,11 +45,11 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 
 - `dix.New(name, ...)` / `dix.NewDefault(...)`
 - `dix.NewModule(name, ...)`
-- `dix.Modules(...)`、`dix.UseProfile(...)`、`dix.Version(...)`、`dix.UseLogger(...)`、`dix.UseLogger0/1(...)`
+- `dix.Modules(...)`、`dix.UseProfile(...)`、`dix.Version(...)`、`dix.UseLogger(...)`、`dix.LoggerFrom(...)`、`dix.UseLogger0/1(...)`
 - `dix.UseEventLogger(...)`、`dix.UseEventLogger0/1(...)`
 - `dix.WithObserver(...)` / `dix.WithObservers(...)`
 - `dix.Providers(...)`、`dix.Hooks(...)`、`dix.Imports(...)`、`dix.Setups(...)`
-- `dix.WithModules(...)`、`dix.WithProfile(...)`、`dix.WithVersion(...)`、`dix.WithLogger(...)`
+- `dix.WithModules(...)`、`dix.WithProfile(...)`、`dix.WithVersion(...)`、`dix.WithLogger(...)`、`dix.WithLoggerFrom(...)`
 - `dix.WithModuleProviders(...)`、`dix.WithModuleHooks(...)`、`dix.WithModuleImports(...)`
 - `dix.WithModuleProvider(...)`、`dix.WithModuleHook(...)`、`dix.WithModuleImport(...)`
 - `dix.Value(...)`、`dix.Invoke(...)`、`dix.ProviderN(...)`、`dix.OnStart(...)`、`dix.OnStop(...)`
@@ -62,8 +62,8 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `dix` 继续保留现有的 `WithModule*` option 家族，兼容旧写法。
 - `dix` 也继续保留现有的 `WithProfile` / `WithVersion` / `WithLogger` / `WithModules` 这组 App option，兼容旧写法。
 - 新代码可以优先使用更短的模块 option 别名，例如 `Providers(...)`、`Hooks(...)`、`Imports(...)`、`Invokes(...)`、`Setups(...)`、`Description(...)`、`Tags(...)`。
-- 对框架日志，普通 `*slog.Logger` 优先用 `UseLogger(...)`；如果 logger 来自 DI，优先用 `UseLogger0/1(...)`；如果你要完全接管 dix 内部事件日志，使用 `UseEventLogger...`。
-- `WithLoggerFrom...` 仍然保留为兼容入口，但新代码更推荐 `UseLogger0/1/Err0/Err1`。
+- 框架 logger 优先级是：内部默认 logger、模块或 resolver 提供的 `*slog.Logger`、直接 `UseLogger(...)` / `WithLogger(...)`。`UseEventLogger...` 仍然可以单独替换内部事件 logger。
+- `WithLoggerFrom...` 仍然保留给自定义 resolver 流程，但普通 logger 应该放在 module graph 中。
 - `Observers(...)` 继续定位为旁路订阅扩展，例如 metrics，而不是主框架 logger 入口。
 - 对零依赖注册，`Value(...)` 和 `Invoke(...)` 可以继续减少核心路径里的样板代码。
 - 在 `dix/advanced` 里，`Named(...)`、`Alias(...)`、`Transient(...)`、`Override(...)` 这些短别名和原来的显式命名保持同语义。

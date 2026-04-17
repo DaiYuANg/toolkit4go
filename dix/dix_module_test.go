@@ -367,10 +367,3 @@ func TestSetup_Shortcuts(t *testing.T) {
 	require.NoError(t, rt.Stop(context.Background()))
 	assert.True(t, stopped)
 }
-
-func TestContainerRegisterProviderDefinitionReturnsError(t *testing.T) {
-	rt := buildRuntime(t, dix.NewApp("test"))
-	err := rt.Container().Register(dix.Definition{Kind: dix.DefinitionProvider})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
-}

@@ -59,7 +59,7 @@ func (MessageEvent) dixEvent()         {}
 // NewSlogEventLogger adapts a slog logger to the dix EventLogger interface.
 func NewSlogEventLogger(logger *slog.Logger) EventLogger {
 	if logger == nil {
-		logger = slog.Default()
+		logger = defaultLogger()
 	}
 	return &slogEventLogger{logger: logger}
 }

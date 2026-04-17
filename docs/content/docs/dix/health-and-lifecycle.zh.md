@@ -73,7 +73,7 @@ func main() {
 		dix.Setups(dix.SetupContainer(func(c *dix.Container) error {
 			c.RegisterLivenessCheck("process", func(context.Context) error { return nil })
 			c.RegisterReadinessCheck("bootstrap", func(context.Context) error {
-				server, ok := dix.ResolveOptionalAs[*Server](c)
+				server, ok := dix.ResolveOptional[*Server](c)
 				if !ok || server == nil {
 					return errors.New("server not ready")
 				}
@@ -125,6 +125,9 @@ logModule := dix.NewModule("logx",
 				Logger: logx.MustNew(logx.WithConsole(true), logx.WithDebugLevel()),
 			}
 		}),
+		dix.Provider1(func(logs *LogBundle) *slog.Logger {
+			return logs.Logger
+		}),
 	),
 	dix.Hooks(
 		dix.OnStop(func(_ context.Context, logs *LogBundle) error {
@@ -135,13 +138,10 @@ logModule := dix.NewModule("logx",
 
 app := dix.NewDefault(
 	dix.Modules(logModule, serverModule),
-	dix.UseLogger1(func(logs *LogBundle) *slog.Logger {
-		return logs.Logger
-	}),
 )
 ```
 
-这样可以把 logger 的生命周期放在模块里统一管理，同时替换掉框架默认 logger。
+这样可以把 logger 的生命周期放在模块里统一管理，并在 build 日志开始前替换掉框架默认 logger。
 
 ## 延伸阅读
 

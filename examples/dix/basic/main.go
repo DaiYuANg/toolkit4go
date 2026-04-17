@@ -43,7 +43,7 @@ func main() {
 		dix.Setups(dix.SetupContainer(func(c *dix.Container) error {
 			c.RegisterLivenessCheck("process", func(context.Context) error { return nil })
 			c.RegisterReadinessCheck("bootstrap", func(context.Context) error {
-				server, ok := dix.ResolveOptionalAs[*server](c)
+				server, ok := dix.ResolveOptional[*server](c)
 				if !ok || server == nil {
 					return errors.New("server not ready")
 				}

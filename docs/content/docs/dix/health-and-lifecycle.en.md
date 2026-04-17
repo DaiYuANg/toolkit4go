@@ -73,7 +73,7 @@ func main() {
 		dix.Setups(dix.SetupContainer(func(c *dix.Container) error {
 			c.RegisterLivenessCheck("process", func(context.Context) error { return nil })
 			c.RegisterReadinessCheck("bootstrap", func(context.Context) error {
-				server, ok := dix.ResolveOptionalAs[*Server](c)
+				server, ok := dix.ResolveOptional[*Server](c)
 				if !ok || server == nil {
 					return errors.New("server not ready")
 				}
@@ -125,6 +125,9 @@ logModule := dix.NewModule("logx",
 				Logger: logx.MustNew(logx.WithConsole(true), logx.WithDebugLevel()),
 			}
 		}),
+		dix.Provider1(func(logs *LogBundle) *slog.Logger {
+			return logs.Logger
+		}),
 	),
 	dix.Hooks(
 		dix.OnStop(func(_ context.Context, logs *LogBundle) error {
@@ -135,13 +138,10 @@ logModule := dix.NewModule("logx",
 
 app := dix.NewDefault(
 	dix.Modules(logModule, serverModule),
-	dix.UseLogger1(func(logs *LogBundle) *slog.Logger {
-		return logs.Logger
-	}),
 )
 ```
 
-This keeps logger lifecycle in modules while replacing the framework default logger.
+This keeps logger lifecycle in modules while replacing the framework default logger before build logging starts.
 
 ## Related
 

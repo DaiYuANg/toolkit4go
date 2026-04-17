@@ -14,7 +14,7 @@ func validateTypedGraphReport(plan *buildPlan) ValidationReport {
 		return ValidationReport{}
 	}
 
-	state := newValidationState()
+	state := newValidationState(!plan.declaresProviderOutput(TypedService[*slog.Logger]()))
 	collectDeclaredOutputs(plan.modules, state)
 	validateDeclaredDependencies(plan.modules, state)
 
@@ -30,13 +30,17 @@ type validationState struct {
 	warnings *collectionlist.List[ValidationWarning]
 }
 
-func newValidationState() *validationState {
+func newValidationState(includeDefaultLogger bool) *validationState {
+	known := collectionset.NewSetWithCapacity[string](64,
+		serviceNameOf[AppMeta](),
+		serviceNameOf[Profile](),
+	)
+	if includeDefaultLogger {
+		known.Add(serviceNameOf[*slog.Logger]())
+	}
+
 	return &validationState{
-		known: collectionset.NewSetWithCapacity[string](64,
-			serviceNameOf[*slog.Logger](),
-			serviceNameOf[AppMeta](),
-			serviceNameOf[Profile](),
-		),
+		known:    known,
 		err:      collectionlist.NewListWithCapacity[error](4),
 		warnings: collectionlist.NewListWithCapacity[ValidationWarning](2),
 	}
