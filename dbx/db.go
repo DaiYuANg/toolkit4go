@@ -46,7 +46,7 @@ func NewWithOptionsList(raw *sql.DB, d dialect.Dialect, opts collectionx.List[Op
 	)
 	idGenerator := config.idGenerator
 	if idGenerator == nil {
-		idGenerator, err = NewSnowflakeGenerator(config.nodeID)
+		idGenerator, err = NewDefaultIDGenerator(config.nodeID)
 		if err != nil {
 			logRuntimeNodeWithLogger(config.logger, config.debug, "db.new.error", "stage", "id_generator", "error", err)
 			return nil, err

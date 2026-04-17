@@ -5,12 +5,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"os"
-	"sync"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/oklog/ulid/v2"
-	"github.com/segmentio/ksuid"
 )
 
 type IDGenerator interface {
@@ -22,20 +16,6 @@ const (
 	MinNodeID     uint16 = 1
 	MaxNodeID     uint16 = 1023
 )
-
-type defaultIDGenerator struct {
-	mu           sync.Mutex
-	nodeID       uint16
-	lastUnixMs   int64
-	snowflakeSeq int64
-}
-
-func NewSnowflakeGenerator(nodeID uint16) (IDGenerator, error) {
-	if nodeID < MinNodeID || nodeID > MaxNodeID {
-		return nil, &NodeIDOutOfRangeError{NodeID: nodeID, Min: MinNodeID, Max: MaxNodeID}
-	}
-	return &defaultIDGenerator{nodeID: nodeID}, nil
-}
 
 func ResolveNodeIDFromHostName() uint16 {
 	hostName, err := os.Hostname()
@@ -53,57 +33,6 @@ func ResolveNodeIDFromHostName() uint16 {
 	return id
 }
 
-func (g *defaultIDGenerator) GenerateID(_ context.Context, column ColumnMeta) (any, error) {
-	switch column.IDStrategy {
-	case IDStrategySnowflake:
-		return g.nextSnowflakeID(), nil
-	case IDStrategyUUID:
-		return g.nextUUID(column.UUIDVersion)
-	case IDStrategyULID:
-		return ulid.Make().String(), nil
-	case IDStrategyKSUID:
-		return ksuid.New().String(), nil
-	case IDStrategyUnset, IDStrategyDBAuto:
-		return nil, fmt.Errorf("dbx: unsupported id strategy %q", column.IDStrategy)
-	default:
-		return nil, fmt.Errorf("dbx: unsupported id strategy %q", column.IDStrategy)
-	}
-}
-
-func (g *defaultIDGenerator) nextUUID(version string) (string, error) {
-	switch version {
-	case "", "v7":
-		id, err := uuid.NewV7()
-		if err != nil {
-			return "", wrapDBError("generate uuid v7", err)
-		}
-		return id.String(), nil
-	case "v4":
-		return uuid.NewString(), nil
-	default:
-		return "", fmt.Errorf("dbx: unsupported uuid version %q", version)
-	}
-}
-
-func (g *defaultIDGenerator) nextSnowflakeID() int64 {
-	const sequenceMask int64 = (1 << 12) - 1
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	nowMs := time.Now().UnixMilli()
-	if nowMs == g.lastUnixMs {
-		g.snowflakeSeq = (g.snowflakeSeq + 1) & sequenceMask
-		if g.snowflakeSeq == 0 {
-			for nowMs <= g.lastUnixMs {
-				nowMs = time.Now().UnixMilli()
-			}
-		}
-	} else {
-		g.snowflakeSeq = 0
-	}
-	g.lastUnixMs = nowMs
-
-	// 41-bit timestamp + 10-bit node id + 12-bit sequence.
-	return (nowMs << 22) | (int64(g.nodeID) << 12) | g.snowflakeSeq
+func unsupportedIDStrategy(strategy IDStrategy) error {
+	return fmt.Errorf("dbx: unsupported id strategy %q", strategy)
 }

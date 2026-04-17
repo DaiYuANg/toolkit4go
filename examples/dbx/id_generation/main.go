@@ -43,7 +43,7 @@ type strongTypedUserSchema struct {
 
 func main() {
 	snowflakeSchema := dbx.MustSchema("snowflake_users", snowflakeUserSchema{})
-	idGenerator, err := dbx.NewSnowflakeGenerator(dbx.DefaultNodeID)
+	idGenerator, err := dbx.NewDefaultIDGenerator(dbx.DefaultNodeID)
 	if err != nil {
 		panic(err)
 	}
