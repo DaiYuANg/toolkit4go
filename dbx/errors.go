@@ -14,7 +14,6 @@ var (
 	ErrIDGeneratorNodeIDConflict = errors.New("dbx: WithIDGenerator and WithNodeID cannot be used together")
 	ErrNilDialect                = errors.New("dbx: dialect is nil")
 	ErrNilQuery                  = errors.New("dbx: query is nil")
-	ErrNilCodec                  = errors.New("dbx: codec is nil")
 	ErrNilMapper                 = errors.New("dbx: mapper is nil")
 	ErrNilRow                    = errors.New("dbx: row is nil")
 	ErrNilStatement              = errors.New("dbx: sql statement is nil")
@@ -22,7 +21,6 @@ var (
 	ErrTooManyRows               = errors.New("dbx: query returned more than one row")
 	ErrRelationCardinality       = errors.New("dbx: relation cardinality violation")
 	ErrNoPrimaryKey              = errors.New("dbx: schema does not define a primary key")
-	ErrUnknownCodec              = errors.New("dbx: codec is not registered")
 	ErrUnmappedColumn            = errors.New("dbx: result column is not mapped to entity")
 	ErrPrimaryKeyUnmapped        = errors.New("dbx: primary key column is not mapped to entity")
 	ErrUnsupportedEntity         = errors.New("dbx: entity type must be a struct")
@@ -44,23 +42,6 @@ func (e *PrimaryKeyUnmappedError) Error() string {
 
 func (e *PrimaryKeyUnmappedError) Unwrap() error {
 	return ErrPrimaryKeyUnmapped
-}
-
-// UnknownCodecError carries the codec name when a codec is not registered.
-// Use errors.As to extract the name for programmatic handling.
-type UnknownCodecError struct {
-	Name string
-}
-
-func (e *UnknownCodecError) Error() string {
-	if e.Name != "" {
-		return fmt.Sprintf("dbx: codec %q is not registered", e.Name)
-	}
-	return "dbx: codec is not registered"
-}
-
-func (e *UnknownCodecError) Unwrap() error {
-	return ErrUnknownCodec
 }
 
 // UnmappedColumnError carries the column name when a result column is not

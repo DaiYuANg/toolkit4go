@@ -3,6 +3,7 @@ package dbx
 import (
 	"reflect"
 
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/samber/hot"
 )
 
@@ -12,7 +13,7 @@ type mapperRegistry struct {
 
 type mapperRuntime struct {
 	registry *mapperRegistry
-	codecs   *codecRegistry
+	codecs   *codecx.Registry
 }
 
 var defaultMapperRuntime = newMapperRuntime()
@@ -20,9 +21,8 @@ var defaultMapperRuntime = newMapperRuntime()
 func newMapperRuntime() *mapperRuntime {
 	runtime := &mapperRuntime{
 		registry: newMapperRegistry(),
-		codecs:   newCodecRegistry(),
+		codecs:   codecx.DefaultRegistry(),
 	}
-	registerBuiltinCodecs(runtime.codecs)
 	return runtime
 }
 

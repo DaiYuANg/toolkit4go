@@ -2,6 +2,7 @@ package dbx_test
 
 import (
 	dbx "github.com/DaiYuANg/arcgo/dbx"
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 )
 
@@ -14,7 +15,7 @@ type CaseBuilder[T any] = dbx.CaseBuilder[T]
 type Check[E any] = dbx.Check[E]
 type CheckMeta = dbx.CheckMeta
 type CheckState = dbx.CheckState
-type Codec = dbx.Codec
+type Codec = codecx.Codec
 type Column[E any, T any] = dbx.Column[E, T]
 type ColumnMeta = dbx.ColumnMeta
 type ColumnState = dbx.ColumnState
@@ -77,7 +78,7 @@ type Table = dbx.Table
 type TableSource = dbx.TableSource
 type TableSpec = dbx.TableSpec
 type TableState = dbx.TableState
-type UnknownCodecError = dbx.UnknownCodecError
+type UnknownCodecError = codecx.UnknownError
 type UnmappedColumnError = dbx.UnmappedColumnError
 type ValidationBackend = dbx.ValidationBackend
 type ValidationReport = dbx.ValidationReport

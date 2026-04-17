@@ -1,4 +1,4 @@
-package dbx
+package codec
 
 import (
 	"database/sql"
@@ -49,7 +49,7 @@ func (c timeStringCodec) Decode(src any, target reflect.Value) error {
 
 	text, err := normalizeStringSource(src)
 	if err != nil {
-		return fmt.Errorf("dbx: codec %q: %w", c.name, err)
+		return fmt.Errorf("dbx/codec: codec %q: %w", c.name, err)
 	}
 	if strings.TrimSpace(text) == "" {
 		resetFieldValue(target)
@@ -58,7 +58,7 @@ func (c timeStringCodec) Decode(src any, target reflect.Value) error {
 
 	parsed, err := time.Parse(c.layout, text)
 	if err != nil {
-		return fmt.Errorf("dbx: codec %q: %w", c.name, err)
+		return fmt.Errorf("dbx/codec: codec %q: %w", c.name, err)
 	}
 	return assignDecodedValue(target, reflect.ValueOf(parsed))
 }
@@ -70,7 +70,7 @@ func (c timeStringCodec) Encode(source reflect.Value) (any, error) {
 	}
 	value, ok := codecValueAs[time.Time](source)
 	if !ok {
-		return nil, fmt.Errorf("dbx: codec %q cannot encode %s as time.Time", c.name, source.Type())
+		return nil, fmt.Errorf("dbx/codec: codec %q cannot encode %s as time.Time", c.name, source.Type())
 	}
 	return value.Format(c.layout), nil
 }
@@ -87,7 +87,7 @@ func (c unixTimeCodec) Decode(src any, target reflect.Value) error {
 
 	value, err := normalizeInt64Source(src)
 	if err != nil {
-		return fmt.Errorf("dbx: codec %q: %w", c.name, err)
+		return fmt.Errorf("dbx/codec: codec %q: %w", c.name, err)
 	}
 	return assignDecodedValue(target, reflect.ValueOf(c.timeFromValue(value)))
 }
@@ -99,7 +99,7 @@ func (c unixTimeCodec) Encode(source reflect.Value) (any, error) {
 	}
 	value, ok := codecValueAs[time.Time](source)
 	if !ok {
-		return nil, fmt.Errorf("dbx: codec %q cannot encode %s as time.Time", c.name, source.Type())
+		return nil, fmt.Errorf("dbx/codec: codec %q cannot encode %s as time.Time", c.name, source.Type())
 	}
 	return c.valueFromTime(value), nil
 }
@@ -152,14 +152,14 @@ func normalizeInt64Source(src any) (int64, error) {
 func parseInt64(input string) (int64, error) {
 	value, err := strconv.ParseInt(strings.TrimSpace(input), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("dbx: parse int64: %w", err)
+		return 0, fmt.Errorf("dbx/codec: parse int64: %w", err)
 	}
 	return value, nil
 }
 
 func convertUint64ToInt64(u uint64) (int64, error) {
 	if u > math.MaxInt64 {
-		return 0, errors.New("dbx: uint64 value overflows int64")
+		return 0, errors.New("dbx/codec: uint64 value overflows int64")
 	}
 	return int64(u), nil
 }

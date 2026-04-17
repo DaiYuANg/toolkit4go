@@ -1,4 +1,4 @@
-package dbx
+package codec
 
 import (
 	"database/sql"
@@ -23,7 +23,7 @@ func (textCodec) Decode(src any, target reflect.Value) error {
 
 	text, err := normalizeStringSource(src)
 	if err != nil {
-		return fmt.Errorf("dbx: codec %q: %w", "text", err)
+		return fmt.Errorf("dbx/codec: codec %q: %w", "text", err)
 	}
 	switch {
 	case target.Kind() == reflect.String:
@@ -39,10 +39,10 @@ func (textCodec) Decode(src any, target reflect.Value) error {
 		return err
 	}
 	if unmarshaler == nil {
-		return fmt.Errorf("dbx: codec %q cannot decode into %s", "text", target.Type())
+		return fmt.Errorf("dbx/codec: codec %q cannot decode into %s", "text", target.Type())
 	}
 	if err := unmarshaler.UnmarshalText([]byte(text)); err != nil {
-		return fmt.Errorf("dbx: codec %q: %w", "text", err)
+		return fmt.Errorf("dbx/codec: codec %q: %w", "text", err)
 	}
 	return nil
 }
@@ -63,14 +63,14 @@ func (textCodec) Encode(source reflect.Value) (any, error) {
 	if marshaler := resolveTextMarshaler(source); marshaler != nil {
 		text, err := marshaler.MarshalText()
 		if err != nil {
-			return nil, fmt.Errorf("dbx: codec %q: %w", "text", err)
+			return nil, fmt.Errorf("dbx/codec: codec %q: %w", "text", err)
 		}
 		return string(text), nil
 	}
 	if stringer := resolveStringer(source); stringer != nil {
 		return stringer.String(), nil
 	}
-	return nil, fmt.Errorf("dbx: codec %q cannot encode %s", "text", source.Type())
+	return nil, fmt.Errorf("dbx/codec: codec %q cannot encode %s", "text", source.Type())
 }
 
 func normalizeStringSource(src any) (string, error) {
@@ -86,9 +86,13 @@ func normalizeStringSource(src any) (string, error) {
 	}
 }
 
+func isByteSliceType(typ reflect.Type) bool {
+	return typ.Kind() == reflect.Slice && typ.Elem().Kind() == reflect.Uint8
+}
+
 func resolveTextUnmarshaler(target reflect.Value) (encoding.TextUnmarshaler, error) {
 	if !target.CanSet() {
-		return nil, errors.New("dbx: codec target is not settable")
+		return nil, errors.New("dbx/codec: codec target is not settable")
 	}
 	if target.Kind() == reflect.Pointer {
 		if target.IsNil() {

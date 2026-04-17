@@ -1,4 +1,4 @@
-package dbx
+package codec
 
 import (
 	"database/sql"
@@ -8,18 +8,12 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-
-	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
 type Codec interface {
 	Name() string
 	Decode(src any, target reflect.Value) error
 	Encode(source reflect.Value) (any, error)
-}
-
-type codecRegistry struct {
-	codecs collectionx.ConcurrentMap[string, Codec]
 }
 
 type typedCodec[T any] struct {
@@ -30,68 +24,24 @@ type typedCodec[T any] struct {
 
 type jsonCodec struct{}
 
-func NewCodec[T any](name string, decode func(any) (T, error), encode func(T) (any, error)) Codec {
+func New[T any](name string, decode func(any) (T, error), encode func(T) (any, error)) Codec {
 	return typedCodec[T]{
-		name:   normalizeCodecName(name),
+		name:   NormalizeName(name),
 		decode: decode,
 		encode: encode,
 	}
 }
 
-func RegisterCodec(codec Codec) error {
-	return defaultMapperRuntime.codecs.register(codec)
+func NormalizeName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }
 
-func MustRegisterCodec(codec Codec) {
-	if err := RegisterCodec(codec); err != nil {
-		panic(err)
+func IsNil(codec Codec) bool {
+	if codec == nil {
+		return true
 	}
-}
-
-func LookupCodec(name string) (Codec, bool) {
-	return defaultMapperRuntime.codecs.get(name)
-}
-
-func newCodecRegistry() *codecRegistry {
-	return &codecRegistry{
-		codecs: collectionx.NewConcurrentMapWithCapacity[string, Codec](10),
-	}
-}
-
-func (r *codecRegistry) clone() *codecRegistry {
-	if r == nil {
-		return newCodecRegistry()
-	}
-	cloned := newCodecRegistry()
-	cloned.codecs.SetAll(r.codecs.All())
-	return cloned
-}
-
-func (r *codecRegistry) register(codec Codec) error {
-	if isNilCodec(codec) {
-		return ErrNilCodec
-	}
-
-	name := normalizeCodecName(codec.Name())
-	if name == "" {
-		return errors.New("dbx: codec name cannot be empty")
-	}
-
-	if _, ok := r.codecs.Get(name); ok {
-		return fmt.Errorf("dbx: codec %q is already registered", name)
-	}
-	r.codecs.Set(name, codec)
-	return nil
-}
-
-func (r *codecRegistry) mustRegister(codec Codec) {
-	if err := r.register(codec); err != nil {
-		panic(err)
-	}
-}
-
-func (r *codecRegistry) get(name string) (Codec, bool) {
-	return r.codecs.Get(normalizeCodecName(name))
+	value := reflect.ValueOf(codec)
+	return value.Kind() == reflect.Pointer && value.IsNil()
 }
 
 func (c typedCodec[T]) Name() string {
@@ -119,7 +69,7 @@ func (c typedCodec[T]) Encode(source reflect.Value) (any, error) {
 
 	value, ok := codecValueAs[T](source)
 	if !ok {
-		return nil, fmt.Errorf("dbx: codec %q cannot encode %s as %s", c.name, source.Type(), reflect.TypeFor[T]())
+		return nil, fmt.Errorf("dbx/codec: codec %q cannot encode %s as %s", c.name, source.Type(), reflect.TypeFor[T]())
 	}
 	return c.encode(value)
 }
@@ -148,7 +98,7 @@ func (jsonCodec) Decode(src any, target reflect.Value) error {
 		return err
 	}
 	if err := json.Unmarshal(payload, destination.Interface()); err != nil {
-		return fmt.Errorf("dbx: codec %q: %w", "json", err)
+		return fmt.Errorf("dbx/codec: codec %q: %w", "json", err)
 	}
 	return nil
 }
@@ -160,21 +110,9 @@ func (jsonCodec) Encode(source reflect.Value) (any, error) {
 	}
 	payload, err := json.Marshal(source.Interface())
 	if err != nil {
-		return nil, fmt.Errorf("dbx: codec %q: %w", "json", err)
+		return nil, fmt.Errorf("dbx/codec: codec %q: %w", "json", err)
 	}
 	return payload, nil
-}
-
-func normalizeCodecName(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
-}
-
-func isNilCodec(codec Codec) bool {
-	if codec == nil {
-		return true
-	}
-	value := reflect.ValueOf(codec)
-	return value.Kind() == reflect.Pointer && value.IsNil()
 }
 
 func codecValueAs[T any](source reflect.Value) (T, bool) {
@@ -195,7 +133,7 @@ func codecValueAs[T any](source reflect.Value) (T, bool) {
 
 func assignDecodedValue(target, value reflect.Value) error {
 	if !target.CanSet() {
-		return errors.New("dbx: codec target is not settable")
+		return errors.New("dbx/codec: codec target is not settable")
 	}
 	if !value.IsValid() {
 		resetFieldValue(target)
@@ -244,12 +182,12 @@ func assignToNonPointerTarget(target, value reflect.Value) error {
 		target.Set(value.Convert(target.Type()))
 		return nil
 	}
-	return fmt.Errorf("dbx: decoded codec value %s cannot be assigned to %s", value.Type(), target.Type())
+	return fmt.Errorf("dbx/codec: decoded codec value %s cannot be assigned to %s", value.Type(), target.Type())
 }
 
 func codecDecodeTarget(target reflect.Value) (reflect.Value, error) {
 	if !target.CanSet() {
-		return reflect.Value{}, errors.New("dbx: codec target is not settable")
+		return reflect.Value{}, errors.New("dbx/codec: codec target is not settable")
 	}
 	if target.Kind() == reflect.Pointer {
 		if target.IsNil() {
@@ -283,6 +221,6 @@ func normalizeJSONPayload(src any) ([]byte, error) {
 	case string:
 		return []byte(value), nil
 	default:
-		return nil, fmt.Errorf("dbx: json codec does not support source type %T", src)
+		return nil, fmt.Errorf("dbx/codec: json codec does not support source type %T", src)
 	}
 }

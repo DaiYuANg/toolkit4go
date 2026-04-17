@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/samber/hot"
 )
 
@@ -17,7 +18,7 @@ type mapperMetadata struct {
 	scanPlans          *hot.HotCache[string, *scanPlan]
 }
 
-func buildMapperMetadata(entityType reflect.Type, codecs *codecRegistry) (*mapperMetadata, error) {
+func buildMapperMetadata(entityType reflect.Type, codecs *codecx.Registry) (*mapperMetadata, error) {
 	if entityType.Kind() != reflect.Struct {
 		return nil, ErrUnsupportedEntity
 	}
@@ -55,7 +56,7 @@ func resolveEntityColumn(field reflect.StructField) (string, map[string]string) 
 	return name, associateTagOptions(parts[1:])
 }
 
-func collectMappedFields(entityType reflect.Type, prefix []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
+func collectMappedFields(entityType reflect.Type, prefix []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecx.Registry) error {
 	for fieldIndex := range entityType.NumField() {
 		field := entityType.Field(fieldIndex)
 		path := appendIndexPath(prefix, fieldIndex)
@@ -66,7 +67,7 @@ func collectMappedFields(entityType reflect.Type, prefix []int, fields collectio
 	return nil
 }
 
-func processField(field reflect.StructField, path []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
+func processField(field reflect.StructField, path []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecx.Registry) error {
 	if !field.IsExported() {
 		return nil
 	}
@@ -98,8 +99,8 @@ func processField(field reflect.StructField, path []int, fields collectionx.List
 	return addMappedField(field, columnName, options, path, fields, byColumn, byNormalizedColumn, codecs)
 }
 
-func addMappedField(field reflect.StructField, columnName string, options map[string]string, path []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecRegistry) error {
-	codecName := normalizeCodecName(optionValue(options, "codec"))
+func addMappedField(field reflect.StructField, columnName string, options map[string]string, path []int, fields collectionx.List[MappedField], byColumn, byNormalizedColumn collectionx.Map[string, MappedField], codecs *codecx.Registry) error {
+	codecName := codecx.NormalizeName(optionValue(options, "codec"))
 	codec, err := resolveMappedFieldCodec(codecs, codecName)
 	if err != nil {
 		return fmt.Errorf("dbx: field %s: %w", field.Name, err)
@@ -125,14 +126,14 @@ func addMappedField(field reflect.StructField, columnName string, options map[st
 	return nil
 }
 
-func resolveMappedFieldCodec(codecs *codecRegistry, name string) (Codec, error) {
+func resolveMappedFieldCodec(codecs *codecx.Registry, name string) (codecx.Codec, error) {
 	if name == "" {
-		var codec Codec
+		var codec codecx.Codec
 		return codec, nil
 	}
-	codec, ok := codecs.get(name)
+	codec, ok := codecs.Lookup(name)
 	if !ok {
-		return nil, &UnknownCodecError{Name: name}
+		return nil, &codecx.UnknownError{Name: name}
 	}
 	return codec, nil
 }

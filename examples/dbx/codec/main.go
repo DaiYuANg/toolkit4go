@@ -9,6 +9,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
@@ -109,8 +110,8 @@ func splitCSV(input string) []string {
 	return parts
 }
 
-func newCSVCodec() dbx.Codec {
-	return dbx.NewCodec[[]string](
+func newCSVCodec() codecx.Codec {
+	return codecx.New[[]string](
 		"csv",
 		func(src any) ([]string, error) {
 			switch value := src.(type) {

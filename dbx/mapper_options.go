@@ -3,6 +3,7 @@ package dbx
 import (
 	"fmt"
 
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/pkg/option"
 	"github.com/samber/lo"
 )
@@ -13,10 +14,10 @@ type mapperBuildOptions struct {
 	runtime *mapperRuntime
 }
 
-func WithMapperCodecs(codecs ...Codec) MapperOption {
+func WithMapperCodecs(codecs ...codecx.Codec) MapperOption {
 	return func(opts *mapperBuildOptions) error {
-		filtered := lo.Filter(codecs, func(codec Codec, _ int) bool {
-			return !isNilCodec(codec)
+		filtered := lo.Filter(codecs, func(codec codecx.Codec, _ int) bool {
+			return !codecx.IsNil(codec)
 		})
 		if len(filtered) == 0 {
 			return nil
@@ -24,7 +25,7 @@ func WithMapperCodecs(codecs ...Codec) MapperOption {
 
 		runtime := opts.runtime.clone()
 		for _, codec := range filtered {
-			if err := runtime.codecs.register(codec); err != nil {
+			if err := runtime.codecs.Register(codec); err != nil {
 				return err
 			}
 		}
@@ -53,7 +54,7 @@ func (r *mapperRuntime) clone() *mapperRuntime {
 	}
 	cloned := &mapperRuntime{
 		registry: newMapperRegistry(),
-		codecs:   r.codecs.clone(),
+		codecs:   r.codecs.Clone(),
 	}
 	return cloned
 }

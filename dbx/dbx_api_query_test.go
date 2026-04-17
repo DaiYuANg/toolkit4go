@@ -6,6 +6,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	dbx "github.com/DaiYuANg/arcgo/dbx"
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/samber/mo"
 )
 
@@ -42,7 +43,7 @@ func NamedColumn[T any](source TableSource, name string) Column[struct{}, T] {
 }
 
 func NewCodec[T any](name string, decode func(any) (T, error), encode func(T) (any, error)) Codec {
-	return dbx.NewCodec(name, decode, encode)
+	return codecx.New(name, decode, encode)
 }
 
 func NewStructMapper[E any]() (StructMapper[E], error) {

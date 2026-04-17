@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 )
 
 // RowsScanner is the schema-less contract for mapping query result rows to entities.
@@ -44,7 +45,7 @@ type MappedField struct {
 	Type       reflect.Type
 	Insertable bool
 	Updatable  bool
-	codec      Codec
+	codec      codecx.Codec
 }
 
 // NewStructMapper creates a schema-less mapper for pure DTO mapping (e.g. SQLList, SQLGet with arbitrary SQL).

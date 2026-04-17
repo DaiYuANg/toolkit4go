@@ -2,6 +2,7 @@ package dbx_test
 
 import (
 	dbx "github.com/DaiYuANg/arcgo/dbx"
+	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 )
 
@@ -14,7 +15,7 @@ var ErrNilQuery = dbx.ErrNilQuery
 var ErrPrimaryKeyUnmapped = dbx.ErrPrimaryKeyUnmapped
 var ErrRelationCardinality = dbx.ErrRelationCardinality
 var ErrTooManyRows = dbx.ErrTooManyRows
-var ErrUnknownCodec = dbx.ErrUnknownCodec
+var ErrUnknownCodec = codecx.ErrUnknown
 var ErrUnmappedColumn = dbx.ErrUnmappedColumn
 
 var And = dbx.And
@@ -37,7 +38,7 @@ var InferTypeNameForTest = dbx.InferTypeNameForTest
 var InsertInto = dbx.InsertInto
 var MustNewWithOptions = dbx.MustNewWithOptions
 var MustNewWithOptionsList = dbx.MustNewWithOptionsList
-var MustRegisterCodec = dbx.MustRegisterCodec
+var MustRegisterCodec = codecx.MustRegister
 var MustSelectMapped = dbx.MustSelectMapped
 var NamedTable = dbx.NamedTable
 var New = dbx.New
