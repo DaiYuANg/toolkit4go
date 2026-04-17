@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/paging"
 	repository "github.com/DaiYuANg/arcgo/dbx/repository"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,7 @@ import (
 func TestBaseListPageRequestAndPageSpecSharePagination(t *testing.T) {
 	repo, users, ctx := newSeededUserRepo(t, "file:repository_page_request_test?mode=memory&cache=shared", "alice", "bob")
 
-	page, err := repo.ListPageSpecRequest(ctx, dbx.Page(2, 1), repository.OrderBy(users.Name.Asc()))
+	page, err := repo.ListPageSpecRequest(ctx, paging.Page(2, 1), repository.OrderBy(users.Name.Asc()))
 	require.NoError(t, err)
 	require.EqualValues(t, 2, page.Total)
 	require.Equal(t, 2, page.Page)

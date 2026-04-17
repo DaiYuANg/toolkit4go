@@ -60,7 +60,7 @@ func runActiveUserQuery(ctx context.Context, core *dbx.DB, registry *sqltmplx.Re
 		registry.MustStatement("sql/user/find_active.sql"),
 		sqltmplx.WithPage(struct {
 			Status int `dbx:"status"`
-		}{Status: 1}, dbx.Page(1, 20)),
+		}{Status: 1}, sqltmplx.Page(1, 20)),
 		dbx.MustStructMapper[shared.UserSummary](),
 	)
 	if err != nil {

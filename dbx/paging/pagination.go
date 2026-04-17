@@ -1,4 +1,4 @@
-package dbx
+package paging
 
 import "github.com/DaiYuANg/arcgo/collectionx"
 
@@ -9,31 +9,31 @@ const (
 	DefaultPageSize = 20
 )
 
-// PageRequest is the shared offset-pagination request model used by query and repository APIs.
-type PageRequest struct {
+// Request is the shared offset-pagination request model used by query and repository APIs.
+type Request struct {
 	Page        int
 	PageSize    int
 	MaxPageSize int
 }
 
 // Page creates a normalized page request.
-func Page(page, pageSize int) PageRequest {
-	return NewPageRequest(page, pageSize)
+func Page(page, pageSize int) Request {
+	return NewRequest(page, pageSize)
 }
 
-// NewPageRequest creates a normalized page request.
-func NewPageRequest(page, pageSize int) PageRequest {
-	return PageRequest{Page: page, PageSize: pageSize}.Normalize()
+// NewRequest creates a normalized page request.
+func NewRequest(page, pageSize int) Request {
+	return Request{Page: page, PageSize: pageSize}.Normalize()
 }
 
 // WithMaxPageSize applies an upper bound to the page size.
-func (r PageRequest) WithMaxPageSize(maxPageSize int) PageRequest {
+func (r Request) WithMaxPageSize(maxPageSize int) Request {
 	r.MaxPageSize = maxPageSize
 	return r.Normalize()
 }
 
 // Normalize returns a request with valid page and page size values.
-func (r PageRequest) Normalize() PageRequest {
+func (r Request) Normalize() Request {
 	if r.Page < 1 {
 		r.Page = DefaultPage
 	}
@@ -47,27 +47,18 @@ func (r PageRequest) Normalize() PageRequest {
 }
 
 // Offset returns the zero-based row offset for this request.
-func (r PageRequest) Offset() int {
+func (r Request) Offset() int {
 	r = r.Normalize()
-	return safePageOffset(r.Page, r.PageSize)
+	return safeOffset(r.Page, r.PageSize)
 }
 
 // Limit returns the normalized page size as a SQL LIMIT value.
-func (r PageRequest) Limit() int {
+func (r Request) Limit() int {
 	return r.Normalize().PageSize
 }
 
-// Apply applies this request as LIMIT/OFFSET on a select query.
-func (r PageRequest) Apply(query *SelectQuery) *SelectQuery {
-	if query == nil {
-		return nil
-	}
-	r = r.Normalize()
-	return query.Limit(r.Limit()).Offset(r.Offset())
-}
-
-// PageResult contains the items and metadata for a paginated query.
-type PageResult[E any] struct {
+// Result contains the items and metadata for a paginated query.
+type Result[E any] struct {
 	Items       collectionx.List[E]
 	Total       int64
 	Page        int
@@ -78,11 +69,11 @@ type PageResult[E any] struct {
 	HasPrevious bool
 }
 
-// NewPageResult creates a page result from items, total row count, and request metadata.
-func NewPageResult[E any](items collectionx.List[E], total int64, request PageRequest) PageResult[E] {
+// NewResult creates a page result from items, total row count, and request metadata.
+func NewResult[E any](items collectionx.List[E], total int64, request Request) Result[E] {
 	request = request.Normalize()
-	totalPages := pageTotal(total, request.PageSize)
-	return PageResult[E]{
+	totalPages := totalPages(total, request.PageSize)
+	return Result[E]{
 		Items:       items,
 		Total:       total,
 		Page:        request.Page,
@@ -94,9 +85,9 @@ func NewPageResult[E any](items collectionx.List[E], total int64, request PageRe
 	}
 }
 
-// MapPageResult maps page items while preserving pagination metadata.
-func MapPageResult[E any, R any](result PageResult[E], mapper func(index int, item E) R) PageResult[R] {
-	return PageResult[R]{
+// MapResult maps page items while preserving pagination metadata.
+func MapResult[E any, R any](result Result[E], mapper func(index int, item E) R) Result[R] {
+	return Result[R]{
 		Items:       collectionx.MapList(result.Items, mapper),
 		Total:       result.Total,
 		Page:        result.Page,
@@ -108,7 +99,7 @@ func MapPageResult[E any, R any](result PageResult[E], mapper func(index int, it
 	}
 }
 
-func safePageOffset(page, pageSize int) int {
+func safeOffset(page, pageSize int) int {
 	if page <= DefaultPage || pageSize <= 0 {
 		return 0
 	}
@@ -120,7 +111,7 @@ func safePageOffset(page, pageSize int) int {
 	return multiplier * pageSize
 }
 
-func pageTotal(total int64, pageSize int) int {
+func totalPages(total int64, pageSize int) int {
 	if total <= 0 || pageSize <= 0 {
 		return 0
 	}

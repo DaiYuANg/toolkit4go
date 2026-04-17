@@ -6,6 +6,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/paging"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
 	"github.com/samber/mo"
 )
@@ -81,23 +82,23 @@ func (s *Store[E, S]) List(ctx context.Context, specs ...repository.Spec) (colle
 }
 
 // ListPage returns one page of models matching the provided repository specifications.
-func (s *Store[E, S]) ListPage(ctx context.Context, request repository.PageRequest, specs ...repository.Spec) (repository.PageResult[*Model[E, S]], error) {
+func (s *Store[E, S]) ListPage(ctx context.Context, request paging.Request, specs ...repository.Spec) (paging.Result[*Model[E, S]], error) {
 	if s == nil || s.repository == nil {
-		return repository.PageResult[*Model[E, S]]{}, dbx.ErrNilDB
+		return paging.Result[*Model[E, S]]{}, dbx.ErrNilDB
 	}
 	page, err := s.repository.ListPageSpecRequest(ctx, request, specs...)
 	if err != nil {
-		return repository.PageResult[*Model[E, S]]{}, fmt.Errorf("list entity page: %w", err)
+		return paging.Result[*Model[E, S]]{}, fmt.Errorf("list entity page: %w", err)
 	}
-	return dbx.MapPageResult(page, func(_ int, item E) *Model[E, S] {
+	return paging.MapResult(page, func(_ int, item E) *Model[E, S] {
 		entity := item
 		return s.newKeyedModel(&entity, s.keyOf(&entity))
 	}), nil
 }
 
 // ListPageBy returns one page of models using page and page size values.
-func (s *Store[E, S]) ListPageBy(ctx context.Context, page, pageSize int, specs ...repository.Spec) (repository.PageResult[*Model[E, S]], error) {
-	return s.ListPage(ctx, dbx.NewPageRequest(page, pageSize), specs...)
+func (s *Store[E, S]) ListPageBy(ctx context.Context, page, pageSize int, specs ...repository.Spec) (paging.Result[*Model[E, S]], error) {
+	return s.ListPage(ctx, paging.NewRequest(page, pageSize), specs...)
 }
 
 func (s *Store[E, S]) newModel(entity *E) *Model[E, S] {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/paging"
 )
 
 // List returns every entity matched by the query.
@@ -128,41 +129,41 @@ func (r *Base[E, S]) ExistsSpec(ctx context.Context, specs ...Spec) (bool, error
 }
 
 // ListPage returns one page of results together with the total row count.
-func (r *Base[E, S]) ListPage(ctx context.Context, query *dbx.SelectQuery, page, pageSize int) (PageResult[E], error) {
-	return r.ListPageRequest(ctx, query, dbx.NewPageRequest(page, pageSize))
+func (r *Base[E, S]) ListPage(ctx context.Context, query *dbx.SelectQuery, page, pageSize int) (paging.Result[E], error) {
+	return r.ListPageRequest(ctx, query, paging.NewRequest(page, pageSize))
 }
 
 // ListPageRequest returns one page of results using a shared page request.
-func (r *Base[E, S]) ListPageRequest(ctx context.Context, query *dbx.SelectQuery, request PageRequest) (PageResult[E], error) {
+func (r *Base[E, S]) ListPageRequest(ctx context.Context, query *dbx.SelectQuery, request paging.Request) (paging.Result[E], error) {
 	if r == nil || r.session == nil {
-		return PageResult[E]{}, dbx.ErrNilDB
+		return paging.Result[E]{}, dbx.ErrNilDB
 	}
 	request = request.Normalize()
 	dbx.LogRuntimeNode(r.session, "repository.list_page.start", "table", r.schema.TableName(), "page", request.Page, "page_size", request.PageSize)
 	total, err := r.Count(ctx, query)
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.list_page.error", "table", r.schema.TableName(), "stage", "count", "error", err)
-		return PageResult[E]{}, err
+		return paging.Result[E]{}, err
 	}
 	pagedQuery := cloneOrDefault(r, query)
-	items, err := r.List(ctx, request.Apply(pagedQuery))
+	items, err := r.List(ctx, pagedQuery.Page(request))
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.list_page.error", "table", r.schema.TableName(), "stage", "list", "error", err)
-		return PageResult[E]{}, err
+		return paging.Result[E]{}, err
 	}
 	dbx.LogRuntimeNode(r.session, "repository.list_page.done", "table", r.schema.TableName(), "items", items.Len(), "total", total)
-	return dbx.NewPageResult[E](items, total, request), nil
+	return paging.NewResult[E](items, total, request), nil
 }
 
 // ListPageSpec returns one page of results for the provided specs.
-func (r *Base[E, S]) ListPageSpec(ctx context.Context, page, pageSize int, specs ...Spec) (PageResult[E], error) {
-	return r.ListPageSpecRequest(ctx, dbx.NewPageRequest(page, pageSize), specs...)
+func (r *Base[E, S]) ListPageSpec(ctx context.Context, page, pageSize int, specs ...Spec) (paging.Result[E], error) {
+	return r.ListPageSpecRequest(ctx, paging.NewRequest(page, pageSize), specs...)
 }
 
 // ListPageSpecRequest returns one page of results for the provided specs and page request.
-func (r *Base[E, S]) ListPageSpecRequest(ctx context.Context, request PageRequest, specs ...Spec) (PageResult[E], error) {
+func (r *Base[E, S]) ListPageSpecRequest(ctx context.Context, request paging.Request, specs ...Spec) (paging.Result[E], error) {
 	if r == nil || r.session == nil {
-		return PageResult[E]{}, dbx.ErrNilDB
+		return paging.Result[E]{}, dbx.ErrNilDB
 	}
 	return r.ListPageRequest(ctx, r.applySpecs(specs...), request)
 }

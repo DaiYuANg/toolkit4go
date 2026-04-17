@@ -27,9 +27,3 @@ func (r *Base[E, S]) Schema() S { return r.schema }
 func (r *Base[E, S]) Mapper() dbx.Mapper[E] {
 	return r.mapper
 }
-
-// PageRequest is the shared offset-pagination request model.
-type PageRequest = dbx.PageRequest
-
-// PageResult contains the items and metadata for a paginated query.
-type PageResult[E any] = dbx.PageResult[E]

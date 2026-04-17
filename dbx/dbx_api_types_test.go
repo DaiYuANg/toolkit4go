@@ -4,6 +4,7 @@ import (
 	dbx "github.com/DaiYuANg/arcgo/dbx"
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	"github.com/DaiYuANg/arcgo/dbx/paging"
 )
 
 type Aggregate[T any] = dbx.Aggregate[T]
@@ -52,8 +53,8 @@ type MigrationPlan = dbx.MigrationPlan
 type NodeIDOutOfRangeError = idgen.NodeIDOutOfRangeError
 type Operation = dbx.Operation
 type Option = dbx.Option
-type PageRequest = dbx.PageRequest
-type PageResult[E any] = dbx.PageResult[E]
+type PageRequest = paging.Request
+type PageResult[E any] = paging.Result[E]
 type Predicate = dbx.Predicate
 type PrimaryKeyMeta = dbx.PrimaryKeyMeta
 type PrimaryKeyState = dbx.PrimaryKeyState
@@ -85,8 +86,8 @@ type ValidationReport = dbx.ValidationReport
 
 const (
 	DefaultNodeID              = idgen.DefaultNodeID
-	DefaultPage                = dbx.DefaultPage
-	DefaultPageSize            = dbx.DefaultPageSize
+	DefaultPage                = paging.DefaultPage
+	DefaultPageSize            = paging.DefaultPageSize
 	DefaultUUIDVersion         = idgen.DefaultUUIDVersion
 	IDStrategyDBAuto           = idgen.StrategyDBAuto
 	IDStrategySnowflake        = idgen.StrategySnowflake

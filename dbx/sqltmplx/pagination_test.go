@@ -3,7 +3,6 @@ package sqltmplx_test
 import (
 	"testing"
 
-	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
 	sqltmplx "github.com/DaiYuANg/arcgo/dbx/sqltmplx"
 	"github.com/stretchr/testify/require"
@@ -24,7 +23,7 @@ limit /* Page.Limit */20 offset /* Page.Offset */0
 
 	bound, err := template.RenderPage(struct {
 		Status int `db:"status"`
-	}{Status: 1}, dbx.Page(2, 10))
+	}{Status: 1}, sqltmplx.Page(2, 10))
 	require.NoError(t, err)
 	require.Equal(t, "select id, username from users where status = ? and id > 0 limit ? offset ?", bound.Query)
 	require.Equal(t, []any{1, 10, 10}, bound.Args.Values())

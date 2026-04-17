@@ -7,6 +7,7 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	dbx "github.com/DaiYuANg/arcgo/dbx"
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
+	"github.com/DaiYuANg/arcgo/dbx/paging"
 	"github.com/samber/mo"
 )
 
@@ -65,11 +66,11 @@ func NewStructMapperWithOptions[E any](opts ...MapperOption) (StructMapper[E], e
 }
 
 func NewPageResult[E any](items collectionx.List[E], total int64, request PageRequest) PageResult[E] {
-	return dbx.NewPageResult(items, total, request)
+	return paging.NewResult(items, total, request)
 }
 
 func MapPageResult[E any, R any](result PageResult[E], mapper func(index int, item E) R) PageResult[R] {
-	return dbx.MapPageResult(result, mapper)
+	return paging.MapResult(result, mapper)
 }
 
 func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {

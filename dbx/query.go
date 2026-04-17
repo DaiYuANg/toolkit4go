@@ -1,6 +1,9 @@
 package dbx
 
-import "github.com/DaiYuANg/arcgo/collectionx"
+import (
+	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/paging"
+)
 
 type Join struct {
 	Type      JoinType
@@ -121,13 +124,17 @@ func (q *SelectQuery) Offset(offset int) *SelectQuery {
 }
 
 // Page applies a normalized page request to the query.
-func (q *SelectQuery) Page(request PageRequest) *SelectQuery {
-	return request.Apply(q)
+func (q *SelectQuery) Page(request paging.Request) *SelectQuery {
+	if q == nil {
+		return nil
+	}
+	request = request.Normalize()
+	return q.Limit(request.Limit()).Offset(request.Offset())
 }
 
 // PageBy applies page and page size values to the query.
 func (q *SelectQuery) PageBy(page, pageSize int) *SelectQuery {
-	return q.Page(NewPageRequest(page, pageSize))
+	return q.Page(paging.NewRequest(page, pageSize))
 }
 
 func (q *SelectQuery) Union(query *SelectQuery) *SelectQuery {

@@ -1,6 +1,9 @@
 package repository
 
-import "github.com/DaiYuANg/arcgo/dbx"
+import (
+	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/paging"
+)
 
 // Spec mutates a select query before repository execution.
 type Spec interface {
@@ -25,12 +28,12 @@ func OrderBy(orders ...dbx.Order) Spec {
 
 // Page applies a normalized page request to the query.
 func Page(page, pageSize int) Spec {
-	return dbx.NewPageRequest(page, pageSize)
+	return PageByRequest(paging.NewRequest(page, pageSize))
 }
 
 // PageByRequest applies an existing page request to the query.
-func PageByRequest(request PageRequest) Spec {
-	return request.Normalize()
+func PageByRequest(request paging.Request) Spec {
+	return SpecFunc(func(query *dbx.SelectQuery) *dbx.SelectQuery { return query.Page(request) })
 }
 
 // Limit applies a row limit to the query.
