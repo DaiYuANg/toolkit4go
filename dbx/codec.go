@@ -63,7 +63,7 @@ func (r *codecRegistry) clone() *codecRegistry {
 		return newCodecRegistry()
 	}
 	cloned := newCodecRegistry()
-	cloned.codecs = r.codecs
+	cloned.codecs.SetAll(r.codecs.All())
 	return cloned
 }
 
