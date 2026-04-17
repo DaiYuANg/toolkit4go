@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strconv"
 	"strings"
 
@@ -48,7 +49,7 @@ func (Dialect) QueryFeatures() dialect.QueryFeatures {
 }
 
 // BuildCreateTable builds a CREATE TABLE statement.
-func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (dbx.BoundQuery, error) {
+func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (sqlstmt.Bound, error) {
 	parts := collectionx.NewListWithCapacity[string](spec.Columns.Len() + spec.ForeignKeys.Len() + spec.Checks.Len() + 1)
 	inlinePrimaryKey := singlePrimaryKeyColumn(spec.PrimaryKey)
 	spec.Columns.Range(func(_ int, column dbx.ColumnMeta) bool {
@@ -66,39 +67,39 @@ func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (dbx.BoundQuery, error) {
 		parts.Add(d.checkDDL(check))
 		return true
 	})
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		SQL: "CREATE TABLE IF NOT EXISTS " + d.QuoteIdent(spec.Name) + " (" + joinPostgresStrings(parts, ", ") + ")",
 	}, nil
 }
 
 // BuildAddColumn builds an ALTER TABLE ADD COLUMN statement.
-func (d Dialect) BuildAddColumn(table string, column dbx.ColumnMeta) (dbx.BoundQuery, error) {
-	return dbx.BoundQuery{
+func (d Dialect) BuildAddColumn(table string, column dbx.ColumnMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{
 		SQL: "ALTER TABLE " + d.QuoteIdent(table) + " ADD COLUMN " + d.columnDDL(column, false, true),
 	}, nil
 }
 
 // BuildCreateIndex builds a CREATE INDEX statement.
-func (d Dialect) BuildCreateIndex(index dbx.IndexMeta) (dbx.BoundQuery, error) {
+func (d Dialect) BuildCreateIndex(index dbx.IndexMeta) (sqlstmt.Bound, error) {
 	prefix := "CREATE INDEX IF NOT EXISTS "
 	if index.Unique {
 		prefix = "CREATE UNIQUE INDEX IF NOT EXISTS "
 	}
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		SQL: prefix + d.QuoteIdent(index.Name) + " ON " + d.QuoteIdent(index.Table) + " (" + d.joinQuotedIdentifiers(index.Columns) + ")",
 	}, nil
 }
 
 // BuildAddForeignKey builds an ALTER TABLE ADD CONSTRAINT statement for a foreign key.
-func (d Dialect) BuildAddForeignKey(table string, foreignKey dbx.ForeignKeyMeta) (dbx.BoundQuery, error) {
-	return dbx.BoundQuery{
+func (d Dialect) BuildAddForeignKey(table string, foreignKey dbx.ForeignKeyMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{
 		SQL: "ALTER TABLE " + d.QuoteIdent(table) + " ADD " + d.foreignKeyDDL(foreignKey),
 	}, nil
 }
 
 // BuildAddCheck builds an ALTER TABLE ADD CONSTRAINT statement for a check.
-func (d Dialect) BuildAddCheck(table string, check dbx.CheckMeta) (dbx.BoundQuery, error) {
-	return dbx.BoundQuery{
+func (d Dialect) BuildAddCheck(table string, check dbx.CheckMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{
 		SQL: "ALTER TABLE " + d.QuoteIdent(table) + " ADD " + d.checkDDL(check),
 	}, nil
 }

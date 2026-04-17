@@ -3,31 +3,32 @@ package dbx
 import (
 	"errors"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
 )
 
-func (q *SelectQuery) Build(d dialect.Dialect) (BoundQuery, error) {
+func (q *SelectQuery) Build(d dialect.Dialect) (sqlstmt.Bound, error) {
 	if q == nil {
-		return BoundQuery{}, errors.New("dbx: select query is nil")
+		return sqlstmt.Bound{}, errors.New("dbx: select query is nil")
 	}
 	if q.FromItem.Name() == "" {
-		return BoundQuery{}, errors.New("dbx: select query requires FROM")
+		return sqlstmt.Bound{}, errors.New("dbx: select query requires FROM")
 	}
 	if q.Items.Len() == 0 {
-		return BoundQuery{}, errors.New("dbx: select query requires at least one item")
+		return sqlstmt.Bound{}, errors.New("dbx: select query requires at least one item")
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, 8)}
 	if err := renderSelectStatement(state, q); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := state.err(); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
-	bound := state.BoundQuery()
+	bound := state.Bound()
 	if q.LimitN != nil && *q.LimitN > 0 {
 		bound.CapacityHint = *q.LimitN
 	}

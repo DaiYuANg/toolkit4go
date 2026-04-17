@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 	"testing"
 
@@ -127,7 +128,7 @@ func (failingIndexDialect) RenderLimitOffset(limit, offset *int) (string, error)
 func (failingIndexDialect) NormalizeType(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
-func (d failingIndexDialect) BuildCreateTable(spec TableSpec) (BoundQuery, error) {
+func (d failingIndexDialect) BuildCreateTable(spec TableSpec) (sqlstmt.Bound, error) {
 	parts := make([]string, 0, spec.Columns.Len())
 	singlePK := ""
 	if spec.PrimaryKey != nil && spec.PrimaryKey.Columns.Len() == 1 {
@@ -148,19 +149,19 @@ func (d failingIndexDialect) BuildCreateTable(spec TableSpec) (BoundQuery, error
 		}
 		parts = append(parts, part)
 	}
-	return BoundQuery{SQL: "CREATE TABLE IF NOT EXISTS " + d.QuoteIdent(spec.Name) + " (" + strings.Join(parts, ", ") + ")"}, nil
+	return sqlstmt.Bound{SQL: "CREATE TABLE IF NOT EXISTS " + d.QuoteIdent(spec.Name) + " (" + strings.Join(parts, ", ") + ")"}, nil
 }
-func (d failingIndexDialect) BuildAddColumn(table string, column ColumnMeta) (BoundQuery, error) {
-	return BoundQuery{}, fmt.Errorf("unexpected add column for test table %s column %s", table, column.Name)
+func (d failingIndexDialect) BuildAddColumn(table string, column ColumnMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{}, fmt.Errorf("unexpected add column for test table %s column %s", table, column.Name)
 }
-func (d failingIndexDialect) BuildCreateIndex(index IndexMeta) (BoundQuery, error) {
-	return BoundQuery{SQL: "CREATE INDEX broken syntax"}, nil
+func (d failingIndexDialect) BuildCreateIndex(index IndexMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{SQL: "CREATE INDEX broken syntax"}, nil
 }
-func (d failingIndexDialect) BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (BoundQuery, error) {
-	return BoundQuery{}, fmt.Errorf("unexpected add foreign key for test table %s constraint %s", table, foreignKey.Name)
+func (d failingIndexDialect) BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{}, fmt.Errorf("unexpected add foreign key for test table %s constraint %s", table, foreignKey.Name)
 }
-func (d failingIndexDialect) BuildAddCheck(table string, check CheckMeta) (BoundQuery, error) {
-	return BoundQuery{}, fmt.Errorf("unexpected add check for test table %s check %s", table, check.Name)
+func (d failingIndexDialect) BuildAddCheck(table string, check CheckMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{}, fmt.Errorf("unexpected add check for test table %s check %s", table, check.Name)
 }
 func (d failingIndexDialect) InspectTable(ctx context.Context, executor Executor, table string) (state TableState, err error) {
 	rows, err := executor.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", table)

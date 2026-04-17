@@ -1,9 +1,9 @@
-// Package dbx provides a lightweight typed SQL query builder, mapper, and repository toolkit.
-package dbx
+package sqlstmt
 
 import "github.com/DaiYuANg/arcgo/collectionx"
 
-type BoundQuery struct {
+// Bound is a SQL statement with bind arguments ready for execution.
+type Bound struct {
 	Name         string
 	SQL          string
 	Args         collectionx.List[any]

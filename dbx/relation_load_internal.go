@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -149,7 +150,7 @@ func queryRelationTargets[E any](ctx context.Context, session Session, rt *Relat
 	return items, nil
 }
 
-func buildRelationTargetsBoundQuery(session Session, rt *RelationRuntime, schema relationSchemaSource, targetColumn ColumnMeta, keys collectionx.List[any]) (BoundQuery, error) {
+func buildRelationTargetsBoundQuery(session Session, rt *RelationRuntime, schema relationSchemaSource, targetColumn ColumnMeta, keys collectionx.List[any]) (sqlstmt.Bound, error) {
 	def := schema.schemaRef()
 	dialectName := session.Dialect().Name()
 	tableName := schema.tableRef().Name()
@@ -162,11 +163,11 @@ func buildRelationTargetsBoundQuery(session Session, rt *RelationRuntime, schema
 	cacheKey := fmt.Sprintf("rel:%s:%s:%s:%s:%d", dialectName, tableName, selectSig, targetColumn.Name, keys.Len())
 	cachedSQL, ok, err := relationCachedQuery(rt, cacheKey)
 	if err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if ok {
 		logRuntimeNode(session, "relation.targets.bound.cache_hit", "table", tableName, "target_column", targetColumn.Name, "keys", keys.Len())
-		return BoundQuery{SQL: cachedSQL, Args: keys.Clone()}, nil
+		return sqlstmt.Bound{SQL: cachedSQL, Args: keys.Clone()}, nil
 	}
 	logRuntimeNode(session, "relation.targets.bound.cache_miss", "table", tableName, "target_column", targetColumn.Name, "keys", keys.Len())
 	query := SelectList(allSelectItems(def)).
@@ -180,7 +181,7 @@ func buildRelationTargetsBoundQuery(session Session, rt *RelationRuntime, schema
 	bound, err := Build(session, query)
 	if err != nil {
 		logRuntimeNode(session, "relation.targets.bound.error", "table", tableName, "error", err)
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	rt.queryCache.Set(cacheKey, bound.SQL)
 	return bound, nil

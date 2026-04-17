@@ -3,6 +3,7 @@ package dbx_test
 import (
 	"context"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	dbx "github.com/DaiYuANg/arcgo/dbx"
@@ -89,7 +90,7 @@ func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilde
 	return items, nil
 }
 
-func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	items, err := dbx.QueryAllBound(ctx, session, bound, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all bound: %w", err)
@@ -97,7 +98,7 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery
 	return items, nil
 }
 
-func QueryAllBoundList[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllBoundList[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	items, err := dbx.QueryAllBoundList(ctx, session, bound, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all bound list: %w", err)
@@ -121,7 +122,7 @@ func ResultColumn[T any](name string) Column[struct{}, T] {
 	return dbx.ResultColumn[T](name)
 }
 
-func SQLCursor[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (Cursor[E], error) {
+func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (Cursor[E], error) {
 	cursor, err := dbx.SQLCursor(ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql cursor: %w", err)
@@ -129,11 +130,11 @@ func SQLCursor[E any](ctx context.Context, session Session, statement SQLStateme
 	return cursor, nil
 }
 
-func SQLEach[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) func(func(E, error) bool) {
+func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) func(func(E, error) bool) {
 	return dbx.SQLEach(ctx, session, statement, params, mapper)
 }
 
-func SQLFind[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (mo.Option[E], error) {
+func SQLFind[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (mo.Option[E], error) {
 	item, err := dbx.SQLFind(ctx, session, statement, params, mapper)
 	if err != nil {
 		return mo.None[E](), fmt.Errorf("sql find: %w", err)
@@ -141,7 +142,7 @@ func SQLFind[E any](ctx context.Context, session Session, statement SQLStatement
 	return item, nil
 }
 
-func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (E, error) {
+func SQLGet[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (E, error) {
 	item, err := dbx.SQLGet(ctx, session, statement, params, mapper)
 	if err != nil {
 		var zero E
@@ -150,7 +151,7 @@ func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementS
 	return item, nil
 }
 
-func SQLList[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func SQLList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	items, err := dbx.SQLList(ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql list: %w", err)
@@ -158,7 +159,7 @@ func SQLList[E any](ctx context.Context, session Session, statement SQLStatement
 	return items, nil
 }
 
-func SQLQueryList[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func SQLQueryList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	items, err := dbx.SQLQueryList(ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql query list: %w", err)
@@ -166,7 +167,7 @@ func SQLQueryList[E any](ctx context.Context, session Session, statement SQLStat
 	return items, nil
 }
 
-func SQLScalar[T any](ctx context.Context, session Session, statement SQLStatementSource, params any) (T, error) {
+func SQLScalar[T any](ctx context.Context, session Session, statement sqlstmt.Source, params any) (T, error) {
 	item, err := dbx.SQLScalar[T](ctx, session, statement, params)
 	if err != nil {
 		var zero T
@@ -175,7 +176,7 @@ func SQLScalar[T any](ctx context.Context, session Session, statement SQLStateme
 	return item, nil
 }
 
-func SQLScalarOption[T any](ctx context.Context, session Session, statement SQLStatementSource, params any) (mo.Option[T], error) {
+func SQLScalarOption[T any](ctx context.Context, session Session, statement sqlstmt.Source, params any) (mo.Option[T], error) {
 	item, err := dbx.SQLScalarOption[T](ctx, session, statement, params)
 	if err != nil {
 		return mo.None[T](), fmt.Errorf("sql scalar option: %w", err)

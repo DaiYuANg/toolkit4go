@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"context"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -15,11 +16,11 @@ type SchemaResource interface {
 
 type SchemaDialect interface {
 	dialect.Dialect
-	BuildCreateTable(spec TableSpec) (BoundQuery, error)
-	BuildAddColumn(table string, column ColumnMeta) (BoundQuery, error)
-	BuildCreateIndex(index IndexMeta) (BoundQuery, error)
-	BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (BoundQuery, error)
-	BuildAddCheck(table string, check CheckMeta) (BoundQuery, error)
+	BuildCreateTable(spec TableSpec) (sqlstmt.Bound, error)
+	BuildAddColumn(table string, column ColumnMeta) (sqlstmt.Bound, error)
+	BuildCreateIndex(index IndexMeta) (sqlstmt.Bound, error)
+	BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (sqlstmt.Bound, error)
+	BuildAddCheck(table string, check CheckMeta) (sqlstmt.Bound, error)
 	InspectTable(ctx context.Context, executor Executor, table string) (TableState, error)
 	NormalizeType(value string) string
 }
@@ -135,7 +136,7 @@ type MigrationAction struct {
 	Kind       MigrationActionKind
 	Table      string
 	Summary    string
-	Statement  BoundQuery
+	Statement  sqlstmt.Bound
 	Executable bool
 }
 
@@ -152,8 +153,8 @@ func (a MigrationAction) SQLPreview() string {
 	return strings.TrimSpace(a.Statement.SQL)
 }
 
-func (p MigrationPlan) Statements() collectionx.List[BoundQuery] {
-	statements := collectionx.NewListWithCapacity[BoundQuery](p.Actions.Len())
+func (p MigrationPlan) Statements() collectionx.List[sqlstmt.Bound] {
+	statements := collectionx.NewListWithCapacity[sqlstmt.Bound](p.Actions.Len())
 	p.Actions.Range(func(_ int, action MigrationAction) bool {
 		if action.HasStatement() {
 			statements.Add(action.Statement)

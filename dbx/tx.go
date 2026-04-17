@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -28,8 +29,8 @@ func (tx *Tx) Dialect() dialect.Dialect {
 	return tx.dialect
 }
 
-func (tx *Tx) Bound(rawSQL string, args ...any) BoundQuery {
-	return BoundQuery{SQL: rawSQL, Args: collectionx.NewList(args...)}
+func (tx *Tx) Bound(rawSQL string, args ...any) sqlstmt.Bound {
+	return sqlstmt.Bound{SQL: rawSQL, Args: collectionx.NewList(args...)}
 }
 
 func (tx *Tx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
@@ -97,11 +98,11 @@ func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *R
 	return observedRow(ctx, tx.observe, event, rows)
 }
 
-func (tx *Tx) QueryBoundContext(ctx context.Context, bound BoundQuery) (*sql.Rows, error) {
+func (tx *Tx) QueryBoundContext(ctx context.Context, bound sqlstmt.Bound) (*sql.Rows, error) {
 	return tx.queryContext(ctx, bound.Name, bound.SQL, bound.Args.Values()...)
 }
 
-func (tx *Tx) ExecBoundContext(ctx context.Context, bound BoundQuery) (sql.Result, error) {
+func (tx *Tx) ExecBoundContext(ctx context.Context, bound sqlstmt.Bound) (sql.Result, error) {
 	return tx.execContext(ctx, bound.Name, bound.SQL, bound.Args.Values()...)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -11,9 +12,9 @@ import (
 
 func benchmarkSQLFetch(
 	b *testing.B,
-	statement *SQLStatement,
+	statement *sqlstmt.Statement,
 	dataSQL []string,
-	runQuery func(context.Context, Session, *SQLStatement, any, StructMapper[UserSummary]) error,
+	runQuery func(context.Context, Session, *sqlstmt.Statement, any, StructMapper[UserSummary]) error,
 ) {
 	b.Helper()
 
@@ -43,15 +44,15 @@ func benchmarkSQLFetch(
 }
 
 func BenchmarkSQLList(b *testing.B) {
-	statement := NewSQLStatement("user.list", func(_ any) (BoundQuery, error) {
-		return BoundQuery{SQL: `SELECT "id", "username" FROM "users" WHERE "status" = ?`, Args: collectionx.NewList[any](int64(1))}, nil
+	statement := sqlstmt.New("user.list", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{SQL: `SELECT "id", "username" FROM "users" WHERE "status" = ?`, Args: collectionx.NewList[any](int64(1))}, nil
 	})
 	dataSQL := []string{
 		`INSERT INTO "roles" ("id","name") VALUES (1,'r')`,
 		`INSERT INTO "users" ("username","email_address","status","role_id") VALUES ('alice','a@x.com',1,1),('bob','b@x.com',1,1)`,
 	}
 
-	benchmarkSQLFetch(b, statement, dataSQL, func(ctx context.Context, session Session, query *SQLStatement, params any, mapper StructMapper[UserSummary]) error {
+	benchmarkSQLFetch(b, statement, dataSQL, func(ctx context.Context, session Session, query *sqlstmt.Statement, params any, mapper StructMapper[UserSummary]) error {
 		_, err := SQLList[UserSummary](ctx, session, query, params, mapper)
 		if err != nil {
 			return fmt.Errorf("SQLList returned error: %w", err)
@@ -61,15 +62,15 @@ func BenchmarkSQLList(b *testing.B) {
 }
 
 func BenchmarkSQLGet(b *testing.B) {
-	statement := NewSQLStatement("user.get", func(_ any) (BoundQuery, error) {
-		return BoundQuery{SQL: `SELECT "id", "username" FROM "users" WHERE "id" = ?`, Args: collectionx.NewList[any](int64(1))}, nil
+	statement := sqlstmt.New("user.get", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{SQL: `SELECT "id", "username" FROM "users" WHERE "id" = ?`, Args: collectionx.NewList[any](int64(1))}, nil
 	})
 	dataSQL := []string{
 		`INSERT INTO "roles" ("id","name") VALUES (1,'r')`,
 		`INSERT INTO "users" ("id","username","email_address","status","role_id") VALUES (1,'alice','a@x.com',1,1)`,
 	}
 
-	benchmarkSQLFetch(b, statement, dataSQL, func(ctx context.Context, session Session, query *SQLStatement, params any, mapper StructMapper[UserSummary]) error {
+	benchmarkSQLFetch(b, statement, dataSQL, func(ctx context.Context, session Session, query *sqlstmt.Statement, params any, mapper StructMapper[UserSummary]) error {
 		_, err := SQLGet[UserSummary](ctx, session, query, params, mapper)
 		if err != nil {
 			return fmt.Errorf("SQLGet returned error: %w", err)
@@ -79,8 +80,8 @@ func BenchmarkSQLGet(b *testing.B) {
 }
 
 func BenchmarkSQLFind(b *testing.B) {
-	statement := NewSQLStatement("user.find", func(_ any) (BoundQuery, error) {
-		return BoundQuery{SQL: `SELECT "id", "username" FROM "users" WHERE "id" = ?`, Args: collectionx.NewList[any](int64(1))}, nil
+	statement := sqlstmt.New("user.find", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{SQL: `SELECT "id", "username" FROM "users" WHERE "id" = ?`, Args: collectionx.NewList[any](int64(1))}, nil
 	})
 	dataSQL := []string{
 		`INSERT INTO "roles" ("id","name") VALUES (1,'r')`,

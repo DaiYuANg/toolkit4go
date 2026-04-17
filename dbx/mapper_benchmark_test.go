@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 )
 
@@ -250,8 +251,8 @@ func benchmarkQueryCursorOnce(b *testing.B, core *DB, query *SelectQuery, mapper
 }
 
 func BenchmarkSQLScalar(b *testing.B) {
-	statement := NewSQLStatement("user.count", func(_ any) (BoundQuery, error) {
-		return BoundQuery{SQL: `SELECT count(*) FROM "users"`}, nil
+	statement := sqlstmt.New("user.count", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{SQL: `SELECT count(*) FROM "users"`}, nil
 	})
 	dataSQL := []string{
 		`INSERT INTO "roles" ("id","name") VALUES (1,'r')`,

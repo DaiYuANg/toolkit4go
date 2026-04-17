@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/mo"
@@ -18,17 +19,17 @@ type oneRowScanner[E any] interface {
 	scanOneRows(ctx context.Context, rows *sql.Rows) (E, bool, error)
 }
 
-func (x *SQLExecutor) Bind(statement SQLStatementSource, params any) (BoundQuery, error) {
+func (x *SQLExecutor) Bind(statement sqlstmt.Source, params any) (sqlstmt.Bound, error) {
 	if statement == nil {
-		return BoundQuery{}, oops.In("dbx").
+		return sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "sql_bind").
-			Wrapf(ErrNilStatement, "validate sql statement")
+			Wrapf(sqlstmt.ErrNilStatement, "validate sql statement")
 	}
 
 	bound, err := statement.Bind(params)
 	if err != nil {
 		logRuntimeNode(x.session, "sql.bind.error", "statement", statement.StatementName(), "error", err)
-		return BoundQuery{}, wrapDBError("bind sql statement", err)
+		return sqlstmt.Bound{}, wrapDBError("bind sql statement", err)
 	}
 	if bound.Name == "" {
 		bound.Name = statement.StatementName()
@@ -40,7 +41,7 @@ func (x *SQLExecutor) Bind(statement SQLStatementSource, params any) (BoundQuery
 	return bound, nil
 }
 
-func (x *SQLExecutor) Exec(ctx context.Context, statement SQLStatementSource, params any) (sql.Result, error) {
+func (x *SQLExecutor) Exec(ctx context.Context, statement sqlstmt.Source, params any) (sql.Result, error) {
 	session, err := x.sessionOrErr()
 	if err != nil {
 		return nil, err
@@ -55,7 +56,7 @@ func (x *SQLExecutor) Exec(ctx context.Context, statement SQLStatementSource, pa
 	return result, wrapDBError("execute sql statement", execErr)
 }
 
-func (x *SQLExecutor) Query(ctx context.Context, statement SQLStatementSource, params any) (*sql.Rows, error) {
+func (x *SQLExecutor) Query(ctx context.Context, statement sqlstmt.Source, params any) (*sql.Rows, error) {
 	session, err := x.sessionOrErr()
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func (x *SQLExecutor) Query(ctx context.Context, statement SQLStatementSource, p
 	return querySessionBound(ctx, session, bound)
 }
 
-func (x *SQLExecutor) queryBound(ctx context.Context, bound BoundQuery) (*sql.Rows, error) {
+func (x *SQLExecutor) queryBound(ctx context.Context, bound sqlstmt.Bound) (*sql.Rows, error) {
 	session, err := x.sessionOrErr()
 	if err != nil {
 		return nil, err
@@ -75,7 +76,7 @@ func (x *SQLExecutor) queryBound(ctx context.Context, bound BoundQuery) (*sql.Ro
 	return querySessionBound(ctx, session, bound)
 }
 
-func querySessionBound(ctx context.Context, session Session, bound BoundQuery) (*sql.Rows, error) {
+func querySessionBound(ctx context.Context, session Session, bound sqlstmt.Bound) (*sql.Rows, error) {
 	logRuntimeNode(session, "sql.query.start", "statement", bound.Name, "args_count", bound.Args.Len())
 	rows, queryErr := session.QueryBoundContext(ctx, bound)
 	return rows, wrapDBError("query sql statement", queryErr)
@@ -90,7 +91,7 @@ func (x *SQLExecutor) sessionOrErr() (Session, error) {
 	return x.session, nil
 }
 
-func SQLList[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func SQLList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "sql_list", "statement", statementName(statement)).
@@ -129,11 +130,11 @@ func SQLList[E any](ctx context.Context, session Session, statement SQLStatement
 
 // SQLQueryList executes a SQL statement source and returns mapped rows as a collectionx.List.
 // This is the collectionx.List companion to SQLList.
-func SQLQueryList[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func SQLQueryList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	return SQLList(ctx, session, statement, params, mapper)
 }
 
-func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (E, error) {
+func SQLGet[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (E, error) {
 	if mapper == nil {
 		var zero E
 		return zero, oops.In("dbx").
@@ -190,7 +191,7 @@ func SQLGet[E any](ctx context.Context, session Session, statement SQLStatementS
 	}
 }
 
-func SQLFind[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (mo.Option[E], error) {
+func SQLFind[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (mo.Option[E], error) {
 	if mapper == nil {
 		return mo.None[E](), oops.In("dbx").
 			With("op", "sql_find", "statement", statementName(statement)).
@@ -235,7 +236,7 @@ func SQLFind[E any](ctx context.Context, session Session, statement SQLStatement
 	}
 }
 
-func SQLScalar[T any](ctx context.Context, session Session, statement SQLStatementSource, params any) (T, error) {
+func SQLScalar[T any](ctx context.Context, session Session, statement sqlstmt.Source, params any) (T, error) {
 	value, found, err := sqlScalar[T](ctx, session, statement, params)
 	if err != nil {
 		logRuntimeNode(session, "sql.scalar.error", "error", err)
@@ -253,7 +254,7 @@ func SQLScalar[T any](ctx context.Context, session Session, statement SQLStateme
 	return value, nil
 }
 
-func SQLScalarOption[T any](ctx context.Context, session Session, statement SQLStatementSource, params any) (mo.Option[T], error) {
+func SQLScalarOption[T any](ctx context.Context, session Session, statement sqlstmt.Source, params any) (mo.Option[T], error) {
 	value, found, err := sqlScalar[T](ctx, session, statement, params)
 	if err != nil {
 		logRuntimeNode(session, "sql.scalar_option.error", "error", err)

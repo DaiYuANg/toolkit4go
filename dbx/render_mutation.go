@@ -5,35 +5,36 @@ package dbx
 import (
 	"errors"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
 )
 
-func (q *InsertQuery) Build(d dialect.Dialect) (BoundQuery, error) {
+func (q *InsertQuery) Build(d dialect.Dialect) (sqlstmt.Bound, error) {
 	if q == nil {
-		return BoundQuery{}, errors.New("dbx: insert query is nil")
+		return sqlstmt.Bound{}, errors.New("dbx: insert query is nil")
 	}
 	rows := normalizedInsertRows(q)
 	if err := validateInsertQuery(q, rows); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, rows.RowCount()*4)}
 	state.writeString(insertStatementPrefix(d, q))
 	if err := renderInsertBody(state, q, rows); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := renderUpsert(state, q); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := renderReturning(state, q.ReturningItems); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := state.err(); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
-	return state.BoundQuery(), nil
+	return state.Bound(), nil
 }
 
 func validateInsertQuery(q *InsertQuery, rows collectionx.Grid[Assignment]) error {
@@ -133,12 +134,12 @@ func renderInsertValueRow(state *renderState, row []Assignment) error {
 	return nil
 }
 
-func (q *UpdateQuery) Build(d dialect.Dialect) (BoundQuery, error) {
+func (q *UpdateQuery) Build(d dialect.Dialect) (sqlstmt.Bound, error) {
 	if q == nil {
-		return BoundQuery{}, errors.New("dbx: update query is nil")
+		return sqlstmt.Bound{}, errors.New("dbx: update query is nil")
 	}
 	if err := validateUpdateQuery(q); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, q.Assignments.Len())}
@@ -146,18 +147,18 @@ func (q *UpdateQuery) Build(d dialect.Dialect) (BoundQuery, error) {
 	state.renderTable(q.Table)
 	state.writeString(" SET ")
 	if err := renderUpdateAssignments(state, q.Assignments); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := renderOptionalWhere(state, q.WhereExp); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := renderReturning(state, q.ReturningItems); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := state.err(); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
-	return state.BoundQuery(), nil
+	return state.Bound(), nil
 }
 
 func validateUpdateQuery(q *UpdateQuery) error {
@@ -194,27 +195,27 @@ func renderOptionalWhere(state *renderState, predicate Predicate) error {
 	return renderPredicate(state, predicate)
 }
 
-func (q *DeleteQuery) Build(d dialect.Dialect) (BoundQuery, error) {
+func (q *DeleteQuery) Build(d dialect.Dialect) (sqlstmt.Bound, error) {
 	if q == nil {
-		return BoundQuery{}, errors.New("dbx: delete query is nil")
+		return sqlstmt.Bound{}, errors.New("dbx: delete query is nil")
 	}
 	if q.From.Name() == "" {
-		return BoundQuery{}, errors.New("dbx: delete query requires target table")
+		return sqlstmt.Bound{}, errors.New("dbx: delete query requires target table")
 	}
 
 	state := &renderState{dialect: d, args: make([]any, 0, 4)}
 	state.writeString("DELETE FROM ")
 	state.renderTable(q.From)
 	if err := renderOptionalWhere(state, q.WhereExp); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := renderReturning(state, q.ReturningItems); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if err := state.err(); err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
-	return state.BoundQuery(), nil
+	return state.Bound(), nil
 }
 
 func normalizedInsertRows(q *InsertQuery) collectionx.Grid[Assignment] {

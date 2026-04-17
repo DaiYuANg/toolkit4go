@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/parse"
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/render"
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/scan"
@@ -55,16 +55,16 @@ func (t *Template) Render(params any) (BoundSQL, error) {
 }
 
 // Bind renders the template into a dbx bound query.
-func (t *Template) Bind(params any) (dbx.BoundQuery, error) {
+func (t *Template) Bind(params any) (sqlstmt.Bound, error) {
 	if t == nil {
-		return dbx.BoundQuery{}, dbx.ErrNilStatement
+		return sqlstmt.Bound{}, sqlstmt.ErrNilStatement
 	}
 
 	bound, err := t.Render(params)
 	if err != nil {
-		return dbx.BoundQuery{}, fmt.Errorf("render bound query: %w", err)
+		return sqlstmt.Bound{}, fmt.Errorf("render bound query: %w", err)
 	}
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		Name: t.name,
 		SQL:  bound.Query,
 		Args: bound.Args,

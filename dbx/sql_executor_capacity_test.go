@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -16,8 +17,8 @@ func TestSQLListUsesStatementCapacityHint(t *testing.T) {
 	)
 	defer cleanup()
 
-	statement := NewSQLStatement("user.find_active", func(_ any) (BoundQuery, error) {
-		return BoundQuery{
+	statement := sqlstmt.New("user.find_active", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{
 			SQL:          `SELECT "id", "username" FROM "users" WHERE "status" = ?`,
 			Args:         collectionx.NewList[any](int64(1)),
 			CapacityHint: 2,

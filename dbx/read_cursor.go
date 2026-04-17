@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/oops"
@@ -87,9 +88,9 @@ func QueryCursor[E any](ctx context.Context, session Session, query QueryBuilder
 	return QueryCursorBound(ctx, session, bound, mapper)
 }
 
-// QueryCursorBound executes a pre-built BoundQuery and returns a cursor. Use with Build
+// QueryCursorBound executes a pre-built sqlstmt.Bound and returns a cursor. Use with Build
 // for reuse when executing the same query multiple times.
-func QueryCursorBound[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (Cursor[E], error) {
+func QueryCursorBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_cursor_bound", "statement", bound.Name).
@@ -140,7 +141,7 @@ func QueryEach[E any](ctx context.Context, session Session, query QueryBuilder, 
 	})
 }
 
-func SQLCursor[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) (Cursor[E], error) {
+func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "sql_cursor", "statement", statementName(statement)).
@@ -175,14 +176,14 @@ func SQLCursor[E any](ctx context.Context, session Session, statement SQLStateme
 	return newSliceCursor(items), nil
 }
 
-// QueryEachBound is the BoundQuery variant of QueryEach. Use with Build for reuse.
-func QueryEachBound[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) func(func(E, error) bool) {
+// QueryEachBound is the sqlstmt.Bound variant of QueryEach. Use with Build for reuse.
+func QueryEachBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
 		return QueryCursorBound(ctx, session, bound, mapper)
 	})
 }
 
-func SQLEach[E any](ctx context.Context, session Session, statement SQLStatementSource, params any, mapper RowsScanner[E]) func(func(E, error) bool) {
+func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
 		return SQLCursor(ctx, session, statement, params, mapper)
 	})

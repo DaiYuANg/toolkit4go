@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"slices"
 	"strings"
 
@@ -55,32 +56,32 @@ func queryRequiresProjectionWrap(query *dbx.SelectQuery) bool {
 		(query.Distinct || query.Groups.Len() > 0 || query.HavingExp != nil || query.Unions.Len() > 0)
 }
 
-func wrappedCountBound(session dbx.Session, query *dbx.SelectQuery) (dbx.BoundQuery, error) {
+func wrappedCountBound(session dbx.Session, query *dbx.SelectQuery) (sqlstmt.Bound, error) {
 	source := cloneForCount(query)
 	bound, err := dbx.Build(session, source)
 	if err != nil {
-		return dbx.BoundQuery{}, fmt.Errorf("build wrapped count query: %w", err)
+		return sqlstmt.Bound{}, fmt.Errorf("build wrapped count query: %w", err)
 	}
 	quotedCount := session.Dialect().QuoteIdent("count")
 	quotedAlias := session.Dialect().QuoteIdent("dbx_count_source")
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		SQL:          "SELECT COUNT(*) AS " + quotedCount + " FROM (" + bound.SQL + ") AS " + quotedAlias,
 		Args:         bound.Args,
 		CapacityHint: 1,
 	}, nil
 }
 
-func (r *Base[E, S]) existsBound(query *dbx.SelectQuery) (dbx.BoundQuery, error) {
+func (r *Base[E, S]) existsBound(query *dbx.SelectQuery) (sqlstmt.Bound, error) {
 	if queryRequiresProjectionWrap(query) {
 		return wrappedExistsBound(r.session, query)
 	}
 	source, err := r.existsSelect(query)
 	if err != nil {
-		return dbx.BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	bound, err := dbx.Build(r.session, source)
 	if err != nil {
-		return dbx.BoundQuery{}, fmt.Errorf("build exists query: %w", err)
+		return sqlstmt.Bound{}, fmt.Errorf("build exists query: %w", err)
 	}
 	return bound, nil
 }
@@ -106,14 +107,14 @@ func (r *Base[E, S]) existsSelectItem() (dbx.SelectItem, error) {
 	return dbx.NamedColumn[any](r.schema, field.Column), nil
 }
 
-func wrappedExistsBound(session dbx.Session, query *dbx.SelectQuery) (dbx.BoundQuery, error) {
+func wrappedExistsBound(session dbx.Session, query *dbx.SelectQuery) (sqlstmt.Bound, error) {
 	source := cloneForExists(query)
 	bound, err := dbx.Build(session, source)
 	if err != nil {
-		return dbx.BoundQuery{}, fmt.Errorf("build wrapped exists query: %w", err)
+		return sqlstmt.Bound{}, fmt.Errorf("build wrapped exists query: %w", err)
 	}
 	quotedAlias := session.Dialect().QuoteIdent("dbx_exists_source")
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		SQL:          "SELECT 1 FROM (" + bound.SQL + ") AS " + quotedAlias + " LIMIT 1",
 		Args:         bound.Args,
 		CapacityHint: 1,
@@ -131,7 +132,7 @@ func cloneForExists(query *dbx.SelectQuery) *dbx.SelectQuery {
 	return cloned
 }
 
-func queryExistsBound(ctx context.Context, session dbx.Session, bound dbx.BoundQuery) (exists bool, err error) {
+func queryExistsBound(ctx context.Context, session dbx.Session, bound sqlstmt.Bound) (exists bool, err error) {
 	rows, err := session.QueryBoundContext(ctx, bound)
 	if err != nil {
 		return false, fmt.Errorf("query exists rows: %w", err)

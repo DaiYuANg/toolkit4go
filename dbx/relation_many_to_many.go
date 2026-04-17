@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -45,7 +46,7 @@ func queryManyToManyPairs(ctx context.Context, session Session, rt *RelationRunt
 	return pairs, nil
 }
 
-func queryManyToManyPairChunk(ctx context.Context, session Session, bound BoundQuery, sourceType, targetType reflect.Type) (_ collectionx.List[relationKeyPair], err error) {
+func queryManyToManyPairChunk(ctx context.Context, session Session, bound sqlstmt.Bound, sourceType, targetType reflect.Type) (_ collectionx.List[relationKeyPair], err error) {
 	rows, err := session.QueryBoundContext(ctx, bound)
 	if err != nil {
 		return nil, wrapDBError("query many-to-many rows", err)
@@ -57,16 +58,16 @@ func queryManyToManyPairChunk(ctx context.Context, session Session, bound BoundQ
 	return scanRelationPairs(rows, sourceType, targetType)
 }
 
-func buildManyToManyPairsBoundQuery(session Session, rt *RelationRuntime, meta RelationMeta, sourceKeys collectionx.List[any]) (BoundQuery, error) {
+func buildManyToManyPairsBoundQuery(session Session, rt *RelationRuntime, meta RelationMeta, sourceKeys collectionx.List[any]) (sqlstmt.Bound, error) {
 	dialectName := session.Dialect().Name()
 	cacheKey := fmt.Sprintf("m2m:%s:%s:%s:%s:%d", dialectName, meta.ThroughTable, meta.ThroughLocalColumn, meta.ThroughTargetColumn, sourceKeys.Len())
 	cachedSQL, ok, err := relationCachedQuery(rt, cacheKey)
 	if err != nil {
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	if ok {
 		logRuntimeNode(session, "relation.m2m.bound.cache_hit", "relation", meta.Name, "through", meta.ThroughTable, "keys", sourceKeys.Len())
-		return BoundQuery{SQL: cachedSQL, Args: sourceKeys.Clone()}, nil
+		return sqlstmt.Bound{SQL: cachedSQL, Args: sourceKeys.Clone()}, nil
 	}
 	logRuntimeNode(session, "relation.m2m.bound.cache_miss", "relation", meta.Name, "through", meta.ThroughTable, "keys", sourceKeys.Len())
 
@@ -88,7 +89,7 @@ func buildManyToManyPairsBoundQuery(session Session, rt *RelationRuntime, meta R
 	bound, err := Build(session, query)
 	if err != nil {
 		logRuntimeNode(session, "relation.m2m.bound.error", "relation", meta.Name, "error", err)
-		return BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	rt.queryCache.Set(cacheKey, bound.SQL)
 	return bound, nil

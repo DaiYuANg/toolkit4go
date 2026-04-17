@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"reflect"
 	"strings"
 
@@ -65,7 +66,7 @@ func (Dialect) QueryFeatures() dialect.QueryFeatures {
 }
 
 // BuildCreateTable builds a CREATE TABLE statement.
-func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (dbx.BoundQuery, error) {
+func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (sqlstmt.Bound, error) {
 	parts := collectionx.NewListWithCapacity[string](spec.Columns.Len() + spec.ForeignKeys.Len() + spec.Checks.Len() + 1)
 	inlinePrimaryKey := singlePrimaryKeyColumn(spec.PrimaryKey)
 
@@ -83,7 +84,7 @@ func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (dbx.BoundQuery, error) {
 		return true
 	})
 	if buildErr != nil {
-		return dbx.BoundQuery{}, buildErr
+		return sqlstmt.Bound{}, buildErr
 	}
 
 	if spec.PrimaryKey != nil && spec.PrimaryKey.Columns.Len() > 1 {
@@ -99,46 +100,46 @@ func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (dbx.BoundQuery, error) {
 		return true
 	})
 
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		SQL: "CREATE TABLE IF NOT EXISTS " + d.QuoteIdent(spec.Name) + " (" + joinSQLiteStrings(parts, ", ") + ")",
 	}, nil
 }
 
 // BuildAddColumn builds an ALTER TABLE ADD COLUMN statement.
-func (d Dialect) BuildAddColumn(table string, column dbx.ColumnMeta) (dbx.BoundQuery, error) {
+func (d Dialect) BuildAddColumn(table string, column dbx.ColumnMeta) (sqlstmt.Bound, error) {
 	if column.PrimaryKey {
-		return dbx.BoundQuery{}, fmt.Errorf("dbx/sqlite: cannot add primary key column %s with ALTER TABLE", column.Name)
+		return sqlstmt.Bound{}, fmt.Errorf("dbx/sqlite: cannot add primary key column %s with ALTER TABLE", column.Name)
 	}
 
 	ddl, err := d.columnDDL(column, columnDDLConfig{IncludeReference: true})
 	if err != nil {
-		return dbx.BoundQuery{}, fmt.Errorf("build sqlite column ddl: %w", err)
+		return sqlstmt.Bound{}, fmt.Errorf("build sqlite column ddl: %w", err)
 	}
 
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		SQL: "ALTER TABLE " + d.QuoteIdent(table) + " ADD COLUMN " + ddl,
 	}, nil
 }
 
 // BuildCreateIndex builds a CREATE INDEX statement.
-func (d Dialect) BuildCreateIndex(index dbx.IndexMeta) (dbx.BoundQuery, error) {
+func (d Dialect) BuildCreateIndex(index dbx.IndexMeta) (sqlstmt.Bound, error) {
 	prefix := "CREATE INDEX IF NOT EXISTS "
 	if index.Unique {
 		prefix = "CREATE UNIQUE INDEX IF NOT EXISTS "
 	}
-	return dbx.BoundQuery{
+	return sqlstmt.Bound{
 		SQL: prefix + d.QuoteIdent(index.Name) + " ON " + d.QuoteIdent(index.Table) + " (" + d.joinQuotedIdentifiers(index.Columns) + ")",
 	}, nil
 }
 
 // BuildAddForeignKey reports that SQLite foreign keys require a table rebuild.
-func (Dialect) BuildAddForeignKey(string, dbx.ForeignKeyMeta) (dbx.BoundQuery, error) {
-	return dbx.BoundQuery{}, errors.New("dbx/sqlite: adding foreign keys requires table rebuild")
+func (Dialect) BuildAddForeignKey(string, dbx.ForeignKeyMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{}, errors.New("dbx/sqlite: adding foreign keys requires table rebuild")
 }
 
 // BuildAddCheck reports that SQLite check constraints require a table rebuild.
-func (Dialect) BuildAddCheck(string, dbx.CheckMeta) (dbx.BoundQuery, error) {
-	return dbx.BoundQuery{}, errors.New("dbx/sqlite: adding check constraints requires table rebuild")
+func (Dialect) BuildAddCheck(string, dbx.CheckMeta) (sqlstmt.Bound, error) {
+	return sqlstmt.Bound{}, errors.New("dbx/sqlite: adding check constraints requires table rebuild")
 }
 
 // InspectTable inspects a SQLite table definition from PRAGMA metadata.

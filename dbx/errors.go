@@ -16,7 +16,6 @@ var (
 	ErrNilQuery                  = errors.New("dbx: query is nil")
 	ErrNilMapper                 = errors.New("dbx: mapper is nil")
 	ErrNilRow                    = errors.New("dbx: row is nil")
-	ErrNilStatement              = errors.New("dbx: sql statement is nil")
 	ErrNilEntity                 = errors.New("dbx: entity is nil")
 	ErrTooManyRows               = errors.New("dbx: query returned more than one row")
 	ErrRelationCardinality       = errors.New("dbx: relation cardinality violation")

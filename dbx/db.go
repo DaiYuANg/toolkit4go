@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -205,15 +206,15 @@ func (db *DB) QueryRowContext(ctx context.Context, query string, args ...any) *R
 	return observedRow(ctx, db.observe, event, rows)
 }
 
-func (db *DB) Bound(rawSQL string, args ...any) BoundQuery {
-	return BoundQuery{SQL: rawSQL, Args: collectionx.NewList(args...)}
+func (db *DB) Bound(rawSQL string, args ...any) sqlstmt.Bound {
+	return sqlstmt.Bound{SQL: rawSQL, Args: collectionx.NewList(args...)}
 }
 
-func (db *DB) QueryBoundContext(ctx context.Context, bound BoundQuery) (*sql.Rows, error) {
+func (db *DB) QueryBoundContext(ctx context.Context, bound sqlstmt.Bound) (*sql.Rows, error) {
 	return db.queryContext(ctx, bound.Name, bound.SQL, bound.Args.Values()...)
 }
 
-func (db *DB) ExecBoundContext(ctx context.Context, bound BoundQuery) (sql.Result, error) {
+func (db *DB) ExecBoundContext(ctx context.Context, bound sqlstmt.Bound) (sql.Result, error) {
 	return db.execContext(ctx, bound.Name, bound.SQL, bound.Args.Values()...)
 }
 

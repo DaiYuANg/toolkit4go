@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	atlasmigrate "ariga.io/atlas/sql/migrate"
@@ -91,7 +92,7 @@ func atlasPlannedAction(change atlasschema.Change, planned *atlasmigrate.Change)
 		Kind:       atlasActionKind(change),
 		Table:      atlasChangeTableName(change),
 		Summary:    summary,
-		Statement:  BoundQuery{SQL: planned.Cmd, Args: collectionx.NewList(planned.Args...)},
+		Statement:  sqlstmt.Bound{SQL: planned.Cmd, Args: collectionx.NewList(planned.Args...)},
 		Executable: true,
 	}
 }

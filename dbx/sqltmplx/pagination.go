@@ -1,8 +1,8 @@
 package sqltmplx
 
 import (
-	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx/render"
 )
 
@@ -26,12 +26,12 @@ func (t *Template) RenderPage(params any, request paging.Request) (BoundSQL, err
 	return t.Render(WithPage(params, request))
 }
 
-// BindPage renders the template with normalized pagination parameters into a dbx bound query.
-func (t *Template) BindPage(params any, request paging.Request) (dbx.BoundQuery, error) {
+// BindPage renders the template with normalized pagination parameters into a bound SQL statement.
+func (t *Template) BindPage(params any, request paging.Request) (sqlstmt.Bound, error) {
 	request = request.Normalize()
 	bound, err := t.Bind(WithPage(params, request))
 	if err != nil {
-		return dbx.BoundQuery{}, err
+		return sqlstmt.Bound{}, err
 	}
 	bound.CapacityHint = request.Limit()
 	return bound, nil

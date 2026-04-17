@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/samber/oops"
 )
@@ -23,7 +24,7 @@ func sessionExecutor(session Session) (*SQLExecutor, error) {
 	return exec, nil
 }
 
-func scanStatementOne[E any](ctx context.Context, exec *SQLExecutor, statement SQLStatementSource, params any, mapper oneRowScanner[E]) (E, bool, error) {
+func scanStatementOne[E any](ctx context.Context, exec *SQLExecutor, statement sqlstmt.Source, params any, mapper oneRowScanner[E]) (E, bool, error) {
 	rows, err := queryStatementRows(ctx, exec, statement, params)
 	if err != nil {
 		var zero E
@@ -42,33 +43,33 @@ func scanStatementOne[E any](ctx context.Context, exec *SQLExecutor, statement S
 	return value, found, nil
 }
 
-func queryStatementRows(ctx context.Context, executor *SQLExecutor, statement SQLStatementSource, params any) (*sql.Rows, error) {
+func queryStatementRows(ctx context.Context, executor *SQLExecutor, statement sqlstmt.Source, params any) (*sql.Rows, error) {
 	rows, _, err := queryStatementBoundRows(ctx, executor, statement, params)
 	return rows, err
 }
 
-func queryStatementBoundRows(ctx context.Context, executor *SQLExecutor, statement SQLStatementSource, params any) (*sql.Rows, BoundQuery, error) {
+func queryStatementBoundRows(ctx context.Context, executor *SQLExecutor, statement sqlstmt.Source, params any) (*sql.Rows, sqlstmt.Bound, error) {
 	if executor == nil {
-		return nil, BoundQuery{}, oops.In("dbx").
+		return nil, sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "sql_query_rows", "statement", statementName(statement)).
 			Wrapf(ErrNilDB, "validate sql executor")
 	}
 	bound, err := executor.Bind(statement, params)
 	if err != nil {
-		return nil, BoundQuery{}, oops.In("dbx").
+		return nil, sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "sql_query_rows", "statement", statementName(statement)).
 			Wrapf(err, "bind statement rows")
 	}
 	rows, err := executor.queryBound(ctx, bound)
 	if err != nil {
-		return nil, BoundQuery{}, oops.In("dbx").
+		return nil, sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "sql_query_rows", "statement", statementName(statement)).
 			Wrapf(err, "query statement rows")
 	}
 	return rows, bound, nil
 }
 
-func statementName(statement SQLStatementSource) string {
+func statementName(statement sqlstmt.Source) string {
 	if statement == nil {
 		return ""
 	}

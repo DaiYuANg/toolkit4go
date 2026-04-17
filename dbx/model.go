@@ -14,7 +14,7 @@ type RowsScanner[E any] interface {
 	ScanRows(rows *sql.Rows) (collectionx.List[E], error)
 }
 
-// CapacityHintScanner is an optional extension. When implemented and BoundQuery.CapacityHint > 0,
+// CapacityHintScanner is an optional extension. When implemented and sqlstmt.Bound.CapacityHint > 0,
 // QueryAllBound uses ScanRowsWithCapacity to pre-allocate the result slice (reduces append growth).
 type CapacityHintScanner[E any] interface {
 	ScanRowsWithCapacity(rows *sql.Rows, capacityHint int) (collectionx.List[E], error)

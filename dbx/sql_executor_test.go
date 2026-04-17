@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -29,12 +30,12 @@ func TestSQLListScansStructMapperAndPropagatesStatementName(t *testing.T) {
 		Status int64
 	}
 
-	statement := NewSQLStatement("user.find_active", func(actual any) (BoundQuery, error) {
+	statement := sqlstmt.New("user.find_active", func(actual any) (sqlstmt.Bound, error) {
 		value, ok := actual.(params)
 		if !ok {
-			return BoundQuery{}, errors.New("dbx: sql statement params must be params")
+			return sqlstmt.Bound{}, errors.New("dbx: sql statement params must be params")
 		}
-		return BoundQuery{
+		return sqlstmt.Bound{
 			SQL:  `SELECT "id", "username" FROM "users" WHERE "status" = ?`,
 			Args: collectionx.NewList[any](value.Status),
 		}, nil
@@ -64,8 +65,8 @@ func TestSQLQueryListScansStructMapper(t *testing.T) {
 	)
 	defer cleanup()
 
-	statement := NewSQLStatement("user.find_active", func(_ any) (BoundQuery, error) {
-		return BoundQuery{
+	statement := sqlstmt.New("user.find_active", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{
 			SQL:  `SELECT "id", "username" FROM "users" WHERE "status" = ?`,
 			Args: collectionx.NewList[any](1),
 		}, nil
@@ -85,8 +86,8 @@ func TestSQLQueryListScansStructMapper(t *testing.T) {
 }
 
 func TestSQLGetAndFind(t *testing.T) {
-	statement := NewSQLStatement("user.find_one", func(_ any) (BoundQuery, error) {
-		return BoundQuery{SQL: `SELECT "id", "username" FROM "users"`}, nil
+	statement := sqlstmt.New("user.find_one", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{SQL: `SELECT "id", "username" FROM "users"`}, nil
 	})
 
 	runSQLGetExpectRow(t, statement)
@@ -97,8 +98,8 @@ func TestSQLGetAndFind(t *testing.T) {
 }
 
 func TestSQLScalarAndScalarOption(t *testing.T) {
-	statement := NewSQLStatement("user.count", func(_ any) (BoundQuery, error) {
-		return BoundQuery{SQL: `SELECT count(*) FROM "users"`}, nil
+	statement := sqlstmt.New("user.count", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{SQL: `SELECT count(*) FROM "users"`}, nil
 	})
 
 	t.Run("scalar returns single value", func(t *testing.T) {
@@ -122,8 +123,8 @@ func TestSQLScalarAndScalarOption(t *testing.T) {
 		defer cleanup()
 
 		// Use a query that returns 0 rows when table is empty (count(*) always returns 1 row)
-		emptyStmt := NewSQLStatement("user.max_id", func(_ any) (BoundQuery, error) {
-			return BoundQuery{SQL: `SELECT "id" FROM "users" LIMIT 1`}, nil
+		emptyStmt := sqlstmt.New("user.max_id", func(_ any) (sqlstmt.Bound, error) {
+			return sqlstmt.Bound{SQL: `SELECT "id" FROM "users" LIMIT 1`}, nil
 		})
 		value, err := SQLScalarOption[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), emptyStmt, nil)
 		if err != nil {
@@ -141,8 +142,8 @@ func TestSQLScalarAndScalarOption(t *testing.T) {
 		)
 		defer cleanup()
 
-		multiRowStmt := NewSQLStatement("user.ids", func(_ any) (BoundQuery, error) {
-			return BoundQuery{SQL: `SELECT "id" FROM "users"`}, nil
+		multiRowStmt := sqlstmt.New("user.ids", func(_ any) (sqlstmt.Bound, error) {
+			return sqlstmt.Bound{SQL: `SELECT "id" FROM "users"`}, nil
 		})
 		_, err := SQLScalar[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), multiRowStmt, nil)
 		if !errors.Is(err, ErrTooManyRows) {
@@ -152,8 +153,8 @@ func TestSQLScalarAndScalarOption(t *testing.T) {
 }
 
 func TestSQLCursorAndEach(t *testing.T) {
-	statement := NewSQLStatement("user.stream", func(_ any) (BoundQuery, error) {
-		return BoundQuery{SQL: `SELECT "id", "username" FROM "users"`}, nil
+	statement := sqlstmt.New("user.stream", func(_ any) (sqlstmt.Bound, error) {
+		return sqlstmt.Bound{SQL: `SELECT "id", "username" FROM "users"`}, nil
 	})
 
 	sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
@@ -175,7 +176,7 @@ func TestSQLCursorAndEach(t *testing.T) {
 	assertUserSummaryRows(t, collectSQLUserSummaryEach(t, db, statement, mapper))
 }
 
-func runSQLGetExpectRow(t *testing.T, statement SQLStatementSource) {
+func runSQLGetExpectRow(t *testing.T, statement sqlstmt.Source) {
 	t.Helper()
 	t.Run("get returns single row", func(t *testing.T) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
@@ -192,7 +193,7 @@ func runSQLGetExpectRow(t *testing.T, statement SQLStatementSource) {
 	})
 }
 
-func runSQLGetExpectNoRows(t *testing.T, statement SQLStatementSource) {
+func runSQLGetExpectNoRows(t *testing.T, statement sqlstmt.Source) {
 	t.Helper()
 	t.Run("get returns sql.ErrNoRows", func(t *testing.T) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
@@ -205,7 +206,7 @@ func runSQLGetExpectNoRows(t *testing.T, statement SQLStatementSource) {
 	})
 }
 
-func runSQLFindExpectNone(t *testing.T, statement SQLStatementSource) {
+func runSQLFindExpectNone(t *testing.T, statement sqlstmt.Source) {
 	t.Helper()
 	t.Run("find returns none", func(t *testing.T) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
@@ -221,7 +222,7 @@ func runSQLFindExpectNone(t *testing.T, statement SQLStatementSource) {
 	})
 }
 
-func runSQLFindExpectRow(t *testing.T, statement SQLStatementSource) {
+func runSQLFindExpectRow(t *testing.T, statement sqlstmt.Source) {
 	t.Helper()
 	t.Run("find returns row", func(t *testing.T) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
@@ -242,7 +243,7 @@ func runSQLFindExpectRow(t *testing.T, statement SQLStatementSource) {
 	})
 }
 
-func runSQLGetExpectTooManyRows(t *testing.T, statement SQLStatementSource) {
+func runSQLGetExpectTooManyRows(t *testing.T, statement sqlstmt.Source) {
 	t.Helper()
 	t.Run("get returns too many rows", func(t *testing.T) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t,
@@ -258,7 +259,7 @@ func runSQLGetExpectTooManyRows(t *testing.T, statement SQLStatementSource) {
 	})
 }
 
-func collectSQLUserSummaryEach(t *testing.T, db *DB, statement SQLStatementSource, mapper StructMapper[UserSummary]) []UserSummary {
+func collectSQLUserSummaryEach(t *testing.T, db *DB, statement sqlstmt.Source, mapper StructMapper[UserSummary]) []UserSummary {
 	t.Helper()
 	var items []UserSummary
 	SQLEach(context.Background(), db, statement, nil, mapper)(func(item UserSummary, err error) bool {

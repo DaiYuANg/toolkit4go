@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/samber/hot"
 )
 
@@ -30,7 +30,7 @@ func NewRegistry(fsys fs.FS, d dialect.Contract, opts ...Option) *Registry {
 // Template loads or returns a cached template by name.
 func (r *Registry) Template(name string) (*Template, error) {
 	if r == nil || r.engine == nil || r.fsys == nil {
-		return nil, dbx.ErrNilStatement
+		return nil, sqlstmt.ErrNilStatement
 	}
 
 	normalized := normalizeTemplateName(name)

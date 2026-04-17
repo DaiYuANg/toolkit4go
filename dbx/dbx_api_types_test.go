@@ -5,13 +5,14 @@ import (
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
 type Aggregate[T any] = dbx.Aggregate[T]
 type Assignment = dbx.Assignment
 type AtlasCompiledSchemaTestView = dbx.AtlasCompiledSchemaTestView
 type BelongsTo[E any, T any] = dbx.BelongsTo[E, T]
-type BoundQuery = dbx.BoundQuery
+type Bound = sqlstmt.Bound
 type CaseBuilder[T any] = dbx.CaseBuilder[T]
 type Check[E any] = dbx.Check[E]
 type CheckMeta = dbx.CheckMeta
@@ -72,8 +73,8 @@ type SelectItem = dbx.SelectItem
 type SelectQuery = dbx.SelectQuery
 type Session = dbx.Session
 type SQLExecutor = dbx.SQLExecutor
-type SQLStatement = dbx.SQLStatement
-type SQLStatementSource = dbx.SQLStatementSource
+type Statement = sqlstmt.Statement
+type StatementSource = sqlstmt.Source
 type StructMapper[E any] = dbx.StructMapper[E]
 type Table = dbx.Table
 type TableSource = dbx.TableSource

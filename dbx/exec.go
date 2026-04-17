@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
@@ -21,33 +22,33 @@ type Scanner[T any] func(rows *sql.Rows) (T, error)
 type Session interface {
 	Executor
 	Dialect() dialect.Dialect
-	QueryBoundContext(ctx context.Context, bound BoundQuery) (*sql.Rows, error)
-	ExecBoundContext(ctx context.Context, bound BoundQuery) (sql.Result, error)
+	QueryBoundContext(ctx context.Context, bound sqlstmt.Bound) (*sql.Rows, error)
+	ExecBoundContext(ctx context.Context, bound sqlstmt.Bound) (sql.Result, error)
 	// SQL returns an executor for templated SQL. DB and Tx implement this for unified execution entry.
 	SQL() *SQLExecutor
 }
 
 type QueryBuilder interface {
-	Build(d dialect.Dialect) (BoundQuery, error)
+	Build(d dialect.Dialect) (sqlstmt.Bound, error)
 }
 
-// Build compiles a QueryBuilder into BoundQuery using the session's dialect.
+// Build compiles a QueryBuilder into sqlstmt.Bound using the session's dialect.
 // For "build once, execute many" reuse: call Build once, then pass the result to
 // ExecBound, QueryAllBound, QueryCursorBound, or QueryEachBound in a loop.
-func Build(session Session, query QueryBuilder) (BoundQuery, error) {
+func Build(session Session, query QueryBuilder) (sqlstmt.Bound, error) {
 	if session == nil {
-		return BoundQuery{}, oops.In("dbx").
+		return sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "build_query").
 			Wrapf(ErrNilDB, "validate session")
 	}
 	if session.Dialect() == nil {
-		return BoundQuery{}, oops.In("dbx").
+		return sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "build_query").
 			Wrapf(ErrNilDialect, "validate dialect")
 	}
 	if query == nil {
 		logRuntimeNode(session, "build.error", "error", ErrNilQuery)
-		return BoundQuery{}, oops.In("dbx").
+		return sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "build_query").
 			Wrapf(ErrNilQuery, "validate query")
 	}
@@ -55,7 +56,7 @@ func Build(session Session, query QueryBuilder) (BoundQuery, error) {
 	bound, err := query.Build(session.Dialect())
 	if err != nil {
 		logRuntimeNode(session, "build.error", "error", err)
-		return BoundQuery{}, wrapDBError("build query", err)
+		return sqlstmt.Bound{}, wrapDBError("build query", err)
 	}
 	logRuntimeNode(session, "build.done", "sql_empty", bound.SQL == "", "args_count", bound.Args.Len())
 	return bound, nil
@@ -70,9 +71,9 @@ func Exec(ctx context.Context, session Session, query QueryBuilder) (sql.Result,
 	return ExecBound(ctx, session, bound)
 }
 
-// ExecBound executes a pre-built BoundQuery. Use with Build for reuse when
+// ExecBound executes a pre-built sqlstmt.Bound. Use with Build for reuse when
 // executing the same query multiple times (e.g. in a loop).
-func ExecBound(ctx context.Context, session Session, bound BoundQuery) (sql.Result, error) {
+func ExecBound(ctx context.Context, session Session, bound sqlstmt.Bound) (sql.Result, error) {
 	if session == nil {
 		return nil, oops.In("dbx").
 			With("op", "exec_bound", "statement", bound.Name).
@@ -110,11 +111,11 @@ func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilde
 	return QueryAllBoundList[E](ctx, session, bound, mapper)
 }
 
-// QueryAllBound executes a pre-built BoundQuery and maps all rows. Use with Build
+// QueryAllBound executes a pre-built sqlstmt.Bound and maps all rows. Use with Build
 // for reuse when executing the same query multiple times.
 // When bound.CapacityHint > 0 and mapper implements CapacityHintScanner, uses
 // pre-allocated slice to reduce append growth.
-func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_all_bound", "statement", bound.Name).
@@ -150,8 +151,8 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound BoundQuery
 	return items, nil
 }
 
-// QueryAllBoundList executes a pre-built BoundQuery and maps all rows into a collectionx.List.
-func QueryAllBoundList[E any](ctx context.Context, session Session, bound BoundQuery, mapper RowsScanner[E]) (collectionx.List[E], error) {
+// QueryAllBoundList executes a pre-built sqlstmt.Bound and maps all rows into a collectionx.List.
+func QueryAllBoundList[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	return QueryAllBound[E](ctx, session, bound, mapper)
 }
 
@@ -163,7 +164,7 @@ func capacityHintScannerFor[E any](mapper RowsScanner[E], capacityHint int) (Cap
 	return withCap, ok
 }
 
-func scanAllBoundWithCapacity[E any](session Session, rows *sql.Rows, bound BoundQuery, mapper CapacityHintScanner[E]) (collectionx.List[E], error) {
+func scanAllBoundWithCapacity[E any](session Session, rows *sql.Rows, bound sqlstmt.Bound, mapper CapacityHintScanner[E]) (collectionx.List[E], error) {
 	logRuntimeNode(session, "query_all_bound.scan_with_capacity", "capacity_hint", bound.CapacityHint)
 	items, scanErr := mapper.ScanRowsWithCapacity(rows, bound.CapacityHint)
 	scanErr = errors.Join(wrapDBError("scan rows with capacity", scanErr), rowsIterError(rows))

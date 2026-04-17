@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 	"testing"
 
@@ -43,7 +44,7 @@ func (d *fakeSchemaDialect) NormalizeType(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
-func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (BoundQuery, error) {
+func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (sqlstmt.Bound, error) {
 	stmt := "create table " + spec.Name
 	columns := collectionx.NewListWithCapacity[ColumnState](spec.Columns.Len())
 	spec.Columns.Range(func(_ int, column ColumnMeta) bool {
@@ -80,10 +81,10 @@ func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (BoundQuery, error)
 			Checks:      checks,
 		}
 	}
-	return BoundQuery{SQL: stmt}, nil
+	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildAddColumn(table string, column ColumnMeta) (BoundQuery, error) {
+func (d *fakeSchemaDialect) BuildAddColumn(table string, column ColumnMeta) (sqlstmt.Bound, error) {
 	stmt := "alter table " + table + " add column " + column.Name
 	state := toColumnState(column)
 	d.actions[stmt] = func() {
@@ -107,10 +108,10 @@ func (d *fakeSchemaDialect) BuildAddColumn(table string, column ColumnMeta) (Bou
 		}
 		d.tables[table] = current
 	}
-	return BoundQuery{SQL: stmt}, nil
+	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildCreateIndex(index IndexMeta) (BoundQuery, error) {
+func (d *fakeSchemaDialect) BuildCreateIndex(index IndexMeta) (sqlstmt.Bound, error) {
 	stmt := "create index " + index.Name + " on " + index.Table + "(" + strings.Join(index.Columns.Values(), ",") + ")"
 	state := IndexState{Name: index.Name, Columns: index.Columns.Clone(), Unique: index.Unique}
 	d.actions[stmt] = func() {
@@ -121,10 +122,10 @@ func (d *fakeSchemaDialect) BuildCreateIndex(index IndexMeta) (BoundQuery, error
 		current.Indexes.Add(state)
 		d.tables[index.Table] = current
 	}
-	return BoundQuery{SQL: stmt}, nil
+	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (BoundQuery, error) {
+func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (sqlstmt.Bound, error) {
 	stmt := "alter table " + table + " add constraint " + foreignKey.Name + " foreign key"
 	state := ForeignKeyState{
 		Name:          foreignKey.Name,
@@ -142,10 +143,10 @@ func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignK
 		current.ForeignKeys.Add(state)
 		d.tables[table] = current
 	}
-	return BoundQuery{SQL: stmt}, nil
+	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildAddCheck(table string, check CheckMeta) (BoundQuery, error) {
+func (d *fakeSchemaDialect) BuildAddCheck(table string, check CheckMeta) (sqlstmt.Bound, error) {
 	stmt := "alter table " + table + " add constraint " + check.Name + " check"
 	state := CheckState{Name: check.Name, Expression: check.Expression}
 	d.actions[stmt] = func() {
@@ -156,7 +157,7 @@ func (d *fakeSchemaDialect) BuildAddCheck(table string, check CheckMeta) (BoundQ
 		current.Checks.Add(state)
 		d.tables[table] = current
 	}
-	return BoundQuery{SQL: stmt}, nil
+	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
 func (d *fakeSchemaDialect) InspectTable(_ context.Context, _ Executor, table string) (TableState, error) {
@@ -185,19 +186,19 @@ func (s *fakeSession) QueryContext(context.Context, string, ...any) (*sql.Rows, 
 }
 
 func (s *fakeSession) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	return s.ExecBoundContext(ctx, BoundQuery{SQL: query, Args: collectionx.NewList(args...)})
+	return s.ExecBoundContext(ctx, sqlstmt.Bound{SQL: query, Args: collectionx.NewList(args...)})
 }
 
 func (s *fakeSession) QueryRowContext(context.Context, string, ...any) *Row {
 	return ErrorRowForTest(sql.ErrNoRows)
 }
 
-func (s *fakeSession) QueryBoundContext(context.Context, BoundQuery) (*sql.Rows, error) {
+func (s *fakeSession) QueryBoundContext(context.Context, sqlstmt.Bound) (*sql.Rows, error) {
 	var rows *sql.Rows
 	return rows, nil
 }
 
-func (s *fakeSession) ExecBoundContext(_ context.Context, bound BoundQuery) (sql.Result, error) {
+func (s *fakeSession) ExecBoundContext(_ context.Context, bound sqlstmt.Bound) (sql.Result, error) {
 	if action, ok := s.dialect.actions[bound.SQL]; ok {
 		action()
 	}

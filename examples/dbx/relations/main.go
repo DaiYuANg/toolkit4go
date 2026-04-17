@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -107,7 +108,7 @@ func runManyToManyExample(ctx context.Context, core *dbx.DB, catalog shared.Cata
 	return bound.SQL, scanUserRolePairs(ctx, core, bound)
 }
 
-func scanUserRoleRows(ctx context.Context, core *dbx.DB, bound dbx.BoundQuery) collectionx.List[userRoleRow] {
+func scanUserRoleRows(ctx context.Context, core *dbx.DB, bound sqlstmt.Bound) collectionx.List[userRoleRow] {
 	rows, err := core.QueryBoundContext(ctx, bound)
 	if err != nil {
 		panic(err)
@@ -131,7 +132,7 @@ func scanUserRoleRows(ctx context.Context, core *dbx.DB, bound dbx.BoundQuery) c
 	return out
 }
 
-func scanUserRolePairs(ctx context.Context, core *dbx.DB, bound dbx.BoundQuery) collectionx.List[userRolePair] {
+func scanUserRolePairs(ctx context.Context, core *dbx.DB, bound sqlstmt.Bound) collectionx.List[userRolePair] {
 	rows, err := core.QueryBoundContext(ctx, bound)
 	if err != nil {
 		panic(err)
