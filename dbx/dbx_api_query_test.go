@@ -3,17 +3,18 @@ package dbx_test
 import (
 	"context"
 	"fmt"
-	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	dbx "github.com/DaiYuANg/arcgo/dbx"
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/samber/mo"
 )
 
-func Alias[S dbx.TableSource](schema S, alias string) S {
+func Alias[S querydsl.TableSource](schema S, alias string) S {
 	return dbx.Alias(schema, alias)
 }
 

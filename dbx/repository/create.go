@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/lo"
 )
 
@@ -130,7 +131,7 @@ func normalizeConflictColumns(columns, fallback []string) collectionx.List[strin
 	return items
 }
 
-func upsertUpdateAssignments[S dbx.TableSource](schema S, fields collectionx.List[dbx.MappedField], conflictColumns collectionx.List[string]) collectionx.List[dbx.Assignment] {
+func upsertUpdateAssignments[S querydsl.TableSource](schema S, fields collectionx.List[dbx.MappedField], conflictColumns collectionx.List[string]) collectionx.List[dbx.Assignment] {
 	conflictSet := collectionx.NewSetWithCapacity[string](conflictColumns.Len())
 	conflictColumns.Range(func(_ int, column string) bool {
 		conflictSet.Add(column)

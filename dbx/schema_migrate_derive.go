@@ -23,13 +23,14 @@ func deriveIndexes(def schemaDefinition) []IndexMeta {
 }
 
 func deriveColumnIndexes(def schemaDefinition, indexes collectionx.OrderedMap[string, IndexMeta]) {
+	tableName := def.table.Name()
 	def.columns.Range(func(_ int, column ColumnMeta) bool {
 		if !shouldDeriveColumnIndex(column) {
 			return true
 		}
 		meta := IndexMeta{
-			Name:    indexNameForColumn(def.table.name, column),
-			Table:   def.table.name,
+			Name:    indexNameForColumn(tableName, column),
+			Table:   tableName,
 			Columns: collectionx.NewList(column.Name),
 			Unique:  column.Unique,
 		}
@@ -51,13 +52,14 @@ func indexNameForColumn(table string, column ColumnMeta) string {
 }
 
 func derivePrimaryKey(def schemaDefinition) *PrimaryKeyMeta {
+	tableName := def.table.Name()
 	if def.primaryKey != nil {
 		copyPrimary := clonePrimaryKeyMeta(*def.primaryKey)
 		if copyPrimary.Name == "" {
-			copyPrimary.Name = "pk_" + def.table.name
+			copyPrimary.Name = "pk_" + tableName
 		}
 		if copyPrimary.Table == "" {
-			copyPrimary.Table = def.table.name
+			copyPrimary.Table = tableName
 		}
 		return &copyPrimary
 	}
@@ -69,8 +71,8 @@ func derivePrimaryKey(def schemaDefinition) *PrimaryKeyMeta {
 		return nil
 	}
 	return &PrimaryKeyMeta{
-		Name:    "pk_" + def.table.name,
-		Table:   def.table.name,
+		Name:    "pk_" + tableName,
+		Table:   tableName,
 		Columns: columns,
 	}
 }
@@ -89,14 +91,15 @@ func deriveForeignKeys(def schemaDefinition) []ForeignKeyMeta {
 }
 
 func deriveExplicitForeignKeys(def schemaDefinition, foreignKeys collectionx.OrderedMap[string, ForeignKeyMeta], explicitColumns collectionx.Set[string]) {
+	tableName := def.table.Name()
 	def.columns.Range(func(_ int, column ColumnMeta) bool {
 		if column.References == nil {
 			return true
 		}
 		explicitColumns.Add(column.Name)
 		meta := ForeignKeyMeta{
-			Name:          "fk_" + def.table.name + "_" + column.Name,
-			Table:         def.table.name,
+			Name:          "fk_" + tableName + "_" + column.Name,
+			Table:         tableName,
 			Columns:       collectionx.NewList(column.Name),
 			TargetTable:   column.References.TargetTable,
 			TargetColumns: collectionx.NewList(column.References.TargetColumn),
@@ -109,13 +112,14 @@ func deriveExplicitForeignKeys(def schemaDefinition, foreignKeys collectionx.Ord
 }
 
 func deriveRelationForeignKeys(def schemaDefinition, foreignKeys collectionx.OrderedMap[string, ForeignKeyMeta], explicitColumns collectionx.Set[string]) {
+	tableName := def.table.Name()
 	def.relations.Range(func(_ int, relation RelationMeta) bool {
 		if !shouldDeriveRelationForeignKey(def, relation, explicitColumns) {
 			return true
 		}
 		meta := ForeignKeyMeta{
-			Name:          "fk_" + def.table.name + "_" + relation.LocalColumn,
-			Table:         def.table.name,
+			Name:          "fk_" + tableName + "_" + relation.LocalColumn,
+			Table:         tableName,
 			Columns:       collectionx.NewList(relation.LocalColumn),
 			TargetTable:   relation.TargetTable,
 			TargetColumns: collectionx.NewList(relation.TargetColumn),

@@ -3,11 +3,12 @@ package dbx
 import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
 type Join struct {
-	Type      JoinType
-	Table     Table
+	Type      querydsl.JoinType
+	Table     querydsl.Table
 	Predicate Predicate
 }
 
@@ -23,7 +24,7 @@ type UnionClause struct {
 
 type SelectQuery struct {
 	Items     collectionx.List[SelectItem]
-	FromItem  Table
+	FromItem  querydsl.Table
 	Joins     collectionx.List[Join]
 	WhereExp  Predicate
 	Groups    collectionx.List[Expression]
@@ -80,8 +81,8 @@ func (q *SelectQuery) With(name string, query *SelectQuery) *SelectQuery {
 	return q
 }
 
-func (q *SelectQuery) From(source TableSource) *SelectQuery {
-	q.FromItem = source.tableRef()
+func (q *SelectQuery) From(source querydsl.TableSource) *SelectQuery {
+	q.FromItem = tableRef(source)
 	return q
 }
 
@@ -147,18 +148,18 @@ func (q *SelectQuery) UnionAll(query *SelectQuery) *SelectQuery {
 	return q
 }
 
-func (q *SelectQuery) Join(source TableSource) *JoinBuilder {
-	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: InnerJoin, Table: source.tableRef()}))
+func (q *SelectQuery) Join(source querydsl.TableSource) *JoinBuilder {
+	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: querydsl.InnerJoin, Table: tableRef(source)}))
 	return &JoinBuilder{query: q, index: q.Joins.Len() - 1}
 }
 
-func (q *SelectQuery) LeftJoin(source TableSource) *JoinBuilder {
-	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: LeftJoin, Table: source.tableRef()}))
+func (q *SelectQuery) LeftJoin(source querydsl.TableSource) *JoinBuilder {
+	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: querydsl.LeftJoin, Table: tableRef(source)}))
 	return &JoinBuilder{query: q, index: q.Joins.Len() - 1}
 }
 
-func (q *SelectQuery) RightJoin(source TableSource) *JoinBuilder {
-	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: RightJoin, Table: source.tableRef()}))
+func (q *SelectQuery) RightJoin(source querydsl.TableSource) *JoinBuilder {
+	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: querydsl.RightJoin, Table: tableRef(source)}))
 	return &JoinBuilder{query: q, index: q.Joins.Len() - 1}
 }
 

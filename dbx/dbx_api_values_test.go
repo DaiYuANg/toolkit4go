@@ -5,6 +5,7 @@ import (
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
@@ -43,7 +44,7 @@ var MustNewWithOptions = dbx.MustNewWithOptions
 var MustNewWithOptionsList = dbx.MustNewWithOptionsList
 var MustRegisterCodec = codecx.MustRegister
 var MustSelectMapped = dbx.MustSelectMapped
-var NamedTable = dbx.NamedTable
+var NamedTable = querydsl.NamedTable
 var New = dbx.New
 var NewDefaultIDGenerator = idgen.NewDefault
 var NewKSUIDGenerator = idgen.NewKSUID

@@ -5,6 +5,7 @@ import (
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
@@ -77,8 +78,8 @@ type SQLExecutor = sqlexec.Executor
 type Statement = sqlstmt.Statement
 type StatementSource = sqlstmt.Source
 type StructMapper[E any] = dbx.StructMapper[E]
-type Table = dbx.Table
-type TableSource = dbx.TableSource
+type Table = querydsl.Table
+type TableSource = querydsl.TableSource
 type TableSpec = dbx.TableSpec
 type TableState = dbx.TableState
 type UnknownCodecError = codecx.UnknownError

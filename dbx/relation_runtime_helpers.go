@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
 func relationSeenSet(rt *RelationRuntime) (collectionx.Map[any, struct{}], error) {
@@ -134,8 +135,16 @@ type schemaAdapter[E any] struct {
 	def schemaDefinition
 }
 
-func (s schemaAdapter[E]) tableRef() Table {
-	return Table{def: s.def.table}
+func (s schemaAdapter[E]) tableRef() querydsl.Table {
+	return s.def.table
+}
+
+func (s schemaAdapter[E]) TableName() string {
+	return s.def.table.Name()
+}
+
+func (s schemaAdapter[E]) TableAlias() string {
+	return s.def.table.Alias()
 }
 
 func (s schemaAdapter[E]) schemaRef() schemaDefinition {

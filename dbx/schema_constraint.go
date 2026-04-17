@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/lo"
 )
 
@@ -103,29 +104,29 @@ func (u Unique[E]) Meta() IndexMeta            { return cloneIndexMeta(u.meta) }
 func (c CompositeKey[E]) Meta() PrimaryKeyMeta { return clonePrimaryKeyMeta(c.meta) }
 func (c Check[E]) Meta() CheckMeta             { return cloneCheckMeta(c.meta) }
 
-func resolveConstraintBinding(def tableDefinition, field reflect.StructField, value any) (constraintBinding, error) {
+func resolveConstraintBinding(def querydsl.Table, field reflect.StructField, value any) (constraintBinding, error) {
 	if key, ok := value.(keyMetadata); ok {
 		return resolveKeyConstraintBinding(def, field, key)
 	}
 	return resolveCheckConstraintBinding(def, field)
 }
 
-func resolveKeyConstraintBinding(def tableDefinition, field reflect.StructField, key keyMetadata) (constraintBinding, error) {
+func resolveKeyConstraintBinding(def querydsl.Table, field reflect.StructField, key keyMetadata) (constraintBinding, error) {
 	meta := key.keyMeta()
 	options := parseTagOptions(field.Tag.Get(constraintTagName(meta)))
 	columns := splitColumnsOption(optionValue(options, "columns"))
 	if len(columns) == 0 {
-		return constraintBinding{}, fmt.Errorf("dbx: constraint %s on schema %s requires columns option", field.Name, def.schemaType.Name())
+		return constraintBinding{}, fmt.Errorf("dbx: constraint %s on schema %s requires columns option", field.Name, schemaTypeName(def))
 	}
 	name := optionValue(options, "name")
 	if name == "" {
-		name = defaultConstraintName(def.name, field.Name, meta)
+		name = defaultConstraintName(def.Name(), field.Name, meta)
 	}
 	if meta.primary {
 		return constraintBinding{
 			primaryKey: &PrimaryKeyMeta{
 				Name:    name,
-				Table:   def.name,
+				Table:   def.Name(),
 				Columns: collectionx.NewList(columns...),
 			},
 		}, nil
@@ -133,7 +134,7 @@ func resolveKeyConstraintBinding(def tableDefinition, field reflect.StructField,
 	return constraintBinding{
 		indexes: []IndexMeta{{
 			Name:    name,
-			Table:   def.name,
+			Table:   def.Name(),
 			Columns: collectionx.NewList(columns...),
 			Unique:  meta.unique,
 		}},
@@ -147,23 +148,30 @@ func constraintTagName(meta keyBindingMeta) string {
 	return "idx"
 }
 
-func resolveCheckConstraintBinding(def tableDefinition, field reflect.StructField) (constraintBinding, error) {
+func resolveCheckConstraintBinding(def querydsl.Table, field reflect.StructField) (constraintBinding, error) {
 	options := parseTagOptions(field.Tag.Get("check"))
 	expression := strings.TrimSpace(optionValue(options, "expr"))
 	if expression == "" {
-		return constraintBinding{}, fmt.Errorf("dbx: check constraint %s on schema %s requires expr option", field.Name, def.schemaType.Name())
+		return constraintBinding{}, fmt.Errorf("dbx: check constraint %s on schema %s requires expr option", field.Name, schemaTypeName(def))
 	}
 	name := optionValue(options, "name")
 	if name == "" {
-		name = "ck_" + def.name + "_" + toSnakeCase(field.Name)
+		name = "ck_" + def.Name() + "_" + toSnakeCase(field.Name)
 	}
 	return constraintBinding{
 		check: &CheckMeta{
 			Name:       name,
-			Table:      def.name,
+			Table:      def.Name(),
 			Expression: expression,
 		},
 	}, nil
+}
+
+func schemaTypeName(def querydsl.Table) string {
+	if typ := def.SchemaType(); typ != nil {
+		return typ.Name()
+	}
+	return def.Name()
 }
 
 func splitColumnsOption(value string) []string {

@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"slices"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
@@ -205,7 +206,7 @@ func (r *Base[E, S]) primaryKeyColumns() []string {
 	return []string{r.primaryColumnName()}
 }
 
-func keyPredicate[S dbx.TableSource](schema S, key Key) dbx.Predicate {
+func keyPredicate[S querydsl.TableSource](schema S, key Key) dbx.Predicate {
 	if len(key) == 0 {
 		return nil
 	}

@@ -2,15 +2,16 @@ package dbx
 
 import (
 	"context"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
 type SchemaResource interface {
-	TableSource
+	querydsl.TableSource
 	schemaRef() schemaDefinition
 }
 

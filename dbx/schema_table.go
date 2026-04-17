@@ -5,18 +5,11 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
-type Table struct {
-	def tableDefinition
-}
-
-type TableSource interface {
-	tableRef() Table
-}
-
 type SchemaSource[E any] interface {
-	TableSource
+	querydsl.TableSource
 	schemaRef() schemaDefinition
 }
 
@@ -25,15 +18,8 @@ type schemaBinder interface {
 	entityType() reflect.Type
 }
 
-type tableDefinition struct {
-	name       string
-	alias      string
-	schemaType reflect.Type
-	entityType reflect.Type
-}
-
 type schemaDefinition struct {
-	table         tableDefinition
+	table         querydsl.Table
 	columns       collectionx.List[ColumnMeta]
 	columnsByName collectionx.Map[string, ColumnMeta]
 	relations     collectionx.List[RelationMeta]
@@ -59,42 +45,36 @@ func (s Schema[E]) schemaRef() schemaDefinition {
 	return s.def
 }
 
-func (s Schema[E]) tableRef() Table {
-	return Table{def: s.def.table}
+func (s Schema[E]) tableRef() querydsl.Table {
+	return s.def.table
 }
 
 func (s Schema[E]) Name() string {
-	return s.def.table.name
+	return s.def.table.Name()
 }
 
 func (s Schema[E]) TableName() string {
-	return s.def.table.name
+	return s.def.table.Name()
 }
 
 func (s Schema[E]) Alias() string {
-	return s.def.table.alias
+	return s.def.table.Alias()
 }
 
 func (s Schema[E]) TableAlias() string {
-	return s.def.table.alias
+	return s.def.table.Alias()
 }
 
 func (s Schema[E]) Ref() string {
-	if s.def.table.alias != "" {
-		return s.def.table.alias
-	}
-	return s.def.table.name
+	return s.def.table.Ref()
 }
 
 func (s Schema[E]) QualifiedName() string {
-	if s.def.table.alias == "" || s.def.table.alias == s.def.table.name {
-		return s.def.table.name
-	}
-	return s.def.table.name + " AS " + s.def.table.alias
+	return s.def.table.QualifiedName()
 }
 
 func (s Schema[E]) EntityType() reflect.Type {
-	return s.def.table.entityType
+	return s.def.table.EntityType()
 }
 
 func (s Schema[E]) Columns() collectionx.List[ColumnMeta] {
@@ -135,61 +115,25 @@ func MustSchema[S any](name string, schema S) S {
 	return bound
 }
 
-func Alias[S TableSource](schema S, alias string) S {
+func Alias[S querydsl.TableSource](schema S, alias string) S {
 	if strings.TrimSpace(alias) == "" {
 		panic("dbx: alias cannot be empty")
 	}
-	bound, err := bindSchema(schema.tableRef().Name(), alias, schema)
+	bound, err := bindSchema(tableRef(schema).Name(), alias, schema)
 	if err != nil {
 		panic(err)
 	}
 	return bound
 }
 
-func (t Table) Name() string {
-	return t.def.name
-}
-
-func (t Table) TableName() string {
-	return t.def.name
-}
-
-func (t Table) Alias() string {
-	return t.def.alias
-}
-
-func (t Table) TableAlias() string {
-	return t.def.alias
-}
-
-func (t Table) Ref() string {
-	if t.def.alias != "" {
-		return t.def.alias
+func tableRef(source querydsl.TableSource) querydsl.Table {
+	if source == nil {
+		return querydsl.Table{}
 	}
-	return t.def.name
-}
-
-func (t Table) QualifiedName() string {
-	if t.def.alias == "" || t.def.alias == t.def.name {
-		return t.def.name
+	if typed, ok := source.(interface{ tableRef() querydsl.Table }); ok {
+		return typed.tableRef()
 	}
-	return t.def.name + " AS " + t.def.alias
-}
-
-func (t Table) EntityType() reflect.Type {
-	return t.def.entityType
-}
-
-func (t Table) tableRef() Table {
-	return t
-}
-
-func NamedTable(name string) Table {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		panic("dbx: named table cannot be empty")
-	}
-	return Table{def: tableDefinition{name: trimmed}}
+	return querydsl.NewTableRef(source.TableName(), source.TableAlias(), nil, nil)
 }
 
 func (d schemaDefinition) columnByName(name string) (ColumnMeta, bool) {

@@ -1,9 +1,12 @@
 package dbx
 
-import "github.com/DaiYuANg/arcgo/collectionx"
+import (
+	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+)
 
 type Aggregate[T any] struct {
-	Function AggregateFunction
+	Function querydsl.AggregateFunction
 	Expr     scalarExpression
 	Distinct bool
 	star     bool
@@ -35,31 +38,31 @@ func CaseWhen[T any](predicate Predicate, value any) *CaseBuilder[T] {
 }
 
 func CountAll() Aggregate[int64] {
-	return Aggregate[int64]{Function: AggCount, star: true}
+	return Aggregate[int64]{Function: querydsl.AggCount, star: true}
 }
 
 func Count[E any, T any](expr Column[E, T]) Aggregate[int64] {
-	return Aggregate[int64]{Function: AggCount, Expr: expr}
+	return Aggregate[int64]{Function: querydsl.AggCount, Expr: expr}
 }
 
 func CountDistinct[E any, T any](expr Column[E, T]) Aggregate[int64] {
-	return Aggregate[int64]{Function: AggCount, Expr: expr, Distinct: true}
+	return Aggregate[int64]{Function: querydsl.AggCount, Expr: expr, Distinct: true}
 }
 
 func Sum[E any, T any](expr Column[E, T]) Aggregate[T] {
-	return Aggregate[T]{Function: AggSum, Expr: expr}
+	return Aggregate[T]{Function: querydsl.AggSum, Expr: expr}
 }
 
 func Avg[E any, T any](expr Column[E, T]) Aggregate[float64] {
-	return Aggregate[float64]{Function: AggAvg, Expr: expr}
+	return Aggregate[float64]{Function: querydsl.AggAvg, Expr: expr}
 }
 
 func Min[E any, T any](expr Column[E, T]) Aggregate[T] {
-	return Aggregate[T]{Function: AggMin, Expr: expr}
+	return Aggregate[T]{Function: querydsl.AggMin, Expr: expr}
 }
 
 func Max[E any, T any](expr Column[E, T]) Aggregate[T] {
-	return Aggregate[T]{Function: AggMax, Expr: expr}
+	return Aggregate[T]{Function: querydsl.AggMax, Expr: expr}
 }
 
 func (b *CaseBuilder[T]) When(predicate Predicate, value any) *CaseBuilder[T] {
@@ -100,7 +103,7 @@ func (c CaseExpression[T]) As(alias string) SelectItem {
 func (a Aggregate[T]) Eq(value T) Predicate {
 	return comparisonPredicate{
 		Left:  a,
-		Op:    OpEq,
+		Op:    querydsl.OpEq,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -108,7 +111,7 @@ func (a Aggregate[T]) Eq(value T) Predicate {
 func (a Aggregate[T]) Ne(value T) Predicate {
 	return comparisonPredicate{
 		Left:  a,
-		Op:    OpNe,
+		Op:    querydsl.OpNe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -116,7 +119,7 @@ func (a Aggregate[T]) Ne(value T) Predicate {
 func (a Aggregate[T]) Gt(value T) Predicate {
 	return comparisonPredicate{
 		Left:  a,
-		Op:    OpGt,
+		Op:    querydsl.OpGt,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -124,7 +127,7 @@ func (a Aggregate[T]) Gt(value T) Predicate {
 func (a Aggregate[T]) Ge(value T) Predicate {
 	return comparisonPredicate{
 		Left:  a,
-		Op:    OpGe,
+		Op:    querydsl.OpGe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -132,7 +135,7 @@ func (a Aggregate[T]) Ge(value T) Predicate {
 func (a Aggregate[T]) Lt(value T) Predicate {
 	return comparisonPredicate{
 		Left:  a,
-		Op:    OpLt,
+		Op:    querydsl.OpLt,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -140,7 +143,7 @@ func (a Aggregate[T]) Lt(value T) Predicate {
 func (a Aggregate[T]) Le(value T) Predicate {
 	return comparisonPredicate{
 		Left:  a,
-		Op:    OpLe,
+		Op:    querydsl.OpLe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -156,7 +159,7 @@ func (a Aggregate[T]) Desc() Order {
 func (c CaseExpression[T]) Eq(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpEq,
+		Op:    querydsl.OpEq,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -164,7 +167,7 @@ func (c CaseExpression[T]) Eq(value T) Predicate {
 func (c CaseExpression[T]) Ne(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpNe,
+		Op:    querydsl.OpNe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -172,7 +175,7 @@ func (c CaseExpression[T]) Ne(value T) Predicate {
 func (c CaseExpression[T]) Gt(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpGt,
+		Op:    querydsl.OpGt,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -180,7 +183,7 @@ func (c CaseExpression[T]) Gt(value T) Predicate {
 func (c CaseExpression[T]) Ge(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpGe,
+		Op:    querydsl.OpGe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -188,7 +191,7 @@ func (c CaseExpression[T]) Ge(value T) Predicate {
 func (c CaseExpression[T]) Lt(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpLt,
+		Op:    querydsl.OpLt,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -196,7 +199,7 @@ func (c CaseExpression[T]) Lt(value T) Predicate {
 func (c CaseExpression[T]) Le(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpLe,
+		Op:    querydsl.OpLe,
 		Right: valueOperand[T]{Value: value},
 	}
 }

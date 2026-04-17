@@ -170,7 +170,7 @@ func validateAtlasPlanningSession(session Session) error {
 func atlasCurrentSchema(ctx context.Context, driver atlasmigrate.Driver, session Session, schemas []SchemaResource) (*atlasschema.Schema, string, error) {
 	tableNames := make([]string, 0, len(schemas))
 	for _, schema := range schemas {
-		tableNames = append(tableNames, schema.tableRef().TableName())
+		tableNames = append(tableNames, tableRef(schema).TableName())
 	}
 	current, err := atlasInspectCurrentSchema(ctx, driver, tableNames)
 	if err != nil {

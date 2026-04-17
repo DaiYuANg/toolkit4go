@@ -21,7 +21,7 @@ func newAtlasCompiledSchema(schemaName string, schemas []SchemaResource) *atlasC
 	atlasSchema := atlasschema.New(schemaName)
 	order := collectionx.NewListWithCapacity[string](len(schemas))
 	for _, schema := range schemas {
-		order.Add(schema.tableRef().TableName())
+		order.Add(tableRef(schema).TableName())
 	}
 	return &atlasCompiledSchema{
 		schema:    atlasSchema,

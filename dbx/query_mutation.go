@@ -1,9 +1,12 @@
 package dbx
 
-import "github.com/DaiYuANg/arcgo/collectionx"
+import (
+	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+)
 
 type InsertQuery struct {
-	Into           Table
+	Into           querydsl.Table
 	TargetColumns  collectionx.List[Expression]
 	Assignments    collectionx.List[Assignment]
 	Rows           collectionx.Grid[Assignment]
@@ -13,14 +16,14 @@ type InsertQuery struct {
 }
 
 type UpdateQuery struct {
-	Table          Table
+	Table          querydsl.Table
 	Assignments    collectionx.List[Assignment]
 	WhereExp       Predicate
 	ReturningItems collectionx.List[SelectItem]
 }
 
 type DeleteQuery struct {
-	From           Table
+	From           querydsl.Table
 	WhereExp       Predicate
 	ReturningItems collectionx.List[SelectItem]
 }
@@ -35,8 +38,8 @@ type UpsertClause struct {
 	Assignments collectionx.List[Assignment]
 }
 
-func InsertInto(source TableSource) *InsertQuery {
-	return &InsertQuery{Into: source.tableRef()}
+func InsertInto(source querydsl.TableSource) *InsertQuery {
+	return &InsertQuery{Into: tableRef(source)}
 }
 
 func (q *InsertQuery) Columns(columns ...Expression) *InsertQuery {
@@ -123,8 +126,8 @@ func (b *ConflictBuilder) DoUpdateSetList(assignments collectionx.List[Assignmen
 	return b.query
 }
 
-func Update(source TableSource) *UpdateQuery {
-	return &UpdateQuery{Table: source.tableRef()}
+func Update(source querydsl.TableSource) *UpdateQuery {
+	return &UpdateQuery{Table: tableRef(source)}
 }
 
 func (q *UpdateQuery) Set(assignments ...Assignment) *UpdateQuery {
@@ -150,8 +153,8 @@ func (q *UpdateQuery) ReturningList(items collectionx.List[SelectItem]) *UpdateQ
 	return q
 }
 
-func DeleteFrom(source TableSource) *DeleteQuery {
-	return &DeleteQuery{From: source.tableRef()}
+func DeleteFrom(source querydsl.TableSource) *DeleteQuery {
+	return &DeleteQuery{From: tableRef(source)}
 }
 
 func (q *DeleteQuery) Where(predicate Predicate) *DeleteQuery {

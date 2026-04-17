@@ -130,7 +130,7 @@ func buildTableSpec(def schemaDefinition) TableSpec {
 	foreignKeys := deriveForeignKeys(def)
 	checks := deriveChecks(def)
 	return TableSpec{
-		Name:        def.table.name,
+		Name:        def.table.Name(),
 		Columns:     cloneColumnMetas(def.columns),
 		Indexes:     collectionx.NewListWithCapacity(len(indexes), indexes...),
 		PrimaryKey:  derivePrimaryKey(def),

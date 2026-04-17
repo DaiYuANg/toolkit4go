@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
@@ -44,7 +45,7 @@ func main() {
 		panic(err)
 	}
 
-	activeUsers := dbx.NamedTable("active_users")
+	activeUsers := querydsl.NamedTable("active_users")
 	activeID := dbx.NamedColumn[int64](activeUsers, "id")
 	activeUsername := dbx.NamedColumn[string](activeUsers, "username")
 	activeQuery := dbx.Select(activeID, activeUsername).

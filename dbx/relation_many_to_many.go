@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
 func queryManyToManyPairs(ctx context.Context, session Session, rt *RelationRuntime, meta RelationMeta, sourceKeys collectionx.List[any], sourceType, targetType reflect.Type) (collectionx.List[relationKeyPair], error) {
@@ -71,7 +72,7 @@ func buildManyToManyPairsBoundQuery(session Session, rt *RelationRuntime, meta R
 	}
 	logRuntimeNode(session, "relation.m2m.bound.cache_miss", "relation", meta.Name, "through", meta.ThroughTable, "keys", sourceKeys.Len())
 
-	through := Table{def: tableDefinition{name: meta.ThroughTable}}
+	through := querydsl.NamedTable(meta.ThroughTable)
 	localColumn := ColumnMeta{Name: meta.ThroughLocalColumn, Table: through.Name(), GoType: nil}
 	targetColumn := ColumnMeta{Name: meta.ThroughTargetColumn, Table: through.Name(), GoType: nil}
 	query := Select(
@@ -79,7 +80,7 @@ func buildManyToManyPairsBoundQuery(session Session, rt *RelationRuntime, meta R
 		schemaSelectItem{meta: targetColumn},
 	).From(through).Where(metadataComparisonPredicate{
 		left:  localColumn,
-		op:    OpIn,
+		op:    querydsl.OpIn,
 		right: sourceKeys.Values(),
 	}).OrderBy(
 		NamedColumn[any](through, meta.ThroughLocalColumn).Asc(),

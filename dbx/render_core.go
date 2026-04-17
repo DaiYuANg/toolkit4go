@@ -3,11 +3,12 @@ package dbx
 import (
 	"errors"
 	"fmt"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
 type predicateRenderer interface {
@@ -117,7 +118,7 @@ func (s *renderState) renderColumn(meta ColumnMeta) {
 	s.writeQualifiedIdent(table, meta.Name)
 }
 
-func (s *renderState) renderTable(table Table) {
+func (s *renderState) renderTable(table querydsl.Table) {
 	s.writeQuotedIdent(table.Name())
 	if alias := table.Alias(); alias != "" && alias != table.Name() {
 		s.writeString(" AS ")

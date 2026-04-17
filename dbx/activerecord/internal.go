@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
 )
 
@@ -41,7 +42,7 @@ func (s *Store[E, S]) keyOf(entity *E) repository.Key {
 	return key
 }
 
-func primaryKeyColumns[S dbx.TableSource](schema S) []string {
+func primaryKeyColumns[S querydsl.TableSource](schema S) []string {
 	type primaryKeyProvider interface {
 		PrimaryKey() (dbx.PrimaryKeyMeta, bool)
 	}

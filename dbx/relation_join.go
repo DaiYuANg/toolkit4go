@@ -5,26 +5,27 @@ import (
 	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
 type relationSchemaSource interface {
-	TableSource
+	querydsl.TableSource
 	schemaRef() schemaDefinition
 }
 
-func (q *SelectQuery) JoinRelation(source relationSchemaSource, relation relationAccessor, target TableSource) (*SelectQuery, error) {
-	return q.joinRelation(InnerJoin, source, relation, target)
+func (q *SelectQuery) JoinRelation(source relationSchemaSource, relation relationAccessor, target querydsl.TableSource) (*SelectQuery, error) {
+	return q.joinRelation(querydsl.InnerJoin, source, relation, target)
 }
 
-func (q *SelectQuery) LeftJoinRelation(source relationSchemaSource, relation relationAccessor, target TableSource) (*SelectQuery, error) {
-	return q.joinRelation(LeftJoin, source, relation, target)
+func (q *SelectQuery) LeftJoinRelation(source relationSchemaSource, relation relationAccessor, target querydsl.TableSource) (*SelectQuery, error) {
+	return q.joinRelation(querydsl.LeftJoin, source, relation, target)
 }
 
-func (q *SelectQuery) RightJoinRelation(source relationSchemaSource, relation relationAccessor, target TableSource) (*SelectQuery, error) {
-	return q.joinRelation(RightJoin, source, relation, target)
+func (q *SelectQuery) RightJoinRelation(source relationSchemaSource, relation relationAccessor, target querydsl.TableSource) (*SelectQuery, error) {
+	return q.joinRelation(querydsl.RightJoin, source, relation, target)
 }
 
-func (q *SelectQuery) joinRelation(joinType JoinType, source relationSchemaSource, relation relationAccessor, target TableSource) (*SelectQuery, error) {
+func (q *SelectQuery) joinRelation(joinType querydsl.JoinType, source relationSchemaSource, relation relationAccessor, target querydsl.TableSource) (*SelectQuery, error) {
 	if q == nil {
 		return nil, errors.New("dbx: select query is nil")
 	}
@@ -38,13 +39,13 @@ func (q *SelectQuery) joinRelation(joinType JoinType, source relationSchemaSourc
 		return nil, errors.New("dbx: relation join requires target table")
 	}
 
-	sourceTable := source.tableRef()
+	sourceTable := tableRef(source)
 	if !q.containsTable(sourceTable) {
 		return nil, fmt.Errorf("dbx: source table %s is not part of the query", sourceTable.Ref())
 	}
 
 	meta := relation.relationRef()
-	targetTable := target.tableRef()
+	targetTable := tableRef(target)
 	if meta.TargetTable != "" && targetTable.Name() != meta.TargetTable {
 		return nil, fmt.Errorf("dbx: relation %s targets table %s, got %s", meta.Name, meta.TargetTable, targetTable.Name())
 	}
@@ -57,7 +58,7 @@ func (q *SelectQuery) joinRelation(joinType JoinType, source relationSchemaSourc
 	return q, nil
 }
 
-func (q *SelectQuery) containsTable(table Table) bool {
+func (q *SelectQuery) containsTable(table querydsl.Table) bool {
 	if sameTable(q.FromItem, table) {
 		return true
 	}
@@ -67,11 +68,11 @@ func (q *SelectQuery) containsTable(table Table) bool {
 	return ok
 }
 
-func sameTable(left, right Table) bool {
+func sameTable(left, right querydsl.Table) bool {
 	return left.Name() == right.Name() && left.Alias() == right.Alias()
 }
 
-func buildDirectRelationPredicate(source relationSchemaSource, meta RelationMeta, target Table) (Predicate, error) {
+func buildDirectRelationPredicate(source relationSchemaSource, meta RelationMeta, target querydsl.Table) (Predicate, error) {
 	localColumn, err := relationSourceColumn(source, meta)
 	if err != nil {
 		return nil, err
@@ -82,12 +83,12 @@ func buildDirectRelationPredicate(source relationSchemaSource, meta RelationMeta
 	}
 	return metadataComparisonPredicate{
 		left:  localColumn,
-		op:    OpEq,
+		op:    querydsl.OpEq,
 		right: metadataColumnOperand{meta: targetColumn},
 	}, nil
 }
 
-func buildRelationJoins(joinType JoinType, source relationSchemaSource, meta RelationMeta, target Table) (collectionx.List[Join], error) {
+func buildRelationJoins(joinType querydsl.JoinType, source relationSchemaSource, meta RelationMeta, target querydsl.Table) (collectionx.List[Join], error) {
 	joins := collectionx.NewListWithCapacity[Join](2)
 
 	switch meta.Kind {
@@ -111,35 +112,35 @@ func buildRelationJoins(joinType JoinType, source relationSchemaSource, meta Rel
 	}
 }
 
-func buildManyToManyJoins(source relationSchemaSource, meta RelationMeta, target Table) (Table, Predicate, Predicate, error) {
+func buildManyToManyJoins(source relationSchemaSource, meta RelationMeta, target querydsl.Table) (querydsl.Table, Predicate, Predicate, error) {
 	if meta.ThroughTable == "" {
-		return Table{}, nil, nil, fmt.Errorf("dbx: many-to-many relation %s requires join table", meta.Name)
+		return querydsl.Table{}, nil, nil, fmt.Errorf("dbx: many-to-many relation %s requires join table", meta.Name)
 	}
 	if meta.ThroughLocalColumn == "" || meta.ThroughTargetColumn == "" {
-		return Table{}, nil, nil, fmt.Errorf("dbx: many-to-many relation %s requires join_local and join_target", meta.Name)
+		return querydsl.Table{}, nil, nil, fmt.Errorf("dbx: many-to-many relation %s requires join_local and join_target", meta.Name)
 	}
 
 	sourceColumn, err := relationSourceColumn(source, meta)
 	if err != nil {
-		return Table{}, nil, nil, err
+		return querydsl.Table{}, nil, nil, err
 	}
 	targetColumn, err := relationTargetColumn(target, meta)
 	if err != nil {
-		return Table{}, nil, nil, err
+		return querydsl.Table{}, nil, nil, err
 	}
 
-	through := Table{def: tableDefinition{name: meta.ThroughTable}}
+	through := querydsl.NamedTable(meta.ThroughTable)
 	throughSourceColumn := ColumnMeta{Name: meta.ThroughLocalColumn, Table: through.Name(), Alias: through.Alias()}
 	throughTargetColumn := ColumnMeta{Name: meta.ThroughTargetColumn, Table: through.Name(), Alias: through.Alias()}
 
 	first := metadataComparisonPredicate{
 		left:  sourceColumn,
-		op:    OpEq,
+		op:    querydsl.OpEq,
 		right: metadataColumnOperand{meta: throughSourceColumn},
 	}
 	second := metadataComparisonPredicate{
 		left:  throughTargetColumn,
-		op:    OpEq,
+		op:    querydsl.OpEq,
 		right: metadataColumnOperand{meta: targetColumn},
 	}
 	return through, first, second, nil
@@ -162,7 +163,7 @@ func relationSourceColumn(source relationSchemaSource, meta RelationMeta) (Colum
 	return column, nil
 }
 
-func relationTargetColumn(target Table, meta RelationMeta) (ColumnMeta, error) {
+func relationTargetColumn(target querydsl.Table, meta RelationMeta) (ColumnMeta, error) {
 	if meta.TargetColumn == "" {
 		return ColumnMeta{}, fmt.Errorf("dbx: relation %s requires target column", meta.Name)
 	}

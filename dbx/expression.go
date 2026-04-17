@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
 type Expression interface {
@@ -32,45 +33,6 @@ type Order interface {
 	orderNode()
 }
 
-type ComparisonOperator string
-
-type LogicalOperator string
-
-type JoinType string
-type AggregateFunction string
-
-const (
-	OpEq    ComparisonOperator = "="
-	OpNe    ComparisonOperator = "<>"
-	OpGt    ComparisonOperator = ">"
-	OpGe    ComparisonOperator = ">="
-	OpLt    ComparisonOperator = "<"
-	OpLe    ComparisonOperator = "<="
-	OpIn    ComparisonOperator = "IN"
-	OpLike  ComparisonOperator = "LIKE"
-	OpIs    ComparisonOperator = "IS"
-	OpIsNot ComparisonOperator = "IS NOT"
-)
-
-const (
-	LogicalAnd LogicalOperator = "AND"
-	LogicalOr  LogicalOperator = "OR"
-)
-
-const (
-	InnerJoin JoinType = "INNER"
-	LeftJoin  JoinType = "LEFT"
-	RightJoin JoinType = "RIGHT"
-)
-
-const (
-	AggCount AggregateFunction = "COUNT"
-	AggSum   AggregateFunction = "SUM"
-	AggAvg   AggregateFunction = "AVG"
-	AggMin   AggregateFunction = "MIN"
-	AggMax   AggregateFunction = "MAX"
-)
-
 type caseWhenBranch struct {
 	Predicate Predicate
 	Value     any
@@ -90,7 +52,7 @@ type excludedColumnOperand[T any] struct {
 
 type comparisonPredicate struct {
 	Left  scalarExpression
-	Op    ComparisonOperator
+	Op    querydsl.ComparisonOperator
 	Right any
 }
 
@@ -98,7 +60,7 @@ func (comparisonPredicate) expressionNode() {}
 func (comparisonPredicate) predicateNode()  {}
 
 type logicalPredicate struct {
-	Op         LogicalOperator
+	Op         querydsl.LogicalOperator
 	Predicates collectionx.List[Predicate]
 }
 
@@ -154,7 +116,7 @@ func AndList(predicates collectionx.List[Predicate]) Predicate {
 		predicate, _ := items.GetFirst()
 		return predicate
 	}
-	return logicalPredicate{Op: LogicalAnd, Predicates: items}
+	return logicalPredicate{Op: querydsl.LogicalAnd, Predicates: items}
 }
 
 func OrList(predicates collectionx.List[Predicate]) Predicate {
@@ -163,7 +125,7 @@ func OrList(predicates collectionx.List[Predicate]) Predicate {
 		predicate, _ := items.GetFirst()
 		return predicate
 	}
-	return logicalPredicate{Op: LogicalOr, Predicates: items}
+	return logicalPredicate{Op: querydsl.LogicalOr, Predicates: items}
 }
 
 func Not(predicate Predicate) Predicate {
@@ -173,7 +135,7 @@ func Not(predicate Predicate) Predicate {
 func Like[E any](column Column[E, string], pattern string) Predicate {
 	return comparisonPredicate{
 		Left:  column,
-		Op:    OpLike,
+		Op:    querydsl.OpLike,
 		Right: valueOperand[string]{Value: pattern},
 	}
 }

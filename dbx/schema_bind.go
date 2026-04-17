@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
 type schemaBindingState struct {
 	binder        schemaBinder
 	binderField   reflect.Value
-	defTable      tableDefinition
+	defTable      querydsl.Table
 	columns       collectionx.List[ColumnMeta]
 	columnsByName collectionx.Map[string, ColumnMeta]
 	relations     collectionx.List[RelationMeta]
@@ -45,11 +46,7 @@ func bindSchema[S any](name, alias string, schema S) (S, error) {
 
 func newSchemaBindingState(schemaType reflect.Type, name, alias string, fieldCount int) schemaBindingState {
 	return schemaBindingState{
-		defTable: tableDefinition{
-			name:       strings.TrimSpace(name),
-			alias:      strings.TrimSpace(alias),
-			schemaType: schemaType,
-		},
+		defTable:      querydsl.NewTableRef(strings.TrimSpace(name), strings.TrimSpace(alias), schemaType, nil),
 		columns:       collectionx.NewListWithCapacity[ColumnMeta](fieldCount),
 		columnsByName: collectionx.NewMapWithCapacity[string, ColumnMeta](fieldCount),
 		relations:     collectionx.NewListWithCapacity[RelationMeta](fieldCount),
@@ -84,7 +81,7 @@ func (s *schemaBindingState) captureSchemaBinder(fieldValue reflect.Value) bool 
 	}
 	s.binder = candidate
 	s.binderField = fieldValue
-	s.defTable.entityType = candidate.entityType()
+	s.defTable = s.defTable.WithEntityType(candidate.entityType())
 	return true
 }
 
@@ -160,12 +157,12 @@ func (s *schemaBindingState) definition(schemaType reflect.Type) (schemaDefiniti
 	}, nil
 }
 
-func resolveColumnMeta(def tableDefinition, field reflect.StructField, value any) (ColumnMeta, error) {
+func resolveColumnMeta(def querydsl.Table, field reflect.StructField, value any) (ColumnMeta, error) {
 	name, options := resolveTagNameAndOptions(field)
 	meta := ColumnMeta{
 		Name:          name,
-		Table:         def.name,
-		Alias:         def.alias,
+		Table:         def.Name(),
+		Alias:         def.Alias(),
 		FieldName:     field.Name,
 		GoType:        resolveColumnGoType(value),
 		SQLType:       optionValue(options, "type"),
@@ -200,7 +197,7 @@ func resolveColumnGoType(value any) reflect.Type {
 	return reporter.valueType()
 }
 
-func resolveRelationMeta(def tableDefinition, field reflect.StructField, binder relationBinder) RelationMeta {
+func resolveRelationMeta(def querydsl.Table, field reflect.StructField, binder relationBinder) RelationMeta {
 	options := parseTagOptions(field.Tag.Get("rel"))
 	name := optionValue(options, "name")
 	if name == "" {
@@ -210,8 +207,8 @@ func resolveRelationMeta(def tableDefinition, field reflect.StructField, binder 
 		Name:                name,
 		FieldName:           field.Name,
 		Kind:                binder.relationKind(),
-		SourceTable:         def.name,
-		SourceAlias:         def.alias,
+		SourceTable:         def.Name(),
+		SourceAlias:         def.Alias(),
 		TargetTable:         optionValue(options, "table"),
 		LocalColumn:         optionValue(options, "local"),
 		TargetColumn:        optionValue(options, "target"),

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
 func (c Column[E, T]) renderOperand(state *renderState) (string, error) {
@@ -42,7 +44,7 @@ func (p comparisonPredicate) renderPredicate(state *renderState) error {
 		return err
 	}
 	state.writeString(left)
-	if p.Op == OpIs || p.Op == OpIsNot {
+	if p.Op == querydsl.OpIs || p.Op == querydsl.OpIsNot {
 		state.writeByte(' ')
 		state.writeString(string(p.Op))
 		state.writeString(" NULL")

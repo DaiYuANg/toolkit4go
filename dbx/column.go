@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/lo"
 )
 
@@ -146,8 +147,8 @@ func (c IDColumn[E, T, M]) bindColumn(binding columnBinding) any {
 	return IDColumn[E, T, M]{Column: bound}
 }
 
-func NamedColumn[T any](source TableSource, name string) Column[struct{}, T] {
-	table := source.tableRef()
+func NamedColumn[T any](source querydsl.TableSource, name string) Column[struct{}, T] {
+	table := tableRef(source)
 	return Column[struct{}, T]{
 		meta: ColumnMeta{
 			Name:   strings.TrimSpace(name),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
 func (m Mapper[E]) InsertAssignments(session Session, schema SchemaResource, entity *E) (collectionx.List[Assignment], error) {
@@ -86,7 +87,7 @@ func (m Mapper[E]) primaryColumnPredicate(value reflect.Value, column ColumnMeta
 	}
 	return metadataComparisonPredicate{
 		left:  column,
-		op:    OpEq,
+		op:    querydsl.OpEq,
 		right: boundValue,
 	}, nil
 }

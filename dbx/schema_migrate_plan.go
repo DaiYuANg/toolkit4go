@@ -58,7 +58,7 @@ func planSchemaChangesLegacy(ctx context.Context, session Session, schemas ...Sc
 }
 
 func planLegacySchemaDiff(ctx context.Context, schemaDialect SchemaDialect, session Session, schema SchemaResource) (TableDiff, error) {
-	table := schema.tableRef().TableName()
+	table := tableRef(schema).TableName()
 	logRuntimeNode(session, "schema.plan.legacy.diff", "table", table)
 	diff, err := diffSchema(ctx, schemaDialect, session, schema)
 	if err != nil {
@@ -217,7 +217,7 @@ func schemaNames(schemas []SchemaResource) string {
 		return ""
 	}
 	return strings.Join(lo.Map(schemas, func(schema SchemaResource, _ int) string {
-		return schema.tableRef().TableName()
+		return tableRef(schema).TableName()
 	}), ",")
 }
 

@@ -1,6 +1,9 @@
 package dbx
 
-import "github.com/DaiYuANg/arcgo/collectionx"
+import (
+	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+)
 
 type schemaSelectItem struct {
 	meta ColumnMeta
@@ -43,7 +46,7 @@ type metadataAssignment struct {
 
 type metadataComparisonPredicate struct {
 	left  ColumnMeta
-	op    ComparisonOperator
+	op    querydsl.ComparisonOperator
 	right any
 }
 
@@ -83,7 +86,7 @@ func (a metadataAssignment) renderAssignmentValue(state *renderState) error {
 
 func (p metadataComparisonPredicate) renderPredicate(state *renderState) error {
 	state.renderColumn(p.left)
-	if p.op == OpIs || p.op == OpIsNot {
+	if p.op == querydsl.OpIs || p.op == querydsl.OpIsNot {
 		state.writeByte(' ')
 		state.writeString(string(p.op))
 		state.writeString(" NULL")

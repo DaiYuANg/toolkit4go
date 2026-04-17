@@ -3,6 +3,7 @@ package dbx
 import (
 	"reflect"
 
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/lo"
 )
 
@@ -75,7 +76,7 @@ func (c Column[E, T]) Ref() string {
 func (c Column[E, T]) Eq(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpEq,
+		Op:    querydsl.OpEq,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -83,7 +84,7 @@ func (c Column[E, T]) Eq(value T) Predicate {
 func (c Column[E, T]) EqColumn(other typedColumn[T]) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpEq,
+		Op:    querydsl.OpEq,
 		Right: columnOperand[T]{Column: other},
 	}
 }
@@ -91,7 +92,7 @@ func (c Column[E, T]) EqColumn(other typedColumn[T]) Predicate {
 func (c Column[E, T]) Ne(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpNe,
+		Op:    querydsl.OpNe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -99,7 +100,7 @@ func (c Column[E, T]) Ne(value T) Predicate {
 func (c Column[E, T]) Gt(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpGt,
+		Op:    querydsl.OpGt,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -107,7 +108,7 @@ func (c Column[E, T]) Gt(value T) Predicate {
 func (c Column[E, T]) Ge(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpGe,
+		Op:    querydsl.OpGe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -115,7 +116,7 @@ func (c Column[E, T]) Ge(value T) Predicate {
 func (c Column[E, T]) Lt(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpLt,
+		Op:    querydsl.OpLt,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -123,7 +124,7 @@ func (c Column[E, T]) Lt(value T) Predicate {
 func (c Column[E, T]) Le(value T) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpLe,
+		Op:    querydsl.OpLe,
 		Right: valueOperand[T]{Value: value},
 	}
 }
@@ -131,7 +132,7 @@ func (c Column[E, T]) Le(value T) Predicate {
 func (c Column[E, T]) In(values ...T) Predicate {
 	return comparisonPredicate{
 		Left: c,
-		Op:   OpIn,
+		Op:   querydsl.OpIn,
 		Right: lo.Map(values, func(value T, _ int) any {
 			return value
 		}),
@@ -141,7 +142,7 @@ func (c Column[E, T]) In(values ...T) Predicate {
 func (c Column[E, T]) InQuery(query *SelectQuery) Predicate {
 	return comparisonPredicate{
 		Left:  c,
-		Op:    OpIn,
+		Op:    querydsl.OpIn,
 		Right: subqueryOperand{Query: query},
 	}
 }
@@ -149,14 +150,14 @@ func (c Column[E, T]) InQuery(query *SelectQuery) Predicate {
 func (c Column[E, T]) IsNull() Predicate {
 	return comparisonPredicate{
 		Left: c,
-		Op:   OpIs,
+		Op:   querydsl.OpIs,
 	}
 }
 
 func (c Column[E, T]) IsNotNull() Predicate {
 	return comparisonPredicate{
 		Left: c,
-		Op:   OpIsNot,
+		Op:   querydsl.OpIsNot,
 	}
 }
 

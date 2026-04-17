@@ -3,10 +3,11 @@ package dbx
 import (
 	"context"
 	"fmt"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
 type relationLookupValue struct {
@@ -119,7 +120,7 @@ func queryRelationTargets[E any](ctx context.Context, session Session, rt *Relat
 	chunks := chunkRelationKeys(keys, relationChunkSize(session))
 	logRuntimeNode(session,
 		"relation.targets.query.start",
-		"table", schema.tableRef().TableName(),
+		"table", tableRef(schema).TableName(),
 		"target_column", targetColumn.Name,
 		"keys", keys.Len(),
 		"chunks", chunks.Len(),
@@ -146,14 +147,14 @@ func queryRelationTargets[E any](ctx context.Context, session Session, rt *Relat
 	if resultErr != nil {
 		return nil, resultErr
 	}
-	logRuntimeNode(session, "relation.targets.query.done", "table", schema.tableRef().TableName(), "items", items.Len())
+	logRuntimeNode(session, "relation.targets.query.done", "table", tableRef(schema).TableName(), "items", items.Len())
 	return items, nil
 }
 
 func buildRelationTargetsBoundQuery(session Session, rt *RelationRuntime, schema relationSchemaSource, targetColumn ColumnMeta, keys collectionx.List[any]) (sqlstmt.Bound, error) {
 	def := schema.schemaRef()
 	dialectName := session.Dialect().Name()
-	tableName := schema.tableRef().Name()
+	tableName := tableRef(schema).Name()
 	selectSigParts := collectionx.NewListWithCapacity[string](def.columns.Len())
 	def.columns.Range(func(_ int, column ColumnMeta) bool {
 		selectSigParts.Add(column.Name)
@@ -174,7 +175,7 @@ func buildRelationTargetsBoundQuery(session Session, rt *RelationRuntime, schema
 		From(schema).
 		Where(metadataComparisonPredicate{
 			left:  targetColumn,
-			op:    OpIn,
+			op:    querydsl.OpIn,
 			right: keys.Values(),
 		}).
 		OrderByList(relationTargetOrders(schema, targetColumn))
