@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 
@@ -26,18 +27,18 @@ func TestSQLListUsesStatementCapacityHint(t *testing.T) {
 	})
 	mapper := &capacityHintUserSummaryMapper{base: MustStructMapper[UserSummary]()}
 
-	items, err := SQLList(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, mapper)
+	items, err := sqlexec.List(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, mapper)
 	if err != nil {
-		t.Fatalf("SQLList returned error: %v", err)
+		t.Fatalf("sqlexec.List returned error: %v", err)
 	}
 	if items.Len() != 2 {
 		t.Fatalf("unexpected list size: %d", items.Len())
 	}
 	if mapper.capacityHint != 2 {
-		t.Fatalf("SQLList did not propagate capacity hint, got %d", mapper.capacityHint)
+		t.Fatalf("sqlexec.List did not propagate capacity hint, got %d", mapper.capacityHint)
 	}
 	if mapper.scanRowsCalled {
-		t.Fatalf("SQLList used ScanRows instead of ScanRowsWithCapacity")
+		t.Fatalf("sqlexec.List used ScanRows instead of ScanRowsWithCapacity")
 	}
 }
 

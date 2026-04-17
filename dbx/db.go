@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"log/slog"
 
@@ -253,8 +254,8 @@ func (db *DB) WithTx(tx *sql.Tx) *Tx {
 	return &Tx{raw: tx, dialect: db.dialect, observe: db.observe, relation: db.relation, idGenerator: db.idGenerator, nodeID: db.nodeID}
 }
 
-func (db *DB) SQL() *SQLExecutor {
-	return &SQLExecutor{session: db}
+func (db *DB) SQL() *sqlexec.Executor {
+	return sqlexec.New(db)
 }
 
 // Close closes the underlying database connection. Call when the DB is no longer needed.

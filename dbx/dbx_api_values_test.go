@@ -5,6 +5,7 @@ import (
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
@@ -48,7 +49,7 @@ var NewDefaultIDGenerator = idgen.NewDefault
 var NewKSUIDGenerator = idgen.NewKSUID
 var NewPageRequest = paging.NewRequest
 var NewSnowflakeGenerator = idgen.NewSnowflake
-var NewSQLExecutorForTest = dbx.NewSQLExecutorForTest
+var NewSQLExecutorForTest = sqlexec.New
 var NewStatement = sqlstmt.New
 var NewULIDGenerator = idgen.NewULID
 var NewUUIDGenerator = idgen.NewUUID

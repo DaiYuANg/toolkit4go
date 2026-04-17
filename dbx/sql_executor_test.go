@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 
@@ -41,9 +42,9 @@ func TestSQLListScansStructMapperAndPropagatesStatementName(t *testing.T) {
 		}, nil
 	})
 
-	items, err := SQLList(context.Background(), core, statement, params{Status: 1}, MustStructMapper[UserSummary]())
+	items, err := sqlexec.List(context.Background(), core, statement, params{Status: 1}, MustStructMapper[UserSummary]())
 	if err != nil {
-		t.Fatalf("SQLList returned error: %v", err)
+		t.Fatalf("sqlexec.List returned error: %v", err)
 	}
 	first, _ := items.Get(0)
 	second, _ := items.Get(1)
@@ -72,9 +73,9 @@ func TestSQLQueryListScansStructMapper(t *testing.T) {
 		}, nil
 	})
 
-	items, err := SQLQueryList(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+	items, err := sqlexec.QueryList(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 	if err != nil {
-		t.Fatalf("SQLQueryList returned error: %v", err)
+		t.Fatalf("sqlexec.QueryList returned error: %v", err)
 	}
 	if items.Len() != 2 {
 		t.Fatalf("unexpected list size: %d", items.Len())
@@ -109,9 +110,9 @@ func TestSQLScalarAndScalarOption(t *testing.T) {
 		)
 		defer cleanup()
 
-		value, err := SQLScalar[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil)
+		value, err := sqlexec.Scalar[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil)
 		if err != nil {
-			t.Fatalf("SQLScalar returned error: %v", err)
+			t.Fatalf("sqlexec.Scalar returned error: %v", err)
 		}
 		if value != 2 {
 			t.Fatalf("unexpected scalar value: %d", value)
@@ -126,9 +127,9 @@ func TestSQLScalarAndScalarOption(t *testing.T) {
 		emptyStmt := sqlstmt.New("user.max_id", func(_ any) (sqlstmt.Bound, error) {
 			return sqlstmt.Bound{SQL: `SELECT "id" FROM "users" LIMIT 1`}, nil
 		})
-		value, err := SQLScalarOption[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), emptyStmt, nil)
+		value, err := sqlexec.ScalarOption[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), emptyStmt, nil)
 		if err != nil {
-			t.Fatalf("SQLScalarOption returned error: %v", err)
+			t.Fatalf("sqlexec.ScalarOption returned error: %v", err)
 		}
 		if value.IsPresent() {
 			t.Fatalf("expected empty scalar option, got %+v", value)
@@ -145,9 +146,9 @@ func TestSQLScalarAndScalarOption(t *testing.T) {
 		multiRowStmt := sqlstmt.New("user.ids", func(_ any) (sqlstmt.Bound, error) {
 			return sqlstmt.Bound{SQL: `SELECT "id" FROM "users"`}, nil
 		})
-		_, err := SQLScalar[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), multiRowStmt, nil)
-		if !errors.Is(err, ErrTooManyRows) {
-			t.Fatalf("expected ErrTooManyRows, got %v", err)
+		_, err := sqlexec.Scalar[int64](context.Background(), New(sqlDB, testSQLiteDialect{}), multiRowStmt, nil)
+		if !errors.Is(err, sqlexec.ErrTooManyRows) {
+			t.Fatalf("expected sqlexec.ErrTooManyRows, got %v", err)
 		}
 	})
 }
@@ -185,9 +186,9 @@ func runSQLGetExpectRow(t *testing.T, statement sqlstmt.Source) {
 		)
 		defer cleanup()
 
-		item, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		item, err := sqlexec.Get(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if err != nil {
-			t.Fatalf("SQLGet returned error: %v", err)
+			t.Fatalf("sqlexec.Get returned error: %v", err)
 		}
 		assertSingleUserSummary(t, item)
 	})
@@ -199,7 +200,7 @@ func runSQLGetExpectNoRows(t *testing.T, statement sqlstmt.Source) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
 		defer cleanup()
 
-		_, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		_, err := sqlexec.Get(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if !errors.Is(err, sql.ErrNoRows) {
 			t.Fatalf("expected sql.ErrNoRows, got %v", err)
 		}
@@ -212,9 +213,9 @@ func runSQLFindExpectNone(t *testing.T, statement sqlstmt.Source) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
 		defer cleanup()
 
-		result, err := SQLFind(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		result, err := sqlexec.Find(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if err != nil {
-			t.Fatalf("SQLFind returned error: %v", err)
+			t.Fatalf("sqlexec.Find returned error: %v", err)
 		}
 		if result.IsPresent() {
 			t.Fatalf("expected empty option, got %+v", result)
@@ -231,9 +232,9 @@ func runSQLFindExpectRow(t *testing.T, statement sqlstmt.Source) {
 		)
 		defer cleanup()
 
-		result, err := SQLFind(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		result, err := sqlexec.Find(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if err != nil {
-			t.Fatalf("SQLFind returned error: %v", err)
+			t.Fatalf("sqlexec.Find returned error: %v", err)
 		}
 		item, ok := result.Get()
 		if !ok {
@@ -252,9 +253,9 @@ func runSQLGetExpectTooManyRows(t *testing.T, statement sqlstmt.Source) {
 		)
 		defer cleanup()
 
-		_, err := SQLGet(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
-		if !errors.Is(err, ErrTooManyRows) {
-			t.Fatalf("expected ErrTooManyRows, got %v", err)
+		_, err := sqlexec.Get(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		if !errors.Is(err, sqlexec.ErrTooManyRows) {
+			t.Fatalf("expected sqlexec.ErrTooManyRows, got %v", err)
 		}
 	})
 }

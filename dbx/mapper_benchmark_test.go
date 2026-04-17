@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 )
@@ -265,8 +266,8 @@ func BenchmarkSQLScalar(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			if _, err := SQLScalar[int64](context.Background(), db, statement, nil); err != nil {
-				b.Fatalf("SQLScalar returned error: %v", err)
+			if _, err := sqlexec.Scalar[int64](context.Background(), db, statement, nil); err != nil {
+				b.Fatalf("sqlexec.Scalar returned error: %v", err)
 			}
 		}
 	}

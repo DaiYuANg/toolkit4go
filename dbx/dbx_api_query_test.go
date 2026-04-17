@@ -3,6 +3,7 @@ package dbx_test
 import (
 	"context"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -135,7 +136,7 @@ func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Sour
 }
 
 func SQLFind[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (mo.Option[E], error) {
-	item, err := dbx.SQLFind(ctx, session, statement, params, mapper)
+	item, err := sqlexec.Find(ctx, session, statement, params, mapper)
 	if err != nil {
 		return mo.None[E](), fmt.Errorf("sql find: %w", err)
 	}
@@ -143,7 +144,7 @@ func SQLFind[E any](ctx context.Context, session Session, statement sqlstmt.Sour
 }
 
 func SQLGet[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (E, error) {
-	item, err := dbx.SQLGet(ctx, session, statement, params, mapper)
+	item, err := sqlexec.Get(ctx, session, statement, params, mapper)
 	if err != nil {
 		var zero E
 		return zero, fmt.Errorf("sql get: %w", err)
@@ -152,7 +153,7 @@ func SQLGet[E any](ctx context.Context, session Session, statement sqlstmt.Sourc
 }
 
 func SQLList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := dbx.SQLList(ctx, session, statement, params, mapper)
+	items, err := sqlexec.List(ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql list: %w", err)
 	}
@@ -160,7 +161,7 @@ func SQLList[E any](ctx context.Context, session Session, statement sqlstmt.Sour
 }
 
 func SQLQueryList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := dbx.SQLQueryList(ctx, session, statement, params, mapper)
+	items, err := sqlexec.QueryList(ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql query list: %w", err)
 	}
@@ -168,7 +169,7 @@ func SQLQueryList[E any](ctx context.Context, session Session, statement sqlstmt
 }
 
 func SQLScalar[T any](ctx context.Context, session Session, statement sqlstmt.Source, params any) (T, error) {
-	item, err := dbx.SQLScalar[T](ctx, session, statement, params)
+	item, err := sqlexec.Scalar[T](ctx, session, statement, params)
 	if err != nil {
 		var zero T
 		return zero, fmt.Errorf("sql scalar: %w", err)
@@ -177,7 +178,7 @@ func SQLScalar[T any](ctx context.Context, session Session, statement sqlstmt.So
 }
 
 func SQLScalarOption[T any](ctx context.Context, session Session, statement sqlstmt.Source, params any) (mo.Option[T], error) {
-	item, err := dbx.SQLScalarOption[T](ctx, session, statement, params)
+	item, err := sqlexec.ScalarOption[T](ctx, session, statement, params)
 	if err != nil {
 		return mo.None[T](), fmt.Errorf("sql scalar option: %w", err)
 	}

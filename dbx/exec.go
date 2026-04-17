@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -25,7 +26,7 @@ type Session interface {
 	QueryBoundContext(ctx context.Context, bound sqlstmt.Bound) (*sql.Rows, error)
 	ExecBoundContext(ctx context.Context, bound sqlstmt.Bound) (sql.Result, error)
 	// SQL returns an executor for templated SQL. DB and Tx implement this for unified execution entry.
-	SQL() *SQLExecutor
+	SQL() *sqlexec.Executor
 }
 
 type QueryBuilder interface {

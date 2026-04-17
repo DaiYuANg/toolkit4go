@@ -5,6 +5,7 @@ import (
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
@@ -72,7 +73,7 @@ type SchemaSource[E any] = dbx.SchemaSource[E]
 type SelectItem = dbx.SelectItem
 type SelectQuery = dbx.SelectQuery
 type Session = dbx.Session
-type SQLExecutor = dbx.SQLExecutor
+type SQLExecutor = sqlexec.Executor
 type Statement = sqlstmt.Statement
 type StatementSource = sqlstmt.Source
 type StructMapper[E any] = dbx.StructMapper[E]

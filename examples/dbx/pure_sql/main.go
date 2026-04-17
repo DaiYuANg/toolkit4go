@@ -5,6 +5,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -54,7 +55,7 @@ func preparePureSQLData(ctx context.Context, core *dbx.DB, catalog shared.Catalo
 }
 
 func runActiveUserQuery(ctx context.Context, core *dbx.DB, registry *sqltmplx.Registry) collectionx.List[shared.UserSummary] {
-	users, err := dbx.SQLList[shared.UserSummary](
+	users, err := sqlexec.List[shared.UserSummary](
 		ctx,
 		core,
 		registry.MustStatement("sql/user/find_active.sql"),
@@ -79,7 +80,7 @@ func printActiveUsers(users collectionx.List[shared.UserSummary]) {
 }
 
 func runActiveUserCount(ctx context.Context, core *dbx.DB, registry *sqltmplx.Registry) int64 {
-	total, err := dbx.SQLScalar[int64](
+	total, err := sqlexec.Scalar[int64](
 		ctx,
 		core,
 		registry.MustStatement("sql/user/count_by_status.sql"),
@@ -125,7 +126,7 @@ func updatePureSQLUserStatus(ctx context.Context, core *dbx.DB, registry *sqltmp
 }
 
 func runUserByUsername(ctx context.Context, core *dbx.DB, registry *sqltmplx.Registry, username string) shared.User {
-	user, err := dbx.SQLGet[shared.User](
+	user, err := sqlexec.Get[shared.User](
 		ctx,
 		core,
 		registry.MustStatement("sql/user/find_by_username.sql"),

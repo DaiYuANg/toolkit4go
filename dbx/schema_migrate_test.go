@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 	"testing"
@@ -206,8 +207,8 @@ func (s *fakeSession) ExecBoundContext(_ context.Context, bound sqlstmt.Bound) (
 	return fakeResult{}, nil
 }
 
-func (s *fakeSession) SQL() *SQLExecutor {
-	return NewSQLExecutorForTest(s)
+func (s *fakeSession) SQL() *sqlexec.Executor {
+	return sqlexec.New(s)
 }
 
 func (fakeResult) LastInsertId() (int64, error) { return 0, nil }

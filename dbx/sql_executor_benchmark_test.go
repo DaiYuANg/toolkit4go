@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
 
@@ -53,9 +54,9 @@ func BenchmarkSQLList(b *testing.B) {
 	}
 
 	benchmarkSQLFetch(b, statement, dataSQL, func(ctx context.Context, session Session, query *sqlstmt.Statement, params any, mapper StructMapper[UserSummary]) error {
-		_, err := SQLList[UserSummary](ctx, session, query, params, mapper)
+		_, err := sqlexec.List[UserSummary](ctx, session, query, params, mapper)
 		if err != nil {
-			return fmt.Errorf("SQLList returned error: %w", err)
+			return fmt.Errorf("sqlexec.List returned error: %w", err)
 		}
 		return nil
 	})
@@ -71,9 +72,9 @@ func BenchmarkSQLGet(b *testing.B) {
 	}
 
 	benchmarkSQLFetch(b, statement, dataSQL, func(ctx context.Context, session Session, query *sqlstmt.Statement, params any, mapper StructMapper[UserSummary]) error {
-		_, err := SQLGet[UserSummary](ctx, session, query, params, mapper)
+		_, err := sqlexec.Get[UserSummary](ctx, session, query, params, mapper)
 		if err != nil {
-			return fmt.Errorf("SQLGet returned error: %w", err)
+			return fmt.Errorf("sqlexec.Get returned error: %w", err)
 		}
 		return nil
 	})
@@ -95,9 +96,9 @@ func BenchmarkSQLFind(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			result, err := SQLFind[UserSummary](context.Background(), db, statement, nil, mapper)
+			result, err := sqlexec.Find[UserSummary](context.Background(), db, statement, nil, mapper)
 			if err != nil {
-				b.Fatalf("SQLFind returned error: %v", err)
+				b.Fatalf("sqlexec.Find returned error: %v", err)
 			}
 			if result.IsAbsent() {
 				b.Fatal("expected result to be present")

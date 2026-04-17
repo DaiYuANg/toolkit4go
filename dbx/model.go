@@ -9,7 +9,7 @@ import (
 )
 
 // RowsScanner is the schema-less contract for mapping query result rows to entities.
-// Used by SQLList, SQLGet, QueryAll, QueryCursor, etc. Both StructMapper and Mapper implement it.
+// Used by sqlexec.List, sqlexec.Get, QueryAll, QueryCursor, etc. Both StructMapper and Mapper implement it.
 type RowsScanner[E any] interface {
 	ScanRows(rows *sql.Rows) (collectionx.List[E], error)
 }
@@ -48,7 +48,7 @@ type MappedField struct {
 	codec      codecx.Codec
 }
 
-// NewStructMapper creates a schema-less mapper for pure DTO mapping (e.g. SQLList, SQLGet with arbitrary SQL).
+// NewStructMapper creates a schema-less mapper for pure DTO mapping (e.g. sqlexec.List, sqlexec.Get with arbitrary SQL).
 func NewStructMapper[E any]() (StructMapper[E], error) {
 	return NewStructMapperWithOptions[E]()
 }

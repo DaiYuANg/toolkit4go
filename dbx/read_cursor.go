@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -144,15 +145,11 @@ func QueryEach[E any](ctx context.Context, session Session, query QueryBuilder, 
 func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
-			With("op", "sql_cursor", "statement", statementName(statement)).
+			With("op", "sql_cursor", "statement", sqlstmt.Name(statement)).
 			Wrapf(ErrNilMapper, "validate mapper")
 	}
 
-	exec, err := sessionExecutor(session)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := queryStatementRows(ctx, exec, statement, params)
+	rows, err := sqlexec.New(session).Query(ctx, statement, params)
 	if err != nil {
 		return nil, err
 	}

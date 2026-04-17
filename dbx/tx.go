@@ -3,6 +3,7 @@ package dbx
 import (
 	"context"
 	"database/sql"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"log/slog"
 
@@ -160,8 +161,8 @@ func (tx *Tx) RollbackContext(ctx context.Context) error {
 	return event.Err
 }
 
-func (tx *Tx) SQL() *SQLExecutor {
-	return &SQLExecutor{session: tx}
+func (tx *Tx) SQL() *sqlexec.Executor {
+	return sqlexec.New(tx)
 }
 
 func (tx *Tx) Logger() *slog.Logger {

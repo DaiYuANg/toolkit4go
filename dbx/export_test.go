@@ -77,7 +77,3 @@ func ClonePrimaryKeyMetaForTest(meta PrimaryKeyMeta) PrimaryKeyMeta {
 func ClonePrimaryKeyStateForTest(state PrimaryKeyState) PrimaryKeyState {
 	return clonePrimaryKeyState(state)
 }
-
-func NewSQLExecutorForTest(session Session) *SQLExecutor {
-	return &SQLExecutor{session: session}
-}

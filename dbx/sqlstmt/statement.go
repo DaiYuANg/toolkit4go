@@ -10,6 +10,14 @@ type Source interface {
 	Bind(params any) (Bound, error)
 }
 
+// Name returns the statement name, or an empty string for nil sources.
+func Name(source Source) string {
+	if source == nil {
+		return ""
+	}
+	return source.StatementName()
+}
+
 // Statement adapts a bind function into a reusable SQL statement source.
 type Statement struct {
 	name   string
