@@ -4,13 +4,10 @@ go 1.26.2
 
 require (
 	ariga.io/atlas v1.2.0
-	github.com/google/uuid v1.6.0
-	github.com/oklog/ulid/v2 v2.1.1
 	github.com/samber/hot v0.13.0
 	github.com/samber/lo v1.53.0
 	github.com/samber/mo v1.16.0
 	github.com/samber/oops v1.21.0
-	github.com/segmentio/ksuid v1.0.4
 	github.com/stephenafamo/scan v0.7.0
 	github.com/stretchr/testify v1.11.1
 	modernc.org/sqlite v1.48.1

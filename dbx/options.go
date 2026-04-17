@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 )
 
 // Option configures a DB instance. Options are composable; later options override earlier ones.
@@ -13,7 +14,7 @@ type options struct {
 	logger         *slog.Logger
 	hooks          collectionx.List[Hook]
 	debug          bool
-	idGenerator    IDGenerator
+	idGenerator    idgen.Generator
 	nodeID         uint16
 	hasIDGenerator bool
 	hasNodeID      bool
@@ -24,7 +25,7 @@ func defaultOptions() options {
 		logger: slog.Default(),
 		hooks:  collectionx.NewListWithCapacity[Hook](4),
 		debug:  false,
-		nodeID: ResolveNodeIDFromHostName(),
+		nodeID: idgen.ResolveNodeIDFromHostName(),
 	}
 }
 
@@ -95,7 +96,7 @@ func WithDebug(enabled bool) Option {
 
 // WithIDGenerator sets the DB-scoped ID generator used by mapper insert assignment helpers.
 // Mutually exclusive with WithNodeID.
-func WithIDGenerator(generator IDGenerator) Option {
+func WithIDGenerator(generator idgen.Generator) Option {
 	return func(opts *options) {
 		if generator == nil {
 			return
@@ -131,8 +132,8 @@ func applyOptionsList(opts collectionx.List[Option]) (options, error) {
 		return options{}, ErrIDGeneratorNodeIDConflict
 	}
 	if config.hasNodeID {
-		if config.nodeID < MinNodeID || config.nodeID > MaxNodeID {
-			return options{}, &NodeIDOutOfRangeError{NodeID: config.nodeID, Min: MinNodeID, Max: MaxNodeID}
+		if config.nodeID < idgen.MinNodeID || config.nodeID > idgen.MaxNodeID {
+			return options{}, &idgen.NodeIDOutOfRangeError{NodeID: config.nodeID, Min: idgen.MinNodeID, Max: idgen.MaxNodeID}
 		}
 	}
 	return config, nil

@@ -12,7 +12,6 @@ var (
 	ErrMissingDSN                = errors.New("dbx: Open requires WithDSN")
 	ErrMissingDialect            = errors.New("dbx: Open requires WithDialect")
 	ErrIDGeneratorNodeIDConflict = errors.New("dbx: WithIDGenerator and WithNodeID cannot be used together")
-	ErrInvalidNodeID             = errors.New("dbx: node id is out of range")
 	ErrNilDialect                = errors.New("dbx: dialect is nil")
 	ErrNilQuery                  = errors.New("dbx: query is nil")
 	ErrNilCodec                  = errors.New("dbx: codec is nil")
@@ -79,22 +78,6 @@ func (e *UnmappedColumnError) Error() string {
 
 func (e *UnmappedColumnError) Unwrap() error {
 	return ErrUnmappedColumn
-}
-
-// NodeIDOutOfRangeError carries the out-of-range node id and supported range.
-// Use errors.Is(err, ErrInvalidNodeID) or errors.As(err, *NodeIDOutOfRangeError).
-type NodeIDOutOfRangeError struct {
-	NodeID uint16
-	Min    uint16
-	Max    uint16
-}
-
-func (e *NodeIDOutOfRangeError) Error() string {
-	return fmt.Sprintf("dbx: node id %d out of range [%d,%d]", e.NodeID, e.Min, e.Max)
-}
-
-func (e *NodeIDOutOfRangeError) Unwrap() error {
-	return ErrInvalidNodeID
 }
 
 // RelationCardinalityError reports when a relation declared as one-to-one

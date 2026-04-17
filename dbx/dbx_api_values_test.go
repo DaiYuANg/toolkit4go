@@ -1,9 +1,12 @@
 package dbx_test
 
-import dbx "github.com/DaiYuANg/arcgo/dbx"
+import (
+	dbx "github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
+)
 
 var ErrIDGeneratorNodeIDConflict = dbx.ErrIDGeneratorNodeIDConflict
-var ErrInvalidNodeID = dbx.ErrInvalidNodeID
+var ErrInvalidNodeID = idgen.ErrInvalidNodeID
 var ErrMissingDialect = dbx.ErrMissingDialect
 var ErrMissingDriver = dbx.ErrMissingDriver
 var ErrMissingDSN = dbx.ErrMissingDSN
@@ -38,14 +41,14 @@ var MustRegisterCodec = dbx.MustRegisterCodec
 var MustSelectMapped = dbx.MustSelectMapped
 var NamedTable = dbx.NamedTable
 var New = dbx.New
-var NewDefaultIDGenerator = dbx.NewDefaultIDGenerator
-var NewKSUIDGenerator = dbx.NewKSUIDGenerator
+var NewDefaultIDGenerator = idgen.NewDefault
+var NewKSUIDGenerator = idgen.NewKSUID
 var NewPageRequest = dbx.NewPageRequest
-var NewSnowflakeGenerator = dbx.NewSnowflakeGenerator
+var NewSnowflakeGenerator = idgen.NewSnowflake
 var NewSQLExecutorForTest = dbx.NewSQLExecutorForTest
 var NewSQLStatement = dbx.NewSQLStatement
-var NewULIDGenerator = dbx.NewULIDGenerator
-var NewUUIDGenerator = dbx.NewUUIDGenerator
+var NewULIDGenerator = idgen.NewULID
+var NewUUIDGenerator = idgen.NewUUID
 var NewWithOptions = dbx.NewWithOptions
 var NewWithOptionsList = dbx.NewWithOptionsList
 var Page = dbx.Page

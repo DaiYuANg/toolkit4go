@@ -1,46 +1,46 @@
-package dbx
+package idgen
 
 import (
 	"context"
 	"testing"
 )
 
-func TestDefaultIDGeneratorDispatchesStrategies(t *testing.T) {
-	generator, err := NewDefaultIDGenerator(DefaultNodeID)
+func TestDefaultGeneratorDispatchesStrategies(t *testing.T) {
+	generator, err := NewDefault(DefaultNodeID)
 	if err != nil {
-		t.Fatalf("NewDefaultIDGenerator returned error: %v", err)
+		t.Fatalf("NewDefault returned error: %v", err)
 	}
 
 	cases := []struct {
 		name     string
-		column   ColumnMeta
+		request  Request
 		validate func(any) bool
 	}{
 		{
 			name:     "snowflake",
-			column:   ColumnMeta{IDStrategy: IDStrategySnowflake},
+			request:  Request{Strategy: StrategySnowflake},
 			validate: func(value any) bool { id, ok := value.(int64); return ok && id > 0 },
 		},
 		{
 			name:     "uuid",
-			column:   ColumnMeta{IDStrategy: IDStrategyUUID, UUIDVersion: DefaultUUIDVersion},
+			request:  Request{Strategy: StrategyUUID, UUIDVersion: DefaultUUIDVersion},
 			validate: func(value any) bool { id, ok := value.(string); return ok && id != "" },
 		},
 		{
 			name:     "ulid",
-			column:   ColumnMeta{IDStrategy: IDStrategyULID},
+			request:  Request{Strategy: StrategyULID},
 			validate: func(value any) bool { id, ok := value.(string); return ok && id != "" },
 		},
 		{
 			name:     "ksuid",
-			column:   ColumnMeta{IDStrategy: IDStrategyKSUID},
+			request:  Request{Strategy: StrategyKSUID},
 			validate: func(value any) bool { id, ok := value.(string); return ok && id != "" },
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			id, err := generator.GenerateID(context.Background(), tt.column)
+			id, err := generator.GenerateID(context.Background(), tt.request)
 			if err != nil {
 				t.Fatalf("GenerateID returned error: %v", err)
 			}
@@ -52,12 +52,12 @@ func TestDefaultIDGeneratorDispatchesStrategies(t *testing.T) {
 }
 
 func TestSnowflakeGeneratorRejectsOtherStrategies(t *testing.T) {
-	generator, err := NewSnowflakeGenerator(DefaultNodeID)
+	generator, err := NewSnowflake(DefaultNodeID)
 	if err != nil {
-		t.Fatalf("NewSnowflakeGenerator returned error: %v", err)
+		t.Fatalf("NewSnowflake returned error: %v", err)
 	}
 
-	if _, err := generator.GenerateID(context.Background(), ColumnMeta{IDStrategy: IDStrategyUUID}); err == nil {
+	if _, err := generator.GenerateID(context.Background(), Request{Strategy: StrategyUUID}); err == nil {
 		t.Fatal("expected snowflake generator to reject uuid strategy")
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/samber/oops"
 )
 
@@ -15,7 +16,7 @@ type Tx struct {
 	dialect     dialect.Dialect
 	observe     runtimeObserver
 	relation    *RelationRuntime
-	idGenerator IDGenerator
+	idGenerator idgen.Generator
 	nodeID      uint16
 }
 
@@ -170,7 +171,7 @@ func (tx *Tx) Debug() bool {
 	return tx.observe.debug
 }
 
-func (tx *Tx) IDGenerator() IDGenerator {
+func (tx *Tx) IDGenerator() idgen.Generator {
 	if tx == nil {
 		return nil
 	}

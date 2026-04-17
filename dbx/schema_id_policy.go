@@ -3,6 +3,8 @@ package dbx
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 )
 
 func normalizeIDPolicy(meta ColumnMeta) (ColumnMeta, error) {
@@ -23,26 +25,26 @@ func normalizeIDColumnType(columnType reflect.Type) reflect.Type {
 }
 
 func applyDefaultIDStrategy(meta ColumnMeta, columnType reflect.Type) ColumnMeta {
-	if meta.IDStrategy != IDStrategyUnset {
+	if meta.IDStrategy != idgen.StrategyUnset {
 		return meta
 	}
 	return inferIDStrategyFromType(meta, columnType)
 }
 
 func validateIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, error) {
-	if meta.IDStrategy == IDStrategyUnset {
+	if meta.IDStrategy == idgen.StrategyUnset {
 		return meta, nil
 	}
-	if meta.IDStrategy == IDStrategyDBAuto {
+	if meta.IDStrategy == idgen.StrategyDBAuto {
 		return handleDBAutoStrategy(meta)
 	}
-	if meta.IDStrategy == IDStrategySnowflake {
+	if meta.IDStrategy == idgen.StrategySnowflake {
 		return handleSnowflakeStrategy(meta, columnType)
 	}
-	if meta.IDStrategy == IDStrategyUUID {
+	if meta.IDStrategy == idgen.StrategyUUID {
 		return handleUUIDStrategy(meta, columnType)
 	}
-	if meta.IDStrategy == IDStrategyULID || meta.IDStrategy == IDStrategyKSUID {
+	if meta.IDStrategy == idgen.StrategyULID || meta.IDStrategy == idgen.StrategyKSUID {
 		return handleStringIDStrategy(meta, columnType)
 	}
 	return meta, fmt.Errorf("dbx: unsupported id strategy %q for column %s", meta.IDStrategy, meta.Name)
@@ -51,11 +53,11 @@ func validateIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, e
 func inferIDStrategyFromType(meta ColumnMeta, columnType reflect.Type) ColumnMeta {
 	switch {
 	case columnType != nil && columnType.Kind() == reflect.Int64:
-		meta.IDStrategy = IDStrategyDBAuto
+		meta.IDStrategy = idgen.StrategyDBAuto
 	case columnType != nil && columnType.Kind() == reflect.String:
-		meta.IDStrategy = IDStrategyUUID
+		meta.IDStrategy = idgen.StrategyUUID
 		if meta.UUIDVersion == "" {
-			meta.UUIDVersion = DefaultUUIDVersion
+			meta.UUIDVersion = idgen.DefaultUUIDVersion
 		}
 	}
 	return meta
@@ -82,7 +84,7 @@ func handleUUIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, e
 	}
 	meta.AutoIncrement = false
 	if meta.UUIDVersion == "" {
-		meta.UUIDVersion = DefaultUUIDVersion
+		meta.UUIDVersion = idgen.DefaultUUIDVersion
 	}
 	if meta.UUIDVersion != "v7" && meta.UUIDVersion != "v4" {
 		return meta, fmt.Errorf("dbx: unsupported uuid version %q for column %s", meta.UUIDVersion, meta.Name)

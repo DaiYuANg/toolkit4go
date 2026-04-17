@@ -1,6 +1,10 @@
 package dbx
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
+)
 
 func PrimaryKeyColumn[E any, T any]() ColumnOption[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
@@ -51,7 +55,7 @@ func WithReference[E any, T any](ref ForeignKeyRef) ColumnOption[E, T] {
 	}
 }
 
-func WithIDStrategyColumn[E any, T any](strategy IDStrategy) ColumnOption[E, T] {
+func WithIDStrategyColumn[E any, T any](strategy idgen.Strategy) ColumnOption[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.IDStrategy = strategy
 		return column
@@ -66,20 +70,20 @@ func WithUUIDVersionColumn[E any, T any](version string) ColumnOption[E, T] {
 }
 
 func DBAutoIDColumn[E any, T any]() ColumnOption[E, T] {
-	return WithIDStrategyColumn[E, T](IDStrategyDBAuto)
+	return WithIDStrategyColumn[E, T](idgen.StrategyDBAuto)
 }
 
 func SnowflakeIDColumn[E any, T any]() ColumnOption[E, T] {
-	return WithIDStrategyColumn[E, T](IDStrategySnowflake)
+	return WithIDStrategyColumn[E, T](idgen.StrategySnowflake)
 }
 
 func UUIDIDColumn[E any, T any]() ColumnOption[E, T] {
-	return WithIDStrategyColumn[E, T](IDStrategyUUID)
+	return WithIDStrategyColumn[E, T](idgen.StrategyUUID)
 }
 
 func UUIDv7IDColumn[E any, T any]() ColumnOption[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
-		column.meta.IDStrategy = IDStrategyUUID
+		column.meta.IDStrategy = idgen.StrategyUUID
 		column.meta.UUIDVersion = "v7"
 		return column
 	}
@@ -87,7 +91,7 @@ func UUIDv7IDColumn[E any, T any]() ColumnOption[E, T] {
 
 func UUIDv4IDColumn[E any, T any]() ColumnOption[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
-		column.meta.IDStrategy = IDStrategyUUID
+		column.meta.IDStrategy = idgen.StrategyUUID
 		column.meta.UUIDVersion = "v4"
 		return column
 	}
@@ -118,10 +122,10 @@ func mergeColumnBasic(meta *ColumnMeta, b ColumnMeta) {
 
 func mergeColumnFlags(meta *ColumnMeta, b ColumnMeta) {
 	meta.PrimaryKey = meta.PrimaryKey || b.PrimaryKey
-	if meta.IDStrategy == IDStrategyUnset {
+	if meta.IDStrategy == idgen.StrategyUnset {
 		meta.AutoIncrement = meta.AutoIncrement || b.AutoIncrement
 	} else {
-		meta.AutoIncrement = meta.IDStrategy == IDStrategyDBAuto
+		meta.AutoIncrement = meta.IDStrategy == idgen.StrategyDBAuto
 	}
 	meta.Nullable = meta.Nullable || b.Nullable
 	meta.Unique = meta.Unique || b.Unique
@@ -138,13 +142,13 @@ func mergeColumnDefaultsAndRefs(meta *ColumnMeta, b ColumnMeta) {
 }
 
 func finalizeColumnIDAndUUID(meta *ColumnMeta, b ColumnMeta) {
-	if meta.IDStrategy == IDStrategyUnset {
+	if meta.IDStrategy == idgen.StrategyUnset {
 		meta.IDStrategy = b.IDStrategy
 	}
 	if meta.UUIDVersion == "" {
 		meta.UUIDVersion = b.UUIDVersion
 	}
-	if meta.IDStrategy == IDStrategyUUID && meta.UUIDVersion == "" {
-		meta.UUIDVersion = DefaultUUIDVersion
+	if meta.IDStrategy == idgen.StrategyUUID && meta.UUIDVersion == "" {
+		meta.UUIDVersion = idgen.DefaultUUIDVersion
 	}
 }

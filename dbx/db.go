@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/samber/oops"
 )
 
@@ -15,7 +16,7 @@ type DB struct {
 	dialect     dialect.Dialect
 	observe     runtimeObserver
 	relation    *RelationRuntime
-	idGenerator IDGenerator
+	idGenerator idgen.Generator
 	nodeID      uint16
 }
 
@@ -46,7 +47,7 @@ func NewWithOptionsList(raw *sql.DB, d dialect.Dialect, opts collectionx.List[Op
 	)
 	idGenerator := config.idGenerator
 	if idGenerator == nil {
-		idGenerator, err = NewDefaultIDGenerator(config.nodeID)
+		idGenerator, err = idgen.NewDefault(config.nodeID)
 		if err != nil {
 			logRuntimeNodeWithLogger(config.logger, config.debug, "db.new.error", "stage", "id_generator", "error", err)
 			return nil, err
@@ -125,7 +126,7 @@ func (db *DB) Debug() bool {
 	return db.observe.debug
 }
 
-func (db *DB) IDGenerator() IDGenerator {
+func (db *DB) IDGenerator() idgen.Generator {
 	if db == nil {
 		return nil
 	}

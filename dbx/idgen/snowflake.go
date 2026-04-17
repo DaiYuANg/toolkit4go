@@ -1,4 +1,4 @@
-package dbx
+package idgen
 
 import (
 	"context"
@@ -13,16 +13,16 @@ type snowflakeGenerator struct {
 	snowflakeSeq int64
 }
 
-func NewSnowflakeGenerator(nodeID uint16) (IDGenerator, error) {
+func NewSnowflake(nodeID uint16) (Generator, error) {
 	if nodeID < MinNodeID || nodeID > MaxNodeID {
 		return nil, &NodeIDOutOfRangeError{NodeID: nodeID, Min: MinNodeID, Max: MaxNodeID}
 	}
 	return &snowflakeGenerator{nodeID: nodeID}, nil
 }
 
-func (g *snowflakeGenerator) GenerateID(_ context.Context, column ColumnMeta) (any, error) {
-	if column.IDStrategy != IDStrategySnowflake {
-		return nil, unsupportedIDStrategy(column.IDStrategy)
+func (g *snowflakeGenerator) GenerateID(_ context.Context, request Request) (any, error) {
+	if request.Strategy != StrategySnowflake {
+		return nil, unsupportedStrategy(request.Strategy)
 	}
 	return g.nextID(), nil
 }

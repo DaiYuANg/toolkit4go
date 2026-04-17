@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/samber/lo"
 )
 
@@ -14,10 +15,8 @@ type Ref[E any, T any] interface {
 
 type ReferentialAction string
 
-type IDStrategy string
-
 type IDMarker interface {
-	idStrategy() IDStrategy
+	idStrategy() idgen.Strategy
 	uuidVersion() string
 }
 
@@ -27,14 +26,6 @@ const (
 	ReferentialCascade    ReferentialAction = "CASCADE"
 	ReferentialSetNull    ReferentialAction = "SET NULL"
 	ReferentialSetDefault ReferentialAction = "SET DEFAULT"
-
-	IDStrategyUnset     IDStrategy = ""
-	IDStrategyDBAuto    IDStrategy = "db_auto"
-	IDStrategySnowflake IDStrategy = "snowflake"
-	IDStrategyUUID      IDStrategy = "uuid"
-	IDStrategyULID      IDStrategy = "ulid"
-	IDStrategyKSUID     IDStrategy = "ksuid"
-	DefaultUUIDVersion             = "v7"
 )
 
 type ForeignKeyRef struct {
@@ -58,7 +49,7 @@ type ColumnMeta struct {
 	Indexed       bool
 	DefaultValue  string
 	References    *ForeignKeyRef
-	IDStrategy    IDStrategy
+	IDStrategy    idgen.Strategy
 	UUIDVersion   string
 }
 
@@ -110,19 +101,25 @@ type IDUUIDv4 struct{}
 type IDULID struct{}
 type IDKSUID struct{}
 
-func (IDAuto) idStrategy() IDStrategy      { return IDStrategyDBAuto }
-func (IDAuto) uuidVersion() string         { return "" }
-func (IDSnowflake) idStrategy() IDStrategy { return IDStrategySnowflake }
-func (IDSnowflake) uuidVersion() string    { return "" }
-func (IDUUID) idStrategy() IDStrategy      { return IDStrategyUUID }
-func (IDUUID) uuidVersion() string         { return "" }
-func (IDUUIDv7) idStrategy() IDStrategy    { return IDStrategyUUID }
-func (IDUUIDv7) uuidVersion() string       { return "v7" }
-func (IDUUIDv4) idStrategy() IDStrategy    { return IDStrategyUUID }
+func (IDAuto) idStrategy() idgen.Strategy { return idgen.StrategyDBAuto }
+func (IDAuto) uuidVersion() string        { return "" }
+func (IDSnowflake) idStrategy() idgen.Strategy {
+	return idgen.StrategySnowflake
+}
+func (IDSnowflake) uuidVersion() string   { return "" }
+func (IDUUID) idStrategy() idgen.Strategy { return idgen.StrategyUUID }
+func (IDUUID) uuidVersion() string        { return "" }
+func (IDUUIDv7) idStrategy() idgen.Strategy {
+	return idgen.StrategyUUID
+}
+func (IDUUIDv7) uuidVersion() string { return "v7" }
+func (IDUUIDv4) idStrategy() idgen.Strategy {
+	return idgen.StrategyUUID
+}
 func (IDUUIDv4) uuidVersion() string       { return "v4" }
-func (IDULID) idStrategy() IDStrategy      { return IDStrategyULID }
+func (IDULID) idStrategy() idgen.Strategy  { return idgen.StrategyULID }
 func (IDULID) uuidVersion() string         { return "" }
-func (IDKSUID) idStrategy() IDStrategy     { return IDStrategyKSUID }
+func (IDKSUID) idStrategy() idgen.Strategy { return idgen.StrategyKSUID }
 func (IDKSUID) uuidVersion() string        { return "" }
 
 func NewColumn[E any, T any](opts ...ColumnOption[E, T]) Column[E, T] {

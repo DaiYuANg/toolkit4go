@@ -1,6 +1,9 @@
 package dbx_test
 
-import dbx "github.com/DaiYuANg/arcgo/dbx"
+import (
+	dbx "github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
+)
 
 type Aggregate[T any] = dbx.Aggregate[T]
 type Assignment = dbx.Assignment
@@ -27,7 +30,7 @@ type HasOne[E any, T any] = dbx.HasOne[E, T]
 type Hook = dbx.Hook
 type HookEvent = dbx.HookEvent
 type HookFuncs = dbx.HookFuncs
-type IDGenerator = dbx.IDGenerator
+type IDGenerator = idgen.Generator
 type IDColumn[E any, T any, M dbx.IDMarker] = dbx.IDColumn[E, T, M]
 type IDKSUID = dbx.IDKSUID
 type IDSnowflake = dbx.IDSnowflake
@@ -45,7 +48,7 @@ type Mapper[E any] = dbx.Mapper[E]
 type MapperOption = dbx.MapperOption
 type MigrationAction = dbx.MigrationAction
 type MigrationPlan = dbx.MigrationPlan
-type NodeIDOutOfRangeError = dbx.NodeIDOutOfRangeError
+type NodeIDOutOfRangeError = idgen.NodeIDOutOfRangeError
 type Operation = dbx.Operation
 type Option = dbx.Option
 type PageRequest = dbx.PageRequest
@@ -80,13 +83,13 @@ type ValidationBackend = dbx.ValidationBackend
 type ValidationReport = dbx.ValidationReport
 
 const (
-	DefaultNodeID              = dbx.DefaultNodeID
+	DefaultNodeID              = idgen.DefaultNodeID
 	DefaultPage                = dbx.DefaultPage
 	DefaultPageSize            = dbx.DefaultPageSize
-	DefaultUUIDVersion         = dbx.DefaultUUIDVersion
-	IDStrategyDBAuto           = dbx.IDStrategyDBAuto
-	IDStrategySnowflake        = dbx.IDStrategySnowflake
-	IDStrategyUUID             = dbx.IDStrategyUUID
+	DefaultUUIDVersion         = idgen.DefaultUUIDVersion
+	IDStrategyDBAuto           = idgen.StrategyDBAuto
+	IDStrategySnowflake        = idgen.StrategySnowflake
+	IDStrategyUUID             = idgen.StrategyUUID
 	MigrationActionCreateIndex = dbx.MigrationActionCreateIndex
 	MigrationActionCreateTable = dbx.MigrationActionCreateTable
 	MigrationActionManual      = dbx.MigrationActionManual

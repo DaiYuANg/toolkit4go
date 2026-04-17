@@ -16,6 +16,7 @@ use (
 	./configx
 	./configx/fx
 	./dbx
+	./dbx/idgen
 	./dbx/migrate
 	./dbx/sqltmplx
 	./dbx/sqltmplx/validate

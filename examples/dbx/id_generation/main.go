@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 )
 
 type snowflakeUser struct {
@@ -43,7 +44,7 @@ type strongTypedUserSchema struct {
 
 func main() {
 	snowflakeSchema := dbx.MustSchema("snowflake_users", snowflakeUserSchema{})
-	idGenerator, err := dbx.NewDefaultIDGenerator(dbx.DefaultNodeID)
+	idGenerator, err := idgen.NewDefault(idgen.DefaultNodeID)
 	if err != nil {
 		panic(err)
 	}

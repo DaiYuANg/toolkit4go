@@ -7,20 +7,21 @@ import (
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 )
 
 func (m Mapper[E]) InsertAssignments(session Session, schema SchemaResource, entity *E) (collectionx.List[Assignment], error) {
 	if session == nil {
 		return nil, ErrNilDB
 	}
-	carrier, ok := any(session).(interface{ IDGenerator() IDGenerator })
+	carrier, ok := any(session).(interface{ IDGenerator() idgen.Generator })
 	if !ok {
 		return nil, errors.New("dbx: session does not expose id generator")
 	}
 	return m.InsertAssignmentsWithID(context.Background(), schema, entity, carrier.IDGenerator())
 }
 
-func (m Mapper[E]) InsertAssignmentsWithID(ctx context.Context, schema SchemaResource, entity *E, generator IDGenerator) (collectionx.List[Assignment], error) {
+func (m Mapper[E]) InsertAssignmentsWithID(ctx context.Context, schema SchemaResource, entity *E, generator idgen.Generator) (collectionx.List[Assignment], error) {
 	return m.entityAssignments(ctx, schema, entity, generator, func(column ColumnMeta, field MappedField) bool {
 		if !field.Insertable {
 			return false
@@ -28,7 +29,7 @@ func (m Mapper[E]) InsertAssignmentsWithID(ctx context.Context, schema SchemaRes
 		if !column.PrimaryKey {
 			return true
 		}
-		return column.IDStrategy != IDStrategyDBAuto && !column.AutoIncrement
+		return column.IDStrategy != idgen.StrategyDBAuto && !column.AutoIncrement
 	})
 }
 
@@ -90,7 +91,7 @@ func (m Mapper[E]) primaryColumnPredicate(value reflect.Value, column ColumnMeta
 	}, nil
 }
 
-func (m Mapper[E]) entityAssignments(ctx context.Context, schema SchemaResource, entity *E, generator IDGenerator, include func(column ColumnMeta, field MappedField) bool) (collectionx.List[Assignment], error) {
+func (m Mapper[E]) entityAssignments(ctx context.Context, schema SchemaResource, entity *E, generator idgen.Generator, include func(column ColumnMeta, field MappedField) bool) (collectionx.List[Assignment], error) {
 	value, err := m.entityValue(entity)
 	if err != nil {
 		return nil, err
@@ -122,13 +123,13 @@ func (m Mapper[E]) entityAssignments(ctx context.Context, schema SchemaResource,
 }
 
 func shouldGenerateID(column ColumnMeta) bool {
-	return column.IDStrategy == IDStrategySnowflake ||
-		column.IDStrategy == IDStrategyUUID ||
-		column.IDStrategy == IDStrategyULID ||
-		column.IDStrategy == IDStrategyKSUID
+	return column.IDStrategy == idgen.StrategySnowflake ||
+		column.IDStrategy == idgen.StrategyUUID ||
+		column.IDStrategy == idgen.StrategyULID ||
+		column.IDStrategy == idgen.StrategyKSUID
 }
 
-func (m Mapper[E]) ensureGeneratedID(ctx context.Context, root reflect.Value, field MappedField, column ColumnMeta, generator IDGenerator) (reflect.Value, bool, error) {
+func (m Mapper[E]) ensureGeneratedID(ctx context.Context, root reflect.Value, field MappedField, column ColumnMeta, generator idgen.Generator) (reflect.Value, bool, error) {
 	fieldValue, err := fieldValueForRead(root, field)
 	if err != nil {
 		return reflect.Value{}, false, err
@@ -139,7 +140,10 @@ func (m Mapper[E]) ensureGeneratedID(ctx context.Context, root reflect.Value, fi
 	if generator == nil {
 		return reflect.Value{}, false, fmt.Errorf("dbx: id generator is nil for column %s", column.Name)
 	}
-	generated, err := generator.GenerateID(ctx, column)
+	generated, err := generator.GenerateID(ctx, idgen.Request{
+		Strategy:    column.IDStrategy,
+		UUIDVersion: column.UUIDVersion,
+	})
 	if err != nil {
 		return reflect.Value{}, false, fmt.Errorf("dbx: generate id for column %s: %w", column.Name, err)
 	}
@@ -185,14 +189,14 @@ func (m Mapper[E]) entityValue(entity *E) (reflect.Value, error) {
 	return reflect.ValueOf(entity).Elem(), nil
 }
 
-func (m Mapper[E]) buildAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator IDGenerator) (Assignment, bool, error) {
+func (m Mapper[E]) buildAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator idgen.Generator) (Assignment, bool, error) {
 	if column.PrimaryKey && shouldGenerateID(column) {
 		return m.generatedOrExistingAssignment(ctx, root, column, field, generator)
 	}
 	return buildFieldAssignment(root, column, field)
 }
 
-func (m Mapper[E]) generatedOrExistingAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator IDGenerator) (Assignment, bool, error) {
+func (m Mapper[E]) generatedOrExistingAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator idgen.Generator) (Assignment, bool, error) {
 	fieldValue, generated, err := m.ensureGeneratedID(ctx, root, field, column, generator)
 	if err != nil {
 		return nil, false, err
