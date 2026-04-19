@@ -1,4 +1,4 @@
-package dbx_test
+package sqlexec_test
 
 import (
 	"context"
