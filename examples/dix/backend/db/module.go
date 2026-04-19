@@ -5,6 +5,8 @@ import (
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/dix"
 	"github.com/DaiYuANg/arcgo/examples/dix/backend/config"
 	"github.com/DaiYuANg/arcgo/examples/dix/backend/schema"
@@ -20,15 +22,15 @@ var Module = dix.NewModule("db",
 				panic(err)
 			}
 			userSchema := schema.UserSchema{}
-			users := dbx.MustSchema("users", userSchema)
-			if _, err := database.AutoMigrate(context.Background(), users); err != nil {
+			users := schemax.MustSchema("users", userSchema)
+			if _, err := schemamigrate.AutoMigrate(context.Background(), database, users); err != nil {
 				panic(err)
 			}
 			return database
 		}),
 		dix.Provider0(func() schema.UserSchema {
 			s := schema.UserSchema{}
-			return dbx.MustSchema("users", s)
+			return schemax.MustSchema("users", s)
 		}),
 	),
 	dix.Hooks(

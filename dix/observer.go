@@ -150,7 +150,24 @@ func (p *buildPlan) buildEvent(duration time.Duration, err error) BuildEvent {
 	}
 	return BuildEvent{
 		Meta:          p.spec.meta,
-		Profile:       p.spec.profile,
+		Profile:       p.profile,
+		ModuleCount:   countModules(p.modules),
+		ProviderCount: countModuleProviders(p.modules),
+		HookCount:     countModuleHooks(p.modules),
+		SetupCount:    countModuleSetups(p.modules),
+		InvokeCount:   countModuleInvokes(p.modules),
+		Duration:      duration,
+		Err:           err,
+	}
+}
+
+func (p *buildPlan) runtimeBuildEvent(rt *Runtime, duration time.Duration, err error) BuildEvent {
+	if p == nil || rt == nil {
+		return BuildEvent{Duration: duration, Err: err}
+	}
+	return BuildEvent{
+		Meta:          rt.Meta(),
+		Profile:       rt.Profile(),
 		ModuleCount:   countModules(p.modules),
 		ProviderCount: countModuleProviders(p.modules),
 		HookCount:     countModuleHooks(p.modules),

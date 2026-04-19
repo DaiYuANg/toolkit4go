@@ -218,6 +218,103 @@ func TestModule_WithProfiles(t *testing.T) {
 	assert.Equal(t, "prod", prodStr)
 }
 
+func TestDIProvidedProfileSelectsProfileModules(t *testing.T) {
+	devOnlyCalled := false
+	prodOnlyCalled := false
+
+	configModule := dix.NewModule("profile-config",
+		dix.WithModuleProviders(
+			dix.Provider0(func() dix.Profile {
+				return dix.ProfileProd
+			}),
+		),
+	)
+	devModule := dix.NewModule("di-dev-only",
+		dix.WithModuleProfiles(dix.ProfileDev),
+		dix.WithModuleProviders(
+			dix.Provider0(func() string {
+				devOnlyCalled = true
+				return "dev"
+			}),
+		),
+	)
+	prodModule := dix.NewModule("di-prod-only",
+		dix.WithModuleProfiles(dix.ProfileProd),
+		dix.WithModuleProviders(
+			dix.Provider0(func() string {
+				prodOnlyCalled = true
+				return "prod"
+			}),
+		),
+	)
+
+	app := dix.New("di-profile",
+		dix.WithModules(configModule, devModule, prodModule),
+	)
+
+	rt := buildRuntime(t, app)
+	assert.Equal(t, dix.ProfileProd, rt.Profile())
+
+	resolvedProfile, err := dix.ResolveAs[dix.Profile](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, dix.ProfileProd, resolvedProfile)
+
+	prodStr, err := dix.ResolveAs[string](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, "prod", prodStr)
+	assert.False(t, devOnlyCalled)
+	assert.True(t, prodOnlyCalled)
+}
+
+func TestExplicitProfileTakesPriorityOverDIProvidedProfile(t *testing.T) {
+	devOnlyCalled := false
+	prodOnlyCalled := false
+
+	configModule := dix.NewModule("profile-config",
+		dix.WithModuleProviders(
+			dix.Provider0(func() dix.Profile {
+				return dix.ProfileProd
+			}),
+		),
+	)
+	devModule := dix.NewModule("explicit-dev-only",
+		dix.WithModuleProfiles(dix.ProfileDev),
+		dix.WithModuleProviders(
+			dix.Provider0(func() string {
+				devOnlyCalled = true
+				return "dev"
+			}),
+		),
+	)
+	prodModule := dix.NewModule("explicit-prod-only",
+		dix.WithModuleProfiles(dix.ProfileProd),
+		dix.WithModuleProviders(
+			dix.Provider0(func() string {
+				prodOnlyCalled = true
+				return "prod"
+			}),
+		),
+	)
+
+	app := dix.New("explicit-profile",
+		dix.WithProfile(dix.ProfileDev),
+		dix.WithModules(configModule, devModule, prodModule),
+	)
+
+	rt := buildRuntime(t, app)
+	assert.Equal(t, dix.ProfileDev, rt.Profile())
+
+	resolvedProfile, err := dix.ResolveAs[dix.Profile](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, dix.ProfileDev, resolvedProfile)
+
+	devStr, err := dix.ResolveAs[string](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, "dev", devStr)
+	assert.True(t, devOnlyCalled)
+	assert.False(t, prodOnlyCalled)
+}
+
 func TestModule_WithExcludeProfiles(t *testing.T) {
 	called := false
 

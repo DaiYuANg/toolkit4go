@@ -35,6 +35,7 @@ func WithObservers(observers ...Observer) AppOption {
 		for _, observer := range observers {
 			if observer != nil {
 				spec.observers = append(spec.observers, observer)
+				spec.observersConfigured = true
 			}
 		}
 	}

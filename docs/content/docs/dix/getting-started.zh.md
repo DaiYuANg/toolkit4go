@@ -157,6 +157,31 @@ func main() {
 
 这样可以把 logger 的初始化和回收都放在模块里，同时覆盖掉框架默认 logger。
 
+## 可选：从 DI 解析框架配置
+
+`dix` 也可以从容器里解析框架级配置。模块里如果提供了 `dix.Profile`、`dix.AppMeta`、`dix.Observer` 或 `dix.EventLogger`，应用会把它们作为默认配置使用。构造函数里显式传入的 `UseProfile(...)`、`Version(...)`、`Observers(...)`、`UseEventLogger(...)` 等选项优先级更高。
+
+module 本身可以通过公共 API `UseProfiles(...)` 和 `ExcludeProfiles(...)` 控制在什么 profile 下加载：
+
+```go
+configModule := dix.NewModule("config",
+	dix.Providers(
+		dix.Provider0(func() dix.Profile {
+			return dix.ProfileTest
+		}),
+	),
+)
+
+testModule := dix.NewModule("xxx-test",
+	dix.UseProfiles(dix.ProfileTest),
+	dix.Providers(dix.Provider0(func() TestFixture { return TestFixture{} })),
+)
+
+app := dix.New("demo", dix.Modules(configModule, testModule))
+```
+
+这里 `configModule` 不绑定 profile，可以先提供当前 profile；`testModule` 只有在最终 profile 为 `test` 时才会被加载。
+
 ## 可选：完全接管 dix 内部事件日志
 
 如果你希望完全控制 dix 内部 build/start/stop/health/debug 输出，可以使用 `dix.UseEventLogger...`。

@@ -4,7 +4,8 @@ package schema
 import (
 	"time"
 
-	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
 // UserRow is the dbx row model for the users table.
@@ -19,11 +20,11 @@ type UserRow struct {
 
 // UserSchema describes the users table for the backend example.
 type UserSchema struct {
-	dbx.Schema[UserRow]
-	ID        dbx.Column[UserRow, int64]     `dbx:"id,pk,auto"`
-	Name      dbx.Column[UserRow, string]    `dbx:"name"`
-	Email     dbx.Column[UserRow, string]    `dbx:"email,unique"`
-	Age       dbx.Column[UserRow, int]       `dbx:"age"`
-	CreatedAt dbx.Column[UserRow, time.Time] `dbx:"created_at,codec=rfc3339_time"`
-	UpdatedAt dbx.Column[UserRow, time.Time] `dbx:"updated_at,codec=rfc3339_time"`
+	schemax.Schema[UserRow]
+	ID        columnx.Column[UserRow, int64]     `dbx:"id,pk,auto"`
+	Name      columnx.Column[UserRow, string]    `dbx:"name"`
+	Email     columnx.Column[UserRow, string]    `dbx:"email,unique"`
+	Age       columnx.Column[UserRow, int]       `dbx:"age"`
+	CreatedAt columnx.Column[UserRow, time.Time] `dbx:"created_at,codec=rfc3339_time"`
+	UpdatedAt columnx.Column[UserRow, time.Time] `dbx:"updated_at,codec=rfc3339_time"`
 }

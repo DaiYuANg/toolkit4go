@@ -12,16 +12,20 @@ import (
 
 func newRuntime(spec *appSpec, plan *buildPlan) *Runtime {
 	logger := defaultLogger()
-	if spec != nil && spec.logger != nil {
-		logger = spec.logger
+	runtimeSpec := cloneAppSpec(spec)
+	if runtimeSpec != nil && runtimeSpec.logger != nil {
+		logger = runtimeSpec.logger
 	}
 	eventLogger := NewSlogEventLogger(logger)
-	if spec != nil && spec.eventLogger != nil {
-		eventLogger = spec.eventLogger
+	if runtimeSpec != nil && runtimeSpec.eventLogger != nil {
+		eventLogger = runtimeSpec.eventLogger
+	}
+	if runtimeSpec != nil && plan != nil {
+		runtimeSpec.profile = plan.profile
 	}
 
 	rt := &Runtime{
-		spec:        spec,
+		spec:        runtimeSpec,
 		plan:        plan,
 		container:   newContainer(logger),
 		lifecycle:   newLifecycle(logger),
@@ -36,6 +40,15 @@ func newRuntime(spec *appSpec, plan *buildPlan) *Runtime {
 	rt.lifecycle.eventLogger = rt.eventLogger
 
 	return rt
+}
+
+func cloneAppSpec(spec *appSpec) *appSpec {
+	if spec == nil {
+		return nil
+	}
+	cloned := *spec
+	cloned.observers = append([]Observer(nil), spec.observers...)
+	return &cloned
 }
 
 // Name returns the runtime application name.

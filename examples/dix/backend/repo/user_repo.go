@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/examples/dix/backend/domain"
 	backendschema "github.com/DaiYuANg/arcgo/examples/dix/backend/schema"
 )
@@ -32,14 +34,14 @@ func NewUserRepository(db *dbx.DB, userSchema backendschema.UserSchema) UserRepo
 
 func (r *userRepo) List(ctx context.Context, search string, limit, offset int) ([]domain.User, int, error) {
 	s := r.schema
-	mapper := dbx.MustMapper[backendschema.UserRow](s)
+	mapper := mapperx.MustMapper[backendschema.UserRow](s)
 
-	q := dbx.Select(s.AllColumns().Values()...).From(s)
+	q := querydsl.Select(querydsl.AllColumns(s).Values()...).From(s)
 	if search != "" {
 		pattern := "%" + strings.TrimSpace(search) + "%"
-		q = q.Where(dbx.Or(
-			dbx.Like(s.Name, pattern),
-			dbx.Like(s.Email, pattern),
+		q = q.Where(querydsl.Or(
+			querydsl.Like(s.Name, pattern),
+			querydsl.Like(s.Email, pattern),
 		))
 	}
 	q = q.OrderBy(s.ID.Asc())
@@ -65,10 +67,10 @@ func (r *userRepo) List(ctx context.Context, search string, limit, offset int) (
 
 func (r *userRepo) GetByID(ctx context.Context, id int64) (domain.User, bool, error) {
 	s := r.schema
-	mapper := dbx.MustMapper[backendschema.UserRow](s)
+	mapper := mapperx.MustMapper[backendschema.UserRow](s)
 
 	rows, err := dbx.QueryAll[backendschema.UserRow](ctx, r.db,
-		dbx.Select(s.AllColumns().Values()...).From(s).Where(s.ID.Eq(id)),
+		querydsl.Select(querydsl.AllColumns(s).Values()...).From(s).Where(s.ID.Eq(id)),
 		mapper,
 	)
 	if err != nil {
@@ -83,11 +85,11 @@ func (r *userRepo) GetByID(ctx context.Context, id int64) (domain.User, bool, er
 
 func (r *userRepo) Create(ctx context.Context, in domain.CreateUserInput) (domain.User, error) {
 	s := r.schema
-	mapper := dbx.MustMapper[backendschema.UserRow](s)
+	mapper := mapperx.MustMapper[backendschema.UserRow](s)
 	now := time.Now().UTC()
 
 	rows, err := dbx.QueryAll[backendschema.UserRow](ctx, r.db,
-		dbx.InsertInto(s).
+		querydsl.InsertInto(s).
 			Columns(s.Name, s.Email, s.Age, s.CreatedAt, s.UpdatedAt).
 			Values(
 				s.Name.Set(in.Name),
@@ -96,7 +98,7 @@ func (r *userRepo) Create(ctx context.Context, in domain.CreateUserInput) (domai
 				s.CreatedAt.Set(now),
 				s.UpdatedAt.Set(now),
 			).
-			Returning(s.AllColumns().Values()...),
+			Returning(querydsl.AllColumns(s).Values()...),
 		mapper,
 	)
 	if err != nil {
@@ -108,9 +110,9 @@ func (r *userRepo) Create(ctx context.Context, in domain.CreateUserInput) (domai
 
 func (r *userRepo) Update(ctx context.Context, id int64, in domain.UpdateUserInput) (domain.User, bool, error) {
 	s := r.schema
-	mapper := dbx.MustMapper[backendschema.UserRow](s)
+	mapper := mapperx.MustMapper[backendschema.UserRow](s)
 
-	assignments := []dbx.Assignment{s.UpdatedAt.Set(time.Now().UTC())}
+	assignments := []querydsl.Assignment{s.UpdatedAt.Set(time.Now().UTC())}
 	if in.Name != nil {
 		assignments = append(assignments, s.Name.Set(*in.Name))
 	}
@@ -122,7 +124,7 @@ func (r *userRepo) Update(ctx context.Context, id int64, in domain.UpdateUserInp
 	}
 
 	rows, err := dbx.QueryAll[backendschema.UserRow](ctx, r.db,
-		dbx.Update(s).Set(assignments...).Where(s.ID.Eq(id)).Returning(s.AllColumns().Values()...),
+		querydsl.Update(s).Set(assignments...).Where(s.ID.Eq(id)).Returning(querydsl.AllColumns(s).Values()...),
 		mapper,
 	)
 	if err != nil {
@@ -137,7 +139,7 @@ func (r *userRepo) Update(ctx context.Context, id int64, in domain.UpdateUserInp
 
 func (r *userRepo) Delete(ctx context.Context, id int64) (bool, error) {
 	s := r.schema
-	res, err := dbx.Exec(ctx, r.db, dbx.DeleteFrom(s).Where(s.ID.Eq(id)))
+	res, err := dbx.Exec(ctx, r.db, querydsl.DeleteFrom(s).Where(s.ID.Eq(id)))
 	if err != nil {
 		return false, fmt.Errorf("delete user: %w", err)
 	}

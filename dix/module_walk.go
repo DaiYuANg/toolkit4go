@@ -41,6 +41,7 @@ type moduleWalkState struct {
 	stopped    bool
 	path       *collectionlist.List[string]
 	profile    Profile
+	active     func(*moduleSpec, Profile) bool
 	visitor    moduleVisitor
 }
 
@@ -64,6 +65,18 @@ func flattenModules(modules *collectionlist.List[Module], profile Profile) (*col
 }
 
 func flattenModuleList(modules *collectionlist.List[Module], profile Profile) (*collectionlist.List[*moduleSpec], error) {
+	return flattenModuleListWithActive(modules, profile, isActiveForProfile)
+}
+
+func flattenProfileBootstrapModuleList(modules *collectionlist.List[Module]) (*collectionlist.List[*moduleSpec], error) {
+	return flattenModuleListWithActive(modules, ProfileDefault, isActiveForProfileBootstrap)
+}
+
+func flattenModuleListWithActive(
+	modules *collectionlist.List[Module],
+	profile Profile,
+	active func(*moduleSpec, Profile) bool,
+) (*collectionlist.List[*moduleSpec], error) {
 	capacity := 8
 	if modules != nil && modules.Len() > 0 {
 		if c := modules.Len() * 2; c > capacity {
@@ -72,7 +85,7 @@ func flattenModuleList(modules *collectionlist.List[Module], profile Profile) (*
 	}
 	result := collectionlist.NewListWithCapacity[*moduleSpec](capacity)
 
-	err := walkModuleList(modules, profile, moduleVisitorFuncs{
+	err := walkModuleListWithActive(modules, profile, active, moduleVisitorFuncs{
 		leave: func(_ moduleVisitContext, spec *moduleSpec) error {
 			result.Add(spec)
 			return nil
@@ -90,21 +103,34 @@ func walkModules(modules *collectionlist.List[Module], profile Profile, visitor 
 }
 
 func walkModuleList(modules *collectionlist.List[Module], profile Profile, visitor moduleVisitor) error {
+	return walkModuleListWithActive(modules, profile, isActiveForProfile, visitor)
+}
+
+func walkModuleListWithActive(
+	modules *collectionlist.List[Module],
+	profile Profile,
+	active func(*moduleSpec, Profile) bool,
+	visitor moduleVisitor,
+) error {
 	if modules == nil {
 		return nil
 	}
 
-	state := newModuleWalkState(profile, visitor)
+	state := newModuleWalkState(profile, active, visitor)
 	return state.walkAll(modules)
 }
 
-func newModuleWalkState(profile Profile, visitor moduleVisitor) *moduleWalkState {
+func newModuleWalkState(profile Profile, active func(*moduleSpec, Profile) bool, visitor moduleVisitor) *moduleWalkState {
+	if active == nil {
+		active = isActiveForProfile
+	}
 	return &moduleWalkState{
 		visited:    collectionset.NewSetWithCapacity[*moduleSpec](16),
 		visiting:   collectionset.NewSetWithCapacity[*moduleSpec](8),
 		knownNames: collectionx.NewMapWithCapacity[string, *moduleSpec](8),
 		path:       collectionlist.NewListWithCapacity[string](8),
 		profile:    profile,
+		active:     active,
 		visitor:    visitor,
 	}
 }
@@ -143,7 +169,7 @@ func (s *moduleWalkState) walk(spec *moduleSpec) error {
 }
 
 func (s *moduleWalkState) shouldSkip(spec *moduleSpec) bool {
-	return s.stopped || spec == nil || spec.disabled || !isActiveForProfile(spec, s.profile)
+	return s.stopped || spec == nil || spec.disabled || !s.active(spec, s.profile)
 }
 
 func (s *moduleWalkState) beginVisit(spec *moduleSpec) (string, bool, error) {
@@ -256,4 +282,11 @@ func isActiveForProfile(spec *moduleSpec, profile Profile) bool {
 		return true
 	}
 	return spec.profiles.Contains(profile)
+}
+
+func isActiveForProfileBootstrap(spec *moduleSpec, _ Profile) bool {
+	if spec == nil || spec.disabled {
+		return false
+	}
+	return spec.profiles.IsEmpty() && spec.excludeProfiles.IsEmpty()
 }

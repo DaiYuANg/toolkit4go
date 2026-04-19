@@ -562,6 +562,140 @@ func TestUseEventLogger1_RoutesAllDixLogsThroughConfiguredLogger(t *testing.T) {
 	assert.Contains(t, messageTexts, "stopping app")
 }
 
+func TestDIProvidedEventLoggerRoutesDixLogs(t *testing.T) {
+	eventLogger := &recordingEventLogger{}
+	app := dix.New("di-event-logger",
+		dix.Modules(
+			dix.NewModule("event-logger",
+				dix.Providers(
+					dix.Provider0(func() dix.EventLogger {
+						return eventLogger
+					}),
+					dix.Provider0(func() string { return "value" }),
+				),
+				dix.Hooks(
+					dix.OnStartFunc(func() error { return nil }),
+					dix.OnStopFunc(func() error { return nil }),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	require.NoError(t, rt.Start(context.Background()))
+	require.NoError(t, rt.Stop(context.Background()))
+
+	assert.NotEmpty(t, eventLogger.messages)
+	assert.NotEmpty(t, eventLogger.builds)
+	assert.NotEmpty(t, eventLogger.starts)
+	assert.NotEmpty(t, eventLogger.stops)
+}
+
+func TestExplicitEventLoggerTakesPriorityOverDIProvidedEventLogger(t *testing.T) {
+	explicitLogger := &recordingEventLogger{}
+	diLogger := &recordingEventLogger{}
+	app := dix.New("explicit-event-logger",
+		dix.UseEventLogger(explicitLogger),
+		dix.Modules(
+			dix.NewModule("event-logger",
+				dix.Providers(
+					dix.Provider0(func() dix.EventLogger {
+						return diLogger
+					}),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	require.NoError(t, rt.Start(context.Background()))
+	require.NoError(t, rt.Stop(context.Background()))
+
+	assert.NotEmpty(t, explicitLogger.builds)
+	assert.NotEmpty(t, explicitLogger.starts)
+	assert.NotEmpty(t, explicitLogger.stops)
+	assert.Empty(t, diLogger.builds)
+	assert.Empty(t, diLogger.starts)
+	assert.Empty(t, diLogger.stops)
+}
+
+func TestExplicitSlogLoggerTakesPriorityOverDIProvidedEventLogger(t *testing.T) {
+	logger, buf := newDebugLogger()
+	diLogger := &recordingEventLogger{}
+	app := dix.New("explicit-slog-event-logger",
+		dix.WithLogger(logger),
+		dix.Modules(
+			dix.NewModule("event-logger",
+				dix.Providers(
+					dix.Provider0(func() dix.EventLogger {
+						return diLogger
+					}),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	require.NoError(t, rt.Start(context.Background()))
+	require.NoError(t, rt.Stop(context.Background()))
+
+	assert.Contains(t, buf.String(), "app built")
+	assert.Empty(t, diLogger.builds)
+	assert.Empty(t, diLogger.starts)
+	assert.Empty(t, diLogger.stops)
+}
+
+func TestDIProvidedAppMetaUpdatesRuntimeMeta(t *testing.T) {
+	app := dix.New("di-meta",
+		dix.Modules(
+			dix.NewModule("meta",
+				dix.Providers(
+					dix.Provider0(func() dix.AppMeta {
+						return dix.AppMeta{
+							Name:        "ignored-name",
+							Version:     "1.2.3",
+							Description: "from di",
+						}
+					}),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	meta := rt.Meta()
+	assert.Equal(t, "di-meta", meta.Name)
+	assert.Equal(t, "1.2.3", meta.Version)
+	assert.Equal(t, "from di", meta.Description)
+
+	resolved, err := dix.ResolveAs[dix.AppMeta](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, meta, resolved)
+}
+
+func TestExplicitAppMetaOptionsTakePriorityOverDIProvidedAppMeta(t *testing.T) {
+	app := dix.New("di-meta-priority",
+		dix.WithVersion("explicit-version"),
+		dix.Modules(
+			dix.NewModule("meta",
+				dix.Providers(
+					dix.Provider0(func() dix.AppMeta {
+						return dix.AppMeta{
+							Version:     "di-version",
+							Description: "from di",
+						}
+					}),
+				),
+			),
+		),
+	)
+
+	rt := buildRuntime(t, app)
+	meta := rt.Meta()
+	assert.Equal(t, "explicit-version", meta.Version)
+	assert.Equal(t, "from di", meta.Description)
+}
+
 func TestUseEventLogger1_MissingDependencyFailsBuild(t *testing.T) {
 	app := dix.New("event-logger-missing",
 		dix.UseEventLogger1(func(*frameworkEventLoggerCarrier) dix.EventLogger {

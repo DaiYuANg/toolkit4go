@@ -157,6 +157,31 @@ func main() {
 
 This keeps logger wiring inside modules while still replacing the framework default logger.
 
+## Optional: resolve framework config from DI
+
+`dix` can also resolve framework-level config from the container. If modules provide `dix.Profile`, `dix.AppMeta`, `dix.Observer`, or `dix.EventLogger`, the app uses them as defaults. Explicit constructor options such as `UseProfile(...)`, `Version(...)`, `Observers(...)`, and `UseEventLogger(...)` still have higher priority.
+
+Module loading can be profile-gated with the public module options `UseProfiles(...)` and `ExcludeProfiles(...)`:
+
+```go
+configModule := dix.NewModule("config",
+	dix.Providers(
+		dix.Provider0(func() dix.Profile {
+			return dix.ProfileTest
+		}),
+	),
+)
+
+testModule := dix.NewModule("xxx-test",
+	dix.UseProfiles(dix.ProfileTest),
+	dix.Providers(dix.Provider0(func() TestFixture { return TestFixture{} })),
+)
+
+app := dix.New("demo", dix.Modules(configModule, testModule))
+```
+
+In this form, `configModule` is profile-neutral and can provide the active profile. `testModule` is only loaded when the effective profile is `test`.
+
 ## Optional: fully own dix internal event logging
 
 If you want full control over dix internal build/start/stop/health/debug output, use `dix.UseEventLogger...`.

@@ -31,7 +31,10 @@ func NewApp(name string, modules ...Module) *App {
 
 // WithProfile selects the runtime profile for the application.
 func WithProfile(profile Profile) AppOption {
-	return func(spec *appSpec) { spec.profile = profile }
+	return func(spec *appSpec) {
+		spec.profile = profile
+		spec.profileConfigured = true
+	}
 }
 
 // UseProfile selects the runtime profile for the application.
@@ -41,7 +44,10 @@ func UseProfile(profile Profile) AppOption {
 
 // WithVersion sets application version metadata.
 func WithVersion(version string) AppOption {
-	return func(spec *appSpec) { spec.meta.Version = version }
+	return func(spec *appSpec) {
+		spec.meta.Version = version
+		spec.versionConfigured = true
+	}
 }
 
 // Version sets application version metadata.
@@ -51,7 +57,10 @@ func Version(version string) AppOption {
 
 // WithAppDescription sets application description metadata.
 func WithAppDescription(description string) AppOption {
-	return func(spec *appSpec) { spec.meta.Description = description }
+	return func(spec *appSpec) {
+		spec.meta.Description = description
+		spec.descriptionConfigured = true
+	}
 }
 
 // AppDescription sets application description metadata.
@@ -69,6 +78,7 @@ func WithLogger(logger *slog.Logger) AppOption {
 			spec.logger = logger
 			spec.loggerConfigured = true
 			spec.eventLogger = NewSlogEventLogger(logger)
+			spec.eventLoggerConfigured = true
 		}
 	}
 }
@@ -117,6 +127,7 @@ func UseEventLogger(logger EventLogger) AppOption {
 	return func(spec *appSpec) {
 		if logger != nil {
 			spec.eventLogger = logger
+			spec.eventLoggerConfigured = true
 		}
 	}
 }

@@ -88,13 +88,18 @@ type Module struct {
 type appSpec struct {
 	meta                     AppMeta
 	profile                  Profile
+	profileConfigured        bool
 	modules                  collectionlist.List[Module]
 	logger                   *slog.Logger
 	loggerConfigured         bool
 	loggerFromContainer      func(*Container) (*slog.Logger, error)
 	eventLogger              EventLogger
+	eventLoggerConfigured    bool
 	eventLoggerFromContainer func(*Container) (EventLogger, error)
 	observers                []Observer
+	observersConfigured      bool
+	versionConfigured        bool
+	descriptionConfigured    bool
 	debug                    debugSettings
 }
 

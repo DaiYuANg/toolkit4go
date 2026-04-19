@@ -74,6 +74,102 @@ func TestObserverReceivesLifecycleEvents(t *testing.T) {
 	assertObserverTransitions(t, observer)
 }
 
+func TestDIProvidedObserverReceivesLifecycleEvents(t *testing.T) {
+	observer := &recordingObserver{}
+	app := dix.New("observer-app",
+		dix.WithModule(
+			dix.NewModule("observer",
+				dix.WithModuleProviders(
+					dix.Provider0(func() dix.Observer { return observer }),
+				),
+				dix.Setups(dix.Setup(func(c *dix.Container, _ dix.Lifecycle) error {
+					c.RegisterHealthCheck("db", func(context.Context) error { return nil })
+					return nil
+				})),
+				dix.Hooks(
+					dix.OnStart0(func(context.Context) error { return nil }),
+					dix.OnStop0(func(context.Context) error { return nil }),
+				),
+			),
+		),
+	)
+
+	rt, err := app.Build()
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+	if err := rt.Start(context.Background()); err != nil {
+		t.Fatalf("start failed: %v", err)
+	}
+	if !rt.CheckHealth(context.Background()).Healthy() {
+		t.Fatal("expected healthy report")
+	}
+	if err := rt.Stop(context.Background()); err != nil {
+		t.Fatalf("stop failed: %v", err)
+	}
+
+	assertObserverBuild(t, observer)
+	assertObserverStart(t, observer)
+	assertObserverHealth(t, observer)
+	assertObserverStop(t, observer)
+	assertObserverTransitions(t, observer)
+}
+
+func TestDIProvidedObserverSliceReceivesLifecycleEvents(t *testing.T) {
+	first := &recordingObserver{}
+	second := &recordingObserver{}
+	app := dix.New("di-observer-slice",
+		dix.WithModule(
+			dix.NewModule("observer",
+				dix.Providers(
+					dix.Provider0(func() []dix.Observer {
+						return []dix.Observer{first, second}
+					}),
+				),
+			),
+		),
+	)
+
+	_, err := app.Build()
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	if len(first.builds) != 1 {
+		t.Fatalf("expected first observer to receive build event, got %d", len(first.builds))
+	}
+	if len(second.builds) != 1 {
+		t.Fatalf("expected second observer to receive build event, got %d", len(second.builds))
+	}
+}
+
+func TestExplicitObserverTakesPriorityOverDIProvidedObserver(t *testing.T) {
+	explicitObserver := &recordingObserver{}
+	diObserver := &recordingObserver{}
+	app := dix.New("explicit-observer",
+		dix.WithObserver(explicitObserver),
+		dix.WithModule(
+			dix.NewModule("observer",
+				dix.WithModuleProviders(
+					dix.Provider0(func() dix.Observer { return diObserver }),
+				),
+			),
+		),
+	)
+
+	_, err := app.Build()
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	if len(explicitObserver.builds) != 1 {
+		t.Fatalf("expected explicit observer to receive build event, got %d", len(explicitObserver.builds))
+	}
+	if len(diObserver.builds) != 0 {
+		t.Fatalf("expected DI observer to be ignored, got %d build events", len(diObserver.builds))
+	}
+}
+
 func newObserverLifecycleApp(observer dix.Observer) *dix.App {
 	return dix.New("observer-app",
 		dix.WithObserver(observer),
