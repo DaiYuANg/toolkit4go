@@ -19,5 +19,5 @@ require (
 	github.com/valyala/fasthttp v1.70.0 // indirect
 	github.com/xyproto/randomstring v1.2.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 )

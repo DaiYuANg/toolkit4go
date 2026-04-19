@@ -6,11 +6,11 @@ use (
 	.
 	./authx
 	./authx/fx
-	./authx/jwt
 	./authx/http/echo
 	./authx/http/fiber
 	./authx/http/gin
 	./authx/http/std
+	./authx/jwt
 	./clientx
 	./collectionx
 	./configx
