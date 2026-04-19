@@ -1,4 +1,4 @@
-package dbx_test
+package schemamigrate_test
 
 import (
 	"context"
@@ -192,7 +192,7 @@ func (s *fakeSession) ExecContext(ctx context.Context, query string, args ...any
 }
 
 func (s *fakeSession) QueryRowContext(context.Context, string, ...any) *Row {
-	return ErrorRowForTest(sql.ErrNoRows)
+	return nil
 }
 
 func (s *fakeSession) QueryBoundContext(context.Context, sqlstmt.Bound) (*sql.Rows, error) {

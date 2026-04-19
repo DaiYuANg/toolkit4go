@@ -1,4 +1,4 @@
-package dbx_test
+package schemamigrate_test
 
 import (
 	"context"
@@ -171,7 +171,7 @@ func (d failingIndexDialect) InspectTable(ctx context.Context, executor Executor
 		return schemax.TableState{}, fmt.Errorf("inspect test table %s: %w", table, err)
 	}
 	defer func() {
-		err = errors.Join(err, CloseRowsForTest(rows))
+		err = errors.Join(err, rows.Close())
 	}()
 
 	exists := rows.Next()

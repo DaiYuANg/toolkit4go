@@ -1,4 +1,4 @@
-package dbx_test
+package querydsl_test
 
 import (
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"

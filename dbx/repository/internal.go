@@ -27,7 +27,7 @@ func (r *Base[E, S]) defaultSelect() *querydsl.SelectQuery {
 	items := collectionx.MapList(r.mapper.Fields(), func(_ int, field mapperx.MappedField) querydsl.SelectItem {
 		return columnx.Named[any](r.schema, field.Column)
 	})
-	return dbx.SelectList(items).From(r.schema)
+	return querydsl.SelectList(items).From(r.schema)
 }
 
 func (r *Base[E, S]) applySpecs(specs ...Spec) *querydsl.SelectQuery {
@@ -218,7 +218,7 @@ func keyPredicate[S querydsl.TableSource](schema S, key Key) querydsl.Predicate 
 	predicates := lo.Map(columns, func(column string, _ int) querydsl.Predicate {
 		return columnx.Named[any](schema, column).Eq(key[column])
 	})
-	return dbx.And(predicates...)
+	return querydsl.And(predicates...)
 }
 
 func hasAffectedRows(result sql.Result) bool {

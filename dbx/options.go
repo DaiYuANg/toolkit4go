@@ -138,3 +138,11 @@ func applyOptionsList(opts collectionx.List[Option]) (options, error) {
 	}
 	return config, nil
 }
+
+func mergeList[T any](current, next collectionx.List[T]) collectionx.List[T] {
+	if current == nil {
+		return next.Clone()
+	}
+	current.Merge(next)
+	return current
+}

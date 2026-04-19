@@ -54,7 +54,7 @@ func (r *Base[E, S]) UpdateByID(ctx context.Context, id any, assignments ...quer
 		return nil, ErrNilMutation
 	}
 	pk := r.primaryColumnName()
-	result, err := r.Update(ctx, dbx.Update(r.schema).Set(assignments...).Where(columnx.Named[any](r.schema, pk).Eq(id)))
+	result, err := r.Update(ctx, querydsl.Update(r.schema).Set(assignments...).Where(columnx.Named[any](r.schema, pk).Eq(id)))
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.update_by_id.error", "table", r.schema.TableName(), "error", err)
 		return nil, err
@@ -70,7 +70,7 @@ func (r *Base[E, S]) UpdateByID(ctx context.Context, id any, assignments ...quer
 // DeleteByID deletes the row identified by the repository primary key.
 func (r *Base[E, S]) DeleteByID(ctx context.Context, id any) (sql.Result, error) {
 	pk := r.primaryColumnName()
-	result, err := r.Delete(ctx, dbx.DeleteFrom(r.schema).Where(columnx.Named[any](r.schema, pk).Eq(id)))
+	result, err := r.Delete(ctx, querydsl.DeleteFrom(r.schema).Where(columnx.Named[any](r.schema, pk).Eq(id)))
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.delete_by_id.error", "table", r.schema.TableName(), "error", err)
 		return nil, err
@@ -91,10 +91,10 @@ func (r *Base[E, S]) UpdateByVersion(ctx context.Context, key Key, currentVersio
 	if len(assignments) == 0 {
 		return nil, ErrNilMutation
 	}
-	predicate := dbx.And(keyPredicate(r.schema, key), columnx.Named[any](r.schema, "version").Eq(currentVersion))
+	predicate := querydsl.And(keyPredicate(r.schema, key), columnx.Named[any](r.schema, "version").Eq(currentVersion))
 	nextVersion := currentVersion + 1
 	assignments = append(assignments, columnx.Named[any](r.schema, "version").Set(nextVersion))
-	result, err := r.Update(ctx, dbx.Update(r.schema).Set(assignments...).Where(predicate))
+	result, err := r.Update(ctx, querydsl.Update(r.schema).Set(assignments...).Where(predicate))
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.update_by_version.error", "table", r.schema.TableName(), "error", err)
 		return nil, err

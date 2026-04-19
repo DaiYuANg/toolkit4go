@@ -1,4 +1,4 @@
-package dbx_test
+package schemamigrate_test
 
 import (
 	"context"

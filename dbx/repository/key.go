@@ -6,8 +6,6 @@ import (
 
 	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
-
-	"github.com/DaiYuANg/arcgo/dbx"
 )
 
 // Key identifies a row by one or more column/value pairs.
@@ -37,7 +35,7 @@ func (r *Base[E, S]) UpdateByKey(ctx context.Context, key Key, assignments ...qu
 	if len(assignments) == 0 {
 		return nil, ErrNilMutation
 	}
-	result, err := r.Update(ctx, dbx.Update(r.schema).Set(assignments...).Where(keyPredicate(r.schema, key)))
+	result, err := r.Update(ctx, querydsl.Update(r.schema).Set(assignments...).Where(keyPredicate(r.schema, key)))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +50,7 @@ func (r *Base[E, S]) DeleteByKey(ctx context.Context, key Key) (sql.Result, erro
 	if len(key) == 0 {
 		return nil, &ValidationError{Message: "key is empty"}
 	}
-	result, err := r.Delete(ctx, dbx.DeleteFrom(r.schema).Where(keyPredicate(r.schema, key)))
+	result, err := r.Delete(ctx, querydsl.DeleteFrom(r.schema).Where(keyPredicate(r.schema, key)))
 	if err != nil {
 		return nil, err
 	}

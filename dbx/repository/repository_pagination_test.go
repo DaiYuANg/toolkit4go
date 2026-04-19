@@ -3,8 +3,8 @@ package repository_test
 import (
 	"testing"
 
-	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	repository "github.com/DaiYuANg/arcgo/dbx/repository"
 	"github.com/stretchr/testify/require"
 )
@@ -37,12 +37,12 @@ func TestBaseListPageRequestAndPageSpecSharePagination(t *testing.T) {
 func TestBaseCountWrapsComplexQueries(t *testing.T) {
 	repo, users, ctx := newSeededUserRepo(t, "file:repository_count_wrap_test?mode=memory&cache=shared", "alice", "alice", "bob")
 
-	distinctNames := dbx.Select(users.Name).From(users).WithDistinct()
+	distinctNames := querydsl.Select(users.Name).From(users).WithDistinct()
 	total, err := repo.Count(ctx, distinctNames)
 	require.NoError(t, err)
 	require.EqualValues(t, 2, total)
 
-	groupedNames := dbx.Select(users.Name).From(users).GroupBy(users.Name)
+	groupedNames := querydsl.Select(users.Name).From(users).GroupBy(users.Name)
 	total, err = repo.Count(ctx, groupedNames)
 	require.NoError(t, err)
 	require.EqualValues(t, 2, total)

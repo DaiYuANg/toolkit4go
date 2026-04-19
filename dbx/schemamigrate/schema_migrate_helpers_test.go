@@ -1,4 +1,4 @@
-package dbx_test
+package schemamigrate_test
 
 import (
 	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
