@@ -76,7 +76,7 @@ func TestStructMapperScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	accounts := MustSchema("accounts", accountSchema{})
 	mapper := MustStructMapper[accountRecord]()
 
-	items, err := QueryAll(context.Background(), New(sqlDB, testSQLiteDialect{}), Select(accounts.AllColumns().Values()...).From(accounts), mapper)
+	items, err := QueryAll(context.Background(), New(sqlDB, testSQLiteDialect{}), Select(AllColumns(accounts).Values()...).From(accounts), mapper)
 	if err != nil {
 		t.Fatalf("QueryAll returned error: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestQueryCursorScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	accounts := MustSchema("accounts", accountSchema{})
 	mapper := MustStructMapper[accountRecord]()
 	core := New(sqlDB, testSQLiteDialect{})
-	query := Select(accounts.AllColumns().Values()...).From(accounts)
+	query := Select(AllColumns(accounts).Values()...).From(accounts)
 
 	cursor, err := QueryCursor(context.Background(), core, query, mapper)
 	if err != nil {

@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
 type Mapper interface {
-	Fields() collectionx.List[dbx.MappedField]
+	Fields() collectionx.List[mapperx.MappedField]
 }
 
 type columnSelectItem struct {
@@ -52,14 +52,14 @@ func ofSpec(spec schemax.TableSpec, mapper Mapper) (collectionx.List[querydsl.Se
 		return column.Name, column
 	})
 
-	if unmapped, ok := collectionx.FindList(fields, func(_ int, field dbx.MappedField) bool {
+	if unmapped, ok := collectionx.FindList(fields, func(_ int, field mapperx.MappedField) bool {
 		_, ok := columnsByName.Get(field.Column)
 		return !ok
 	}); ok {
-		return nil, &dbx.UnmappedColumnError{Column: unmapped.Column}
+		return nil, &mapperx.UnmappedColumnError{Column: unmapped.Column}
 	}
 
-	return collectionx.FilterMapList(fields, func(_ int, field dbx.MappedField) (querydsl.SelectItem, bool) {
+	return collectionx.FilterMapList(fields, func(_ int, field mapperx.MappedField) (querydsl.SelectItem, bool) {
 		column, ok := columnsByName.Get(field.Column)
 		if !ok {
 			return nil, false

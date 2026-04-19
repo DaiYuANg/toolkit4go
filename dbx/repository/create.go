@@ -7,6 +7,8 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/lo"
 )
@@ -86,7 +88,7 @@ func (r *Base[E, S]) Upsert(ctx context.Context, entity *E, conflictColumns ...s
 		return &ValidationError{Message: "upsert requires conflict columns"}
 	}
 	targetExpressions := collectionx.MapList(targetColumns, func(_ int, column string) querydsl.Expression {
-		return dbx.NamedColumn[any](r.schema, column)
+		return columnx.Named[any](r.schema, column)
 	})
 	updateAssignments := upsertUpdateAssignments(r.schema, r.mapper.Fields(), targetColumns)
 	if updateAssignments.Len() == 0 {
@@ -131,16 +133,16 @@ func normalizeConflictColumns(columns, fallback []string) collectionx.List[strin
 	return items
 }
 
-func upsertUpdateAssignments[S querydsl.TableSource](schema S, fields collectionx.List[dbx.MappedField], conflictColumns collectionx.List[string]) collectionx.List[querydsl.Assignment] {
+func upsertUpdateAssignments[S querydsl.TableSource](schema S, fields collectionx.List[mapperx.MappedField], conflictColumns collectionx.List[string]) collectionx.List[querydsl.Assignment] {
 	conflictSet := collectionx.NewSetWithCapacity[string](conflictColumns.Len())
 	conflictColumns.Range(func(_ int, column string) bool {
 		conflictSet.Add(column)
 		return true
 	})
-	return collectionx.FilterMapList(fields, func(_ int, field dbx.MappedField) (querydsl.Assignment, bool) {
+	return collectionx.FilterMapList(fields, func(_ int, field mapperx.MappedField) (querydsl.Assignment, bool) {
 		if conflictSet.Contains(field.Column) {
 			return nil, false
 		}
-		return dbx.NamedColumn[any](schema, field.Column).SetExcluded(), true
+		return columnx.Named[any](schema, field.Column).SetExcluded(), true
 	})
 }

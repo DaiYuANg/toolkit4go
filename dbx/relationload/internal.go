@@ -7,6 +7,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/relationruntime"
 	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
@@ -23,7 +24,7 @@ type relationKeyPair struct {
 	target any
 }
 
-func collectSourceRelationKeys[E any](rt *relationruntime.Runtime, entities []E, mapper dbx.Mapper[E], spec schemax.TableSpec, meta schemax.RelationMeta) (collectionx.List[any], []relationLookupValue, error) {
+func collectSourceRelationKeys[E any](rt *relationruntime.Runtime, entities []E, mapper mapperx.Mapper[E], spec schemax.TableSpec, meta schemax.RelationMeta) (collectionx.List[any], []relationLookupValue, error) {
 	localColumn, err := sourceColumnFromSpec(spec, meta)
 	if err != nil {
 		return nil, nil, err
@@ -55,13 +56,13 @@ func collectSourceRelationKeys[E any](rt *relationruntime.Runtime, entities []E,
 	return keys, lookup.Values(), nil
 }
 
-func entityRelationKey[E any](mapper dbx.Mapper[E], entity *E, column string) (relationLookupValue, error) {
+func entityRelationKey[E any](mapper mapperx.Mapper[E], entity *E, column string) (relationLookupValue, error) {
 	value, ok, err := mapper.BoundFieldValue(entity, column)
 	if err != nil {
 		return relationLookupValue{}, wrapRelationLoadError("read relation key", err)
 	}
 	if !ok {
-		return relationLookupValue{}, &dbx.UnmappedColumnError{Column: column}
+		return relationLookupValue{}, &mapperx.UnmappedColumnError{Column: column}
 	}
 	return normalizeRelationLookupValue(value)
 }
@@ -91,7 +92,7 @@ func relationTargetColumnForSpec(spec schemax.TableSpec, meta schemax.RelationMe
 	return targetColumnFromSpec(spec, meta)
 }
 
-func queryRelationTargets[E any](ctx context.Context, session dbx.Session, rt *relationruntime.Runtime, schema dbx.SchemaSource[E], mapper dbx.Mapper[E], targetColumn schemax.ColumnMeta, keys collectionx.List[any]) (collectionx.List[E], error) {
+func queryRelationTargets[E any](ctx context.Context, session dbx.Session, rt *relationruntime.Runtime, schema schemax.SchemaSource[E], mapper mapperx.Mapper[E], targetColumn schemax.ColumnMeta, keys collectionx.List[any]) (collectionx.List[E], error) {
 	if keys.Len() == 0 {
 		return collectionx.NewList[E](), nil
 	}
@@ -129,7 +130,7 @@ func queryRelationTargets[E any](ctx context.Context, session dbx.Session, rt *r
 	return items, nil
 }
 
-func buildRelationTargetsBoundQuery[E any](session dbx.Session, rt *relationruntime.Runtime, schema dbx.SchemaSource[E], targetColumn schemax.ColumnMeta, keys collectionx.List[any]) (sqlstmt.Bound, error) {
+func buildRelationTargetsBoundQuery[E any](session dbx.Session, rt *relationruntime.Runtime, schema schemax.SchemaSource[E], targetColumn schemax.ColumnMeta, keys collectionx.List[any]) (sqlstmt.Bound, error) {
 	spec := schema.Spec()
 	dialectName := session.Dialect().Name()
 	tableName := schema.TableName()
@@ -166,7 +167,7 @@ func buildRelationTargetsBoundQuery[E any](session dbx.Session, rt *relationrunt
 	return bound, nil
 }
 
-func indexRelationTargets[E any](targets collectionx.List[E], mapper dbx.Mapper[E], column, relationName string, enforceUnique bool) (map[any]E, error) {
+func indexRelationTargets[E any](targets collectionx.List[E], mapper mapperx.Mapper[E], column, relationName string, enforceUnique bool) (map[any]E, error) {
 	indexed := make(map[any]E, targets.Len())
 	counts := make(map[any]int, targets.Len())
 	var resultErr error
@@ -193,7 +194,7 @@ func indexRelationTargets[E any](targets collectionx.List[E], mapper dbx.Mapper[
 	return indexed, nil
 }
 
-func groupRelationTargets[E any](targets collectionx.List[E], mapper dbx.Mapper[E], column string) (collectionx.MultiMap[any, E], error) {
+func groupRelationTargets[E any](targets collectionx.List[E], mapper mapperx.Mapper[E], column string) (collectionx.MultiMap[any, E], error) {
 	grouped := collectionx.NewMultiMapWithCapacity[any, E](targets.Len())
 	var resultErr error
 	targets.Range(func(_ int, target E) bool {

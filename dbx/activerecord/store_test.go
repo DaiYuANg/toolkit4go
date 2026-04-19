@@ -8,8 +8,11 @@ import (
 
 	"github.com/DaiYuANg/arcgo/dbx"
 	activerecord "github.com/DaiYuANg/arcgo/dbx/activerecord"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	sqlitedialect "github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	schemamigrate "github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
@@ -21,9 +24,9 @@ type User struct {
 }
 
 type UserSchema struct {
-	dbx.Schema[User]
-	ID   dbx.IDColumn[User, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Name dbx.Column[User, string]                   `dbx:"name"`
+	schemax.Schema[User]
+	ID   columnx.IDColumn[User, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Name columnx.Column[User, string]                     `dbx:"name"`
 }
 
 func TestModelSaveReloadDelete(t *testing.T) {
@@ -113,7 +116,7 @@ func openUserStore(tb testing.TB, dsn string) (context.Context, *activerecord.St
 	})
 
 	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
-	users := dbx.MustSchema("users", UserSchema{})
+	users := schemax.MustSchema("users", UserSchema{})
 
 	_, err = schemamigrate.AutoMigrate(ctx, core, users)
 	require.NoError(tb, err)

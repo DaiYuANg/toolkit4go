@@ -1,10 +1,10 @@
-package dbx
+package column
 
 import (
-	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/samber/lo"
 )
 
@@ -12,7 +12,7 @@ func (c Column[E, T]) QueryExpression()              {}
 func (c Column[E, T]) QuerySelectItem()              {}
 func (c Column[E, T]) ColumnRef() schemax.ColumnMeta { return c.columnRef() }
 
-func (Column[E, T]) valueType() reflect.Type {
+func (Column[E, T]) ValueType() reflect.Type {
 	return reflect.TypeFor[T]()
 }
 
@@ -78,7 +78,7 @@ func (c Column[E, T]) Eq(value T) querydsl.Predicate {
 	return querydsl.Compare(c, querydsl.OpEq, querydsl.Value(value))
 }
 
-func (c Column[E, T]) EqColumn(other typedColumn[T]) querydsl.Predicate {
+func (c Column[E, T]) EqColumn(other Typed[T]) querydsl.Predicate {
 	return querydsl.Compare(c, querydsl.OpEq, columnOperand[T]{Column: other})
 }
 
@@ -127,7 +127,7 @@ func (c Column[E, T]) Set(value T) querydsl.Assignment {
 	}
 }
 
-func (c Column[E, T]) SetColumn(other typedColumn[T]) querydsl.Assignment {
+func (c Column[E, T]) SetColumn(other Typed[T]) querydsl.Assignment {
 	return columnAssignment[E, T]{
 		Column: c,
 		Value:  columnOperand[T]{Column: other},

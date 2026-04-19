@@ -8,6 +8,7 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx"
 	sqlitedialect "github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
 	repository "github.com/DaiYuANg/arcgo/dbx/repository"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,12 +30,12 @@ func TestBaseExistsUsesSingleColumnLimit(t *testing.T) {
 			}
 		},
 	}))
-	users := dbx.MustSchema("users", UserSchema{})
+	users := schemax.MustSchema("users", UserSchema{})
 	mustAutoMigrate(ctx, t, core, users)
 	repo := repository.New[User](core, users)
 	seedUsers(ctx, t, repo, "alice", "bob")
 
-	exists, err := repo.Exists(ctx, dbx.Select(users.AllColumns().Values()...).From(users).Where(users.Name.Eq("alice")).OrderBy(users.Name.Asc()))
+	exists, err := repo.Exists(ctx, dbx.Select(allColumns(users).Values()...).From(users).Where(users.Name.Eq("alice")).OrderBy(users.Name.Asc()))
 	require.NoError(t, err)
 	require.True(t, exists)
 	require.Equal(t, `SELECT "users"."id" FROM "users" WHERE "users"."name" = ? LIMIT 1`, querySQL)

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/pkg/option"
 )
 
@@ -33,7 +34,7 @@ func NewWithOptions[E any, S EntitySchema[E]](db *dbx.DB, schema S, opts ...Opti
 		db:                  db,
 		session:             db,
 		schema:              schema,
-		mapper:              dbx.MustMapper[E](schema),
+		mapper:              mapperx.MustMapper[E](schema),
 		byIDNotFoundAsError: config.byIDNotFoundAsError,
 	}
 }

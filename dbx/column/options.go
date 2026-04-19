@@ -1,88 +1,88 @@
-package dbx
+package column
 
 import (
-	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
-func PrimaryKeyColumn[E any, T any]() ColumnOption[E, T] {
+func PrimaryKey[E any, T any]() Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.PrimaryKey = true
 		return column
 	}
 }
 
-func AutoIncrementColumn[E any, T any]() ColumnOption[E, T] {
+func AutoIncrement[E any, T any]() Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.AutoIncrement = true
 		return column
 	}
 }
 
-func NullableColumn[E any, T any]() ColumnOption[E, T] {
+func Nullable[E any, T any]() Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.Nullable = true
 		return column
 	}
 }
 
-func UniqueColumn[E any, T any]() ColumnOption[E, T] {
+func Unique[E any, T any]() Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.Unique = true
 		return column
 	}
 }
 
-func IndexedColumn[E any, T any]() ColumnOption[E, T] {
+func Indexed[E any, T any]() Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.Indexed = true
 		return column
 	}
 }
 
-func WithDefault[E any, T any](value string) ColumnOption[E, T] {
+func WithDefault[E any, T any](value string) Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.DefaultValue = value
 		return column
 	}
 }
 
-func WithReference[E any, T any](ref schemax.ForeignKeyRef) ColumnOption[E, T] {
+func WithReference[E any, T any](ref schemax.ForeignKeyRef) Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.References = new(ref)
 		return column
 	}
 }
 
-func WithIDStrategyColumn[E any, T any](strategy idgen.Strategy) ColumnOption[E, T] {
+func WithIDStrategy[E any, T any](strategy idgen.Strategy) Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.IDStrategy = strategy
 		return column
 	}
 }
 
-func WithUUIDVersionColumn[E any, T any](version string) ColumnOption[E, T] {
+func WithUUIDVersion[E any, T any](version string) Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.UUIDVersion = strings.TrimSpace(version)
 		return column
 	}
 }
 
-func DBAutoIDColumn[E any, T any]() ColumnOption[E, T] {
-	return WithIDStrategyColumn[E, T](idgen.StrategyDBAuto)
+func DBAutoID[E any, T any]() Option[E, T] {
+	return WithIDStrategy[E, T](idgen.StrategyDBAuto)
 }
 
-func SnowflakeIDColumn[E any, T any]() ColumnOption[E, T] {
-	return WithIDStrategyColumn[E, T](idgen.StrategySnowflake)
+func SnowflakeID[E any, T any]() Option[E, T] {
+	return WithIDStrategy[E, T](idgen.StrategySnowflake)
 }
 
-func UUIDIDColumn[E any, T any]() ColumnOption[E, T] {
-	return WithIDStrategyColumn[E, T](idgen.StrategyUUID)
+func UUIDID[E any, T any]() Option[E, T] {
+	return WithIDStrategy[E, T](idgen.StrategyUUID)
 }
 
-func UUIDv7IDColumn[E any, T any]() ColumnOption[E, T] {
+func UUIDv7ID[E any, T any]() Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.IDStrategy = idgen.StrategyUUID
 		column.meta.UUIDVersion = "v7"
@@ -90,7 +90,7 @@ func UUIDv7IDColumn[E any, T any]() ColumnOption[E, T] {
 	}
 }
 
-func UUIDv4IDColumn[E any, T any]() ColumnOption[E, T] {
+func UUIDv4ID[E any, T any]() Option[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.IDStrategy = idgen.StrategyUUID
 		column.meta.UUIDVersion = "v4"
@@ -98,12 +98,12 @@ func UUIDv4IDColumn[E any, T any]() ColumnOption[E, T] {
 	}
 }
 
-func (c Column[E, T]) bindColumn(binding columnBinding) any {
+func (c Column[E, T]) BindColumn(binding schemax.ColumnBinding) any {
 	meta := c.meta
-	mergeColumnBasic(&meta, binding.meta)
-	mergeColumnFlags(&meta, binding.meta)
-	mergeColumnDefaultsAndRefs(&meta, binding.meta)
-	finalizeColumnIDAndUUID(&meta, binding.meta)
+	mergeColumnBasic(&meta, binding.Meta)
+	mergeColumnFlags(&meta, binding.Meta)
+	mergeColumnDefaultsAndRefs(&meta, binding.Meta)
+	finalizeColumnIDAndUUID(&meta, binding.Meta)
 	c.meta = meta
 	return c
 }

@@ -7,15 +7,18 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	dbx "github.com/DaiYuANg/arcgo/dbx"
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/samber/mo"
 )
 
 func Alias[S querydsl.TableSource](schema S, alias string) S {
-	return dbx.Alias(schema, alias)
+	return schemax.Alias(schema, alias)
 }
 
 func CaseWhen[T any](predicate querydsl.Predicate, value any) *CaseBuilder[T] {
@@ -27,23 +30,29 @@ func Count[E any, T any](expr Column[E, T]) Aggregate[int64] {
 }
 
 func Like[E any](column Column[E, string], pattern string) querydsl.Predicate {
-	return dbx.Like(column, pattern)
+	return querydsl.Like(column, pattern)
+}
+
+func AllColumns(schema SchemaResource) collectionx.List[querydsl.SelectItem] {
+	return collectionx.MapList(schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
+		return columnx.Named[any](schema, column.Name)
+	})
 }
 
 func MustMapper[E any](schema SchemaResource) Mapper[E] {
-	return dbx.MustMapper[E](schema)
+	return mapperx.MustMapper[E](schema)
 }
 
 func MustSchema[S any](name string, schema S) S {
-	return dbx.MustSchema(name, schema)
+	return schemax.MustSchema(name, schema)
 }
 
 func MustStructMapper[E any]() StructMapper[E] {
-	return dbx.MustStructMapper[E]()
+	return mapperx.MustStructMapper[E]()
 }
 
 func NamedColumn[T any](source TableSource, name string) Column[struct{}, T] {
-	return dbx.NamedColumn[T](source, name)
+	return columnx.Named[T](source, name)
 }
 
 func NewCodec[T any](name string, decode func(any) (T, error), encode func(T) (any, error)) Codec {
@@ -51,7 +60,7 @@ func NewCodec[T any](name string, decode func(any) (T, error), encode func(T) (a
 }
 
 func NewStructMapper[E any]() (StructMapper[E], error) {
-	mapper, err := dbx.NewStructMapper[E]()
+	mapper, err := mapperx.NewStructMapper[E]()
 	if err != nil {
 		var zero StructMapper[E]
 		return zero, fmt.Errorf("new struct mapper: %w", err)
@@ -60,7 +69,7 @@ func NewStructMapper[E any]() (StructMapper[E], error) {
 }
 
 func NewStructMapperWithOptions[E any](opts ...MapperOption) (StructMapper[E], error) {
-	mapper, err := dbx.NewStructMapperWithOptions[E](opts...)
+	mapper, err := mapperx.NewStructMapperWithOptions[E](opts...)
 	if err != nil {
 		var zero StructMapper[E]
 		return zero, fmt.Errorf("new struct mapper with options: %w", err)
@@ -121,7 +130,7 @@ func QueryEach[E any](ctx context.Context, session Session, query querydsl.Build
 }
 
 func ResultColumn[T any](name string) Column[struct{}, T] {
-	return dbx.ResultColumn[T](name)
+	return columnx.Result[T](name)
 }
 
 func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (Cursor[E], error) {
@@ -187,7 +196,7 @@ func SQLScalarOption[T any](ctx context.Context, session Session, statement sqls
 }
 
 func StructMapperScanPlanForTest[E any](mapper StructMapper[E], columns []string) error {
-	if err := dbx.StructMapperScanPlanForTest(mapper, columns); err != nil {
+	if err := mapper.ScanPlan(columns); err != nil {
 		return fmt.Errorf("struct mapper scan plan: %w", err)
 	}
 	return nil

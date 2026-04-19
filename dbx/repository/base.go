@@ -1,10 +1,14 @@
 package repository
 
-import "github.com/DaiYuANg/arcgo/dbx"
+import (
+	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+)
 
 // EntitySchema is the schema contract required by repository generic code.
 type EntitySchema[E any] interface {
-	dbx.SchemaSource[E]
+	schemax.SchemaSource[E]
 	TableName() string
 }
 
@@ -13,7 +17,7 @@ type Base[E any, S EntitySchema[E]] struct {
 	db                  *dbx.DB
 	session             dbx.Session
 	schema              S
-	mapper              dbx.Mapper[E]
+	mapper              mapperx.Mapper[E]
 	byIDNotFoundAsError bool
 }
 
@@ -24,6 +28,6 @@ func (r *Base[E, S]) DB() *dbx.DB { return r.db }
 func (r *Base[E, S]) Schema() S { return r.schema }
 
 // Mapper returns the mapper used to persist and scan entities.
-func (r *Base[E, S]) Mapper() dbx.Mapper[E] {
+func (r *Base[E, S]) Mapper() mapperx.Mapper[E] {
 	return r.mapper
 }

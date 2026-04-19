@@ -1,7 +1,6 @@
-package dbx
+package schema
 
 import (
-	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"strings"
 	"unicode"
@@ -97,18 +96,18 @@ func splitReference(input string) (string, string, bool) {
 	return table, column, true
 }
 
-func parseReferentialAction(input string) schemax.ReferentialAction {
+func parseReferentialAction(input string) ReferentialAction {
 	switch strings.ToUpper(strings.TrimSpace(input)) {
-	case string(schemax.ReferentialCascade):
-		return schemax.ReferentialCascade
-	case string(schemax.ReferentialSetNull):
-		return schemax.ReferentialSetNull
-	case string(schemax.ReferentialSetDefault):
-		return schemax.ReferentialSetDefault
-	case string(schemax.ReferentialRestrict):
-		return schemax.ReferentialRestrict
-	case string(schemax.ReferentialNoAction):
-		return schemax.ReferentialNoAction
+	case string(ReferentialCascade):
+		return ReferentialCascade
+	case string(ReferentialSetNull):
+		return ReferentialSetNull
+	case string(ReferentialSetDefault):
+		return ReferentialSetDefault
+	case string(ReferentialRestrict):
+		return ReferentialRestrict
+	case string(ReferentialNoAction):
+		return ReferentialNoAction
 	default:
 		return ""
 	}

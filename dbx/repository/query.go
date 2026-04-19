@@ -6,6 +6,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
 )
 
@@ -77,7 +78,7 @@ func (r *Base[E, S]) Count(ctx context.Context, query *querydsl.SelectQuery) (in
 		countQuery = cloneForCount(query)
 	}
 	countQuery.Items = collectionx.NewList[querydsl.SelectItem](querydsl.CountAll().As("count"))
-	rows, err := dbx.QueryAll[countRow](ctx, r.session, countQuery, dbx.MustStructMapper[countRow]())
+	rows, err := dbx.QueryAll[countRow](ctx, r.session, countQuery, mapperx.MustStructMapper[countRow]())
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.count.error", "table", r.schema.TableName(), "error", err)
 		return 0, err
@@ -92,7 +93,7 @@ func (r *Base[E, S]) countWrapped(ctx context.Context, query *querydsl.SelectQue
 	if err != nil {
 		return 0, err
 	}
-	rows, err := dbx.QueryAllBound[countRow](ctx, r.session, bound, dbx.MustStructMapper[countRow]())
+	rows, err := dbx.QueryAllBound[countRow](ctx, r.session, bound, mapperx.MustStructMapper[countRow]())
 	if err != nil {
 		return 0, err
 	}

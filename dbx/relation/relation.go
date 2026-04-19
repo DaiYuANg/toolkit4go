@@ -6,16 +6,6 @@ import (
 	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
-type Binding struct {
-	Meta schemax.RelationMeta
-}
-
-type Binder interface {
-	BindRelation(Binding) any
-	RelationKind() schemax.RelationKind
-	TargetType() reflect.Type
-}
-
 type Accessor interface {
 	RelationRef() schemax.RelationMeta
 }
@@ -36,22 +26,22 @@ type ManyToMany[E any, T any] struct {
 	meta schemax.RelationMeta
 }
 
-func (r BelongsTo[E, T]) BindRelation(binding Binding) any {
+func (r BelongsTo[E, T]) BindRelation(binding schemax.RelationBinding) any {
 	r.meta = binding.Meta
 	return r
 }
 
-func (r HasOne[E, T]) BindRelation(binding Binding) any {
+func (r HasOne[E, T]) BindRelation(binding schemax.RelationBinding) any {
 	r.meta = binding.Meta
 	return r
 }
 
-func (r HasMany[E, T]) BindRelation(binding Binding) any {
+func (r HasMany[E, T]) BindRelation(binding schemax.RelationBinding) any {
 	r.meta = binding.Meta
 	return r
 }
 
-func (r ManyToMany[E, T]) BindRelation(binding Binding) any {
+func (r ManyToMany[E, T]) BindRelation(binding schemax.RelationBinding) any {
 	r.meta = binding.Meta
 	return r
 }

@@ -1,4 +1,4 @@
-package dbx
+package schema
 
 import (
 	"errors"
@@ -7,21 +7,18 @@ import (
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/dbx/querydsl"
-	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
-	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
 type schemaBindingState struct {
 	binder        schemaBinder
 	binderField   reflect.Value
-	defTable      querydsl.Table
-	columns       collectionx.List[schemax.ColumnMeta]
-	columnsByName collectionx.Map[string, schemax.ColumnMeta]
-	relations     collectionx.List[schemax.RelationMeta]
-	indexes       collectionx.List[schemax.IndexMeta]
-	checks        collectionx.List[schemax.CheckMeta]
-	primaryKey    *schemax.PrimaryKeyMeta
+	defTable      schemaTable
+	columns       collectionx.List[ColumnMeta]
+	columnsByName collectionx.Map[string, ColumnMeta]
+	relations     collectionx.List[RelationMeta]
+	indexes       collectionx.List[IndexMeta]
+	checks        collectionx.List[CheckMeta]
+	primaryKey    *PrimaryKeyMeta
 }
 
 func bindSchema[S any](name, alias string, schema S) (S, error) {
@@ -48,12 +45,12 @@ func bindSchema[S any](name, alias string, schema S) (S, error) {
 
 func newSchemaBindingState(schemaType reflect.Type, name, alias string, fieldCount int) schemaBindingState {
 	return schemaBindingState{
-		defTable:      querydsl.NewTableRef(strings.TrimSpace(name), strings.TrimSpace(alias), schemaType, nil),
-		columns:       collectionx.NewListWithCapacity[schemax.ColumnMeta](fieldCount),
-		columnsByName: collectionx.NewMapWithCapacity[string, schemax.ColumnMeta](fieldCount),
-		relations:     collectionx.NewListWithCapacity[schemax.RelationMeta](fieldCount),
-		indexes:       collectionx.NewListWithCapacity[schemax.IndexMeta](fieldCount),
-		checks:        collectionx.NewListWithCapacity[schemax.CheckMeta](fieldCount),
+		defTable:      newSchemaTable(strings.TrimSpace(name), strings.TrimSpace(alias), schemaType),
+		columns:       collectionx.NewListWithCapacity[ColumnMeta](fieldCount),
+		columnsByName: collectionx.NewMapWithCapacity[string, ColumnMeta](fieldCount),
+		relations:     collectionx.NewListWithCapacity[RelationMeta](fieldCount),
+		indexes:       collectionx.NewListWithCapacity[IndexMeta](fieldCount),
+		checks:        collectionx.NewListWithCapacity[CheckMeta](fieldCount),
 	}
 }
 
@@ -88,7 +85,7 @@ func (s *schemaBindingState) captureSchemaBinder(fieldValue reflect.Value) bool 
 }
 
 func (s *schemaBindingState) bindColumnField(fieldType reflect.StructField, fieldValue reflect.Value) (bool, error) {
-	candidate, ok := fieldValue.Interface().(columnBinder)
+	candidate, ok := fieldValue.Interface().(ColumnBinder)
 	if !ok {
 		return false, nil
 	}
@@ -96,11 +93,11 @@ func (s *schemaBindingState) bindColumnField(fieldType reflect.StructField, fiel
 	if err != nil {
 		return true, err
 	}
-	bound := candidate.bindColumn(columnBinding{meta: meta})
+	bound := candidate.BindColumn(ColumnBinding{Meta: meta})
 	fieldValue.Set(reflect.ValueOf(bound))
 	column := meta
-	if accessor, ok := bound.(columnAccessor); ok {
-		column = accessor.columnRef()
+	if accessor, ok := bound.(ColumnAccessor); ok {
+		column = accessor.ColumnRef()
 	}
 	column = cloneColumnMeta(column)
 	s.columns.Add(column)
@@ -109,12 +106,12 @@ func (s *schemaBindingState) bindColumnField(fieldType reflect.StructField, fiel
 }
 
 func (s *schemaBindingState) bindRelationField(fieldType reflect.StructField, fieldValue reflect.Value) bool {
-	candidate, ok := fieldValue.Interface().(relationx.Binder)
+	candidate, ok := fieldValue.Interface().(RelationBinder)
 	if !ok {
 		return false
 	}
 	meta := resolveRelationMeta(s.defTable, fieldType, candidate)
-	fieldValue.Set(reflect.ValueOf(candidate.BindRelation(relationx.Binding{Meta: meta})))
+	fieldValue.Set(reflect.ValueOf(candidate.BindRelation(RelationBinding{Meta: meta})))
 	s.relations.Add(meta)
 	return true
 }
@@ -159,9 +156,9 @@ func (s *schemaBindingState) definition(schemaType reflect.Type) (schemaDefiniti
 	}, nil
 }
 
-func resolveColumnMeta(def querydsl.Table, field reflect.StructField, value any) (schemax.ColumnMeta, error) {
+func resolveColumnMeta(def schemaTable, field reflect.StructField, value any) (ColumnMeta, error) {
 	name, options := resolveTagNameAndOptions(field)
-	meta := schemax.ColumnMeta{
+	meta := ColumnMeta{
 		Name:          name,
 		Table:         def.Name(),
 		Alias:         def.Alias(),
@@ -179,7 +176,7 @@ func resolveColumnMeta(def querydsl.Table, field reflect.StructField, value any)
 	if refValue := optionValue(options, "ref"); refValue != "" {
 		targetTable, targetColumn, ok := splitReference(refValue)
 		if ok {
-			meta.References = &schemax.ForeignKeyRef{
+			meta.References = &ForeignKeyRef{
 				TargetTable:  targetTable,
 				TargetColumn: targetColumn,
 				OnDelete:     parseReferentialAction(optionValue(options, "ondelete")),
@@ -192,20 +189,20 @@ func resolveColumnMeta(def querydsl.Table, field reflect.StructField, value any)
 }
 
 func resolveColumnGoType(value any) reflect.Type {
-	reporter, ok := value.(columnTypeReporter)
+	reporter, ok := value.(ColumnTypeReporter)
 	if !ok {
 		return nil
 	}
-	return reporter.valueType()
+	return reporter.ValueType()
 }
 
-func resolveRelationMeta(def querydsl.Table, field reflect.StructField, binder relationx.Binder) schemax.RelationMeta {
+func resolveRelationMeta(def schemaTable, field reflect.StructField, binder RelationBinder) RelationMeta {
 	options := parseTagOptions(field.Tag.Get("rel"))
 	name := optionValue(options, "name")
 	if name == "" {
 		name = toSnakeCase(field.Name)
 	}
-	return schemax.RelationMeta{
+	return RelationMeta{
 		Name:                name,
 		FieldName:           field.Name,
 		Kind:                binder.RelationKind(),

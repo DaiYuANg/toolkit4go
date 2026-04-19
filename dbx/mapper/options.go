@@ -1,4 +1,4 @@
-package dbx
+package mapper
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ func WithMapperCodecs(codecs ...codecx.Codec) MapperOption {
 		runtime := opts.runtime.clone()
 		for _, codec := range filtered {
 			if err := runtime.codecs.Register(codec); err != nil {
-				return err
+				return fmt.Errorf("register mapper codec: %w", err)
 			}
 		}
 		opts.runtime = runtime

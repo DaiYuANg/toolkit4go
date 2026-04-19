@@ -16,49 +16,9 @@ var (
 	ErrNilQuery                  = errors.New("dbx: query is nil")
 	ErrNilMapper                 = errors.New("dbx: mapper is nil")
 	ErrNilRow                    = errors.New("dbx: row is nil")
-	ErrNilEntity                 = errors.New("dbx: entity is nil")
-	ErrTooManyRows               = errors.New("dbx: query returned more than one row")
 	ErrRelationCardinality       = errors.New("dbx: relation cardinality violation")
-	ErrNoPrimaryKey              = errors.New("dbx: schema does not define a primary key")
-	ErrUnmappedColumn            = errors.New("dbx: result column is not mapped to entity")
-	ErrPrimaryKeyUnmapped        = errors.New("dbx: primary key column is not mapped to entity")
-	ErrUnsupportedEntity         = errors.New("dbx: entity type must be a struct")
 	ErrUnsupportedSchema         = errors.New("dbx: schema type is unsupported")
 )
-
-// PrimaryKeyUnmappedError carries the column name when a primary key column
-// is not mapped to the entity. Use errors.As to extract the column for programmatic handling.
-type PrimaryKeyUnmappedError struct {
-	Column string
-}
-
-func (e *PrimaryKeyUnmappedError) Error() string {
-	if e.Column != "" {
-		return fmt.Sprintf("dbx: primary key column %q is not mapped to entity", e.Column)
-	}
-	return "dbx: primary key column is not mapped to entity"
-}
-
-func (e *PrimaryKeyUnmappedError) Unwrap() error {
-	return ErrPrimaryKeyUnmapped
-}
-
-// UnmappedColumnError carries the column name when a result column is not
-// mapped to the entity. Use errors.As to extract the column for programmatic handling.
-type UnmappedColumnError struct {
-	Column string
-}
-
-func (e *UnmappedColumnError) Error() string {
-	if e.Column != "" {
-		return fmt.Sprintf("dbx: result column %q is not mapped to entity", e.Column)
-	}
-	return "dbx: result column is not mapped to entity"
-}
-
-func (e *UnmappedColumnError) Unwrap() error {
-	return ErrUnmappedColumn
-}
 
 // RelationCardinalityError reports when a relation declared as one-to-one
 // resolves to multiple rows for the same source key.

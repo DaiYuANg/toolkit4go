@@ -89,7 +89,7 @@ func TestQueryAllBuildsAndScansWithMapper(t *testing.T) {
 	rec := &hookRecorder{}
 	core := MustNewWithOptions(sqlDB, testSQLiteDialect{}, WithHooks(HookFuncs{AfterFunc: rec.after}))
 
-	items, err := QueryAll(context.Background(), core, Select(users.AllColumns().Values()...).From(users).Where(users.Status.Eq(1)), mapper)
+	items, err := QueryAll(context.Background(), core, Select(AllColumns(users).Values()...).From(users).Where(users.Status.Eq(1)), mapper)
 	if err != nil {
 		t.Fatalf("QueryAll returned error: %v", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
@@ -82,7 +83,7 @@ func ExecBound(ctx context.Context, session Session, bound sqlstmt.Bound) (sql.R
 	return result, wrapDBError("execute bound query", err)
 }
 
-func QueryAll[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAll[E any](ctx context.Context, session Session, query querydsl.Builder, mapper mapperx.RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_all").
@@ -96,7 +97,7 @@ func QueryAll[E any](ctx context.Context, session Session, query querydsl.Builde
 }
 
 // QueryAllList builds a query and maps all rows into a collectionx.List.
-func QueryAllList[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllList[E any](ctx context.Context, session Session, query querydsl.Builder, mapper mapperx.RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_all_list").
@@ -113,7 +114,7 @@ func QueryAllList[E any](ctx context.Context, session Session, query querydsl.Bu
 // for reuse when executing the same query multiple times.
 // When bound.CapacityHint > 0 and mapper implements CapacityHintScanner, uses
 // pre-allocated slice to reduce append growth.
-func QueryAllBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper mapperx.RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_all_bound", "statement", bound.Name).
@@ -150,19 +151,19 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound sqlstmt.Bo
 }
 
 // QueryAllBoundList executes a pre-built sqlstmt.Bound and maps all rows into a collectionx.List.
-func QueryAllBoundList[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllBoundList[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper mapperx.RowsScanner[E]) (collectionx.List[E], error) {
 	return QueryAllBound[E](ctx, session, bound, mapper)
 }
 
-func capacityHintScannerFor[E any](mapper RowsScanner[E], capacityHint int) (CapacityHintScanner[E], bool) {
+func capacityHintScannerFor[E any](mapper mapperx.RowsScanner[E], capacityHint int) (mapperx.CapacityHintScanner[E], bool) {
 	if capacityHint <= 0 {
 		return nil, false
 	}
-	withCap, ok := any(mapper).(CapacityHintScanner[E])
+	withCap, ok := any(mapper).(mapperx.CapacityHintScanner[E])
 	return withCap, ok
 }
 
-func scanAllBoundWithCapacity[E any](session Session, rows *sql.Rows, bound sqlstmt.Bound, mapper CapacityHintScanner[E]) (collectionx.List[E], error) {
+func scanAllBoundWithCapacity[E any](session Session, rows *sql.Rows, bound sqlstmt.Bound, mapper mapperx.CapacityHintScanner[E]) (collectionx.List[E], error) {
 	logRuntimeNode(session, "query_all_bound.scan_with_capacity", "capacity_hint", bound.CapacityHint)
 	items, scanErr := mapper.ScanRowsWithCapacity(rows, bound.CapacityHint)
 	scanErr = errors.Join(wrapDBError("scan rows with capacity", scanErr), rowsIterError(rows))

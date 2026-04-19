@@ -3,26 +3,7 @@ package dbx
 import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
-	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
-
-type columnOperand[T any] struct {
-	Column typedColumn[T]
-}
-
-type excludedColumnOperand[T any] struct {
-	Column schemax.ColumnMeta
-}
-
-type columnAssignment[E any, T any] struct {
-	Column Column[E, T]
-	Value  any
-}
-
-type columnOrder[E any, T any] struct {
-	Column     Column[E, T]
-	Descending bool
-}
 
 func And(predicates ...querydsl.Predicate) querydsl.Predicate {
 	return querydsl.And(predicates...)
@@ -42,10 +23,6 @@ func OrList(predicates collectionx.List[querydsl.Predicate]) querydsl.Predicate 
 
 func Not(predicate querydsl.Predicate) querydsl.Predicate {
 	return querydsl.Not(predicate)
-}
-
-func Like[E any](column Column[E, string], pattern string) querydsl.Predicate {
-	return querydsl.Like(column, pattern)
 }
 
 func Exists(query *querydsl.SelectQuery) querydsl.Predicate {

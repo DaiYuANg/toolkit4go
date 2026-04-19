@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -14,7 +16,7 @@ type Key map[string]any
 // GetByID returns the entity identified by the repository primary key.
 func (r *Base[E, S]) GetByID(ctx context.Context, id any) (E, error) {
 	pk := r.primaryColumnName()
-	query := r.defaultSelect().Where(dbx.NamedColumn[any](r.schema, pk).Eq(id))
+	query := r.defaultSelect().Where(columnx.Named[any](r.schema, pk).Eq(id))
 	return r.First(ctx, query)
 }
 

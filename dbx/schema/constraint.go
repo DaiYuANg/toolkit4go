@@ -1,13 +1,11 @@
-package dbx
+package schema
 
 import (
 	"fmt"
-	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/lo"
 )
 
@@ -20,9 +18,9 @@ type keyMetadata interface {
 }
 
 type constraintBinding struct {
-	indexes    []schemax.IndexMeta
-	primaryKey *schemax.PrimaryKeyMeta
-	check      *schemax.CheckMeta
+	indexes    []IndexMeta
+	primaryKey *PrimaryKeyMeta
+	check      *CheckMeta
 }
 
 type keyBindingMeta struct {
@@ -31,19 +29,19 @@ type keyBindingMeta struct {
 }
 
 type Index[E any] struct {
-	meta schemax.IndexMeta
+	meta IndexMeta
 }
 
 type Unique[E any] struct {
-	meta schemax.IndexMeta
+	meta IndexMeta
 }
 
 type CompositeKey[E any] struct {
-	meta schemax.PrimaryKeyMeta
+	meta PrimaryKeyMeta
 }
 
 type Check[E any] struct {
-	meta schemax.CheckMeta
+	meta CheckMeta
 }
 
 func (Index[E]) keyMeta() keyBindingMeta        { return keyBindingMeta{} }
@@ -78,19 +76,19 @@ func (c Check[E]) bindConstraint(binding constraintBinding) any {
 	return c
 }
 
-func (i Index[E]) Meta() schemax.IndexMeta             { return cloneIndexMeta(i.meta) }
-func (u Unique[E]) Meta() schemax.IndexMeta            { return cloneIndexMeta(u.meta) }
-func (c CompositeKey[E]) Meta() schemax.PrimaryKeyMeta { return clonePrimaryKeyMeta(c.meta) }
-func (c Check[E]) Meta() schemax.CheckMeta             { return cloneCheckMeta(c.meta) }
+func (i Index[E]) Meta() IndexMeta             { return cloneIndexMeta(i.meta) }
+func (u Unique[E]) Meta() IndexMeta            { return cloneIndexMeta(u.meta) }
+func (c CompositeKey[E]) Meta() PrimaryKeyMeta { return clonePrimaryKeyMeta(c.meta) }
+func (c Check[E]) Meta() CheckMeta             { return cloneCheckMeta(c.meta) }
 
-func resolveConstraintBinding(def querydsl.Table, field reflect.StructField, value any) (constraintBinding, error) {
+func resolveConstraintBinding(def schemaTable, field reflect.StructField, value any) (constraintBinding, error) {
 	if key, ok := value.(keyMetadata); ok {
 		return resolveKeyConstraintBinding(def, field, key)
 	}
 	return resolveCheckConstraintBinding(def, field)
 }
 
-func resolveKeyConstraintBinding(def querydsl.Table, field reflect.StructField, key keyMetadata) (constraintBinding, error) {
+func resolveKeyConstraintBinding(def schemaTable, field reflect.StructField, key keyMetadata) (constraintBinding, error) {
 	meta := key.keyMeta()
 	options := parseTagOptions(field.Tag.Get(constraintTagName(meta)))
 	columns := splitColumnsOption(optionValue(options, "columns"))
@@ -103,7 +101,7 @@ func resolveKeyConstraintBinding(def querydsl.Table, field reflect.StructField, 
 	}
 	if meta.primary {
 		return constraintBinding{
-			primaryKey: &schemax.PrimaryKeyMeta{
+			primaryKey: &PrimaryKeyMeta{
 				Name:    name,
 				Table:   def.Name(),
 				Columns: collectionx.NewList(columns...),
@@ -111,7 +109,7 @@ func resolveKeyConstraintBinding(def querydsl.Table, field reflect.StructField, 
 		}, nil
 	}
 	return constraintBinding{
-		indexes: []schemax.IndexMeta{{
+		indexes: []IndexMeta{{
 			Name:    name,
 			Table:   def.Name(),
 			Columns: collectionx.NewList(columns...),
@@ -127,7 +125,7 @@ func constraintTagName(meta keyBindingMeta) string {
 	return "idx"
 }
 
-func resolveCheckConstraintBinding(def querydsl.Table, field reflect.StructField) (constraintBinding, error) {
+func resolveCheckConstraintBinding(def schemaTable, field reflect.StructField) (constraintBinding, error) {
 	options := parseTagOptions(field.Tag.Get("check"))
 	expression := strings.TrimSpace(optionValue(options, "expr"))
 	if expression == "" {
@@ -138,7 +136,7 @@ func resolveCheckConstraintBinding(def querydsl.Table, field reflect.StructField
 		name = "ck_" + def.Name() + "_" + toSnakeCase(field.Name)
 	}
 	return constraintBinding{
-		check: &schemax.CheckMeta{
+		check: &CheckMeta{
 			Name:       name,
 			Table:      def.Name(),
 			Expression: expression,
@@ -146,7 +144,7 @@ func resolveCheckConstraintBinding(def querydsl.Table, field reflect.StructField
 	}, nil
 }
 
-func schemaTypeName(def querydsl.Table) string {
+func schemaTypeName(def schemaTable) string {
 	if typ := def.SchemaType(); typ != nil {
 		return typ.Name()
 	}
@@ -177,34 +175,29 @@ func defaultConstraintName(table, field string, meta keyBindingMeta) string {
 	return prefix + "_" + table + "_" + toSnakeCase(field)
 }
 
-func cloneIndexMeta(meta schemax.IndexMeta) schemax.IndexMeta {
+func cloneIndexMeta(meta IndexMeta) IndexMeta {
 	meta.Columns = meta.Columns.Clone()
 	return meta
 }
 
-func clonePrimaryKeyMeta(meta schemax.PrimaryKeyMeta) schemax.PrimaryKeyMeta {
+func clonePrimaryKeyMeta(meta PrimaryKeyMeta) PrimaryKeyMeta {
 	meta.Columns = meta.Columns.Clone()
 	return meta
 }
 
-func clonePrimaryKeyMetaPtr(meta *schemax.PrimaryKeyMeta) *schemax.PrimaryKeyMeta {
+func clonePrimaryKeyMetaPtr(meta *PrimaryKeyMeta) *PrimaryKeyMeta {
 	if meta == nil {
 		return nil
 	}
 	return new(clonePrimaryKeyMeta(*meta))
 }
 
-func clonePrimaryKeyState(state schemax.PrimaryKeyState) schemax.PrimaryKeyState {
-	state.Columns = state.Columns.Clone()
-	return state
-}
-
-func cloneForeignKeyMeta(meta schemax.ForeignKeyMeta) schemax.ForeignKeyMeta {
+func cloneForeignKeyMeta(meta ForeignKeyMeta) ForeignKeyMeta {
 	meta.Columns = meta.Columns.Clone()
 	meta.TargetColumns = meta.TargetColumns.Clone()
 	return meta
 }
 
-func cloneCheckMeta(meta schemax.CheckMeta) schemax.CheckMeta {
+func cloneCheckMeta(meta CheckMeta) CheckMeta {
 	return meta
 }

@@ -1,17 +1,16 @@
-package dbx
+package schema
 
 import (
-	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
-func buildTableSpec(def schemaDefinition) schemax.TableSpec {
+func buildTableSpec(def schemaDefinition) TableSpec {
 	indexes := deriveIndexes(def)
 	foreignKeys := deriveForeignKeys(def)
 	checks := deriveChecks(def)
-	return schemax.TableSpec{
+	return TableSpec{
 		Name:        def.table.Name(),
 		Columns:     cloneColumnMetas(def.columns),
 		Indexes:     collectionx.NewListWithCapacity(len(indexes), indexes...),
@@ -21,28 +20,28 @@ func buildTableSpec(def schemaDefinition) schemax.TableSpec {
 	}
 }
 
-func deriveIndexes(def schemaDefinition) []schemax.IndexMeta {
-	indexes := collectionx.NewOrderedMap[string, schemax.IndexMeta]()
-	def.indexes.Range(func(_ int, index schemax.IndexMeta) bool {
+func deriveIndexes(def schemaDefinition) []IndexMeta {
+	indexes := collectionx.NewOrderedMap[string, IndexMeta]()
+	def.indexes.Range(func(_ int, index IndexMeta) bool {
 		indexes.Set(indexKey(index.Unique, index.Columns), cloneIndexMeta(index))
 		return true
 	})
 	deriveColumnIndexes(def, indexes)
-	items := make([]schemax.IndexMeta, 0, indexes.Len())
-	indexes.Range(func(_ string, value schemax.IndexMeta) bool {
+	items := make([]IndexMeta, 0, indexes.Len())
+	indexes.Range(func(_ string, value IndexMeta) bool {
 		items = append(items, cloneIndexMeta(value))
 		return true
 	})
 	return items
 }
 
-func deriveColumnIndexes(def schemaDefinition, indexes collectionx.OrderedMap[string, schemax.IndexMeta]) {
+func deriveColumnIndexes(def schemaDefinition, indexes collectionx.OrderedMap[string, IndexMeta]) {
 	tableName := def.table.Name()
-	def.columns.Range(func(_ int, column schemax.ColumnMeta) bool {
+	def.columns.Range(func(_ int, column ColumnMeta) bool {
 		if !shouldDeriveColumnIndex(column) {
 			return true
 		}
-		meta := schemax.IndexMeta{
+		meta := IndexMeta{
 			Name:    indexNameForColumn(tableName, column),
 			Table:   tableName,
 			Columns: collectionx.NewList(column.Name),
@@ -53,11 +52,11 @@ func deriveColumnIndexes(def schemaDefinition, indexes collectionx.OrderedMap[st
 	})
 }
 
-func shouldDeriveColumnIndex(column schemax.ColumnMeta) bool {
+func shouldDeriveColumnIndex(column ColumnMeta) bool {
 	return !column.PrimaryKey && (column.Unique || column.Indexed)
 }
 
-func indexNameForColumn(table string, column schemax.ColumnMeta) string {
+func indexNameForColumn(table string, column ColumnMeta) string {
 	prefix := "idx"
 	if column.Unique {
 		prefix = "ux"
@@ -65,7 +64,7 @@ func indexNameForColumn(table string, column schemax.ColumnMeta) string {
 	return prefix + "_" + table + "_" + column.Name
 }
 
-func derivePrimaryKey(def schemaDefinition) *schemax.PrimaryKeyMeta {
+func derivePrimaryKey(def schemaDefinition) *PrimaryKeyMeta {
 	tableName := def.table.Name()
 	if def.primaryKey != nil {
 		copyPrimary := clonePrimaryKeyMeta(*def.primaryKey)
@@ -78,40 +77,40 @@ func derivePrimaryKey(def schemaDefinition) *schemax.PrimaryKeyMeta {
 		return &copyPrimary
 	}
 
-	columns := collectionx.FilterMapList(def.columns, func(_ int, column schemax.ColumnMeta) (string, bool) {
+	columns := collectionx.FilterMapList(def.columns, func(_ int, column ColumnMeta) (string, bool) {
 		return column.Name, column.PrimaryKey
 	})
 	if columns.Len() == 0 {
 		return nil
 	}
-	return &schemax.PrimaryKeyMeta{
+	return &PrimaryKeyMeta{
 		Name:    "pk_" + tableName,
 		Table:   tableName,
 		Columns: columns,
 	}
 }
 
-func deriveForeignKeys(def schemaDefinition) []schemax.ForeignKeyMeta {
-	foreignKeys := collectionx.NewOrderedMap[string, schemax.ForeignKeyMeta]()
+func deriveForeignKeys(def schemaDefinition) []ForeignKeyMeta {
+	foreignKeys := collectionx.NewOrderedMap[string, ForeignKeyMeta]()
 	explicitColumns := collectionx.NewSet[string]()
 	deriveExplicitForeignKeys(def, foreignKeys, explicitColumns)
 	deriveRelationForeignKeys(def, foreignKeys, explicitColumns)
-	items := make([]schemax.ForeignKeyMeta, 0, foreignKeys.Len())
-	foreignKeys.Range(func(_ string, value schemax.ForeignKeyMeta) bool {
+	items := make([]ForeignKeyMeta, 0, foreignKeys.Len())
+	foreignKeys.Range(func(_ string, value ForeignKeyMeta) bool {
 		items = append(items, cloneForeignKeyMeta(value))
 		return true
 	})
 	return items
 }
 
-func deriveExplicitForeignKeys(def schemaDefinition, foreignKeys collectionx.OrderedMap[string, schemax.ForeignKeyMeta], explicitColumns collectionx.Set[string]) {
+func deriveExplicitForeignKeys(def schemaDefinition, foreignKeys collectionx.OrderedMap[string, ForeignKeyMeta], explicitColumns collectionx.Set[string]) {
 	tableName := def.table.Name()
-	def.columns.Range(func(_ int, column schemax.ColumnMeta) bool {
+	def.columns.Range(func(_ int, column ColumnMeta) bool {
 		if column.References == nil {
 			return true
 		}
 		explicitColumns.Add(column.Name)
-		meta := schemax.ForeignKeyMeta{
+		meta := ForeignKeyMeta{
 			Name:          "fk_" + tableName + "_" + column.Name,
 			Table:         tableName,
 			Columns:       collectionx.NewList(column.Name),
@@ -125,13 +124,13 @@ func deriveExplicitForeignKeys(def schemaDefinition, foreignKeys collectionx.Ord
 	})
 }
 
-func deriveRelationForeignKeys(def schemaDefinition, foreignKeys collectionx.OrderedMap[string, schemax.ForeignKeyMeta], explicitColumns collectionx.Set[string]) {
+func deriveRelationForeignKeys(def schemaDefinition, foreignKeys collectionx.OrderedMap[string, ForeignKeyMeta], explicitColumns collectionx.Set[string]) {
 	tableName := def.table.Name()
-	def.relations.Range(func(_ int, relation schemax.RelationMeta) bool {
+	def.relations.Range(func(_ int, relation RelationMeta) bool {
 		if !shouldDeriveRelationForeignKey(def, relation, explicitColumns) {
 			return true
 		}
-		meta := schemax.ForeignKeyMeta{
+		meta := ForeignKeyMeta{
 			Name:          "fk_" + tableName + "_" + relation.LocalColumn,
 			Table:         tableName,
 			Columns:       collectionx.NewList(relation.LocalColumn),
@@ -146,8 +145,8 @@ func deriveRelationForeignKeys(def schemaDefinition, foreignKeys collectionx.Ord
 	})
 }
 
-func shouldDeriveRelationForeignKey(def schemaDefinition, relation schemax.RelationMeta, explicitColumns collectionx.Set[string]) bool {
-	if relation.Kind != schemax.RelationBelongsTo {
+func shouldDeriveRelationForeignKey(def schemaDefinition, relation RelationMeta, explicitColumns collectionx.Set[string]) bool {
+	if relation.Kind != RelationBelongsTo {
 		return false
 	}
 	if relation.LocalColumn == "" || relation.TargetColumn == "" || relation.TargetTable == "" {
@@ -160,8 +159,8 @@ func shouldDeriveRelationForeignKey(def schemaDefinition, relation schemax.Relat
 	return ok
 }
 
-func deriveChecks(def schemaDefinition) []schemax.CheckMeta {
-	return collectionx.MapList(def.checks, func(_ int, check schemax.CheckMeta) schemax.CheckMeta {
+func deriveChecks(def schemaDefinition) []CheckMeta {
+	return collectionx.MapList(def.checks, func(_ int, check CheckMeta) CheckMeta {
 		return cloneCheckMeta(check)
 	}).Values()
 }
@@ -174,7 +173,7 @@ func indexKey(unique bool, columns collectionx.List[string]) string {
 	return prefix + columnsKey(columns)
 }
 
-func foreignKeyKey(meta schemax.ForeignKeyMeta) string {
+func foreignKeyKey(meta ForeignKeyMeta) string {
 	return columnsKey(meta.Columns) + "->" + meta.TargetTable + ":" + columnsKey(meta.TargetColumns) + ":" + string(normalizeReferentialAction(meta.OnDelete)) + ":" + string(normalizeReferentialAction(meta.OnUpdate))
 }
 
@@ -182,9 +181,9 @@ func columnsKey(columns collectionx.List[string]) string {
 	return columns.Join(",")
 }
 
-func normalizeReferentialAction(action schemax.ReferentialAction) schemax.ReferentialAction {
+func normalizeReferentialAction(action ReferentialAction) ReferentialAction {
 	if strings.TrimSpace(string(action)) == "" {
-		return schemax.ReferentialNoAction
+		return ReferentialNoAction
 	}
 	return action
 }

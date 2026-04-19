@@ -1,4 +1,4 @@
-package dbx
+package column
 
 import (
 	"fmt"
@@ -7,6 +7,24 @@ import (
 	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
+type columnOperand[T any] struct {
+	Column Typed[T]
+}
+
+type excludedColumnOperand[T any] struct {
+	Column schemax.ColumnMeta
+}
+
+type columnAssignment[E any, T any] struct {
+	Column Column[E, T]
+	Value  any
+}
+
+type columnOrder[E any, T any] struct {
+	Column     Column[E, T]
+	Descending bool
+}
+
 func (c Column[E, T]) RenderOperand(state *querydsl.State) (string, error) {
 	return renderColumnOperand(state, c.columnRef())
 }
@@ -14,7 +32,7 @@ func (c Column[E, T]) RenderOperand(state *querydsl.State) (string, error) {
 func (o columnOperand[T]) QueryExpression() {}
 
 func (o columnOperand[T]) RenderOperand(state *querydsl.State) (string, error) {
-	return renderColumnOperand(state, o.Column.columnRef())
+	return renderColumnOperand(state, o.Column.ColumnRef())
 }
 
 func renderColumnOperand(state *querydsl.State, meta schemax.ColumnMeta) (string, error) {
@@ -29,11 +47,11 @@ func renderColumnOperand(state *querydsl.State, meta schemax.ColumnMeta) (string
 	return builder.String(), builder.Err("render column operand")
 }
 
-func wrapQueryRenderError(op string, err error) error {
+func wrapRenderError(op string, err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("dbx: %s: %w", op, err)
+	return fmt.Errorf("dbx/column: %s: %w", op, err)
 }
 
 func (a columnAssignment[E, T]) QueryAssignment() {}
@@ -47,7 +65,7 @@ func (a columnAssignment[E, T]) RenderAssignment(state *querydsl.State) error {
 	state.WriteString(" = ")
 	operand, err := querydsl.RenderOperandValue(state, a.Value)
 	if err != nil {
-		return wrapQueryRenderError("render assignment operand", err)
+		return wrapRenderError("render assignment operand", err)
 	}
 	state.WriteString(operand)
 	return nil
@@ -56,7 +74,7 @@ func (a columnAssignment[E, T]) RenderAssignment(state *querydsl.State) error {
 func (a columnAssignment[E, T]) RenderAssignmentValue(state *querydsl.State) error {
 	operand, err := querydsl.RenderOperandValue(state, a.Value)
 	if err != nil {
-		return wrapQueryRenderError("render assignment value", err)
+		return wrapRenderError("render assignment value", err)
 	}
 	state.WriteString(operand)
 	return nil
@@ -85,6 +103,6 @@ func (o excludedColumnOperand[T]) RenderOperand(state *querydsl.State) (string, 
 	case "values":
 		return "VALUES(" + quoted + ")", nil
 	default:
-		return "", fmt.Errorf("dbx: excluded assignment is not supported for dialect %s", state.Dialect().Name())
+		return "", fmt.Errorf("dbx/column: excluded assignment is not supported for dialect %s", state.Dialect().Name())
 	}
 }

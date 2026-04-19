@@ -8,6 +8,7 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/relationruntime"
 	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
@@ -140,7 +141,7 @@ type presentRelationKey struct {
 	ok    bool
 }
 
-func presentEntityRelationKey[E any](mapper dbx.Mapper[E], entity *E, column string) (presentRelationKey, error) {
+func presentEntityRelationKey[E any](mapper mapperx.Mapper[E], entity *E, column string) (presentRelationKey, error) {
 	key, err := entityRelationKey(mapper, entity, column)
 	if err != nil {
 		return presentRelationKey{}, err

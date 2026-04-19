@@ -3,7 +3,9 @@ package dbx_test
 import (
 	dbx "github.com/DaiYuANg/arcgo/dbx"
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
@@ -19,14 +21,14 @@ type AtlasCompiledSchemaTestView = schemamigrate.AtlasCompiledSchemaTestView
 type BelongsTo[E any, T any] = relationx.BelongsTo[E, T]
 type Bound = sqlstmt.Bound
 type CaseBuilder[T any] = querydsl.CaseBuilder[T]
-type Check[E any] = dbx.Check[E]
+type Check[E any] = schemax.Check[E]
 type CheckMeta = schemax.CheckMeta
 type CheckState = schemax.CheckState
 type Codec = codecx.Codec
-type Column[E any, T any] = dbx.Column[E, T]
+type Column[E any, T any] = columnx.Column[E, T]
 type ColumnMeta = schemax.ColumnMeta
 type ColumnState = schemax.ColumnState
-type CompositeKey[E any] = dbx.CompositeKey[E]
+type CompositeKey[E any] = schemax.CompositeKey[E]
 type Cursor[T any] = dbx.Cursor[T]
 type DB = dbx.DB
 type DeleteQuery = querydsl.DeleteQuery
@@ -39,21 +41,21 @@ type Hook = dbx.Hook
 type HookEvent = dbx.HookEvent
 type HookFuncs = dbx.HookFuncs
 type IDGenerator = idgen.Generator
-type IDColumn[E any, T any, M dbx.IDMarker] = dbx.IDColumn[E, T, M]
-type IDKSUID = dbx.IDKSUID
-type IDSnowflake = dbx.IDSnowflake
-type IDULID = dbx.IDULID
-type IDUUID = dbx.IDUUID
-type IDUUIDv4 = dbx.IDUUIDv4
-type IDUUIDv7 = dbx.IDUUIDv7
-type Index[E any] = dbx.Index[E]
+type IDColumn[E any, T any, M idgen.Marker] = columnx.IDColumn[E, T, M]
+type IDKSUID = idgen.IDKSUID
+type IDSnowflake = idgen.IDSnowflake
+type IDULID = idgen.IDULID
+type IDUUID = idgen.IDUUID
+type IDUUIDv4 = idgen.IDUUIDv4
+type IDUUIDv7 = idgen.IDUUIDv7
+type Index[E any] = schemax.Index[E]
 type IndexMeta = schemax.IndexMeta
 type IndexState = schemax.IndexState
 type InsertQuery = querydsl.InsertQuery
-type MappedField = dbx.MappedField
+type MappedField = mapperx.MappedField
 type ManyToMany[E any, T any] = relationx.ManyToMany[E, T]
-type Mapper[E any] = dbx.Mapper[E]
-type MapperOption = dbx.MapperOption
+type Mapper[E any] = mapperx.Mapper[E]
+type MapperOption = mapperx.MapperOption
 type MigrationAction = schemax.MigrationAction
 type MigrationPlan = schemax.MigrationPlan
 type NodeIDOutOfRangeError = idgen.NodeIDOutOfRangeError
@@ -64,29 +66,29 @@ type PageResult[E any] = paging.Result[E]
 type Predicate = querydsl.Predicate
 type PrimaryKeyMeta = schemax.PrimaryKeyMeta
 type PrimaryKeyState = schemax.PrimaryKeyState
-type PrimaryKeyUnmappedError = dbx.PrimaryKeyUnmappedError
+type PrimaryKeyUnmappedError = mapperx.PrimaryKeyUnmappedError
 type QueryBuilder = querydsl.Builder
 type ReferentialAction = schemax.ReferentialAction
 type RelationKind = schemax.RelationKind
 type Row = dbx.Row
-type RowsScanner[E any] = dbx.RowsScanner[E]
-type Schema[E any] = dbx.Schema[E]
+type RowsScanner[E any] = mapperx.RowsScanner[E]
+type Schema[E any] = schemax.Schema[E]
 type SchemaDriftError = schemax.SchemaDriftError
 type SchemaResource = schemamigrate.Resource
-type SchemaSource[E any] = dbx.SchemaSource[E]
+type SchemaSource[E any] = schemax.SchemaSource[E]
 type SelectItem = querydsl.SelectItem
 type SelectQuery = querydsl.SelectQuery
 type Session = dbx.Session
 type SQLExecutor = sqlexec.Executor
 type Statement = sqlstmt.Statement
 type StatementSource = sqlstmt.Source
-type StructMapper[E any] = dbx.StructMapper[E]
+type StructMapper[E any] = mapperx.StructMapper[E]
 type Table = querydsl.Table
 type TableSource = querydsl.TableSource
 type TableSpec = schemax.TableSpec
 type TableState = schemax.TableState
 type UnknownCodecError = codecx.UnknownError
-type UnmappedColumnError = dbx.UnmappedColumnError
+type UnmappedColumnError = mapperx.UnmappedColumnError
 type ValidationBackend = schemax.ValidationBackend
 type ValidationReport = schemax.ValidationReport
 

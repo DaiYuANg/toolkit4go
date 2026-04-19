@@ -1,4 +1,4 @@
-package dbx
+package mapper
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
-func (m Mapper[E]) InsertAssignments(session Session, schema schemax.Resource, entity *E) (collectionx.List[querydsl.Assignment], error) {
+func (m Mapper[E]) InsertAssignments(session any, schema schemax.Resource, entity *E) (collectionx.List[querydsl.Assignment], error) {
 	if session == nil {
-		return nil, ErrNilDB
+		return nil, ErrNilSession
 	}
-	carrier, ok := any(session).(interface{ IDGenerator() idgen.Generator })
+	carrier, ok := session.(interface{ IDGenerator() idgen.Generator })
 	if !ok {
 		return nil, errors.New("dbx: session does not expose id generator")
 	}

@@ -6,13 +6,14 @@ import (
 
 	"github.com/DaiYuANg/arcgo/dbx"
 	repository "github.com/DaiYuANg/arcgo/dbx/repository"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBaseByIDNotFoundAsErrorOption(t *testing.T) {
 	ctx := context.Background()
 	core := openRepositoryCore(t, "file:repository_not_found_option_test?mode=memory&cache=shared")
-	users := dbx.MustSchema("users", UserSchema{})
+	users := schemax.MustSchema("users", UserSchema{})
 	mustAutoMigrate(ctx, t, core, users)
 
 	defaultRepo := repository.New[User](core, users)
@@ -113,7 +114,7 @@ func TestBaseUpdateByVersion(t *testing.T) {
 	repo, users, ctx := newVersionedUserRepo(t, "file:repository_version_conflict_test?mode=memory&cache=shared")
 	require.NoError(t, repo.Create(ctx, &VersionedUser{Name: "alice", Version: 1}))
 
-	item, err := repo.First(ctx, dbx.Select(users.AllColumns().Values()...).From(users))
+	item, err := repo.First(ctx, dbx.Select(allColumns(users).Values()...).From(users))
 	require.NoError(t, err)
 
 	key := repository.Key{"id": item.ID}

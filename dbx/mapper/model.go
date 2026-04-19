@@ -1,4 +1,4 @@
-package dbx
+package mapper
 
 import (
 	"database/sql"

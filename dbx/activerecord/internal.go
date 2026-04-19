@@ -6,7 +6,7 @@ import (
 	"maps"
 	"reflect"
 
-	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
 )
@@ -63,7 +63,7 @@ func primaryKeyColumns[S querydsl.TableSource](schema S) []string {
 	return []string{"id"}
 }
 
-func mappedFieldValue(root reflect.Value, field dbx.MappedField) (reflect.Value, error) {
+func mappedFieldValue(root reflect.Value, field mapperx.MappedField) (reflect.Value, error) {
 	value := root
 	if field.Path.Len() == 0 {
 		return dereferenceMappedValue(value.Field(field.Index)), nil

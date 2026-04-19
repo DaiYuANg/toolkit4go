@@ -31,15 +31,12 @@ func RowsIterErrorForTest(rows *sql.Rows) error {
 	return rowsIterError(rows)
 }
 
-func StructMapperScanPlanForTest[E any](mapper StructMapper[E], columns []string) error {
-	_, err := mapper.scanPlan(columns)
-	return err
-}
-
 func ClonePrimaryKeyMetaForTest(meta schemax.PrimaryKeyMeta) schemax.PrimaryKeyMeta {
-	return clonePrimaryKeyMeta(meta)
+	meta.Columns = meta.Columns.Clone()
+	return meta
 }
 
 func ClonePrimaryKeyStateForTest(state schemax.PrimaryKeyState) schemax.PrimaryKeyState {
-	return clonePrimaryKeyState(state)
+	state.Columns = state.Columns.Clone()
+	return state
 }

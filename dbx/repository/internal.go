@@ -11,6 +11,8 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/samber/lo"
@@ -22,8 +24,8 @@ type countRow struct {
 }
 
 func (r *Base[E, S]) defaultSelect() *querydsl.SelectQuery {
-	items := collectionx.MapList(r.mapper.Fields(), func(_ int, field dbx.MappedField) querydsl.SelectItem {
-		return dbx.NamedColumn[any](r.schema, field.Column)
+	items := collectionx.MapList(r.mapper.Fields(), func(_ int, field mapperx.MappedField) querydsl.SelectItem {
+		return columnx.Named[any](r.schema, field.Column)
 	})
 	return dbx.SelectList(items).From(r.schema)
 }
@@ -106,7 +108,7 @@ func (r *Base[E, S]) existsSelectItem() (querydsl.SelectItem, error) {
 	if !ok {
 		return nil, fmt.Errorf("dbx: repository %s mapper has no selectable fields", r.schema.TableName())
 	}
-	return dbx.NamedColumn[any](r.schema, field.Column), nil
+	return columnx.Named[any](r.schema, field.Column), nil
 }
 
 func wrappedExistsBound(session dbx.Session, query *querydsl.SelectQuery) (sqlstmt.Bound, error) {
@@ -214,7 +216,7 @@ func keyPredicate[S querydsl.TableSource](schema S, key Key) querydsl.Predicate 
 	columns := lo.Keys(key)
 	slices.Sort(columns)
 	predicates := lo.Map(columns, func(column string, _ int) querydsl.Predicate {
-		return dbx.NamedColumn[any](schema, column).Eq(key[column])
+		return columnx.Named[any](schema, column).Eq(key[column])
 	})
 	return dbx.And(predicates...)
 }

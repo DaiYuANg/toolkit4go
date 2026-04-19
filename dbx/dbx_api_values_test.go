@@ -4,6 +4,7 @@ import (
 	dbx "github.com/DaiYuANg/arcgo/dbx"
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
 	projectionx "github.com/DaiYuANg/arcgo/dbx/projection"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
@@ -19,11 +20,11 @@ var ErrMissingDialect = dbx.ErrMissingDialect
 var ErrMissingDriver = dbx.ErrMissingDriver
 var ErrMissingDSN = dbx.ErrMissingDSN
 var ErrNilQuery = dbx.ErrNilQuery
-var ErrPrimaryKeyUnmapped = dbx.ErrPrimaryKeyUnmapped
+var ErrPrimaryKeyUnmapped = mapperx.ErrPrimaryKeyUnmapped
 var ErrRelationCardinality = dbx.ErrRelationCardinality
-var ErrTooManyRows = dbx.ErrTooManyRows
+var ErrTooManyRows = mapperx.ErrTooManyRows
 var ErrUnknownCodec = codecx.ErrUnknown
-var ErrUnmappedColumn = dbx.ErrUnmappedColumn
+var ErrUnmappedColumn = mapperx.ErrUnmappedColumn
 
 var And = dbx.And
 var AtlasSplitChangesForTest = schemamigrate.AtlasSplitChangesForTest
@@ -78,5 +79,5 @@ var WithHooks = dbx.WithHooks
 var WithHooksList = dbx.WithHooksList
 var WithIDGenerator = dbx.WithIDGenerator
 var WithLogger = dbx.WithLogger
-var WithMapperCodecs = dbx.WithMapperCodecs
+var WithMapperCodecs = mapperx.WithMapperCodecs
 var WithNodeID = dbx.WithNodeID

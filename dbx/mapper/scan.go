@@ -1,6 +1,6 @@
 //revive:disable:file-length-limit Mapper scan helpers are kept together to preserve related scan behavior.
 
-package dbx
+package mapper
 
 import (
 	"context"
@@ -22,6 +22,34 @@ type scanPlan struct {
 type scanCodecField struct {
 	index int
 	field MappedField
+}
+
+type Cursor[E any] interface {
+	Close() error
+	Next() bool
+	Get() (E, error)
+	Err() error
+}
+
+type scanCursor[E any] struct {
+	cursor scanlib.ICursor[E]
+}
+
+func (c scanCursor[E]) Close() error {
+	return wrapDBError("close scan cursor", c.cursor.Close())
+}
+
+func (c scanCursor[E]) Next() bool {
+	return c.cursor.Next()
+}
+
+func (c scanCursor[E]) Get() (E, error) {
+	value, err := c.cursor.Get()
+	return value, wrapDBError("get scan cursor value", err)
+}
+
+func (c scanCursor[E]) Err() error {
+	return wrapDBError("read scan cursor error", c.cursor.Err())
 }
 
 func (m StructMapper[E]) ScanRows(rows *sql.Rows) (collectionx.List[E], error) {
@@ -73,49 +101,6 @@ func (m StructMapper[E]) collectRowsWithCapacity(ctx context.Context, plan *scan
 	return result, wrapDBError("read scan cursor error", cursor.Err())
 }
 
-func (m StructMapper[E]) scanOneRows(ctx context.Context, rows *sql.Rows) (E, bool, error) {
-	if m.meta == nil {
-		var zero E
-		return zero, false, ErrNilMapper
-	}
-	if rows == nil {
-		var zero E
-		return zero, false, errors.New("dbx: rows is nil")
-	}
-
-	columns, err := rows.Columns()
-	if err != nil {
-		var zero E
-		return zero, false, wrapDBError("read row columns", err)
-	}
-	plan, err := m.scanPlan(columns)
-	if err != nil {
-		var zero E
-		return zero, false, err
-	}
-
-	value, err := scanlib.OneFromRows[E](ctx, m.scanMapper(plan), rows)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			var zero E
-			return zero, false, nil
-		}
-		var zero E
-		return zero, false, wrapDBError("scan one row", err)
-	}
-
-	if rows.Next() {
-		var zero E
-		return zero, false, ErrTooManyRows
-	}
-	if err := rows.Err(); err != nil {
-		var zero E
-		return zero, false, wrapDBError("iterate rows", err)
-	}
-
-	return value, true, nil
-}
-
 func (m StructMapper[E]) scanCursor(ctx context.Context, rows *sql.Rows) (Cursor[E], error) {
 	if m.meta == nil {
 		return nil, ErrNilMapper
@@ -138,6 +123,15 @@ func (m StructMapper[E]) scanCursor(ctx context.Context, rows *sql.Rows) (Cursor
 		return nil, wrapDBError("open scan cursor", err)
 	}
 	return scanCursor[E]{cursor: cursor}, nil
+}
+
+func (m StructMapper[E]) ScanCursor(ctx context.Context, rows *sql.Rows) (Cursor[E], error) {
+	return m.scanCursor(ctx, rows)
+}
+
+func (m StructMapper[E]) ScanPlan(columns []string) error {
+	_, err := m.scanPlan(columns)
+	return err
 }
 
 func (m StructMapper[E]) scanPlan(columns []string) (*scanPlan, error) {

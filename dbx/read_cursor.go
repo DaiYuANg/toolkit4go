@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/oops"
-	scanlib "github.com/stephenafamo/scan"
 )
 
 type Cursor[T any] interface {
@@ -18,27 +18,6 @@ type Cursor[T any] interface {
 	Next() bool
 	Get() (T, error)
 	Err() error
-}
-
-type scanCursor[E any] struct {
-	cursor scanlib.ICursor[E]
-}
-
-func (c scanCursor[E]) Close() error {
-	return wrapDBError("close scan cursor", c.cursor.Close())
-}
-
-func (c scanCursor[E]) Next() bool {
-	return c.cursor.Next()
-}
-
-func (c scanCursor[E]) Get() (E, error) {
-	value, err := c.cursor.Get()
-	return value, wrapDBError("get scan cursor value", err)
-}
-
-func (c scanCursor[E]) Err() error {
-	return wrapDBError("read scan cursor error", c.cursor.Err())
 }
 
 type sliceCursor[E any] struct {
@@ -77,7 +56,7 @@ func (c *sliceCursor[E]) Err() error {
 	return nil
 }
 
-func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (Cursor[E], error) {
+func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Builder, mapper mapperx.RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_cursor").
@@ -92,7 +71,7 @@ func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Bui
 
 // QueryCursorBound executes a pre-built sqlstmt.Bound and returns a cursor. Use with Build
 // for reuse when executing the same query multiple times.
-func QueryCursorBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (Cursor[E], error) {
+func QueryCursorBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper mapperx.RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_cursor_bound", "statement", bound.Name).
@@ -137,13 +116,13 @@ func QueryCursorBound[E any](ctx context.Context, session Session, bound sqlstmt
 	return newSliceCursor(items), nil
 }
 
-func QueryEach[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) func(func(E, error) bool) {
+func QueryEach[E any](ctx context.Context, session Session, query querydsl.Builder, mapper mapperx.RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
 		return QueryCursor(ctx, session, query, mapper)
 	})
 }
 
-func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (Cursor[E], error) {
+func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper mapperx.RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "sql_cursor", "statement", sqlstmt.Name(statement)).
@@ -175,31 +154,31 @@ func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.So
 }
 
 // QueryEachBound is the sqlstmt.Bound variant of QueryEach. Use with Build for reuse.
-func QueryEachBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) func(func(E, error) bool) {
+func QueryEachBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper mapperx.RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
 		return QueryCursorBound(ctx, session, bound, mapper)
 	})
 }
 
-func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) func(func(E, error) bool) {
+func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper mapperx.RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
 		return SQLCursor(ctx, session, statement, params, mapper)
 	})
 }
 
-func structMapperCursor[E any](ctx context.Context, rows *sql.Rows, mapper RowsScanner[E]) (Cursor[E], bool, error) {
+func structMapperCursor[E any](ctx context.Context, rows *sql.Rows, mapper mapperx.RowsScanner[E]) (Cursor[E], bool, error) {
 	switch typed := any(mapper).(type) {
-	case StructMapper[E]:
-		cursor, err := typed.scanCursor(ctx, rows)
-		return cursor, true, err
-	case *StructMapper[E]:
+	case mapperx.StructMapper[E]:
+		cursor, err := typed.ScanCursor(ctx, rows)
+		return cursor, true, wrapDBError("open mapper scan cursor", err)
+	case *mapperx.StructMapper[E]:
 		if typed == nil {
 			return nil, true, oops.In("dbx").
 				With("op", "cursor_mapper").
 				Wrapf(ErrNilMapper, "validate struct mapper")
 		}
-		cursor, err := typed.scanCursor(ctx, rows)
-		return cursor, true, err
+		cursor, err := typed.ScanCursor(ctx, rows)
+		return cursor, true, wrapDBError("open mapper scan cursor", err)
 	default:
 		return nil, false, nil
 	}
