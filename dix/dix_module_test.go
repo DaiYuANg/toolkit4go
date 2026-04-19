@@ -136,6 +136,53 @@ func TestApp_ValidateDetectsDuplicateProvider(t *testing.T) {
 	assert.Contains(t, err.Error(), do.NameOf[Config]())
 }
 
+func TestApp_ValidateDetectsDuplicateProviderBeforeDIProfileBootstrap(t *testing.T) {
+	app := dix.New("validate-profile-bootstrap-duplicate",
+		dix.Modules(
+			dix.NewModule("bootstrap",
+				dix.Providers(
+					dix.Provider0(ProvideConfig),
+					dix.Provider0(ProvideConfig),
+					dix.Provider0(func() dix.Profile {
+						return dix.ProfileProd
+					}),
+				),
+			),
+		),
+	)
+
+	var err error
+	require.NotPanics(t, func() {
+		err = app.Validate()
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate provider output")
+	assert.Contains(t, err.Error(), do.NameOf[Config]())
+}
+
+func TestApp_ValidateRequiresDIProfileProviderDependenciesInBootstrapGraph(t *testing.T) {
+	prodConfig := dix.NewModule("prod-config",
+		dix.UseProfiles(dix.ProfileProd),
+		dix.Providers(
+			dix.Provider0(ProvideConfig),
+		),
+	)
+	bootstrap := dix.NewModule("bootstrap",
+		dix.Providers(
+			dix.Provider1(func(Config) dix.Profile {
+				return dix.ProfileProd
+			}),
+		),
+	)
+	app := dix.New("validate-profile-bootstrap-deps",
+		dix.Modules(bootstrap, prodConfig),
+	)
+
+	err := app.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), do.NameOf[Config]())
+}
+
 func TestApp_ValidateDoesNotEscapeForCoreSetup(t *testing.T) {
 	app := dix.NewApp("validate-setup",
 		dix.NewModule("health",

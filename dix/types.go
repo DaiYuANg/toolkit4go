@@ -2,6 +2,7 @@ package dix
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
@@ -98,6 +99,7 @@ type appSpec struct {
 	eventLoggerFromContainer func(*Container) (EventLogger, error)
 	observers                []Observer
 	observersConfigured      bool
+	runStopTimeout           time.Duration
 	versionConfigured        bool
 	descriptionConfigured    bool
 	debug                    debugSettings

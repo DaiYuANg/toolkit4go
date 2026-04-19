@@ -1,7 +1,9 @@
 package dix
 
-import "github.com/DaiYuANg/arcgo/collectionx"
-import "github.com/DaiYuANg/arcgo/pkg/option"
+import (
+	"github.com/DaiYuANg/arcgo/collectionx"
+	"github.com/DaiYuANg/arcgo/pkg/option"
+)
 
 // ModuleOption configures a Module during construction.
 type ModuleOption func(*moduleSpec)
@@ -35,6 +37,27 @@ func (m Module) Tags() collectionx.OrderedSet[string] {
 		return collectionx.NewOrderedSet[string]()
 	}
 	return m.spec.tags.Clone()
+}
+
+// Profiles returns the profiles this module is restricted to.
+func (m Module) Profiles() collectionx.Set[Profile] {
+	if m.spec == nil {
+		return collectionx.NewSet[Profile]()
+	}
+	return m.spec.profiles.Clone()
+}
+
+// ExcludeProfiles returns the profiles this module is excluded from.
+func (m Module) ExcludeProfiles() collectionx.Set[Profile] {
+	if m.spec == nil {
+		return collectionx.NewSet[Profile]()
+	}
+	return m.spec.excludeProfiles.Clone()
+}
+
+// Disabled reports whether the module is disabled.
+func (m Module) Disabled() bool {
+	return m.spec != nil && m.spec.disabled
 }
 
 // Imports returns the imported modules.

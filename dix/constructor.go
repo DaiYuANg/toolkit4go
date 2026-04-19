@@ -2,6 +2,7 @@ package dix
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/DaiYuANg/arcgo/pkg/option"
 )
@@ -14,9 +15,10 @@ func NewDefault(opts ...AppOption) *App {
 // New creates an immutable application specification.
 func New(name string, opts ...AppOption) *App {
 	spec := &appSpec{
-		meta:    AppMeta{Name: name},
-		profile: ProfileDefault,
-		logger:  defaultLogger(),
+		meta:           AppMeta{Name: name},
+		profile:        ProfileDefault,
+		logger:         defaultLogger(),
+		runStopTimeout: DefaultRunStopTimeout,
 	}
 
 	option.Apply(spec, opts...)
@@ -66,6 +68,20 @@ func WithAppDescription(description string) AppOption {
 // AppDescription sets application description metadata.
 func AppDescription(description string) AppOption {
 	return WithAppDescription(description)
+}
+
+// WithRunStopTimeout sets the graceful shutdown timeout used by RunContext and Run.
+//
+// A non-positive timeout disables the automatic shutdown timeout.
+func WithRunStopTimeout(timeout time.Duration) AppOption {
+	return func(spec *appSpec) {
+		spec.runStopTimeout = timeout
+	}
+}
+
+// RunStopTimeout sets the graceful shutdown timeout used by RunContext and Run.
+func RunStopTimeout(timeout time.Duration) AppOption {
+	return WithRunStopTimeout(timeout)
 }
 
 // WithLogger sets the framework slog logger.

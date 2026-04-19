@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -364,6 +365,121 @@ func TestApp_RunContextStartsAndStopsRuntime(t *testing.T) {
 	}
 }
 
+func TestApp_RunContextStopUsesConfiguredTimeout(t *testing.T) {
+	started := make(chan struct{}, 1)
+	stopErr := make(chan error, 1)
+
+	app := dix.New("run-context-stop-timeout",
+		dix.RunStopTimeout(20*time.Millisecond),
+		dix.Modules(
+			dix.NewModule("run-context-stop-timeout",
+				dix.Hooks(
+					dix.OnStart0(func(context.Context) error {
+						started <- struct{}{}
+						return nil
+					}),
+					dix.OnStop0(func(ctx context.Context) error {
+						<-ctx.Done()
+						err := ctx.Err()
+						stopErr <- err
+						return fmt.Errorf("stop timeout: %w", err)
+					}),
+				),
+			),
+		),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- app.RunContext(ctx)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("run context did not start runtime")
+	}
+
+	cancel()
+
+	select {
+	case err := <-stopErr:
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(2 * time.Second):
+		t.Fatal("stop hook did not receive timeout")
+	}
+
+	select {
+	case err := <-errCh:
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(2 * time.Second):
+		t.Fatal("run context did not return")
+	}
+}
+
+func TestApp_RunContextStopTimeoutCanBeDisabled(t *testing.T) {
+	started := make(chan struct{}, 1)
+	stopped := make(chan struct{}, 1)
+
+	app := dix.New("run-context-stop-timeout-disabled",
+		dix.WithRunStopTimeout(0),
+		dix.Modules(
+			dix.NewModule("run-context-stop-timeout-disabled",
+				dix.Hooks(
+					dix.OnStart0(func(context.Context) error {
+						started <- struct{}{}
+						return nil
+					}),
+					dix.OnStop0(func(ctx context.Context) error {
+						if _, ok := ctx.Deadline(); ok {
+							return context.DeadlineExceeded
+						}
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						default:
+						}
+						stopped <- struct{}{}
+						return nil
+					}),
+				),
+			),
+		),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- app.RunContext(ctx)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("run context did not start runtime")
+	}
+
+	cancel()
+
+	select {
+	case <-stopped:
+	case <-time.After(2 * time.Second):
+		t.Fatal("run context did not stop runtime")
+	}
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("run context did not return")
+	}
+}
+
 func TestApp_ShortOptionAliases(t *testing.T) {
 	app := dix.New("aliases",
 		dix.UseProfile(dix.ProfileDev),
@@ -374,6 +490,7 @@ func TestApp_ShortOptionAliases(t *testing.T) {
 	assert.Equal(t, dix.ProfileDev, app.Profile())
 	assert.Equal(t, "1.2.3", app.Meta().Version)
 	assert.NotNil(t, app.Logger())
+	assert.Equal(t, dix.DefaultRunStopTimeout, app.RunStopTimeout())
 	assert.Equal(t, 2, app.Modules().Len())
 
 	rt := buildRuntime(t, app)

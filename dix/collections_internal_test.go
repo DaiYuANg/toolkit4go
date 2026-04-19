@@ -37,6 +37,34 @@ func TestNewModule_StoresCollectionBackedSpec(t *testing.T) {
 	assert.True(t, mod.spec.excludeProfiles.Contains(ProfileTest))
 	assert.Equal(t, 1, mod.spec.excludeProfiles.Len())
 	assert.Equal(t, []string{"http", "core"}, mod.Tags().Values())
+	assert.True(t, mod.Profiles().Contains(ProfileDev))
+	assert.True(t, mod.Profiles().Contains(ProfileProd))
+	assert.True(t, mod.ExcludeProfiles().Contains(ProfileTest))
+	assert.False(t, mod.Disabled())
+}
+
+func TestModule_AccessorsReturnDefensiveCollections(t *testing.T) {
+	dependency := NewModule("dependency")
+	mod := NewModule("feature",
+		WithModuleImports(dependency),
+		WithModuleProfiles(ProfileDev),
+		WithModuleExcludeProfiles(ProfileProd),
+		WithModuleTags("http"),
+		WithModuleDisabled(true),
+	)
+
+	mod.Tags().Add("mutated")
+	mod.Profiles().Add(ProfileTest)
+	mod.ExcludeProfiles().Add(ProfileDefault)
+	mod.Imports().Add(NewModule("mutated"))
+
+	assert.Equal(t, []string{"http"}, mod.Tags().Values())
+	assert.True(t, mod.Profiles().Contains(ProfileDev))
+	assert.False(t, mod.Profiles().Contains(ProfileTest))
+	assert.True(t, mod.ExcludeProfiles().Contains(ProfileProd))
+	assert.False(t, mod.ExcludeProfiles().Contains(ProfileDefault))
+	assert.Equal(t, 1, mod.Imports().Len())
+	assert.True(t, mod.Disabled())
 }
 
 func TestWithDebugNamedServiceDependencies_Deduplicates(t *testing.T) {
@@ -150,4 +178,20 @@ func TestWalkModules_DetectsImportCycle(t *testing.T) {
 	assert.Contains(t, err.Error(), "module import cycle detected")
 	assert.Contains(t, err.Error(), "left")
 	assert.Contains(t, err.Error(), "right")
+}
+
+func TestProfileFilter_FilterModulesEReturnsFlattenErrors(t *testing.T) {
+	left := &moduleSpec{name: "left"}
+	right := &moduleSpec{name: "right"}
+
+	left.imports.Add(Module{spec: right})
+	right.imports.Add(Module{spec: left})
+
+	filter := NewProfileFilter(ProfileDefault)
+	filtered, err := filter.FilterModulesE(collectionx.NewList(Module{spec: left}))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "module import cycle detected")
+	assert.True(t, filtered.IsEmpty())
+	assert.True(t, filter.FilterModules(collectionx.NewList(Module{spec: left})).IsEmpty())
 }

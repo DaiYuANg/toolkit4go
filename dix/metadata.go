@@ -34,7 +34,7 @@ type validationState struct {
 	warnings *collectionlist.List[ValidationWarning]
 }
 
-func newValidationState(includeDefaultLogger bool, includeDefaultAppMeta bool, includeDefaultProfile bool) *validationState {
+func newValidationState(includeDefaultLogger, includeDefaultAppMeta, includeDefaultProfile bool) *validationState {
 	known := collectionset.NewSetWithCapacity[string](64)
 	if includeDefaultLogger {
 		known.Add(serviceNameOf[*slog.Logger]())

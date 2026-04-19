@@ -1,3 +1,5 @@
+//revive:disable:file-length-limit Core behavior tests intentionally keep related scenarios in one file.
+
 package dix_test
 
 import (

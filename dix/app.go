@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/oops"
@@ -16,8 +17,12 @@ import (
 // AppOption configures an App specification during construction.
 type AppOption func(*appSpec)
 
-// DefaultAppName is the fallback name used by NewDefault.
-const DefaultAppName = "dix application"
+const (
+	// DefaultAppName is the fallback name used by NewDefault.
+	DefaultAppName = "dix application"
+	// DefaultRunStopTimeout is the default graceful shutdown timeout for RunContext and Run.
+	DefaultRunStopTimeout = 30 * time.Second
+)
 
 // Modules appends application modules.
 func Modules(modules ...Module) AppOption {
@@ -117,6 +122,14 @@ func (a *App) Meta() AppMeta {
 	return a.spec.meta
 }
 
+// RunStopTimeout returns the graceful shutdown timeout used by RunContext and Run.
+func (a *App) RunStopTimeout() time.Duration {
+	if a == nil || a.spec == nil {
+		return 0
+	}
+	return a.spec.runStopTimeout
+}
+
 // Modules returns the configured application modules.
 func (a *App) Modules() collectionx.List[Module] {
 	if a == nil || a.spec == nil {
@@ -156,6 +169,7 @@ func (a *App) Start(ctx context.Context) (*Runtime, error) {
 
 // RunContext builds a Runtime, starts it, waits for the context to finish, and stops it.
 func (a *App) RunContext(ctx context.Context) error {
+	ctx = contextOrBackground(ctx)
 	rt, err := a.Start(ctx)
 	if err != nil {
 		return err
@@ -163,7 +177,8 @@ func (a *App) RunContext(ctx context.Context) error {
 
 	<-ctx.Done()
 
-	stopCtx := context.WithoutCancel(ctx)
+	stopCtx, cancel := a.runStopContext(ctx)
+	defer cancel()
 	if err := rt.Stop(stopCtx); err != nil {
 		return oops.In("dix").
 			With("op", "run_context_stop", "app", a.Name()).
@@ -171,6 +186,15 @@ func (a *App) RunContext(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (a *App) runStopContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	stopCtx := context.WithoutCancel(contextOrBackground(ctx))
+	timeout := a.RunStopTimeout()
+	if timeout <= 0 {
+		return stopCtx, func() {}
+	}
+	return context.WithTimeout(stopCtx, timeout)
 }
 
 // Run builds a Runtime, starts it, waits for shutdown signals, and stops it.

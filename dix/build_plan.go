@@ -5,12 +5,10 @@ package dix
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
-	"github.com/samber/do/v2"
 	"github.com/samber/oops"
 )
 
@@ -53,29 +51,49 @@ func newUnvalidatedBuildPlan(ctx context.Context, app *App) (*buildPlan, error) 
 }
 
 func resolveBuildProfile(ctx context.Context, app *App) (Profile, error) {
-	if app == nil || app.spec == nil {
-		return "", oops.In("dix").
-			With("op", "resolve_build_profile").
-			New("app is nil")
+	if err := validateProfileResolutionApp(app); err != nil {
+		return "", err
 	}
 	if app.spec.profileConfigured {
 		return app.spec.profile, nil
 	}
 
-	modules, err := flattenProfileBootstrapModuleList(&app.spec.modules)
+	plan, err := newProfileBootstrapPlan(app)
 	if err != nil {
 		return "", err
-	}
-
-	plan := &buildPlan{
-		spec:    app.spec,
-		modules: modules,
-		profile: app.spec.profile,
 	}
 	if !plan.declaresProviderOutput(TypedService[Profile]()) {
 		return app.spec.profile, nil
 	}
+	if reportErr := validateTypedGraphReport(plan).Err(); reportErr != nil {
+		return "", reportErr
+	}
 
+	return resolveDeclaredBuildProfile(ctx, app, plan)
+}
+
+func validateProfileResolutionApp(app *App) error {
+	if app == nil || app.spec == nil {
+		return oops.In("dix").
+			With("op", "resolve_build_profile").
+			New("app is nil")
+	}
+	return nil
+}
+
+func newProfileBootstrapPlan(app *App) (*buildPlan, error) {
+	modules, err := flattenProfileBootstrapModuleList(&app.spec.modules)
+	if err != nil {
+		return nil, err
+	}
+	return &buildPlan{
+		spec:    app.spec,
+		modules: modules,
+		profile: app.spec.profile,
+	}, nil
+}
+
+func resolveDeclaredBuildProfile(ctx context.Context, app *App, plan *buildPlan) (Profile, error) {
 	rt := newRuntime(app.spec, plan)
 	plan.registerRuntimeCoreServices(rt)
 	plan.registerProviders(ctx, rt, false)
@@ -161,218 +179,6 @@ func (p *buildPlan) emitBuildResult(ctx context.Context, rt *Runtime, duration t
 	})
 }
 
-func (p *buildPlan) prepareFrameworkConfig(ctx context.Context, rt *Runtime) (bool, error) {
-	if rt == nil || rt.container == nil {
-		return false, oops.In("dix").
-			With("op", "prepare_framework_config").
-			New("runtime container is nil")
-	}
-
-	declaresSlogLogger := p.declaresProviderOutput(TypedService[*slog.Logger]())
-	declaresEventLogger := p.declaresProviderOutput(TypedService[EventLogger]())
-	declaresAppMeta := p.declaresProviderOutput(TypedService[AppMeta]())
-	declaresProfile := p.declaresProviderOutput(TypedService[Profile]())
-	declaresObserver := p.declaresProviderOutput(TypedService[Observer]())
-	declaresObserverSlice := p.declaresProviderOutput(TypedService[[]Observer]())
-	needsProviderRegistration := p.needsFrameworkConfig(
-		declaresSlogLogger,
-		declaresEventLogger,
-		declaresAppMeta,
-		declaresProfile,
-		declaresObserver,
-		declaresObserverSlice,
-	)
-	if !needsProviderRegistration {
-		return false, nil
-	}
-
-	p.registerProviders(ctx, rt, false)
-
-	if declaresProfile {
-		p.applyRuntimeProfile(rt)
-	}
-
-	if p.spec.loggerConfigured {
-		p.applyConfiguredLogger(rt)
-	} else if p.spec.loggerFromContainer != nil {
-		if err := p.applyResolvedLogger(rt); err != nil {
-			return true, err
-		}
-	} else if declaresSlogLogger {
-		if err := p.applyDeclaredSlogLogger(rt); err != nil {
-			return true, err
-		}
-	}
-
-	if p.spec.eventLoggerFromContainer != nil {
-		if err := p.applyResolvedEventLogger(rt); err != nil {
-			return true, err
-		}
-	} else if !p.spec.eventLoggerConfigured && declaresEventLogger {
-		if err := p.applyDeclaredEventLogger(rt); err != nil {
-			return true, err
-		}
-	}
-
-	if declaresAppMeta {
-		if err := p.applyDeclaredAppMeta(rt); err != nil {
-			return true, err
-		}
-	}
-
-	if !p.spec.observersConfigured && (declaresObserver || declaresObserverSlice) {
-		if err := p.applyDeclaredObservers(rt, declaresObserver, declaresObserverSlice); err != nil {
-			return true, err
-		}
-	}
-
-	return true, nil
-}
-
-func (p *buildPlan) needsFrameworkConfig(
-	declaresSlogLogger bool,
-	declaresEventLogger bool,
-	declaresAppMeta bool,
-	declaresProfile bool,
-	declaresObserver bool,
-	declaresObserverSlice bool,
-) bool {
-	return p != nil &&
-		p.spec != nil &&
-		(p.spec.eventLoggerFromContainer != nil ||
-			p.spec.loggerFromContainer != nil ||
-			declaresSlogLogger ||
-			(!p.spec.eventLoggerConfigured && declaresEventLogger) ||
-			declaresAppMeta ||
-			declaresProfile ||
-			(!p.spec.observersConfigured && (declaresObserver || declaresObserverSlice)))
-}
-
-func (p *buildPlan) applyResolvedEventLogger(rt *Runtime) error {
-	resolvedEventLogger, err := p.resolveFrameworkEventLogger(rt)
-	if err != nil {
-		return err
-	}
-	rt.eventLogger = resolvedEventLogger
-	rt.container.eventLogger = resolvedEventLogger
-	rt.lifecycle.eventLogger = resolvedEventLogger
-	return nil
-}
-
-func (p *buildPlan) applyDeclaredEventLogger(rt *Runtime) error {
-	resolvedEventLogger, err := ResolveAs[EventLogger](rt.container)
-	if err != nil {
-		return oops.In("dix").
-			With("op", "resolve_declared_event_logger", "app", rt.Name(), "service", serviceNameOf[EventLogger]()).
-			Wrapf(err, "resolve declared event logger failed")
-	}
-	if resolvedEventLogger == nil {
-		return oops.In("dix").
-			With("op", "resolve_declared_event_logger", "app", rt.Name(), "service", serviceNameOf[EventLogger]()).
-			New("resolve declared event logger failed: provider returned nil event logger")
-	}
-	rt.eventLogger = resolvedEventLogger
-	rt.container.eventLogger = resolvedEventLogger
-	rt.lifecycle.eventLogger = resolvedEventLogger
-	return nil
-}
-
-func (p *buildPlan) applyDeclaredAppMeta(rt *Runtime) error {
-	resolvedMeta, err := ResolveAs[AppMeta](rt.container)
-	if err != nil {
-		return oops.In("dix").
-			With("op", "resolve_declared_app_meta", "app", rt.Name(), "service", serviceNameOf[AppMeta]()).
-			Wrapf(err, "resolve declared app meta failed")
-	}
-
-	meta := rt.Meta()
-	if meta.Name == "" {
-		meta.Name = resolvedMeta.Name
-	}
-	if !p.spec.versionConfigured {
-		meta.Version = resolvedMeta.Version
-	}
-	if !p.spec.descriptionConfigured {
-		meta.Description = resolvedMeta.Description
-	}
-
-	rt.spec.meta = meta
-	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[AppMeta](), meta)
-	return nil
-}
-
-func (p *buildPlan) applyRuntimeProfile(rt *Runtime) {
-	if rt == nil || rt.container == nil || rt.spec == nil {
-		return
-	}
-	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[Profile](), rt.spec.profile)
-}
-
-func (p *buildPlan) applyDeclaredObservers(rt *Runtime, declaresObserver, declaresObserverSlice bool) error {
-	observers := make([]Observer, 0, 1)
-	if declaresObserver {
-		observer, err := ResolveAs[Observer](rt.container)
-		if err != nil {
-			return oops.In("dix").
-				With("op", "resolve_declared_observer", "app", rt.Name(), "service", serviceNameOf[Observer]()).
-				Wrapf(err, "resolve declared observer failed")
-		}
-		if observer != nil {
-			observers = append(observers, observer)
-		}
-	}
-	if declaresObserverSlice {
-		resolvedObservers, err := ResolveAs[[]Observer](rt.container)
-		if err != nil {
-			return oops.In("dix").
-				With("op", "resolve_declared_observers", "app", rt.Name(), "service", serviceNameOf[[]Observer]()).
-				Wrapf(err, "resolve declared observers failed")
-		}
-		for _, observer := range resolvedObservers {
-			if observer != nil {
-				observers = append(observers, observer)
-			}
-		}
-	}
-	if len(observers) > 0 {
-		rt.spec.observers = append(rt.spec.observers, observers...)
-	}
-	return nil
-}
-
-func (p *buildPlan) applyResolvedLogger(rt *Runtime) error {
-	resolvedLogger, err := p.resolveFrameworkLogger(rt)
-	if err != nil {
-		return err
-	}
-	p.applyRuntimeLogger(rt, resolvedLogger)
-	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[*slog.Logger](), resolvedLogger)
-	return nil
-}
-
-func (p *buildPlan) applyConfiguredLogger(rt *Runtime) {
-	if rt == nil || rt.container == nil || rt.spec == nil || rt.spec.logger == nil {
-		return
-	}
-	p.applyRuntimeLogger(rt, rt.spec.logger)
-	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[*slog.Logger](), rt.spec.logger)
-}
-
-func (p *buildPlan) applyRuntimeLogger(rt *Runtime, logger *slog.Logger) {
-	if rt == nil || logger == nil {
-		return
-	}
-	rt.logger = logger
-	rt.container.logger = logger
-	rt.lifecycle.logger = logger
-	if p == nil || p.spec == nil || p.spec.eventLogger == nil {
-		resolvedEventLogger := NewSlogEventLogger(logger)
-		rt.eventLogger = resolvedEventLogger
-		rt.container.eventLogger = resolvedEventLogger
-		rt.lifecycle.eventLogger = resolvedEventLogger
-	}
-}
-
 func cleanupBuildFailure(ctx context.Context, rt *Runtime, buildErr error) error {
 	if rt == nil || rt.container == nil {
 		return buildErr
@@ -402,21 +208,6 @@ func (p *buildPlan) logBuildStart(ctx context.Context, rt *Runtime, infoEnabled,
 	}
 }
 
-func (p *buildPlan) registerRuntimeCoreServices(rt *Runtime) {
-	if rt == nil || rt.container == nil || rt.spec == nil {
-		return
-	}
-	if !p.declaresProviderOutput(TypedService[*slog.Logger]()) {
-		ProvideValueT[*slog.Logger](rt.container, rt.logger)
-	}
-	if !p.declaresProviderOutput(TypedService[AppMeta]()) {
-		ProvideValueT[AppMeta](rt.container, rt.spec.meta)
-	}
-	if !p.declaresProviderOutput(TypedService[Profile]()) {
-		ProvideValueT[Profile](rt.container, rt.spec.profile)
-	}
-}
-
 func (p *buildPlan) declaresProviderOutput(ref ServiceRef) bool {
 	if p == nil || p.modules == nil || ref.Name == "" {
 		return false
@@ -427,66 +218,6 @@ func (p *buildPlan) declaresProviderOutput(ref ServiceRef) bool {
 		})
 	})
 	return found
-}
-
-func (p *buildPlan) applyDeclaredSlogLogger(rt *Runtime) error {
-	logger, err := ResolveAs[*slog.Logger](rt.container)
-	if err != nil {
-		return oops.In("dix").
-			With("op", "resolve_declared_slog_logger", "app", rt.Name(), "service", serviceNameOf[*slog.Logger]()).
-			Wrapf(err, "resolve declared slog logger failed")
-	}
-	if logger == nil {
-		return oops.In("dix").
-			With("op", "resolve_declared_slog_logger", "app", rt.Name(), "service", serviceNameOf[*slog.Logger]()).
-			New("resolve declared slog logger failed: provider returned nil logger")
-	}
-	p.applyRuntimeLogger(rt, logger)
-	return nil
-}
-
-func (p *buildPlan) resolveFrameworkLogger(rt *Runtime) (*slog.Logger, error) {
-	if p == nil || p.spec == nil || rt == nil || p.spec.loggerFromContainer == nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_framework_logger").
-			New("resolve framework logger failed: resolver is not configured")
-	}
-
-	logger, err := p.spec.loggerFromContainer(rt.container)
-	if err != nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_framework_logger", "app", rt.Name()).
-			Wrapf(err, "resolve framework logger failed")
-	}
-	if logger == nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_framework_logger", "app", rt.Name()).
-			New("resolve framework logger failed: resolver returned nil logger")
-	}
-
-	return logger, nil
-}
-
-func (p *buildPlan) resolveFrameworkEventLogger(rt *Runtime) (EventLogger, error) {
-	if p == nil || p.spec == nil || rt == nil || p.spec.eventLoggerFromContainer == nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_framework_event_logger").
-			New("resolve framework event logger failed: resolver is not configured")
-	}
-
-	logger, err := p.spec.eventLoggerFromContainer(rt.container)
-	if err != nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_framework_event_logger", "app", rt.Name()).
-			Wrapf(err, "resolve framework event logger failed")
-	}
-	if logger == nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_framework_event_logger", "app", rt.Name()).
-			New("resolve framework event logger failed: resolver returned nil event logger")
-	}
-
-	return logger, nil
 }
 
 func (p *buildPlan) registerProviders(ctx context.Context, rt *Runtime, debugEnabled bool) {
