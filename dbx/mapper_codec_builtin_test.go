@@ -95,7 +95,7 @@ func TestBuiltInUnixMilliTimeCodecScanAndEncode(t *testing.T) {
 	schema := MustSchema("time_codec_records", timeCodecSchema{})
 	mapper := MustMapper[timeCodecRecord](schema)
 
-	items, err := QueryAll(
+	items, err := QueryAll[timeCodecRecord](
 		context.Background(),
 		New(sqlDB, testSQLiteDialect{}),
 		Select(AllColumns(schema).Values()...).From(schema),
@@ -131,7 +131,7 @@ func TestBuiltInTextCodecScanAndEncode(t *testing.T) {
 	schema := MustSchema("text_codec_records", textCodecSchema{})
 	mapper := MustMapper[textCodecRecord](schema)
 
-	items, err := QueryAll(
+	items, err := QueryAll[textCodecRecord](
 		context.Background(),
 		New(sqlDB, testSQLiteDialect{}),
 		Select(AllColumns(schema).Values()...).From(schema),

@@ -11,7 +11,7 @@ type schemaColumnSelectItem struct {
 
 // AllColumns returns a select list for every column exposed by a schema.
 func AllColumns(schema schemax.Resource) collectionx.List[SelectItem] {
-	return collectionx.MapList(schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) SelectItem {
+	return collectionx.MapList[schemax.ColumnMeta, SelectItem](schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) SelectItem {
 		return schemaColumnSelectItem{meta: schemax.CloneColumnMeta(column)}
 	})
 }

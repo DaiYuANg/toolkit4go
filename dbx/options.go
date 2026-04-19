@@ -73,12 +73,12 @@ func WithLogger(logger *slog.Logger) Option {
 // WithHooks appends hooks that run before/after each operation (query, exec, begin/commit/rollback, etc.).
 // Hooks are additive; pass multiple or call WithHooks multiple times to combine.
 func WithHooks(hooks ...Hook) Option {
-	return WithHooksList(collectionx.NewList(hooks...))
+	return WithHooksList(collectionx.NewList[Hook](hooks...))
 }
 
 // WithHooksList appends hooks from a collectionx.List.
 func WithHooksList(hooks collectionx.List[Hook]) Option {
-	filtered := collectionx.FilterList(hooks, func(_ int, hook Hook) bool {
+	filtered := collectionx.FilterList[Hook](hooks, func(_ int, hook Hook) bool {
 		return hook != nil
 	})
 	return func(opts *options) {
@@ -116,12 +116,12 @@ func WithNodeID(nodeID uint16) Option {
 }
 
 func applyOptions(opts ...Option) (options, error) {
-	return applyOptionsList(collectionx.NewList(opts...))
+	return applyOptionsList(collectionx.NewList[Option](opts...))
 }
 
 func applyOptionsList(opts collectionx.List[Option]) (options, error) {
 	config := defaultOptions()
-	filtered := collectionx.FilterList(opts, func(_ int, opt Option) bool {
+	filtered := collectionx.FilterList[Option](opts, func(_ int, opt Option) bool {
 		return opt != nil
 	})
 	filtered.Range(func(_ int, opt Option) bool {

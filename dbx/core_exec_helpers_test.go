@@ -34,7 +34,7 @@ func collectUserSummaryCursor(t *testing.T, cursor Cursor[UserSummary]) []UserSu
 func collectUserSummaryEach(t *testing.T, core *DB, query *querydsl.SelectQuery, mapper StructMapper[UserSummary]) []UserSummary {
 	t.Helper()
 	var items []UserSummary
-	QueryEach(context.Background(), core, query, mapper)(func(item UserSummary, err error) bool {
+	QueryEach[UserSummary](context.Background(), core, query, mapper)(func(item UserSummary, err error) bool {
 		if err != nil {
 			t.Fatalf("QueryEach yielded error: %v", err)
 		}

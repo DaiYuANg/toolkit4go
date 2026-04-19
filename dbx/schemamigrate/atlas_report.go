@@ -58,7 +58,7 @@ func atlasApplyAddTableChange(diffs collectionx.OrderedMap[string, *schemax.Tabl
 	if compiledTable.spec.PrimaryKey != nil {
 		diff.PrimaryKeyDiff = &schemax.PrimaryKeyDiff{
 			Expected: new(schemax.ClonePrimaryKeyMeta(*compiledTable.spec.PrimaryKey)),
-			Issues:   collectionx.NewList("table does not exist"),
+			Issues:   collectionx.NewList[string]("table does not exist"),
 		}
 	}
 }

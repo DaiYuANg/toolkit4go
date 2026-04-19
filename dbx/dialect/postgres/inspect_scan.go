@@ -56,7 +56,7 @@ func scanPostgresIndex(rows *sql.Rows) (schemax.IndexState, bool, error) {
 
 	return schemax.IndexState{
 		Name:    name,
-		Columns: collectionx.NewList(parseIndexColumns(definition)...),
+		Columns: collectionx.NewList[string](parseIndexColumns(definition)...),
 		Unique:  strings.Contains(upperDefinition, "CREATE UNIQUE INDEX"),
 	}, false, nil
 }
@@ -76,8 +76,8 @@ func scanPostgresForeignKey(rows *sql.Rows) (string, schemax.ForeignKeyState, er
 	return name, schemax.ForeignKeyState{
 		Name:          name,
 		TargetTable:   targetTable,
-		Columns:       collectionx.NewList(column),
-		TargetColumns: collectionx.NewList(targetColumn),
+		Columns:       collectionx.NewList[string](column),
+		TargetColumns: collectionx.NewList[string](targetColumn),
 		OnDelete:      referentialAction(deleteRule),
 		OnUpdate:      referentialAction(updateRule),
 	}, nil
@@ -98,7 +98,7 @@ func postgresPrimaryKeyState(name string, columns []string) *schemax.PrimaryKeyS
 	if len(columns) == 0 {
 		return nil
 	}
-	return &schemax.PrimaryKeyState{Name: name, Columns: collectionx.NewList(columns...)}
+	return &schemax.PrimaryKeyState{Name: name, Columns: collectionx.NewList[string](columns...)}
 }
 
 func postgresPrimaryColumn(columns map[string]struct{}, name string) bool {

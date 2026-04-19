@@ -128,7 +128,7 @@ func indexVersionedSQLMigrations(source FileSource) (map[int64]SQLMigration, err
 		return nil, err
 	}
 
-	byVersion, err := collectionx.ReduceErrList(loaded, make(map[int64]SQLMigration, loaded.Len()), func(result map[int64]SQLMigration, _ int, migration loadedSQLMigration) (map[int64]SQLMigration, error) {
+	byVersion, err := collectionx.ReduceErrList[loadedSQLMigration, map[int64]SQLMigration](loaded, make(map[int64]SQLMigration, loaded.Len()), func(result map[int64]SQLMigration, _ int, migration loadedSQLMigration) (map[int64]SQLMigration, error) {
 		if migration.Repeatable {
 			return result, nil
 		}
@@ -205,7 +205,7 @@ func validatePendingStatus(
 }
 
 func pendingRepeatableMigrations(repeatables collectionx.List[loadedSQLMigration], indexed map[string]AppliedRecord) collectionx.List[SQLMigration] {
-	return collectionx.FilterMapList(repeatables, func(_ int, migration loadedSQLMigration) (SQLMigration, bool) {
+	return collectionx.FilterMapList[loadedSQLMigration, SQLMigration](repeatables, func(_ int, migration loadedSQLMigration) (SQLMigration, bool) {
 		key := appliedRecordKey(migration.kind, migration.Version, migration.Description)
 		record, ok := indexed[key]
 		if ok && record.Checksum == migration.checksum {

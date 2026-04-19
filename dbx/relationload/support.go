@@ -50,7 +50,7 @@ func targetColumnFromSpec(spec schemax.TableSpec, meta schemax.RelationMeta) (sc
 }
 
 func columnFromSpec(spec schemax.TableSpec, name, role, relationName string) (schemax.ColumnMeta, error) {
-	column, ok := collectionx.FindList(spec.Columns, func(_ int, column schemax.ColumnMeta) bool {
+	column, ok := collectionx.FindList[schemax.ColumnMeta](spec.Columns, func(_ int, column schemax.ColumnMeta) bool {
 		return column.Name == name
 	})
 	if !ok {
@@ -60,7 +60,7 @@ func columnFromSpec(spec schemax.TableSpec, name, role, relationName string) (sc
 }
 
 func allSelectItems(columns collectionx.List[schemax.ColumnMeta]) collectionx.List[querydsl.SelectItem] {
-	return collectionx.MapList(columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
+	return collectionx.MapList[schemax.ColumnMeta, querydsl.SelectItem](columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
 		return columnSelectItem{meta: column}
 	})
 }
@@ -78,7 +78,7 @@ func relationTargetOrders(spec schemax.TableSpec, targetColumn schemax.ColumnMet
 }
 
 func columnMetaByName(columns collectionx.List[schemax.ColumnMeta], name string) (schemax.ColumnMeta, bool) {
-	return collectionx.FindList(columns, func(_ int, column schemax.ColumnMeta) bool {
+	return collectionx.FindList[schemax.ColumnMeta](columns, func(_ int, column schemax.ColumnMeta) bool {
 		return column.Name == name
 	})
 }
@@ -102,7 +102,7 @@ func chunkRelationKeys(keys collectionx.List[any], chunkSize int) collectionx.Li
 		return collectionx.NewList[collectionx.List[any]]()
 	}
 	if chunkSize <= 0 || keys.Len() <= chunkSize {
-		return collectionx.NewList(keys.Clone())
+		return collectionx.NewList[collectionx.List[any]](keys.Clone())
 	}
 
 	chunks := collectionx.NewListWithCapacity[collectionx.List[any]]((keys.Len() + chunkSize - 1) / chunkSize)

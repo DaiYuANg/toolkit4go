@@ -91,7 +91,7 @@ func TestStructMapperScansCodecFields(t *testing.T) {
 	defer cleanup()
 
 	accounts := MustSchema("codec_accounts", codecSchema{})
-	items, err := QueryAll(
+	items, err := QueryAll[codecRecord](
 		context.Background(),
 		New(sqlDB, testSQLiteDialect{}),
 		Select(AllColumns(accounts).Values()...).From(accounts),
@@ -186,7 +186,7 @@ func TestStructMapperWithOptionsUsesScopedCodecRegistry(t *testing.T) {
 		t.Fatalf("NewStructMapperWithOptions returned error: %v", err)
 	}
 
-	items, err := QueryAll(
+	items, err := QueryAll[scopedCodecRecord](
 		context.Background(),
 		New(sqlDB, testSQLiteDialect{}),
 		Select(AllColumns(schema).Values()...).From(schema),

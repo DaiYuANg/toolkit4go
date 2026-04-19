@@ -33,7 +33,7 @@ func (tx *Tx) Dialect() dialect.Dialect {
 }
 
 func (tx *Tx) Bound(rawSQL string, args ...any) sqlstmt.Bound {
-	return sqlstmt.Bound{SQL: rawSQL, Args: collectionx.NewList(args...)}
+	return sqlstmt.Bound{SQL: rawSQL, Args: collectionx.NewList[any](args...)}
 }
 
 func (tx *Tx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
@@ -85,7 +85,7 @@ func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *R
 			With("op", "query_row", "scope", "tx").
 			Wrapf(ErrNilSQLDB, "validate sql tx"))
 	}
-	ctx, event, err := tx.observe.before(ctx, HookEvent{Operation: OperationQueryRow, SQL: query, Args: collectionx.NewList(args...)})
+	ctx, event, err := tx.observe.before(ctx, HookEvent{Operation: OperationQueryRow, SQL: query, Args: collectionx.NewList[any](args...)})
 	if err != nil {
 		tx.observe.after(ctx, event)
 		return errorRow(err)

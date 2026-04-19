@@ -34,7 +34,7 @@ func Like[E any](column Column[E, string], pattern string) querydsl.Predicate {
 }
 
 func AllColumns(schema SchemaResource) collectionx.List[querydsl.SelectItem] {
-	return collectionx.MapList(schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
+	return collectionx.MapList[schemax.ColumnMeta, querydsl.SelectItem](schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
 		return columnx.Named[any](schema, column.Name)
 	})
 }
@@ -78,15 +78,15 @@ func NewStructMapperWithOptions[E any](opts ...MapperOption) (StructMapper[E], e
 }
 
 func NewPageResult[E any](items collectionx.List[E], total int64, request PageRequest) PageResult[E] {
-	return paging.NewResult(items, total, request)
+	return paging.NewResult[E](items, total, request)
 }
 
 func MapPageResult[E any, R any](result PageResult[E], mapper func(index int, item E) R) PageResult[R] {
-	return paging.MapResult(result, mapper)
+	return paging.MapResult[E, R](result, mapper)
 }
 
 func QueryAll[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := dbx.QueryAll(ctx, session, query, mapper)
+	items, err := dbx.QueryAll[E](ctx, session, query, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all: %w", err)
 	}
@@ -94,7 +94,7 @@ func QueryAll[E any](ctx context.Context, session Session, query querydsl.Builde
 }
 
 func QueryAllList[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := dbx.QueryAllList(ctx, session, query, mapper)
+	items, err := dbx.QueryAllList[E](ctx, session, query, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all list: %w", err)
 	}
@@ -102,7 +102,7 @@ func QueryAllList[E any](ctx context.Context, session Session, query querydsl.Bu
 }
 
 func QueryAllBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := dbx.QueryAllBound(ctx, session, bound, mapper)
+	items, err := dbx.QueryAllBound[E](ctx, session, bound, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all bound: %w", err)
 	}
@@ -110,7 +110,7 @@ func QueryAllBound[E any](ctx context.Context, session Session, bound sqlstmt.Bo
 }
 
 func QueryAllBoundList[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := dbx.QueryAllBoundList(ctx, session, bound, mapper)
+	items, err := dbx.QueryAllBoundList[E](ctx, session, bound, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all bound list: %w", err)
 	}
@@ -118,7 +118,7 @@ func QueryAllBoundList[E any](ctx context.Context, session Session, bound sqlstm
 }
 
 func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (Cursor[E], error) {
-	cursor, err := dbx.QueryCursor(ctx, session, query, mapper)
+	cursor, err := dbx.QueryCursor[E](ctx, session, query, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query cursor: %w", err)
 	}
@@ -126,7 +126,7 @@ func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Bui
 }
 
 func QueryEach[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) func(func(E, error) bool) {
-	return dbx.QueryEach(ctx, session, query, mapper)
+	return dbx.QueryEach[E](ctx, session, query, mapper)
 }
 
 func ResultColumn[T any](name string) Column[struct{}, T] {
@@ -134,7 +134,7 @@ func ResultColumn[T any](name string) Column[struct{}, T] {
 }
 
 func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (Cursor[E], error) {
-	cursor, err := dbx.SQLCursor(ctx, session, statement, params, mapper)
+	cursor, err := dbx.SQLCursor[E](ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql cursor: %w", err)
 	}
@@ -142,11 +142,11 @@ func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.So
 }
 
 func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) func(func(E, error) bool) {
-	return dbx.SQLEach(ctx, session, statement, params, mapper)
+	return dbx.SQLEach[E](ctx, session, statement, params, mapper)
 }
 
 func SQLFind[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (mo.Option[E], error) {
-	item, err := sqlexec.Find(ctx, session, statement, params, mapper)
+	item, err := sqlexec.Find[E](ctx, session, statement, params, mapper)
 	if err != nil {
 		return mo.None[E](), fmt.Errorf("sql find: %w", err)
 	}
@@ -154,7 +154,7 @@ func SQLFind[E any](ctx context.Context, session Session, statement sqlstmt.Sour
 }
 
 func SQLGet[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (E, error) {
-	item, err := sqlexec.Get(ctx, session, statement, params, mapper)
+	item, err := sqlexec.Get[E](ctx, session, statement, params, mapper)
 	if err != nil {
 		var zero E
 		return zero, fmt.Errorf("sql get: %w", err)
@@ -163,7 +163,7 @@ func SQLGet[E any](ctx context.Context, session Session, statement sqlstmt.Sourc
 }
 
 func SQLList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := sqlexec.List(ctx, session, statement, params, mapper)
+	items, err := sqlexec.List[E](ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql list: %w", err)
 	}
@@ -171,7 +171,7 @@ func SQLList[E any](ctx context.Context, session Session, statement sqlstmt.Sour
 }
 
 func SQLQueryList[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper RowsScanner[E]) (collectionx.List[E], error) {
-	items, err := sqlexec.QueryList(ctx, session, statement, params, mapper)
+	items, err := sqlexec.QueryList[E](ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql query list: %w", err)
 	}

@@ -18,7 +18,7 @@ func TestRequestNormalize(t *testing.T) {
 }
 
 func TestNewResultBuildsMetadata(t *testing.T) {
-	result := paging.NewResult(collectionx.NewList("alice"), 21, paging.Page(2, 10))
+	result := paging.NewResult[string](collectionx.NewList[string]("alice"), 21, paging.Page(2, 10))
 
 	require.EqualValues(t, 21, result.Total)
 	require.Equal(t, 1, result.Items.Len())

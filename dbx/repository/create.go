@@ -87,7 +87,7 @@ func (r *Base[E, S]) Upsert(ctx context.Context, entity *E, conflictColumns ...s
 	if targetColumns.Len() == 0 {
 		return &ValidationError{Message: "upsert requires conflict columns"}
 	}
-	targetExpressions := collectionx.MapList(targetColumns, func(_ int, column string) querydsl.Expression {
+	targetExpressions := collectionx.MapList[string, querydsl.Expression](targetColumns, func(_ int, column string) querydsl.Expression {
 		return columnx.Named[any](r.schema, column)
 	})
 	updateAssignments := upsertUpdateAssignments(r.schema, r.mapper.Fields(), targetColumns)
@@ -139,7 +139,7 @@ func upsertUpdateAssignments[S querydsl.TableSource](schema S, fields collection
 		conflictSet.Add(column)
 		return true
 	})
-	return collectionx.FilterMapList(fields, func(_ int, field mapperx.MappedField) (querydsl.Assignment, bool) {
+	return collectionx.FilterMapList[mapperx.MappedField, querydsl.Assignment](fields, func(_ int, field mapperx.MappedField) (querydsl.Assignment, bool) {
 		if conflictSet.Contains(field.Column) {
 			return nil, false
 		}

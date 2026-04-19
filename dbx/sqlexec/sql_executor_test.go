@@ -42,7 +42,7 @@ func TestSQLListScansStructMapperAndPropagatesStatementName(t *testing.T) {
 		}, nil
 	})
 
-	items, err := sqlexec.List(context.Background(), core, statement, params{Status: 1}, MustStructMapper[UserSummary]())
+	items, err := sqlexec.List[UserSummary](context.Background(), core, statement, params{Status: 1}, MustStructMapper[UserSummary]())
 	if err != nil {
 		t.Fatalf("sqlexec.List returned error: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestSQLQueryListScansStructMapper(t *testing.T) {
 		}, nil
 	})
 
-	items, err := sqlexec.QueryList(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+	items, err := sqlexec.QueryList[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 	if err != nil {
 		t.Fatalf("sqlexec.QueryList returned error: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestSQLCursorAndEach(t *testing.T) {
 	db := New(sqlDB, testSQLiteDialect{})
 	mapper := MustStructMapper[UserSummary]()
 
-	cursor, err := SQLCursor(context.Background(), db, statement, nil, mapper)
+	cursor, err := SQLCursor[UserSummary](context.Background(), db, statement, nil, mapper)
 	if err != nil {
 		t.Fatalf("SQLCursor returned error: %v", err)
 	}
@@ -186,7 +186,7 @@ func runSQLGetExpectRow(t *testing.T, statement sqlstmt.Source) {
 		)
 		defer cleanup()
 
-		item, err := sqlexec.Get(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		item, err := sqlexec.Get[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if err != nil {
 			t.Fatalf("sqlexec.Get returned error: %v", err)
 		}
@@ -200,7 +200,7 @@ func runSQLGetExpectNoRows(t *testing.T, statement sqlstmt.Source) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
 		defer cleanup()
 
-		_, err := sqlexec.Get(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		_, err := sqlexec.Get[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if !errors.Is(err, sql.ErrNoRows) {
 			t.Fatalf("expected sql.ErrNoRows, got %v", err)
 		}
@@ -213,7 +213,7 @@ func runSQLFindExpectNone(t *testing.T, statement sqlstmt.Source) {
 		sqlDB, cleanup := OpenTestSQLiteWithSchema(t)
 		defer cleanup()
 
-		result, err := sqlexec.Find(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		result, err := sqlexec.Find[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if err != nil {
 			t.Fatalf("sqlexec.Find returned error: %v", err)
 		}
@@ -232,7 +232,7 @@ func runSQLFindExpectRow(t *testing.T, statement sqlstmt.Source) {
 		)
 		defer cleanup()
 
-		result, err := sqlexec.Find(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		result, err := sqlexec.Find[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if err != nil {
 			t.Fatalf("sqlexec.Find returned error: %v", err)
 		}
@@ -253,7 +253,7 @@ func runSQLGetExpectTooManyRows(t *testing.T, statement sqlstmt.Source) {
 		)
 		defer cleanup()
 
-		_, err := sqlexec.Get(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
+		_, err := sqlexec.Get[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, MustStructMapper[UserSummary]())
 		if !errors.Is(err, sqlexec.ErrTooManyRows) {
 			t.Fatalf("expected sqlexec.ErrTooManyRows, got %v", err)
 		}
@@ -263,7 +263,7 @@ func runSQLGetExpectTooManyRows(t *testing.T, statement sqlstmt.Source) {
 func collectSQLUserSummaryEach(t *testing.T, db *DB, statement sqlstmt.Source, mapper StructMapper[UserSummary]) []UserSummary {
 	t.Helper()
 	var items []UserSummary
-	SQLEach(context.Background(), db, statement, nil, mapper)(func(item UserSummary, err error) bool {
+	SQLEach[UserSummary](context.Background(), db, statement, nil, mapper)(func(item UserSummary, err error) bool {
 		if err != nil {
 			t.Fatalf("SQLEach yielded error: %v", err)
 		}

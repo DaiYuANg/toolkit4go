@@ -3,6 +3,7 @@ package codec
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 )
 
@@ -69,9 +70,7 @@ func (r *Registry) Clone() *Registry {
 	defer r.mu.RUnlock()
 
 	cloned := newEmptyRegistry()
-	for name, codec := range r.codecs {
-		cloned.codecs[name] = codec
-	}
+	maps.Copy(cloned.codecs, r.codecs)
 	return cloned
 }
 

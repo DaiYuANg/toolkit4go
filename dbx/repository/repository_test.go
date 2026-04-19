@@ -18,7 +18,7 @@ import (
 )
 
 func allColumns(schema schemax.Resource) collectionx.List[querydsl.SelectItem] {
-	return collectionx.MapList(schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
+	return collectionx.MapList[schemax.ColumnMeta, querydsl.SelectItem](schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
 		return columnx.Named[any](schema, column.Name)
 	})
 }

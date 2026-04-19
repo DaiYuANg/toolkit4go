@@ -139,7 +139,7 @@ func BenchmarkQueryAllStructMapper(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			if _, err := QueryAll(context.Background(), core, query, mapper); err != nil {
+			if _, err := QueryAll[accountRecord](context.Background(), core, query, mapper); err != nil {
 				b.Fatalf("QueryAll returned error: %v", err)
 			}
 		}
@@ -169,7 +169,7 @@ func BenchmarkQueryAllStructMapperWithLimit(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			if _, err := QueryAll(context.Background(), core, query, mapper); err != nil {
+			if _, err := QueryAll[accountRecord](context.Background(), core, query, mapper); err != nil {
 				b.Fatalf("QueryAll returned error: %v", err)
 			}
 		}
@@ -230,7 +230,7 @@ func runInsertAssignmentBenchmark(b *testing.B, name string, reset func(), run f
 
 func benchmarkQueryCursorOnce(b *testing.B, core *DB, query *querydsl.SelectQuery, mapper StructMapper[accountRecord]) {
 	b.Helper()
-	cursor, err := QueryCursor(context.Background(), core, query, mapper)
+	cursor, err := QueryCursor[accountRecord](context.Background(), core, query, mapper)
 	if err != nil {
 		b.Fatalf("QueryCursor returned error: %v", err)
 	}

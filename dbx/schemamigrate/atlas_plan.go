@@ -216,7 +216,7 @@ func atlasSchemaDiffPlan(ctx context.Context, driver atlasmigrate.Driver, compil
 		return schemax.MigrationPlan{}, true, err
 	}
 	return schemax.MigrationPlan{
-		Actions: collectionx.NewListWithCapacity(len(actions)+len(manualActions), append(actions, manualActions...)...),
+		Actions: collectionx.NewListWithCapacity[schemax.MigrationAction](len(actions)+len(manualActions), append(actions, manualActions...)...),
 		Report:  report,
 	}, true, nil
 }

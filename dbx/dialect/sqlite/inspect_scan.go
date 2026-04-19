@@ -74,8 +74,8 @@ func scanSQLiteForeignKey(rows *sql.Rows) (int, schemax.ForeignKeyState, error) 
 
 	return id, schemax.ForeignKeyState{
 		TargetTable:   targetTable,
-		Columns:       collectionx.NewList(from),
-		TargetColumns: collectionx.NewList(to),
+		Columns:       collectionx.NewList[string](from),
+		TargetColumns: collectionx.NewList[string](to),
 		OnDelete:      referentialAction(onDelete),
 		OnUpdate:      referentialAction(onUpdate),
 	}, nil
@@ -106,7 +106,7 @@ func sqlitePrimaryKeyState(positions map[int]string) *schemax.PrimaryKeyState {
 		columns = append(columns, positions[position])
 	}
 
-	return &schemax.PrimaryKeyState{Columns: collectionx.NewList(columns...)}
+	return &schemax.PrimaryKeyState{Columns: collectionx.NewList[string](columns...)}
 }
 
 func appendSQLiteForeignKey(groups collectionx.OrderedMap[int, schemax.ForeignKeyState], id int, state schemax.ForeignKeyState) {

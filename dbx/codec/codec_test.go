@@ -1,19 +1,21 @@
-package codec
+package codec_test
 
 import (
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/DaiYuANg/arcgo/dbx/codec"
 )
 
 func TestUnknownError(t *testing.T) {
-	err := &UnknownError{Name: "csv"}
-	if !errors.Is(err, ErrUnknown) {
+	err := &codec.UnknownError{Name: "csv"}
+	if !errors.Is(err, codec.ErrUnknown) {
 		t.Fatal("errors.Is(err, ErrUnknown) should be true")
 	}
 
 	wrapped := fmt.Errorf("mapper init: %w", err)
-	var target *UnknownError
+	var target *codec.UnknownError
 	if !errors.As(wrapped, &target) {
 		t.Fatal("errors.As should succeed on wrapped error")
 	}

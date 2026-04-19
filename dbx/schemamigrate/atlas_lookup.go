@@ -53,9 +53,9 @@ func atlasForeignKeyKey(foreignKey *atlasschema.ForeignKey) string {
 		return column.Name, column != nil
 	})
 	meta := schemax.ForeignKeyMeta{
-		Columns:       collectionx.NewList(columns...),
+		Columns:       collectionx.NewList[string](columns...),
 		TargetTable:   lo.If(foreignKey.RefTable != nil, foreignKey.RefTable.Name).Else(""),
-		TargetColumns: collectionx.NewList(targetColumns...),
+		TargetColumns: collectionx.NewList[string](targetColumns...),
 		OnDelete:      schemax.ReferentialAction(foreignKey.OnDelete),
 		OnUpdate:      schemax.ReferentialAction(foreignKey.OnUpdate),
 	}
@@ -69,7 +69,7 @@ func atlasIndexColumns(index *atlasschema.Index) collectionx.List[string] {
 		}
 		return part.C.Name, true
 	})
-	return collectionx.NewList(columns...)
+	return collectionx.NewList[string](columns...)
 }
 
 func atlasPrimaryKeyState(table *atlasschema.Table) *schemax.PrimaryKeyState {

@@ -24,7 +24,7 @@ type countRow struct {
 }
 
 func (r *Base[E, S]) defaultSelect() *querydsl.SelectQuery {
-	items := collectionx.MapList(r.mapper.Fields(), func(_ int, field mapperx.MappedField) querydsl.SelectItem {
+	items := collectionx.MapList[mapperx.MappedField, querydsl.SelectItem](r.mapper.Fields(), func(_ int, field mapperx.MappedField) querydsl.SelectItem {
 		return columnx.Named[any](r.schema, field.Column)
 	})
 	return querydsl.SelectList(items).From(r.schema)

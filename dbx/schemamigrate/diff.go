@@ -30,7 +30,7 @@ func missingTableDiff(spec schemax.TableSpec) schemax.TableDiff {
 	if spec.PrimaryKey != nil {
 		diff.PrimaryKeyDiff = &schemax.PrimaryKeyDiff{
 			Expected: new(schemax.ClonePrimaryKeyMeta(*spec.PrimaryKey)),
-			Issues:   collectionx.NewList("table does not exist"),
+			Issues:   collectionx.NewList[string]("table does not exist"),
 		}
 	}
 	return diff
@@ -38,7 +38,7 @@ func missingTableDiff(spec schemax.TableSpec) schemax.TableDiff {
 
 func existingTableDiff(schemaDialect Dialect, spec schemax.TableSpec, actual schemax.TableState) schemax.TableDiff {
 	diff := newTableDiff(spec.Name)
-	actualColumns := collectionx.AssociateList(actual.Columns, func(_ int, column schemax.ColumnState) (string, schemax.ColumnState) {
+	actualColumns := collectionx.AssociateList[schemax.ColumnState, string, schemax.ColumnState](actual.Columns, func(_ int, column schemax.ColumnState) (string, schemax.ColumnState) {
 		return column.Name, column
 	})
 	diffColumns(schemaDialect, spec.Columns, actualColumns, &diff)
@@ -62,7 +62,7 @@ func diffColumns(schemaDialect Dialect, expectedColumns collectionx.List[schemax
 		if len(issues) == 0 {
 			return true
 		}
-		columnDiffs.Add(schemax.ColumnDiff{Column: expected, Issues: collectionx.NewListWithCapacity(len(issues), issues...)})
+		columnDiffs.Add(schemax.ColumnDiff{Column: expected, Issues: collectionx.NewListWithCapacity[string](len(issues), issues...)})
 		return true
 	})
 	diff.MissingColumns = missingColumns
@@ -77,7 +77,7 @@ func diffPrimaryKey(expected *schemax.PrimaryKeyMeta, actual *schemax.PrimaryKey
 	diff.PrimaryKeyDiff = &schemax.PrimaryKeyDiff{
 		Expected: clonePrimaryKeyMetaPtr(expected),
 		Actual:   clonePrimaryKeyStatePtr(actual),
-		Issues:   collectionx.NewListWithCapacity(len(issues), issues...),
+		Issues:   collectionx.NewListWithCapacity[string](len(issues), issues...),
 	}
 }
 
@@ -96,7 +96,7 @@ func clonePrimaryKeyStatePtr(state *schemax.PrimaryKeyState) *schemax.PrimaryKey
 }
 
 func diffIndexes(expected collectionx.List[schemax.IndexMeta], actual collectionx.List[schemax.IndexState], diff *schemax.TableDiff) {
-	actualIndexes := collectionx.AssociateList(actual, func(_ int, index schemax.IndexState) (string, schemax.IndexState) {
+	actualIndexes := collectionx.AssociateList[schemax.IndexState, string, schemax.IndexState](actual, func(_ int, index schemax.IndexState) (string, schemax.IndexState) {
 		return indexKey(index.Unique, index.Columns), index
 	})
 	diff.MissingIndexes = missingByKey(expected, actualIndexes, func(index schemax.IndexMeta) string {
@@ -105,14 +105,14 @@ func diffIndexes(expected collectionx.List[schemax.IndexMeta], actual collection
 }
 
 func diffForeignKeys(expected collectionx.List[schemax.ForeignKeyMeta], actual collectionx.List[schemax.ForeignKeyState], diff *schemax.TableDiff) {
-	actualForeignKeys := collectionx.AssociateList(actual, func(_ int, foreignKey schemax.ForeignKeyState) (string, schemax.ForeignKeyState) {
+	actualForeignKeys := collectionx.AssociateList[schemax.ForeignKeyState, string, schemax.ForeignKeyState](actual, func(_ int, foreignKey schemax.ForeignKeyState) (string, schemax.ForeignKeyState) {
 		return foreignKeyKeyFromState(foreignKey), foreignKey
 	})
 	diff.MissingForeignKeys = missingByKey(expected, actualForeignKeys, foreignKeyKey)
 }
 
 func diffChecks(expected collectionx.List[schemax.CheckMeta], actual collectionx.List[schemax.CheckState], diff *schemax.TableDiff) {
-	actualChecks := collectionx.AssociateList(actual, func(_ int, check schemax.CheckState) (string, schemax.CheckState) {
+	actualChecks := collectionx.AssociateList[schemax.CheckState, string, schemax.CheckState](actual, func(_ int, check schemax.CheckState) (string, schemax.CheckState) {
 		return checkKey(check.Expression), check
 	})
 	diff.MissingChecks = missingByKey(expected, actualChecks, func(check schemax.CheckMeta) string {
@@ -121,7 +121,7 @@ func diffChecks(expected collectionx.List[schemax.CheckMeta], actual collectionx
 }
 
 func missingByKey[T any, S any](expected collectionx.List[T], actual collectionx.Map[string, S], key func(T) string) collectionx.List[T] {
-	return collectionx.FilterList(expected, func(_ int, item T) bool {
+	return collectionx.FilterList[T](expected, func(_ int, item T) bool {
 		_, ok := actual.Get(key(item))
 		return !ok
 	})

@@ -13,7 +13,7 @@ import (
 func TestBuildCreateTable(t *testing.T) {
 	bound, err := postgres.New().BuildCreateTable(schemax.TableSpec{
 		Name: "users",
-		Columns: collectionx.NewList(
+		Columns: collectionx.NewList[schemax.ColumnMeta](
 			schemax.ColumnMeta{Name: "id", Table: "users", GoType: reflect.TypeFor[int64](), PrimaryKey: true, AutoIncrement: true},
 			schemax.ColumnMeta{Name: "username", Table: "users", GoType: reflect.TypeFor[string]()},
 			schemax.ColumnMeta{Name: "email_address", Table: "users", GoType: reflect.TypeFor[string]()},
@@ -23,19 +23,19 @@ func TestBuildCreateTable(t *testing.T) {
 		PrimaryKey: &schemax.PrimaryKeyMeta{
 			Name:    "pk_users",
 			Table:   "users",
-			Columns: collectionx.NewList("id"),
+			Columns: collectionx.NewList[string]("id"),
 		},
-		ForeignKeys: collectionx.NewList(
+		ForeignKeys: collectionx.NewList[schemax.ForeignKeyMeta](
 			schemax.ForeignKeyMeta{
 				Name:          "fk_users_role_id",
 				Table:         "users",
-				Columns:       collectionx.NewList("role_id"),
+				Columns:       collectionx.NewList[string]("role_id"),
 				TargetTable:   "roles",
-				TargetColumns: collectionx.NewList("id"),
+				TargetColumns: collectionx.NewList[string]("id"),
 				OnDelete:      schemax.ReferentialCascade,
 			},
 		),
-		Checks: collectionx.NewList(
+		Checks: collectionx.NewList[schemax.CheckMeta](
 			schemax.CheckMeta{
 				Name:       "ck_users_status",
 				Table:      "users",

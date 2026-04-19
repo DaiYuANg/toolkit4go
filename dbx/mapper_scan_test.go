@@ -76,7 +76,7 @@ func TestStructMapperScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	accounts := MustSchema("accounts", accountSchema{})
 	mapper := MustStructMapper[accountRecord]()
 
-	items, err := QueryAll(context.Background(), New(sqlDB, testSQLiteDialect{}), Select(AllColumns(accounts).Values()...).From(accounts), mapper)
+	items, err := QueryAll[accountRecord](context.Background(), New(sqlDB, testSQLiteDialect{}), Select(AllColumns(accounts).Values()...).From(accounts), mapper)
 	if err != nil {
 		t.Fatalf("QueryAll returned error: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestStructMapperScanPlanMatchesQualifiedAndCaseInsensitiveColumns(t *testin
 	}
 
 	users := MustSchema("users", UserSchema{})
-	items, err := QueryAll(
+	items, err := QueryAll[aggregateRow](
 		context.Background(),
 		New(sqlDB, testSQLiteDialect{}),
 		Select(users.ID, CountAll().As("user_count")).From(users),
@@ -172,7 +172,7 @@ func TestQueryCursorScansEmbeddedPointerNullableAndScanner(t *testing.T) {
 	core := New(sqlDB, testSQLiteDialect{})
 	query := Select(AllColumns(accounts).Values()...).From(accounts)
 
-	cursor, err := QueryCursor(context.Background(), core, query, mapper)
+	cursor, err := QueryCursor[accountRecord](context.Background(), core, query, mapper)
 	if err != nil {
 		t.Fatalf("QueryCursor returned error: %v", err)
 	}
@@ -210,7 +210,7 @@ func collectAccountCursor(t *testing.T, cursor Cursor[accountRecord]) []accountR
 func collectAccountEach(t *testing.T, core *DB, query *querydsl.SelectQuery, mapper StructMapper[accountRecord]) []accountRecord {
 	t.Helper()
 	var items []accountRecord
-	QueryEach(context.Background(), core, query, mapper)(func(item accountRecord, err error) bool {
+	QueryEach[accountRecord](context.Background(), core, query, mapper)(func(item accountRecord, err error) bool {
 		if err != nil {
 			t.Fatalf("QueryEach yielded error: %v", err)
 		}

@@ -60,7 +60,7 @@ func observedQueryContext(
 		Operation: OperationQuery,
 		Statement: statement,
 		SQL:       query,
-		Args:      collectionx.NewList(args...),
+		Args:      collectionx.NewList[any](args...),
 	})
 	if err != nil {
 		observe.after(ctx, event)
@@ -87,7 +87,7 @@ func observedExecContext(
 		Operation: OperationExec,
 		Statement: statement,
 		SQL:       query,
-		Args:      collectionx.NewList(args...),
+		Args:      collectionx.NewList[any](args...),
 	})
 	if err != nil {
 		observe.after(ctx, event)

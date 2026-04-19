@@ -22,7 +22,7 @@ func loadSQLMigrations(source FileSource) (collectionx.List[loadedSQLMigration],
 		return nil, fmt.Errorf("dbx/migrate: list sql migrations: %w", err)
 	}
 
-	loaded, err := collectionx.ReduceErrList(items, collectionx.NewListWithCapacity[loadedSQLMigration](items.Len()), func(result collectionx.List[loadedSQLMigration], _ int, migration SQLMigration) (collectionx.List[loadedSQLMigration], error) {
+	loaded, err := collectionx.ReduceErrList[SQLMigration, collectionx.List[loadedSQLMigration]](items, collectionx.NewListWithCapacity[loadedSQLMigration](items.Len()), func(result collectionx.List[loadedSQLMigration], _ int, migration SQLMigration) (collectionx.List[loadedSQLMigration], error) {
 		if migration.UpPath == "" {
 			return result, nil
 		}

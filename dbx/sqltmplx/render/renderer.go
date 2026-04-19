@@ -15,7 +15,7 @@ var errIfExpressionNotBool = errors.New("sqltmplx: if expression must return boo
 
 // Render renders parsed template nodes into SQL.
 func Render(nodes []parse.Node, params any, d dialect.Contract) (Result, error) {
-	return RenderList(collectionx.NewListWithCapacity(len(nodes), nodes...), params, d)
+	return RenderList(collectionx.NewListWithCapacity[parse.Node](len(nodes), nodes...), params, d)
 }
 
 // RenderList renders parsed template nodes from a collectionx.List into SQL.

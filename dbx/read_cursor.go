@@ -66,7 +66,7 @@ func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Bui
 	if err != nil {
 		return nil, err
 	}
-	return QueryCursorBound(ctx, session, bound, mapper)
+	return QueryCursorBound[E](ctx, session, bound, mapper)
 }
 
 // QueryCursorBound executes a pre-built sqlstmt.Bound and returns a cursor. Use with Build
@@ -118,7 +118,7 @@ func QueryCursorBound[E any](ctx context.Context, session Session, bound sqlstmt
 
 func QueryEach[E any](ctx context.Context, session Session, query querydsl.Builder, mapper mapperx.RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
-		return QueryCursor(ctx, session, query, mapper)
+		return QueryCursor[E](ctx, session, query, mapper)
 	})
 }
 
@@ -131,7 +131,7 @@ func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.So
 
 	rows, err := sqlexec.New(session).Query(ctx, statement, params)
 	if err != nil {
-		return nil, err
+		return nil, wrapDBError("query sql cursor rows", err)
 	}
 
 	if cursor, ok, err := structMapperCursor(ctx, rows, mapper); ok {
@@ -156,13 +156,13 @@ func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.So
 // QueryEachBound is the sqlstmt.Bound variant of QueryEach. Use with Build for reuse.
 func QueryEachBound[E any](ctx context.Context, session Session, bound sqlstmt.Bound, mapper mapperx.RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
-		return QueryCursorBound(ctx, session, bound, mapper)
+		return QueryCursorBound[E](ctx, session, bound, mapper)
 	})
 }
 
 func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper mapperx.RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
-		return SQLCursor(ctx, session, statement, params, mapper)
+		return SQLCursor[E](ctx, session, statement, params, mapper)
 	})
 }
 

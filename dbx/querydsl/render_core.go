@@ -122,7 +122,7 @@ func (s *State) RenderTable(table Table) {
 }
 
 func (s *State) Bound() sqlstmt.Bound {
-	return sqlstmt.Bound{SQL: s.buf.String(), Args: collectionx.NewList(s.args...)}
+	return sqlstmt.Bound{SQL: s.buf.String(), Args: collectionx.NewList[any](s.args...)}
 }
 
 func RenderSelectItem(state *State, item SelectItem) error {

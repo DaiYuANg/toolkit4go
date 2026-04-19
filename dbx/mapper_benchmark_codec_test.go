@@ -21,7 +21,7 @@ func BenchmarkQueryAllStructMapperJSONCodec(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			if _, err := QueryAll(context.Background(), core, query, mapper); err != nil {
+			if _, err := QueryAll[codecRecord](context.Background(), core, query, mapper); err != nil {
 				b.Fatalf("QueryAll returned error: %v", err)
 			}
 		}

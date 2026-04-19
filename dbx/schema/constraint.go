@@ -104,7 +104,7 @@ func resolveKeyConstraintBinding(def schemaTable, field reflect.StructField, key
 			primaryKey: &PrimaryKeyMeta{
 				Name:    name,
 				Table:   def.Name(),
-				Columns: collectionx.NewList(columns...),
+				Columns: collectionx.NewList[string](columns...),
 			},
 		}, nil
 	}
@@ -112,7 +112,7 @@ func resolveKeyConstraintBinding(def schemaTable, field reflect.StructField, key
 		indexes: []IndexMeta{{
 			Name:    name,
 			Table:   def.Name(),
-			Columns: collectionx.NewList(columns...),
+			Columns: collectionx.NewList[string](columns...),
 			Unique:  meta.unique,
 		}},
 	}, nil

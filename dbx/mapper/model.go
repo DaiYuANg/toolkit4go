@@ -109,10 +109,10 @@ func NewMapperWithOptions[E any](schema schemax.Resource, opts ...MapperOption) 
 		return Mapper[E]{}, err
 	}
 
-	mappedFields := collectionx.FilterMapList(schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) (MappedField, bool) {
+	mappedFields := collectionx.FilterMapList[schemax.ColumnMeta, MappedField](schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) (MappedField, bool) {
 		return structMapper.meta.byColumn.Get(column.Name)
 	})
-	byColumn := collectionx.AssociateList(mappedFields, func(_ int, field MappedField) (string, MappedField) {
+	byColumn := collectionx.AssociateList[MappedField, string, MappedField](mappedFields, func(_ int, field MappedField) (string, MappedField) {
 		return field.Column, field
 	})
 

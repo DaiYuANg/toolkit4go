@@ -89,7 +89,7 @@ func TestQueryAllBuildsAndScansWithMapper(t *testing.T) {
 	rec := &hookRecorder{}
 	core := MustNewWithOptions(sqlDB, testSQLiteDialect{}, WithHooks(HookFuncs{AfterFunc: rec.after}))
 
-	items, err := QueryAll(context.Background(), core, Select(AllColumns(users).Values()...).From(users).Where(users.Status.Eq(1)), mapper)
+	items, err := QueryAll[User](context.Background(), core, Select(AllColumns(users).Values()...).From(users).Where(users.Status.Eq(1)), mapper)
 	if err != nil {
 		t.Fatalf("QueryAll returned error: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestQueryAllScansDTOProjection(t *testing.T) {
 	mapper := MustMapper[UserSummary](users)
 	query := MustSelectMapped(users, mapper)
 
-	items, err := QueryAll(context.Background(), New(sqlDB, testSQLiteDialect{}), query, mapper)
+	items, err := QueryAll[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), query, mapper)
 	if err != nil {
 		t.Fatalf("QueryAll returned error: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestQueryAllListAndBoundList(t *testing.T) {
 	core := New(sqlDB, testSQLiteDialect{})
 	query := MustSelectMapped(users, mapper)
 
-	items, err := QueryAllList(context.Background(), core, query, mapper)
+	items, err := QueryAllList[UserSummary](context.Background(), core, query, mapper)
 	if err != nil {
 		t.Fatalf("QueryAllList returned error: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestQueryAllListAndBoundList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
-	boundItems, err := QueryAllBoundList(context.Background(), core, bound, mapper)
+	boundItems, err := QueryAllBoundList[UserSummary](context.Background(), core, bound, mapper)
 	if err != nil {
 		t.Fatalf("QueryAllBoundList returned error: %v", err)
 	}
@@ -200,7 +200,7 @@ func TestQueryCursorAndEach(t *testing.T) {
 	query := Select(users.ID, users.Username).From(users)
 	core := New(sqlDB, testSQLiteDialect{})
 
-	cursor, err := QueryCursor(context.Background(), core, query, mapper)
+	cursor, err := QueryCursor[UserSummary](context.Background(), core, query, mapper)
 	if err != nil {
 		t.Fatalf("QueryCursor returned error: %v", err)
 	}
@@ -225,14 +225,14 @@ func TestExecRejectsNilQuery(t *testing.T) {
 }
 
 func TestQueryAllRejectsNilQuery(t *testing.T) {
-	_, err := QueryAll(context.Background(), New(nil, testSQLiteDialect{}), nil, MustStructMapper[UserSummary]())
+	_, err := QueryAll[UserSummary](context.Background(), New(nil, testSQLiteDialect{}), nil, MustStructMapper[UserSummary]())
 	if !errors.Is(err, ErrNilQuery) {
 		t.Fatalf("expected ErrNilQuery, got: %v", err)
 	}
 }
 
 func TestQueryCursorRejectsNilQuery(t *testing.T) {
-	_, err := QueryCursor(context.Background(), New(nil, testSQLiteDialect{}), nil, MustStructMapper[UserSummary]())
+	_, err := QueryCursor[UserSummary](context.Background(), New(nil, testSQLiteDialect{}), nil, MustStructMapper[UserSummary]())
 	if !errors.Is(err, ErrNilQuery) {
 		t.Fatalf("expected ErrNilQuery, got: %v", err)
 	}

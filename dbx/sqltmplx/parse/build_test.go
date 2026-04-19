@@ -12,7 +12,7 @@ import (
 func TestBuildList(t *testing.T) {
 	t.Parallel()
 
-	nodes, err := parse.BuildList(collectionx.NewList(
+	nodes, err := parse.BuildList(collectionx.NewList[scan.Token](
 		scan.Token{Kind: scan.Text, Value: "select * from users "},
 		scan.Token{Kind: scan.Directive, Value: "%where"},
 		scan.Token{Kind: scan.Text, Value: "name = /* name */'bob'"},

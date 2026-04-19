@@ -158,7 +158,7 @@ func observedUserTableState(t *testing.T, users UserSchema) schemax.TableState {
 	return schemax.TableState{
 		Exists:      true,
 		Name:        "users",
-		Columns:     collectionx.NewList(columnStateAt(0), columnStateAt(1), columnStateAt(2), columnStateAt(3), columnStateAt(4)),
+		Columns:     collectionx.NewList[schemax.ColumnState](columnStateAt(0), columnStateAt(1), columnStateAt(2), columnStateAt(3), columnStateAt(4)),
 		Indexes:     toIndexStates(spec.Indexes),
 		PrimaryKey:  &schemax.PrimaryKeyState{Name: spec.PrimaryKey.Name, Columns: spec.PrimaryKey.Columns.Clone()},
 		ForeignKeys: toForeignKeyStates(spec.ForeignKeys),

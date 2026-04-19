@@ -75,7 +75,7 @@ func (s *Store[E, S]) List(ctx context.Context, specs ...repository.Spec) (colle
 	if err != nil {
 		return nil, fmt.Errorf("list entities: %w", err)
 	}
-	return collectionx.MapList(items, func(_ int, item E) *Model[E, S] {
+	return collectionx.MapList[E, *Model[E, S]](items, func(_ int, item E) *Model[E, S] {
 		entity := item
 		return s.newKeyedModel(&entity, s.keyOf(&entity))
 	}), nil
@@ -90,7 +90,7 @@ func (s *Store[E, S]) ListPage(ctx context.Context, request paging.Request, spec
 	if err != nil {
 		return paging.Result[*Model[E, S]]{}, fmt.Errorf("list entity page: %w", err)
 	}
-	return paging.MapResult(page, func(_ int, item E) *Model[E, S] {
+	return paging.MapResult[E, *Model[E, S]](page, func(_ int, item E) *Model[E, S] {
 		entity := item
 		return s.newKeyedModel(&entity, s.keyOf(&entity))
 	}), nil

@@ -76,7 +76,7 @@ func (q *SelectQuery) DistinctOn() *SelectQuery {
 }
 
 func (q *SelectQuery) With(name string, query *SelectQuery) *SelectQuery {
-	q.CTEs = mergeList(q.CTEs, collectionx.NewList(CTE{Name: name, Query: query}))
+	q.CTEs = mergeList(q.CTEs, collectionx.NewList[CTE](CTE{Name: name, Query: query}))
 	return q
 }
 
@@ -138,27 +138,27 @@ func (q *SelectQuery) PageBy(page, pageSize int) *SelectQuery {
 }
 
 func (q *SelectQuery) Union(query *SelectQuery) *SelectQuery {
-	q.Unions = mergeList(q.Unions, collectionx.NewList(UnionClause{Query: query}))
+	q.Unions = mergeList(q.Unions, collectionx.NewList[UnionClause](UnionClause{Query: query}))
 	return q
 }
 
 func (q *SelectQuery) UnionAll(query *SelectQuery) *SelectQuery {
-	q.Unions = mergeList(q.Unions, collectionx.NewList(UnionClause{All: true, Query: query}))
+	q.Unions = mergeList(q.Unions, collectionx.NewList[UnionClause](UnionClause{All: true, Query: query}))
 	return q
 }
 
 func (q *SelectQuery) Join(source TableSource) *JoinBuilder {
-	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: InnerJoin, Table: TableRef(source)}))
+	q.Joins = mergeList(q.Joins, collectionx.NewList[Join](Join{Type: InnerJoin, Table: TableRef(source)}))
 	return &JoinBuilder{query: q, index: q.Joins.Len() - 1}
 }
 
 func (q *SelectQuery) LeftJoin(source TableSource) *JoinBuilder {
-	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: LeftJoin, Table: TableRef(source)}))
+	q.Joins = mergeList(q.Joins, collectionx.NewList[Join](Join{Type: LeftJoin, Table: TableRef(source)}))
 	return &JoinBuilder{query: q, index: q.Joins.Len() - 1}
 }
 
 func (q *SelectQuery) RightJoin(source TableSource) *JoinBuilder {
-	q.Joins = mergeList(q.Joins, collectionx.NewList(Join{Type: RightJoin, Table: TableRef(source)}))
+	q.Joins = mergeList(q.Joins, collectionx.NewList[Join](Join{Type: RightJoin, Table: TableRef(source)}))
 	return &JoinBuilder{query: q, index: q.Joins.Len() - 1}
 }
 
@@ -172,13 +172,13 @@ func (b *JoinBuilder) On(predicate Predicate) *SelectQuery {
 }
 
 func cloneCTEs(items collectionx.List[CTE]) collectionx.List[CTE] {
-	return collectionx.MapList(items, func(_ int, item CTE) CTE {
+	return collectionx.MapList[CTE, CTE](items, func(_ int, item CTE) CTE {
 		return CTE{Name: item.Name, Query: item.Query.Clone()}
 	})
 }
 
 func cloneUnionClauses(items collectionx.List[UnionClause]) collectionx.List[UnionClause] {
-	return collectionx.MapList(items, func(_ int, item UnionClause) UnionClause {
+	return collectionx.MapList[UnionClause, UnionClause](items, func(_ int, item UnionClause) UnionClause {
 		return UnionClause{All: item.All, Query: item.Query.Clone()}
 	})
 }

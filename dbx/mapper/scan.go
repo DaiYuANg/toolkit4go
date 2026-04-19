@@ -160,7 +160,7 @@ func (m StructMapper[E]) scanPlan(columns []string) (*scanPlan, error) {
 func newScanPlan(fields collectionx.List[MappedField]) *scanPlan {
 	return &scanPlan{
 		fields: fields,
-		codecFields: collectionx.FilterMapList(fields, func(index int, field MappedField) (scanCodecField, bool) {
+		codecFields: collectionx.FilterMapList[MappedField, scanCodecField](fields, func(index int, field MappedField) (scanCodecField, bool) {
 			return scanCodecField{index: index, field: field}, field.codec != nil
 		}),
 	}

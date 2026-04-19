@@ -144,11 +144,11 @@ func (d Dialect) InspectTable(ctx context.Context, executor dbx.Executor, table 
 	return schemax.TableState{
 		Exists:      true,
 		Name:        table,
-		Columns:     collectionx.NewListWithCapacity(len(columns), columns...),
-		Indexes:     collectionx.NewListWithCapacity(len(indexes), indexes...),
+		Columns:     collectionx.NewListWithCapacity[schemax.ColumnState](len(columns), columns...),
+		Indexes:     collectionx.NewListWithCapacity[schemax.IndexState](len(indexes), indexes...),
 		PrimaryKey:  primaryKey,
-		ForeignKeys: collectionx.NewListWithCapacity(len(foreignKeys), foreignKeys...),
-		Checks:      collectionx.NewListWithCapacity(len(checks), checks...),
+		ForeignKeys: collectionx.NewListWithCapacity[schemax.ForeignKeyState](len(foreignKeys), foreignKeys...),
+		Checks:      collectionx.NewListWithCapacity[schemax.CheckState](len(checks), checks...),
 	}, nil
 }
 

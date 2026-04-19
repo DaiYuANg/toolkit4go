@@ -79,7 +79,7 @@ func (b *CaseBuilder[T]) When(predicate Predicate, value any) *CaseBuilder[T] {
 	if b == nil {
 		b = &CaseBuilder[T]{}
 	}
-	b.branches = mergeList(b.branches, collectionx.NewList(caseWhenBranch{Predicate: predicate, Value: value}))
+	b.branches = mergeList(b.branches, collectionx.NewList[caseWhenBranch](caseWhenBranch{Predicate: predicate, Value: value}))
 	return b
 }
 

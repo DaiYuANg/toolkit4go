@@ -93,7 +93,7 @@ func atlasPlannedAction(change atlasschema.Change, planned *atlasmigrate.Change)
 		Kind:       atlasActionKind(change),
 		Table:      atlasChangeTableName(change),
 		Summary:    summary,
-		Statement:  sqlstmt.Bound{SQL: planned.Cmd, Args: collectionx.NewList(planned.Args...)},
+		Statement:  sqlstmt.Bound{SQL: planned.Cmd, Args: collectionx.NewList[any](planned.Args...)},
 		Executable: true,
 	}
 }

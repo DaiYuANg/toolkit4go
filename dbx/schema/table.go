@@ -132,7 +132,7 @@ func (s Schema[E]) Checks() collectionx.List[CheckMeta] {
 
 func (s Schema[E]) ForeignKeys() collectionx.List[ForeignKeyMeta] {
 	items := deriveForeignKeys(s.def)
-	return collectionx.MapList(collectionx.NewListWithCapacity(len(items), items...), func(_ int, item ForeignKeyMeta) ForeignKeyMeta {
+	return collectionx.MapList[ForeignKeyMeta, ForeignKeyMeta](collectionx.NewListWithCapacity[ForeignKeyMeta](len(items), items...), func(_ int, item ForeignKeyMeta) ForeignKeyMeta {
 		return cloneForeignKeyMeta(item)
 	})
 }
@@ -175,31 +175,31 @@ func (d schemaDefinition) columnByName(name string) (ColumnMeta, bool) {
 	if d.columnsByName != nil && d.columnsByName.Len() > 0 {
 		return d.columnsByName.Get(name)
 	}
-	return collectionx.FindList(d.columns, func(_ int, column ColumnMeta) bool {
+	return collectionx.FindList[ColumnMeta](d.columns, func(_ int, column ColumnMeta) bool {
 		return column.Name == name
 	})
 }
 
 func cloneColumnMetas(items collectionx.List[ColumnMeta]) collectionx.List[ColumnMeta] {
-	return collectionx.MapList(items, func(_ int, column ColumnMeta) ColumnMeta {
+	return collectionx.MapList[ColumnMeta, ColumnMeta](items, func(_ int, column ColumnMeta) ColumnMeta {
 		return cloneColumnMeta(column)
 	})
 }
 
 func cloneIndexMetas(items collectionx.List[IndexMeta]) collectionx.List[IndexMeta] {
-	return collectionx.MapList(items, func(_ int, item IndexMeta) IndexMeta {
+	return collectionx.MapList[IndexMeta, IndexMeta](items, func(_ int, item IndexMeta) IndexMeta {
 		return cloneIndexMeta(item)
 	})
 }
 
 func cloneCheckMetas(items collectionx.List[CheckMeta]) collectionx.List[CheckMeta] {
-	return collectionx.MapList(items, func(_ int, item CheckMeta) CheckMeta {
+	return collectionx.MapList[CheckMeta, CheckMeta](items, func(_ int, item CheckMeta) CheckMeta {
 		return cloneCheckMeta(item)
 	})
 }
 
 func indexColumnsByName(columns collectionx.List[ColumnMeta]) collectionx.Map[string, ColumnMeta] {
-	return collectionx.AssociateList(columns, func(_ int, column ColumnMeta) (string, ColumnMeta) {
+	return collectionx.AssociateList[ColumnMeta, string, ColumnMeta](columns, func(_ int, column ColumnMeta) (string, ColumnMeta) {
 		return column.Name, column
 	})
 }

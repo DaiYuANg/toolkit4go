@@ -135,37 +135,37 @@ func Exists(query *SelectQuery) Predicate {
 }
 
 func CompactExpressions(expressions []Expression) collectionx.List[Expression] {
-	return collectionx.FilterList(collectionx.NewList(expressions...), func(_ int, expression Expression) bool {
+	return collectionx.FilterList[Expression](collectionx.NewList[Expression](expressions...), func(_ int, expression Expression) bool {
 		return expression != nil
 	})
 }
 
 func CompactPredicatesList(predicates collectionx.List[Predicate]) collectionx.List[Predicate] {
-	return collectionx.FilterList(predicates, func(_ int, predicate Predicate) bool {
+	return collectionx.FilterList[Predicate](predicates, func(_ int, predicate Predicate) bool {
 		return predicate != nil
 	})
 }
 
 func CompactAssignments(assignments []Assignment) collectionx.List[Assignment] {
-	return collectionx.FilterList(collectionx.NewList(assignments...), func(_ int, assignment Assignment) bool {
+	return collectionx.FilterList[Assignment](collectionx.NewList[Assignment](assignments...), func(_ int, assignment Assignment) bool {
 		return assignment != nil
 	})
 }
 
 func CompactSelectItems(items []SelectItem) collectionx.List[SelectItem] {
-	return collectionx.FilterList(collectionx.NewList(items...), func(_ int, item SelectItem) bool {
+	return collectionx.FilterList[SelectItem](collectionx.NewList[SelectItem](items...), func(_ int, item SelectItem) bool {
 		return item != nil
 	})
 }
 
 func CompactOrders(orders []Order) collectionx.List[Order] {
-	return collectionx.FilterList(collectionx.NewList(orders...), func(_ int, order Order) bool {
+	return collectionx.FilterList[Order](collectionx.NewList[Order](orders...), func(_ int, order Order) bool {
 		return order != nil
 	})
 }
 
 func compactPredicates(predicates []Predicate) collectionx.List[Predicate] {
-	return CompactPredicatesList(collectionx.NewList(predicates...))
+	return CompactPredicatesList(collectionx.NewList[Predicate](predicates...))
 }
 
 func (p comparisonPredicate) RenderPredicate(state *State) error {

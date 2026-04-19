@@ -105,7 +105,7 @@ func (r *Runner) applyPendingRepeatables(
 	repeatables collectionx.List[loadedSQLMigration],
 	indexed map[string]AppliedRecord,
 ) (collectionx.List[AppliedRecord], error) {
-	applied, err := collectionx.ReduceErrList(
+	applied, err := collectionx.ReduceErrList[loadedSQLMigration, collectionx.List[AppliedRecord]](
 		repeatables,
 		collectionx.NewListWithCapacity[AppliedRecord](repeatables.Len()),
 		func(items collectionx.List[AppliedRecord], _ int, migration loadedSQLMigration) (collectionx.List[AppliedRecord], error) {

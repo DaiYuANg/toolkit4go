@@ -48,18 +48,18 @@ func MustSelect(schema schemax.Resource, mapper Mapper) *querydsl.SelectQuery {
 
 func ofSpec(spec schemax.TableSpec, mapper Mapper) (collectionx.List[querydsl.SelectItem], error) {
 	fields := mapper.Fields()
-	columnsByName := collectionx.AssociateList(spec.Columns, func(_ int, column schemax.ColumnMeta) (string, schemax.ColumnMeta) {
+	columnsByName := collectionx.AssociateList[schemax.ColumnMeta, string, schemax.ColumnMeta](spec.Columns, func(_ int, column schemax.ColumnMeta) (string, schemax.ColumnMeta) {
 		return column.Name, column
 	})
 
-	if unmapped, ok := collectionx.FindList(fields, func(_ int, field mapperx.MappedField) bool {
+	if unmapped, ok := collectionx.FindList[mapperx.MappedField](fields, func(_ int, field mapperx.MappedField) bool {
 		_, ok := columnsByName.Get(field.Column)
 		return !ok
 	}); ok {
 		return nil, &mapperx.UnmappedColumnError{Column: unmapped.Column}
 	}
 
-	return collectionx.FilterMapList(fields, func(_ int, field mapperx.MappedField) (querydsl.SelectItem, bool) {
+	return collectionx.FilterMapList[mapperx.MappedField, querydsl.SelectItem](fields, func(_ int, field mapperx.MappedField) (querydsl.SelectItem, bool) {
 		column, ok := columnsByName.Get(field.Column)
 		if !ok {
 			return nil, false

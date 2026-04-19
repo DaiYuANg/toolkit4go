@@ -72,7 +72,7 @@ func containsTable(q *querydsl.SelectQuery, table querydsl.Table) bool {
 	if sameTable(q.FromItem, table) {
 		return true
 	}
-	_, ok := collectionx.FindList(q.Joins, func(_ int, join querydsl.Join) bool {
+	_, ok := collectionx.FindList[querydsl.Join](q.Joins, func(_ int, join querydsl.Join) bool {
 		return sameTable(join.Table, table)
 	})
 	return ok
@@ -177,7 +177,7 @@ func targetColumn(target querydsl.Table, meta schemax.RelationMeta) (schemax.Col
 }
 
 func columnByName(columns collectionx.List[schemax.ColumnMeta], name string) (schemax.ColumnMeta, bool) {
-	return collectionx.FindList(columns, func(_ int, column schemax.ColumnMeta) bool {
+	return collectionx.FindList[schemax.ColumnMeta](columns, func(_ int, column schemax.ColumnMeta) bool {
 		return column.Name == name
 	})
 }

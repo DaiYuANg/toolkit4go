@@ -196,15 +196,15 @@ func atlasHandleModifyColumn(diff *schemax.TableDiff, compiled *atlasCompiledTab
 	if !ok {
 		column = schemax.ColumnMeta{Name: name, Table: diff.Table}
 	}
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: column, Issues: collectionx.NewList(atlasColumnChangeIssue(change.Change))})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: column, Issues: collectionx.NewList[string](atlasColumnChangeIssue(change.Change))})
 }
 
 func atlasHandleRenameColumn(diff *schemax.TableDiff, change *atlasschema.RenameColumn) {
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList("manual column rename migration required")})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList[string]("manual column rename migration required")})
 }
 
 func atlasHandleDropColumn(diff *schemax.TableDiff, change *atlasschema.DropColumn) {
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: collectionx.NewList("manual column removal migration required")})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: collectionx.NewList[string]("manual column removal migration required")})
 }
 
 func atlasHandleAddIndex(diff *schemax.TableDiff, compiled *atlasCompiledTable, change *atlasschema.AddIndex) {
@@ -218,15 +218,15 @@ func atlasHandleModifyIndex(diff *schemax.TableDiff, compiled *atlasCompiledTabl
 		diff.MissingIndexes.Add(index)
 		return
 	}
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList("manual index modification required")})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList[string]("manual index modification required")})
 }
 
 func atlasHandleRenameIndex(diff *schemax.TableDiff, change *atlasschema.RenameIndex) {
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList("manual index rename migration required")})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.To.Name, Table: diff.Table}, Issues: collectionx.NewList[string]("manual index rename migration required")})
 }
 
 func atlasHandleDropIndex(diff *schemax.TableDiff, change *atlasschema.DropIndex) {
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.I.Name, Table: diff.Table}, Issues: collectionx.NewList("manual index removal migration required")})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.I.Name, Table: diff.Table}, Issues: collectionx.NewList[string]("manual index removal migration required")})
 }
 
 func atlasHandleAddForeignKey(diff *schemax.TableDiff, compiled *atlasCompiledTable, change *atlasschema.AddForeignKey) {
@@ -242,7 +242,7 @@ func atlasHandleModifyForeignKey(diff *schemax.TableDiff, compiled *atlasCompile
 }
 
 func atlasHandleDropForeignKey(diff *schemax.TableDiff, change *atlasschema.DropForeignKey) {
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.F.Symbol, Table: diff.Table}, Issues: collectionx.NewList("manual foreign key removal migration required")})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.F.Symbol, Table: diff.Table}, Issues: collectionx.NewList[string]("manual foreign key removal migration required")})
 }
 
 func atlasHandleAddCheck(diff *schemax.TableDiff, compiled *atlasCompiledTable, change *atlasschema.AddCheck) {
@@ -258,14 +258,14 @@ func atlasHandleModifyCheck(diff *schemax.TableDiff, compiled *atlasCompiledTabl
 }
 
 func atlasHandleDropCheck(diff *schemax.TableDiff, change *atlasschema.DropCheck) {
-	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: collectionx.NewList("manual check removal migration required")})
+	diff.ColumnDiffs.Add(schemax.ColumnDiff{Column: schemax.ColumnMeta{Name: change.C.Name, Table: diff.Table}, Issues: collectionx.NewList[string]("manual check removal migration required")})
 }
 
 func atlasHandleAddPrimaryKey(diff *schemax.TableDiff, compiled *atlasCompiledTable) {
 	diff.PrimaryKeyDiff = &schemax.PrimaryKeyDiff{
 		Expected: compiled.spec.PrimaryKey,
 		Actual:   atlasPrimaryKeyState(nil),
-		Issues:   collectionx.NewList("missing primary key"),
+		Issues:   collectionx.NewList[string]("missing primary key"),
 	}
 }
 
@@ -278,5 +278,5 @@ func atlasHandleModifyOrDropPrimaryKey(diff *schemax.TableDiff, compiled *atlasC
 	if compiled.spec.PrimaryKey != nil {
 		expected = new(schemax.ClonePrimaryKeyMeta(*compiled.spec.PrimaryKey))
 	}
-	diff.PrimaryKeyDiff = &schemax.PrimaryKeyDiff{Expected: expected, Actual: actual, Issues: collectionx.NewList("primary key migration required")}
+	diff.PrimaryKeyDiff = &schemax.PrimaryKeyDiff{Expected: expected, Actual: actual, Issues: collectionx.NewList[string]("primary key migration required")}
 }

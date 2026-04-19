@@ -27,7 +27,7 @@ func TestSQLListUsesStatementCapacityHint(t *testing.T) {
 	})
 	mapper := &capacityHintUserSummaryMapper{base: MustStructMapper[UserSummary]()}
 
-	items, err := sqlexec.List(context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, mapper)
+	items, err := sqlexec.List[UserSummary](context.Background(), New(sqlDB, testSQLiteDialect{}), statement, nil, mapper)
 	if err != nil {
 		t.Fatalf("sqlexec.List returned error: %v", err)
 	}

@@ -30,7 +30,7 @@ type frame struct {
 
 // Build converts scanned tokens into a parse tree.
 func Build(tokens []scan.Token) ([]Node, error) {
-	nodes, err := BuildList(collectionx.NewList(tokens...))
+	nodes, err := BuildList(collectionx.NewList[scan.Token](tokens...))
 	if err != nil {
 		return nil, err
 	}

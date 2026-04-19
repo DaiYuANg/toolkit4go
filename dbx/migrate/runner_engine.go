@@ -72,7 +72,7 @@ func (r *Runner) newRunnerEngineForSQL(source FileSource) (*runnerEngine, collec
 		return nil, nil, nil
 	}
 
-	state, err := collectionx.ReduceErrList(loaded, sqlEngineBuildState{
+	state, err := collectionx.ReduceErrList[loadedSQLMigration, sqlEngineBuildState](loaded, sqlEngineBuildState{
 		gooseMigrations: make([]*goose.Migration, 0, loaded.Len()),
 		metaByVersion:   collectionx.NewMapWithCapacity[int64, AppliedRecord](loaded.Len()),
 		repeatables:     collectionx.NewListWithCapacity[loadedSQLMigration](loaded.Len()),

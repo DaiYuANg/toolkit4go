@@ -33,7 +33,7 @@ func New(raw *sql.DB, d dialect.Dialect) *DB {
 }
 
 func NewWithOptions(raw *sql.DB, d dialect.Dialect, opts ...Option) (*DB, error) {
-	return NewWithOptionsList(raw, d, collectionx.NewList(opts...))
+	return NewWithOptionsList(raw, d, collectionx.NewList[Option](opts...))
 }
 
 func NewWithOptionsList(raw *sql.DB, d dialect.Dialect, opts collectionx.List[Option]) (*DB, error) {
@@ -54,7 +54,7 @@ func NewWithOptionsList(raw *sql.DB, d dialect.Dialect, opts collectionx.List[Op
 		idGenerator, err = idgen.NewDefault(config.nodeID)
 		if err != nil {
 			logRuntimeNodeWithLogger(config.logger, config.debug, "db.new.error", "stage", "id_generator", "error", err)
-			return nil, err
+			return nil, wrapDBError("create default id generator", err)
 		}
 	}
 	db := &DB{
@@ -192,7 +192,7 @@ func (db *DB) QueryRowContext(ctx context.Context, query string, args ...any) *R
 			With("op", "query_row").
 			Wrapf(ErrNilSQLDB, "validate sql db"))
 	}
-	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationQueryRow, SQL: query, Args: collectionx.NewList(args...)})
+	ctx, event, err := db.observe.before(ctx, HookEvent{Operation: OperationQueryRow, SQL: query, Args: collectionx.NewList[any](args...)})
 	if err != nil {
 		db.observe.after(ctx, event)
 		return errorRow(err)
@@ -209,7 +209,7 @@ func (db *DB) QueryRowContext(ctx context.Context, query string, args ...any) *R
 }
 
 func (db *DB) Bound(rawSQL string, args ...any) sqlstmt.Bound {
-	return sqlstmt.Bound{SQL: rawSQL, Args: collectionx.NewList(args...)}
+	return sqlstmt.Bound{SQL: rawSQL, Args: collectionx.NewList[any](args...)}
 }
 
 func (db *DB) QueryBoundContext(ctx context.Context, bound sqlstmt.Bound) (*sql.Rows, error) {

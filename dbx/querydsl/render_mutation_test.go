@@ -31,7 +31,7 @@ func TestInsertBuildWithMultipleRows(t *testing.T) {
 func TestInsertBuildWithValuesRowsList(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
 
-	rows := collectionx.NewList(
+	rows := collectionx.NewList[collectionx.List[querydsl.Assignment]](
 		collectionx.NewList[querydsl.Assignment](
 			users.Username.Set("alice"),
 			users.Status.Set(1),

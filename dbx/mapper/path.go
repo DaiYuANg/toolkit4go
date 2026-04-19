@@ -28,7 +28,7 @@ func fieldPath(field MappedField) collectionx.List[int] {
 	if field.Path.Len() > 0 {
 		return field.Path
 	}
-	return collectionx.NewList(field.Index)
+	return collectionx.NewList[int](field.Index)
 }
 
 func ensureFieldValue(root reflect.Value, field MappedField) (reflect.Value, error) {

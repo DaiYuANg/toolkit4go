@@ -50,7 +50,7 @@ func MustStructMapper[E any]() StructMapper[E] {
 }
 
 func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper mapperx.RowsScanner[E]) (Cursor[E], error) {
-	cursor, err := dbx.SQLCursor(ctx, session, statement, params, mapper)
+	cursor, err := dbx.SQLCursor[E](ctx, session, statement, params, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("sql cursor: %w", err)
 	}
@@ -58,7 +58,7 @@ func SQLCursor[E any](ctx context.Context, session Session, statement sqlstmt.So
 }
 
 func SQLEach[E any](ctx context.Context, session Session, statement sqlstmt.Source, params any, mapper mapperx.RowsScanner[E]) func(func(E, error) bool) {
-	return dbx.SQLEach(ctx, session, statement, params, mapper)
+	return dbx.SQLEach[E](ctx, session, statement, params, mapper)
 }
 
 func OpenTestSQLite(tb testing.TB, ddl ...string) (*sql.DB, func()) {

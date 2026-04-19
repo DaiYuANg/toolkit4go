@@ -54,7 +54,7 @@ func planSchemaChangesLegacy(ctx context.Context, session dbx.Session, schemas .
 			Tables:   reportTables,
 			Backend:  schemax.ValidationBackendLegacy,
 			Complete: false,
-			Warnings: collectionx.NewList("dbx: schema validation is running in legacy mode; extra drift may not be reported"),
+			Warnings: collectionx.NewList[string]("dbx: schema validation is running in legacy mode; extra drift may not be reported"),
 		},
 	}, nil
 }
@@ -93,7 +93,7 @@ func buildLegacyMigrationActions(schemaDialect Dialect, schema Resource, diff sc
 }
 
 func buildMissingTableActions(schemaDialect Dialect, spec schemax.TableSpec) collectionx.List[schemax.MigrationAction] {
-	actions := collectionx.NewList(buildCreateTableAction(schemaDialect, spec))
+	actions := collectionx.NewList[schemax.MigrationAction](buildCreateTableAction(schemaDialect, spec))
 	actions.Merge(mappedMigrationActions(spec.Indexes, func(index schemax.IndexMeta) schemax.MigrationAction {
 		return buildCreateIndexAction(schemaDialect, index)
 	}))
@@ -173,7 +173,7 @@ func primaryKeyManualActions(diff schemax.TableDiff) collectionx.List[schemax.Mi
 	if diff.PrimaryKeyDiff == nil {
 		return collectionx.NewList[schemax.MigrationAction]()
 	}
-	return collectionx.NewList(schemax.MigrationAction{
+	return collectionx.NewList[schemax.MigrationAction](schemax.MigrationAction{
 		Kind:    schemax.MigrationActionManual,
 		Table:   diff.Table,
 		Summary: "manual primary key migration required",

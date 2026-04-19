@@ -1,3 +1,5 @@
+//revive:disable:file-length-limit Executor helpers are kept together to preserve the SQL execution API surface.
+
 package sqlexec
 
 import (

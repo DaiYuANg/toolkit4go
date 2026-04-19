@@ -101,9 +101,9 @@ func (d *fakeSchemaDialect) BuildAddColumn(table string, column schemax.ColumnMe
 			}
 			current.ForeignKeys.Add(schemax.ForeignKeyState{
 				Name:          "fk_" + table + "_" + column.Name,
-				Columns:       collectionx.NewList(column.Name),
+				Columns:       collectionx.NewList[string](column.Name),
 				TargetTable:   column.References.TargetTable,
-				TargetColumns: collectionx.NewList(column.References.TargetColumn),
+				TargetColumns: collectionx.NewList[string](column.References.TargetColumn),
 				OnDelete:      column.References.OnDelete,
 				OnUpdate:      column.References.OnUpdate,
 			})
@@ -188,7 +188,7 @@ func (s *fakeSession) QueryContext(context.Context, string, ...any) (*sql.Rows, 
 }
 
 func (s *fakeSession) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	return s.ExecBoundContext(ctx, sqlstmt.Bound{SQL: query, Args: collectionx.NewList(args...)})
+	return s.ExecBoundContext(ctx, sqlstmt.Bound{SQL: query, Args: collectionx.NewList[any](args...)})
 }
 
 func (s *fakeSession) QueryRowContext(context.Context, string, ...any) *Row {
@@ -270,7 +270,7 @@ func TestAutoMigrateReturnsDriftForIncompatibleColumn(t *testing.T) {
 	schemaDialect.tables["users"] = schemax.TableState{
 		Exists: true,
 		Name:   "users",
-		Columns: collectionx.NewList(
+		Columns: collectionx.NewList[schemax.ColumnState](
 			schemax.ColumnState{Name: "id", Type: "bigint", PrimaryKey: true},
 			schemax.ColumnState{Name: "username", Type: "bigint", Nullable: false},
 			schemax.ColumnState{Name: "email_address", Type: "text", Nullable: false},
@@ -278,7 +278,7 @@ func TestAutoMigrateReturnsDriftForIncompatibleColumn(t *testing.T) {
 			schemax.ColumnState{Name: "role_id", Type: "bigint", Nullable: false},
 		),
 		Indexes:    toIndexStates(IndexesForTest(users)),
-		PrimaryKey: &schemax.PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList("id")},
+		PrimaryKey: &schemax.PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList[string]("id")},
 	}
 	session := &fakeSession{dialect: schemaDialect}
 

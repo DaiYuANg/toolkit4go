@@ -5,7 +5,7 @@ import (
 )
 
 func (s Schema[E]) PrimaryColumn() (ColumnMeta, bool) {
-	column, ok := collectionx.FindList(s.def.columns, func(_ int, column ColumnMeta) bool {
+	column, ok := collectionx.FindList[ColumnMeta](s.def.columns, func(_ int, column ColumnMeta) bool {
 		return column.PrimaryKey
 	})
 	if !ok {

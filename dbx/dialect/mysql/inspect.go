@@ -216,7 +216,7 @@ func scanMySQLIndex(rows *sql.Rows) (string, schemax.IndexState, error) {
 
 	return name, schemax.IndexState{
 		Name:    name,
-		Columns: collectionx.NewList(column),
+		Columns: collectionx.NewList[string](column),
 		Unique:  nonUnique == 0,
 	}, nil
 }
@@ -246,8 +246,8 @@ func scanMySQLForeignKey(rows *sql.Rows) (string, schemax.ForeignKeyState, error
 	return name, schemax.ForeignKeyState{
 		Name:          name,
 		TargetTable:   targetTable,
-		Columns:       collectionx.NewList(column),
-		TargetColumns: collectionx.NewList(targetColumn),
+		Columns:       collectionx.NewList[string](column),
+		TargetColumns: collectionx.NewList[string](targetColumn),
 		OnDelete:      referentialAction(deleteRule.String),
 		OnUpdate:      referentialAction(updateRule.String),
 	}, nil
@@ -268,7 +268,7 @@ func mysqlPrimaryKeyState(columns []string) *schemax.PrimaryKeyState {
 	if len(columns) == 0 {
 		return nil
 	}
-	return &schemax.PrimaryKeyState{Name: "PRIMARY", Columns: collectionx.NewList(columns...)}
+	return &schemax.PrimaryKeyState{Name: "PRIMARY", Columns: collectionx.NewList[string](columns...)}
 }
 
 func queryMySQLRows(ctx context.Context, executor dbx.Executor, action, query string, args ...any) (*sql.Rows, error) {

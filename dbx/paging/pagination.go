@@ -88,7 +88,7 @@ func NewResult[E any](items collectionx.List[E], total int64, request Request) R
 // MapResult maps page items while preserving pagination metadata.
 func MapResult[E any, R any](result Result[E], mapper func(index int, item E) R) Result[R] {
 	return Result[R]{
-		Items:       collectionx.MapList(result.Items, mapper),
+		Items:       collectionx.MapList[E, R](result.Items, mapper),
 		Total:       result.Total,
 		Page:        result.Page,
 		PageSize:    result.PageSize,

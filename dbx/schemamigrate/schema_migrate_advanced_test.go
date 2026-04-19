@@ -89,7 +89,7 @@ func TestAutoMigrateAddsMissingForeignKeyAndCheck(t *testing.T) {
 	schemaDialect.tables["users"] = schemax.TableState{
 		Exists: true,
 		Name:   "users",
-		Columns: collectionx.NewList(
+		Columns: collectionx.NewList[schemax.ColumnState](
 			schemax.ColumnState{Name: "id", Type: "bigint", Nullable: false},
 			schemax.ColumnState{Name: "tenant_id", Type: "bigint", Nullable: false},
 			schemax.ColumnState{Name: "username", Type: "text", Nullable: false},
@@ -97,7 +97,7 @@ func TestAutoMigrateAddsMissingForeignKeyAndCheck(t *testing.T) {
 			schemax.ColumnState{Name: "role_id", Type: "bigint", Nullable: false},
 		),
 		Indexes:    toIndexStates(IndexesForTest(users)),
-		PrimaryKey: &schemax.PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList("id", "tenant_id")},
+		PrimaryKey: &schemax.PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList[string]("id", "tenant_id")},
 	}
 	session := &fakeSession{dialect: schemaDialect}
 

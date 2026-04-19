@@ -9,7 +9,7 @@ import (
 )
 
 func mappedMigrationActions[T any](items collectionx.List[T], mapper func(T) schemax.MigrationAction) collectionx.List[schemax.MigrationAction] {
-	return collectionx.MapList(items, func(_ int, item T) schemax.MigrationAction {
+	return collectionx.MapList[T, schemax.MigrationAction](items, func(_ int, item T) schemax.MigrationAction {
 		return mapper(item)
 	})
 }

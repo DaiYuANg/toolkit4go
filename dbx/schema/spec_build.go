@@ -13,10 +13,10 @@ func buildTableSpec(def schemaDefinition) TableSpec {
 	return TableSpec{
 		Name:        def.table.Name(),
 		Columns:     cloneColumnMetas(def.columns),
-		Indexes:     collectionx.NewListWithCapacity(len(indexes), indexes...),
+		Indexes:     collectionx.NewListWithCapacity[IndexMeta](len(indexes), indexes...),
 		PrimaryKey:  derivePrimaryKey(def),
-		ForeignKeys: collectionx.NewListWithCapacity(len(foreignKeys), foreignKeys...),
-		Checks:      collectionx.NewListWithCapacity(len(checks), checks...),
+		ForeignKeys: collectionx.NewListWithCapacity[ForeignKeyMeta](len(foreignKeys), foreignKeys...),
+		Checks:      collectionx.NewListWithCapacity[CheckMeta](len(checks), checks...),
 	}
 }
 
@@ -44,7 +44,7 @@ func deriveColumnIndexes(def schemaDefinition, indexes collectionx.OrderedMap[st
 		meta := IndexMeta{
 			Name:    indexNameForColumn(tableName, column),
 			Table:   tableName,
-			Columns: collectionx.NewList(column.Name),
+			Columns: collectionx.NewList[string](column.Name),
 			Unique:  column.Unique,
 		}
 		indexes.Set(indexKey(meta.Unique, meta.Columns), meta)
@@ -77,7 +77,7 @@ func derivePrimaryKey(def schemaDefinition) *PrimaryKeyMeta {
 		return &copyPrimary
 	}
 
-	columns := collectionx.FilterMapList(def.columns, func(_ int, column ColumnMeta) (string, bool) {
+	columns := collectionx.FilterMapList[ColumnMeta, string](def.columns, func(_ int, column ColumnMeta) (string, bool) {
 		return column.Name, column.PrimaryKey
 	})
 	if columns.Len() == 0 {
@@ -113,9 +113,9 @@ func deriveExplicitForeignKeys(def schemaDefinition, foreignKeys collectionx.Ord
 		meta := ForeignKeyMeta{
 			Name:          "fk_" + tableName + "_" + column.Name,
 			Table:         tableName,
-			Columns:       collectionx.NewList(column.Name),
+			Columns:       collectionx.NewList[string](column.Name),
 			TargetTable:   column.References.TargetTable,
-			TargetColumns: collectionx.NewList(column.References.TargetColumn),
+			TargetColumns: collectionx.NewList[string](column.References.TargetColumn),
 			OnDelete:      column.References.OnDelete,
 			OnUpdate:      column.References.OnUpdate,
 		}
@@ -133,9 +133,9 @@ func deriveRelationForeignKeys(def schemaDefinition, foreignKeys collectionx.Ord
 		meta := ForeignKeyMeta{
 			Name:          "fk_" + tableName + "_" + relation.LocalColumn,
 			Table:         tableName,
-			Columns:       collectionx.NewList(relation.LocalColumn),
+			Columns:       collectionx.NewList[string](relation.LocalColumn),
 			TargetTable:   relation.TargetTable,
-			TargetColumns: collectionx.NewList(relation.TargetColumn),
+			TargetColumns: collectionx.NewList[string](relation.TargetColumn),
 		}
 		key := foreignKeyKey(meta)
 		if _, exists := foreignKeys.Get(key); !exists {
@@ -160,7 +160,7 @@ func shouldDeriveRelationForeignKey(def schemaDefinition, relation RelationMeta,
 }
 
 func deriveChecks(def schemaDefinition) []CheckMeta {
-	return collectionx.MapList(def.checks, func(_ int, check CheckMeta) CheckMeta {
+	return collectionx.MapList[CheckMeta, CheckMeta](def.checks, func(_ int, check CheckMeta) CheckMeta {
 		return cloneCheckMeta(check)
 	}).Values()
 }

@@ -190,7 +190,7 @@ func TestQueryBuildersCompactNilInputs(t *testing.T) {
 func TestInsertBuilderValuesGridTracksAssignmentState(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
 
-	query := InsertInto(users).ValuesGrid(collectionx.NewGrid(
+	query := InsertInto(users).ValuesGrid(collectionx.NewGrid[querydsl.Assignment](
 		[]querydsl.Assignment{
 			users.Username.Set("alice"),
 			users.Status.Set(1),
@@ -203,7 +203,7 @@ func TestInsertBuilderValuesGridTracksAssignmentState(t *testing.T) {
 		t.Fatalf("unexpected single-row assignment count: %d", query.Assignments.Len())
 	}
 
-	query = query.ValuesGrid(collectionx.NewGrid(
+	query = query.ValuesGrid(collectionx.NewGrid[querydsl.Assignment](
 		[]querydsl.Assignment{
 			users.Status.Set(2),
 			users.Username.Set("bob"),
