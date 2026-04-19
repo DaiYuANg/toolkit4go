@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -131,7 +132,7 @@ func (m *Model[E, S]) update(ctx context.Context) error {
 	return nil
 }
 
-func (m *Model[E, S]) updateAssignments() (collectionx.List[dbx.Assignment], error) {
+func (m *Model[E, S]) updateAssignments() (collectionx.List[querydsl.Assignment], error) {
 	assignments, err := m.store.repository.Mapper().UpdateAssignments(
 		m.store.repository.Schema(),
 		m.entity,

@@ -18,15 +18,15 @@ func Alias[S querydsl.TableSource](schema S, alias string) S {
 	return dbx.Alias(schema, alias)
 }
 
-func CaseWhen[T any](predicate Predicate, value any) *CaseBuilder[T] {
-	return dbx.CaseWhen[T](predicate, value)
+func CaseWhen[T any](predicate querydsl.Predicate, value any) *CaseBuilder[T] {
+	return querydsl.CaseWhen[T](predicate, value)
 }
 
 func Count[E any, T any](expr Column[E, T]) Aggregate[int64] {
-	return dbx.Count(expr)
+	return querydsl.Count(expr)
 }
 
-func Like[E any](column Column[E, string], pattern string) Predicate {
+func Like[E any](column Column[E, string], pattern string) querydsl.Predicate {
 	return dbx.Like(column, pattern)
 }
 
@@ -76,7 +76,7 @@ func MapPageResult[E any, R any](result PageResult[E], mapper func(index int, it
 	return paging.MapResult(result, mapper)
 }
 
-func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAll[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	items, err := dbx.QueryAll(ctx, session, query, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all: %w", err)
@@ -84,7 +84,7 @@ func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, m
 	return items, nil
 }
 
-func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllList[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	items, err := dbx.QueryAllList(ctx, session, query, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query all list: %w", err)
@@ -108,7 +108,7 @@ func QueryAllBoundList[E any](ctx context.Context, session Session, bound sqlstm
 	return items, nil
 }
 
-func QueryCursor[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (Cursor[E], error) {
+func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (Cursor[E], error) {
 	cursor, err := dbx.QueryCursor(ctx, session, query, mapper)
 	if err != nil {
 		return nil, fmt.Errorf("query cursor: %w", err)
@@ -116,7 +116,7 @@ func QueryCursor[E any](ctx context.Context, session Session, query QueryBuilder
 	return cursor, nil
 }
 
-func QueryEach[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) func(func(E, error) bool) {
+func QueryEach[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) func(func(E, error) bool) {
 	return dbx.QueryEach(ctx, session, query, mapper)
 }
 

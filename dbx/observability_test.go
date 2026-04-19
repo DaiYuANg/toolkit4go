@@ -2,6 +2,8 @@ package dbx_test
 
 import (
 	"context"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"log/slog"
 	"sync"
 	"testing"
@@ -122,10 +124,10 @@ func TestSchemaOperationsEmitObserverEvents(t *testing.T) {
 		}),
 	)
 
-	if _, err := db.ValidateSchemas(context.Background(), users); err != nil {
+	if _, err := ValidateSchemas(context.Background(), db, users); err != nil {
 		t.Fatalf("ValidateSchemas returned error: %v", err)
 	}
-	if _, err := db.AutoMigrate(context.Background(), users); err != nil {
+	if _, err := AutoMigrate(context.Background(), db, users); err != nil {
 		t.Fatalf("AutoMigrate returned error: %v", err)
 	}
 
@@ -140,12 +142,12 @@ func TestSchemaOperationsEmitObserverEvents(t *testing.T) {
 	}
 }
 
-func observedUserTableState(t *testing.T, users UserSchema) TableState {
+func observedUserTableState(t *testing.T, users UserSchema) schemax.TableState {
 	t.Helper()
 
 	spec := TableSpecForTest(users)
 	columns := users.Columns()
-	columnStateAt := func(index int) ColumnState {
+	columnStateAt := func(index int) schemax.ColumnState {
 		column, ok := columns.Get(index)
 		if !ok {
 			t.Fatalf("expected column at index %d", index)
@@ -153,12 +155,12 @@ func observedUserTableState(t *testing.T, users UserSchema) TableState {
 		return toColumnState(column)
 	}
 
-	return TableState{
+	return schemax.TableState{
 		Exists:      true,
 		Name:        "users",
 		Columns:     collectionx.NewList(columnStateAt(0), columnStateAt(1), columnStateAt(2), columnStateAt(3), columnStateAt(4)),
 		Indexes:     toIndexStates(spec.Indexes),
-		PrimaryKey:  &PrimaryKeyState{Name: spec.PrimaryKey.Name, Columns: spec.PrimaryKey.Columns.Clone()},
+		PrimaryKey:  &schemax.PrimaryKeyState{Name: spec.PrimaryKey.Name, Columns: spec.PrimaryKey.Columns.Clone()},
 		ForeignKeys: toForeignKeyStates(spec.ForeignKeys),
 	}
 }
@@ -202,7 +204,7 @@ func TestHookEventMetadataAndDuration(t *testing.T) {
 	assertTraceRecord(t, mustFindOperationRecord(t, handler.records, OperationExec), "abc-123", "req-456")
 }
 
-func mustExecInsert(ctx context.Context, t *testing.T, db *DB, query *InsertQuery) {
+func mustExecInsert(ctx context.Context, t *testing.T, db *DB, query *querydsl.InsertQuery) {
 	t.Helper()
 	if _, err := Exec(ctx, db, query); err != nil {
 		t.Fatalf("Exec returned error: %v", err)

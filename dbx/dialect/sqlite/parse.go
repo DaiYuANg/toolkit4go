@@ -1,15 +1,14 @@
 package sqlite
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"regexp"
 	"strings"
-
-	"github.com/DaiYuANg/arcgo/dbx"
 )
 
-func parseCreateTableChecks(createSQL string) []dbx.CheckState {
+func parseCreateTableChecks(createSQL string) []schemax.CheckState {
 	upper := strings.ToUpper(createSQL)
-	checks := make([]dbx.CheckState, 0, 2)
+	checks := make([]schemax.CheckState, 0, 2)
 
 	for offset := 0; ; {
 		expression, nextOffset, found := nextSQLiteCheckExpression(createSQL, upper, offset)
@@ -17,7 +16,7 @@ func parseCreateTableChecks(createSQL string) []dbx.CheckState {
 			return checks
 		}
 		if expression != "" {
-			checks = append(checks, dbx.CheckState{Expression: expression})
+			checks = append(checks, schemax.CheckState{Expression: expression})
 		}
 		offset = nextOffset
 	}
@@ -72,18 +71,18 @@ func parseCreateTableAutoincrementColumns(createSQL string) []string {
 	return columns
 }
 
-func referentialAction(value string) dbx.ReferentialAction {
+func referentialAction(value string) schemax.ReferentialAction {
 	switch strings.ToUpper(strings.TrimSpace(value)) {
-	case string(dbx.ReferentialCascade):
-		return dbx.ReferentialCascade
-	case string(dbx.ReferentialRestrict):
-		return dbx.ReferentialRestrict
-	case string(dbx.ReferentialSetNull):
-		return dbx.ReferentialSetNull
-	case string(dbx.ReferentialSetDefault):
-		return dbx.ReferentialSetDefault
-	case string(dbx.ReferentialNoAction):
-		return dbx.ReferentialNoAction
+	case string(schemax.ReferentialCascade):
+		return schemax.ReferentialCascade
+	case string(schemax.ReferentialRestrict):
+		return schemax.ReferentialRestrict
+	case string(schemax.ReferentialSetNull):
+		return schemax.ReferentialSetNull
+	case string(schemax.ReferentialSetDefault):
+		return schemax.ReferentialSetDefault
+	case string(schemax.ReferentialNoAction):
+		return schemax.ReferentialNoAction
 	default:
 		return ""
 	}

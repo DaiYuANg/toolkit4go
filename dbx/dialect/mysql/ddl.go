@@ -1,12 +1,12 @@
 package mysql
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/dbx"
 )
 
 var mysqlNormalizedTypes = map[string]string{
@@ -56,7 +56,7 @@ func mysqlNormalizedTypeName(value string) string {
 	return typeName
 }
 
-func (d Dialect) columnDDL(column dbx.ColumnMeta, inlinePrimaryKey, includeReference bool) string {
+func (d Dialect) columnDDL(column schemax.ColumnMeta, inlinePrimaryKey, includeReference bool) string {
 	parts := []string{
 		d.QuoteIdent(column.Name),
 		resolvedMySQLType(column),
@@ -70,7 +70,7 @@ func (d Dialect) columnDDL(column dbx.ColumnMeta, inlinePrimaryKey, includeRefer
 	return strings.Join(parts, " ")
 }
 
-func mysqlColumnConstraintParts(column dbx.ColumnMeta, inlinePrimaryKey bool) []string {
+func mysqlColumnConstraintParts(column schemax.ColumnMeta, inlinePrimaryKey bool) []string {
 	parts := make([]string, 0, 4)
 	if column.AutoIncrement {
 		parts = append(parts, "AUTO_INCREMENT")
@@ -87,7 +87,7 @@ func mysqlColumnConstraintParts(column dbx.ColumnMeta, inlinePrimaryKey bool) []
 	return parts
 }
 
-func (d Dialect) mysqlReferenceParts(column dbx.ColumnMeta) []string {
+func (d Dialect) mysqlReferenceParts(column schemax.ColumnMeta) []string {
 	if column.References == nil {
 		return nil
 	}
@@ -104,18 +104,18 @@ func (d Dialect) mysqlReferenceParts(column dbx.ColumnMeta) []string {
 	return parts
 }
 
-func resolvedMySQLType(column dbx.ColumnMeta) string {
+func resolvedMySQLType(column schemax.ColumnMeta) string {
 	if column.SQLType != "" {
 		return column.SQLType
 	}
 	return mysqlType(column)
 }
 
-func (d Dialect) primaryKeyDDL(primaryKey dbx.PrimaryKeyMeta) string {
+func (d Dialect) primaryKeyDDL(primaryKey schemax.PrimaryKeyMeta) string {
 	return "CONSTRAINT " + d.QuoteIdent(primaryKey.Name) + " PRIMARY KEY (" + d.joinQuotedIdentifiers(primaryKey.Columns) + ")"
 }
 
-func (d Dialect) foreignKeyDDL(foreignKey dbx.ForeignKeyMeta) string {
+func (d Dialect) foreignKeyDDL(foreignKey schemax.ForeignKeyMeta) string {
 	parts := collectionx.NewList[string]()
 	parts.Add("CONSTRAINT " + d.QuoteIdent(foreignKey.Name))
 	parts.Add("FOREIGN KEY (" + d.joinQuotedIdentifiers(foreignKey.Columns) + ")")
@@ -129,11 +129,11 @@ func (d Dialect) foreignKeyDDL(foreignKey dbx.ForeignKeyMeta) string {
 	return joinMySQLStrings(parts, " ")
 }
 
-func (d Dialect) checkDDL(check dbx.CheckMeta) string {
+func (d Dialect) checkDDL(check schemax.CheckMeta) string {
 	return "CONSTRAINT " + d.QuoteIdent(check.Name) + " CHECK (" + check.Expression + ")"
 }
 
-func mysqlType(column dbx.ColumnMeta) string {
+func mysqlType(column schemax.ColumnMeta) string {
 	if column.SQLType != "" {
 		return column.SQLType
 	}
@@ -199,7 +199,7 @@ func fallbackMySQLType(typ reflect.Type) string {
 	return "TEXT"
 }
 
-func singlePrimaryKeyColumn(primaryKey *dbx.PrimaryKeyMeta) string {
+func singlePrimaryKeyColumn(primaryKey *schemax.PrimaryKeyMeta) string {
 	if primaryKey == nil || primaryKey.Columns.Len() != 1 {
 		return ""
 	}
@@ -225,18 +225,18 @@ func joinMySQLStrings(items collectionx.List[string], sep string) string {
 	return strings.Join(items.Values(), sep)
 }
 
-func referentialAction(value string) dbx.ReferentialAction {
+func referentialAction(value string) schemax.ReferentialAction {
 	switch strings.ToUpper(strings.TrimSpace(value)) {
-	case string(dbx.ReferentialCascade):
-		return dbx.ReferentialCascade
-	case string(dbx.ReferentialRestrict):
-		return dbx.ReferentialRestrict
-	case string(dbx.ReferentialSetNull):
-		return dbx.ReferentialSetNull
-	case string(dbx.ReferentialSetDefault):
-		return dbx.ReferentialSetDefault
-	case string(dbx.ReferentialNoAction):
-		return dbx.ReferentialNoAction
+	case string(schemax.ReferentialCascade):
+		return schemax.ReferentialCascade
+	case string(schemax.ReferentialRestrict):
+		return schemax.ReferentialRestrict
+	case string(schemax.ReferentialSetNull):
+		return schemax.ReferentialSetNull
+	case string(schemax.ReferentialSetDefault):
+		return schemax.ReferentialSetDefault
+	case string(schemax.ReferentialNoAction):
+		return schemax.ReferentialNoAction
 	default:
 		return ""
 	}

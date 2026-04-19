@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
@@ -48,7 +49,7 @@ func WithDefault[E any, T any](value string) ColumnOption[E, T] {
 	}
 }
 
-func WithReference[E any, T any](ref ForeignKeyRef) ColumnOption[E, T] {
+func WithReference[E any, T any](ref schemax.ForeignKeyRef) ColumnOption[E, T] {
 	return func(column Column[E, T]) Column[E, T] {
 		column.meta.References = new(ref)
 		return column
@@ -107,7 +108,7 @@ func (c Column[E, T]) bindColumn(binding columnBinding) any {
 	return c
 }
 
-func mergeColumnBasic(meta *ColumnMeta, b ColumnMeta) {
+func mergeColumnBasic(meta *schemax.ColumnMeta, b schemax.ColumnMeta) {
 	meta.Name = b.Name
 	meta.Table = b.Table
 	meta.Alias = b.Alias
@@ -120,7 +121,7 @@ func mergeColumnBasic(meta *ColumnMeta, b ColumnMeta) {
 	}
 }
 
-func mergeColumnFlags(meta *ColumnMeta, b ColumnMeta) {
+func mergeColumnFlags(meta *schemax.ColumnMeta, b schemax.ColumnMeta) {
 	meta.PrimaryKey = meta.PrimaryKey || b.PrimaryKey
 	if meta.IDStrategy == idgen.StrategyUnset {
 		meta.AutoIncrement = meta.AutoIncrement || b.AutoIncrement
@@ -132,7 +133,7 @@ func mergeColumnFlags(meta *ColumnMeta, b ColumnMeta) {
 	meta.Indexed = meta.Indexed || b.Indexed
 }
 
-func mergeColumnDefaultsAndRefs(meta *ColumnMeta, b ColumnMeta) {
+func mergeColumnDefaultsAndRefs(meta *schemax.ColumnMeta, b schemax.ColumnMeta) {
 	if meta.DefaultValue == "" {
 		meta.DefaultValue = b.DefaultValue
 	}
@@ -141,7 +142,7 @@ func mergeColumnDefaultsAndRefs(meta *ColumnMeta, b ColumnMeta) {
 	}
 }
 
-func finalizeColumnIDAndUUID(meta *ColumnMeta, b ColumnMeta) {
+func finalizeColumnIDAndUUID(meta *schemax.ColumnMeta, b schemax.ColumnMeta) {
 	if meta.IDStrategy == idgen.StrategyUnset {
 		meta.IDStrategy = b.IDStrategy
 	}

@@ -2,55 +2,21 @@ package dbx
 
 import (
 	"database/sql"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 
-	atlasschema "ariga.io/atlas/sql/schema"
 	"github.com/DaiYuANg/arcgo/collectionx"
 )
 
-type AtlasCompiledSchemaTestView struct {
-	Schema *atlasschema.Schema
-	tables map[string]*atlasschema.Table
+func TableSpecForTest(schema schemax.Resource) schemax.TableSpec {
+	return schema.Spec()
 }
 
-func CompileAtlasSchemaForTest(dialectName string, schemas ...SchemaResource) *AtlasCompiledSchemaTestView {
-	compiled := compileAtlasSchema(dialectName, nil, "main", schemas)
-	if compiled == nil {
-		return nil
-	}
-	view := &AtlasCompiledSchemaTestView{
-		Schema: compiled.schema,
-		tables: make(map[string]*atlasschema.Table, compiled.tables.Len()),
-	}
-	compiled.tables.Range(func(name string, table *atlasCompiledTable) bool {
-		view.tables[name] = table.table
-		return true
-	})
-	return view
+func IndexesForTest(schema schemax.Resource) collectionx.List[schemax.IndexMeta] {
+	return schema.Spec().Indexes.Clone()
 }
 
-func (v *AtlasCompiledSchemaTestView) Table(name string) (*atlasschema.Table, bool) {
-	if v == nil {
-		return nil, false
-	}
-	table, ok := v.tables[name]
-	return table, ok
-}
-
-func AtlasSplitChangesForTest(changes []atlasschema.Change) ([]atlasschema.Change, []MigrationAction) {
-	return atlasSplitChanges(changes)
-}
-
-func TableSpecForTest(schema SchemaResource) TableSpec {
-	return buildTableSpec(schema.schemaRef())
-}
-
-func IndexesForTest(schema SchemaResource) collectionx.List[IndexMeta] {
-	indexes := deriveIndexes(schema.schemaRef())
-	return collectionx.NewListWithCapacity(len(indexes), indexes...)
-}
-
-func InferTypeNameForTest(column ColumnMeta) string {
-	return inferTypeName(column)
+func InferTypeNameForTest(column schemax.ColumnMeta) string {
+	return schemax.InferTypeName(column)
 }
 
 func ErrorRowForTest(err error) *Row {
@@ -70,10 +36,10 @@ func StructMapperScanPlanForTest[E any](mapper StructMapper[E], columns []string
 	return err
 }
 
-func ClonePrimaryKeyMetaForTest(meta PrimaryKeyMeta) PrimaryKeyMeta {
+func ClonePrimaryKeyMetaForTest(meta schemax.PrimaryKeyMeta) schemax.PrimaryKeyMeta {
 	return clonePrimaryKeyMeta(meta)
 }
 
-func ClonePrimaryKeyStateForTest(state PrimaryKeyState) PrimaryKeyState {
+func ClonePrimaryKeyStateForTest(state schemax.PrimaryKeyState) schemax.PrimaryKeyState {
 	return clonePrimaryKeyState(state)
 }

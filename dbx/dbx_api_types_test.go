@@ -6,32 +6,35 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+	schemamigrate "github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
 
-type Aggregate[T any] = dbx.Aggregate[T]
-type Assignment = dbx.Assignment
-type AtlasCompiledSchemaTestView = dbx.AtlasCompiledSchemaTestView
-type BelongsTo[E any, T any] = dbx.BelongsTo[E, T]
+type Aggregate[T any] = querydsl.Aggregate[T]
+type Assignment = querydsl.Assignment
+type AtlasCompiledSchemaTestView = schemamigrate.AtlasCompiledSchemaTestView
+type BelongsTo[E any, T any] = relationx.BelongsTo[E, T]
 type Bound = sqlstmt.Bound
-type CaseBuilder[T any] = dbx.CaseBuilder[T]
+type CaseBuilder[T any] = querydsl.CaseBuilder[T]
 type Check[E any] = dbx.Check[E]
-type CheckMeta = dbx.CheckMeta
-type CheckState = dbx.CheckState
+type CheckMeta = schemax.CheckMeta
+type CheckState = schemax.CheckState
 type Codec = codecx.Codec
 type Column[E any, T any] = dbx.Column[E, T]
-type ColumnMeta = dbx.ColumnMeta
-type ColumnState = dbx.ColumnState
+type ColumnMeta = schemax.ColumnMeta
+type ColumnState = schemax.ColumnState
 type CompositeKey[E any] = dbx.CompositeKey[E]
 type Cursor[T any] = dbx.Cursor[T]
 type DB = dbx.DB
-type DeleteQuery = dbx.DeleteQuery
+type DeleteQuery = querydsl.DeleteQuery
 type Executor = dbx.Executor
-type ForeignKeyMeta = dbx.ForeignKeyMeta
-type ForeignKeyState = dbx.ForeignKeyState
-type HasMany[E any, T any] = dbx.HasMany[E, T]
-type HasOne[E any, T any] = dbx.HasOne[E, T]
+type ForeignKeyMeta = schemax.ForeignKeyMeta
+type ForeignKeyState = schemax.ForeignKeyState
+type HasMany[E any, T any] = relationx.HasMany[E, T]
+type HasOne[E any, T any] = relationx.HasOne[E, T]
 type Hook = dbx.Hook
 type HookEvent = dbx.HookEvent
 type HookFuncs = dbx.HookFuncs
@@ -44,35 +47,35 @@ type IDUUID = dbx.IDUUID
 type IDUUIDv4 = dbx.IDUUIDv4
 type IDUUIDv7 = dbx.IDUUIDv7
 type Index[E any] = dbx.Index[E]
-type IndexMeta = dbx.IndexMeta
-type IndexState = dbx.IndexState
-type InsertQuery = dbx.InsertQuery
+type IndexMeta = schemax.IndexMeta
+type IndexState = schemax.IndexState
+type InsertQuery = querydsl.InsertQuery
 type MappedField = dbx.MappedField
-type ManyToMany[E any, T any] = dbx.ManyToMany[E, T]
+type ManyToMany[E any, T any] = relationx.ManyToMany[E, T]
 type Mapper[E any] = dbx.Mapper[E]
 type MapperOption = dbx.MapperOption
-type MigrationAction = dbx.MigrationAction
-type MigrationPlan = dbx.MigrationPlan
+type MigrationAction = schemax.MigrationAction
+type MigrationPlan = schemax.MigrationPlan
 type NodeIDOutOfRangeError = idgen.NodeIDOutOfRangeError
 type Operation = dbx.Operation
 type Option = dbx.Option
 type PageRequest = paging.Request
 type PageResult[E any] = paging.Result[E]
-type Predicate = dbx.Predicate
-type PrimaryKeyMeta = dbx.PrimaryKeyMeta
-type PrimaryKeyState = dbx.PrimaryKeyState
+type Predicate = querydsl.Predicate
+type PrimaryKeyMeta = schemax.PrimaryKeyMeta
+type PrimaryKeyState = schemax.PrimaryKeyState
 type PrimaryKeyUnmappedError = dbx.PrimaryKeyUnmappedError
-type QueryBuilder = dbx.QueryBuilder
-type ReferentialAction = dbx.ReferentialAction
-type RelationKind = dbx.RelationKind
+type QueryBuilder = querydsl.Builder
+type ReferentialAction = schemax.ReferentialAction
+type RelationKind = schemax.RelationKind
 type Row = dbx.Row
 type RowsScanner[E any] = dbx.RowsScanner[E]
 type Schema[E any] = dbx.Schema[E]
-type SchemaDriftError = dbx.SchemaDriftError
-type SchemaResource = dbx.SchemaResource
+type SchemaDriftError = schemax.SchemaDriftError
+type SchemaResource = schemamigrate.Resource
 type SchemaSource[E any] = dbx.SchemaSource[E]
-type SelectItem = dbx.SelectItem
-type SelectQuery = dbx.SelectQuery
+type SelectItem = querydsl.SelectItem
+type SelectQuery = querydsl.SelectQuery
 type Session = dbx.Session
 type SQLExecutor = sqlexec.Executor
 type Statement = sqlstmt.Statement
@@ -80,12 +83,12 @@ type StatementSource = sqlstmt.Source
 type StructMapper[E any] = dbx.StructMapper[E]
 type Table = querydsl.Table
 type TableSource = querydsl.TableSource
-type TableSpec = dbx.TableSpec
-type TableState = dbx.TableState
+type TableSpec = schemax.TableSpec
+type TableState = schemax.TableState
 type UnknownCodecError = codecx.UnknownError
 type UnmappedColumnError = dbx.UnmappedColumnError
-type ValidationBackend = dbx.ValidationBackend
-type ValidationReport = dbx.ValidationReport
+type ValidationBackend = schemax.ValidationBackend
+type ValidationReport = schemax.ValidationReport
 
 const (
 	DefaultNodeID              = idgen.DefaultNodeID
@@ -95,9 +98,9 @@ const (
 	IDStrategyDBAuto           = idgen.StrategyDBAuto
 	IDStrategySnowflake        = idgen.StrategySnowflake
 	IDStrategyUUID             = idgen.StrategyUUID
-	MigrationActionCreateIndex = dbx.MigrationActionCreateIndex
-	MigrationActionCreateTable = dbx.MigrationActionCreateTable
-	MigrationActionManual      = dbx.MigrationActionManual
+	MigrationActionCreateIndex = schemax.MigrationActionCreateIndex
+	MigrationActionCreateTable = schemax.MigrationActionCreateTable
+	MigrationActionManual      = schemax.MigrationActionManual
 	OperationAutoMigrate       = dbx.OperationAutoMigrate
 	OperationBeginTx           = dbx.OperationBeginTx
 	OperationCommitTx          = dbx.OperationCommitTx
@@ -106,8 +109,8 @@ const (
 	OperationQueryRow          = dbx.OperationQueryRow
 	OperationRollbackTx        = dbx.OperationRollbackTx
 	OperationValidate          = dbx.OperationValidate
-	ReferentialCascade         = dbx.ReferentialCascade
-	RelationBelongsTo          = dbx.RelationBelongsTo
-	RelationManyToMany         = dbx.RelationManyToMany
-	ValidationBackendLegacy    = dbx.ValidationBackendLegacy
+	ReferentialCascade         = schemax.ReferentialCascade
+	RelationBelongsTo          = schemax.RelationBelongsTo
+	RelationManyToMany         = schemax.RelationManyToMany
+	ValidationBackendLegacy    = schemax.ValidationBackendLegacy
 )

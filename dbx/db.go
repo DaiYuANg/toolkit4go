@@ -3,13 +3,15 @@ package dbx
 import (
 	"context"
 	"database/sql"
-	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	"github.com/DaiYuANg/arcgo/dbx/relationruntime"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
+
 	"github.com/samber/oops"
 )
 
@@ -17,7 +19,7 @@ type DB struct {
 	raw         *sql.DB
 	dialect     dialect.Dialect
 	observe     runtimeObserver
-	relation    *RelationRuntime
+	relation    *relationruntime.Runtime
 	idGenerator idgen.Generator
 	nodeID      uint16
 }
@@ -59,7 +61,7 @@ func NewWithOptionsList(raw *sql.DB, d dialect.Dialect, opts collectionx.List[Op
 		raw:         raw,
 		dialect:     d,
 		observe:     newRuntimeObserver(config),
-		relation:    newRelationRuntime(),
+		relation:    relationruntime.New(),
 		idGenerator: idGenerator,
 		nodeID:      config.nodeID,
 	}
@@ -107,11 +109,10 @@ func (db *DB) WithSQLDB(raw *sql.DB) *DB {
 	}
 }
 
-// RelationRuntime returns the relation load runtime (cache and pools) for this DB.
-// Used by LoadBelongsTo, LoadHasMany, LoadManyToMany.
-func (db *DB) RelationRuntime() *RelationRuntime {
+// RelationRuntime returns the relation load runtime for this DB.
+func (db *DB) RelationRuntime() *relationruntime.Runtime {
 	if db == nil || db.relation == nil {
-		return defaultRelationRuntime
+		return relationruntime.Default()
 	}
 	return db.relation
 }

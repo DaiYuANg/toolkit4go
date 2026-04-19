@@ -85,7 +85,7 @@ func (r *Base[E, S]) Upsert(ctx context.Context, entity *E, conflictColumns ...s
 	if targetColumns.Len() == 0 {
 		return &ValidationError{Message: "upsert requires conflict columns"}
 	}
-	targetExpressions := collectionx.MapList(targetColumns, func(_ int, column string) dbx.Expression {
+	targetExpressions := collectionx.MapList(targetColumns, func(_ int, column string) querydsl.Expression {
 		return dbx.NamedColumn[any](r.schema, column)
 	})
 	updateAssignments := upsertUpdateAssignments(r.schema, r.mapper.Fields(), targetColumns)
@@ -104,7 +104,7 @@ func (r *Base[E, S]) Upsert(ctx context.Context, entity *E, conflictColumns ...s
 	return nil
 }
 
-func (r *Base[E, S]) insertAssignments(entity *E) (collectionx.List[dbx.Assignment], error) {
+func (r *Base[E, S]) insertAssignments(entity *E) (collectionx.List[querydsl.Assignment], error) {
 	assignments, err := r.mapper.InsertAssignments(r.session, r.schema, entity)
 	if err != nil {
 		return nil, fmt.Errorf("build insert assignments: %w", err)
@@ -131,13 +131,13 @@ func normalizeConflictColumns(columns, fallback []string) collectionx.List[strin
 	return items
 }
 
-func upsertUpdateAssignments[S querydsl.TableSource](schema S, fields collectionx.List[dbx.MappedField], conflictColumns collectionx.List[string]) collectionx.List[dbx.Assignment] {
+func upsertUpdateAssignments[S querydsl.TableSource](schema S, fields collectionx.List[dbx.MappedField], conflictColumns collectionx.List[string]) collectionx.List[querydsl.Assignment] {
 	conflictSet := collectionx.NewSetWithCapacity[string](conflictColumns.Len())
 	conflictColumns.Range(func(_ int, column string) bool {
 		conflictSet.Add(column)
 		return true
 	})
-	return collectionx.FilterMapList(fields, func(_ int, field dbx.MappedField) (dbx.Assignment, bool) {
+	return collectionx.FilterMapList(fields, func(_ int, field dbx.MappedField) (querydsl.Assignment, bool) {
 		if conflictSet.Contains(field.Column) {
 			return nil, false
 		}

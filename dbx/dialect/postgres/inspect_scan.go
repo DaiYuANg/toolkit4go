@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -20,7 +21,7 @@ func scanPostgresPrimaryKey(rows *sql.Rows) (string, string, error) {
 	return name, column, nil
 }
 
-func scanPostgresColumn(rows *sql.Rows) (dbx.ColumnState, error) {
+func scanPostgresColumn(rows *sql.Rows) (schemax.ColumnState, error) {
 	var name string
 	var udtName string
 	var isNullable string
@@ -28,10 +29,10 @@ func scanPostgresColumn(rows *sql.Rows) (dbx.ColumnState, error) {
 	var isIdentity bool
 
 	if err := rows.Scan(&name, &udtName, &isNullable, &defaultValue, &isIdentity); err != nil {
-		return dbx.ColumnState{}, fmt.Errorf("scan postgres column: %w", err)
+		return schemax.ColumnState{}, fmt.Errorf("scan postgres column: %w", err)
 	}
 
-	return dbx.ColumnState{
+	return schemax.ColumnState{
 		Name:          name,
 		Type:          udtName,
 		Nullable:      strings.EqualFold(isNullable, "YES"),
@@ -40,27 +41,27 @@ func scanPostgresColumn(rows *sql.Rows) (dbx.ColumnState, error) {
 	}, nil
 }
 
-func scanPostgresIndex(rows *sql.Rows) (dbx.IndexState, bool, error) {
+func scanPostgresIndex(rows *sql.Rows) (schemax.IndexState, bool, error) {
 	var name string
 	var definition string
 
 	if err := rows.Scan(&name, &definition); err != nil {
-		return dbx.IndexState{}, false, fmt.Errorf("scan postgres index: %w", err)
+		return schemax.IndexState{}, false, fmt.Errorf("scan postgres index: %w", err)
 	}
 
 	upperDefinition := strings.ToUpper(definition)
 	if strings.Contains(upperDefinition, "PRIMARY KEY") {
-		return dbx.IndexState{}, true, nil
+		return schemax.IndexState{}, true, nil
 	}
 
-	return dbx.IndexState{
+	return schemax.IndexState{
 		Name:    name,
 		Columns: collectionx.NewList(parseIndexColumns(definition)...),
 		Unique:  strings.Contains(upperDefinition, "CREATE UNIQUE INDEX"),
 	}, false, nil
 }
 
-func scanPostgresForeignKey(rows *sql.Rows) (string, dbx.ForeignKeyState, error) {
+func scanPostgresForeignKey(rows *sql.Rows) (string, schemax.ForeignKeyState, error) {
 	var name string
 	var column string
 	var targetTable string
@@ -69,10 +70,10 @@ func scanPostgresForeignKey(rows *sql.Rows) (string, dbx.ForeignKeyState, error)
 	var deleteRule string
 
 	if err := rows.Scan(&name, &column, &targetTable, &targetColumn, &updateRule, &deleteRule); err != nil {
-		return "", dbx.ForeignKeyState{}, fmt.Errorf("scan postgres foreign key: %w", err)
+		return "", schemax.ForeignKeyState{}, fmt.Errorf("scan postgres foreign key: %w", err)
 	}
 
-	return name, dbx.ForeignKeyState{
+	return name, schemax.ForeignKeyState{
 		Name:          name,
 		TargetTable:   targetTable,
 		Columns:       collectionx.NewList(column),
@@ -82,22 +83,22 @@ func scanPostgresForeignKey(rows *sql.Rows) (string, dbx.ForeignKeyState, error)
 	}, nil
 }
 
-func scanPostgresCheck(rows *sql.Rows) (dbx.CheckState, error) {
+func scanPostgresCheck(rows *sql.Rows) (schemax.CheckState, error) {
 	var name string
 	var clause string
 
 	if err := rows.Scan(&name, &clause); err != nil {
-		return dbx.CheckState{}, fmt.Errorf("scan postgres check: %w", err)
+		return schemax.CheckState{}, fmt.Errorf("scan postgres check: %w", err)
 	}
 
-	return dbx.CheckState{Name: name, Expression: clause}, nil
+	return schemax.CheckState{Name: name, Expression: clause}, nil
 }
 
-func postgresPrimaryKeyState(name string, columns []string) *dbx.PrimaryKeyState {
+func postgresPrimaryKeyState(name string, columns []string) *schemax.PrimaryKeyState {
 	if len(columns) == 0 {
 		return nil
 	}
-	return &dbx.PrimaryKeyState{Name: name, Columns: collectionx.NewList(columns...)}
+	return &schemax.PrimaryKeyState{Name: name, Columns: collectionx.NewList(columns...)}
 }
 
 func postgresPrimaryColumn(columns map[string]struct{}, name string) bool {
@@ -105,7 +106,7 @@ func postgresPrimaryColumn(columns map[string]struct{}, name string) bool {
 	return ok
 }
 
-func appendPostgresForeignKey(groups collectionx.OrderedMap[string, dbx.ForeignKeyState], name string, state dbx.ForeignKeyState) {
+func appendPostgresForeignKey(groups collectionx.OrderedMap[string, schemax.ForeignKeyState], name string, state schemax.ForeignKeyState) {
 	current, ok := groups.Get(name)
 	if !ok {
 		groups.Set(name, state)

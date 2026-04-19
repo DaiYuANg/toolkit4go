@@ -1,6 +1,7 @@
 package dbx_test
 
 import (
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"reflect"
 	"testing"
 
@@ -31,11 +32,11 @@ func TestInsertBuildWithValuesRowsList(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
 
 	rows := collectionx.NewList(
-		collectionx.NewList[Assignment](
+		collectionx.NewList[querydsl.Assignment](
 			users.Username.Set("alice"),
 			users.Status.Set(1),
 		),
-		collectionx.NewList[Assignment](
+		collectionx.NewList[querydsl.Assignment](
 			users.Status.Set(2),
 			users.Username.Set("bob"),
 		),

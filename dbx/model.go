@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"database/sql"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -81,7 +82,7 @@ func MustStructMapperWithOptions[E any](opts ...MapperOption) StructMapper[E] {
 	return mapper
 }
 
-func MustMapper[E any](schema SchemaResource) Mapper[E] {
+func MustMapper[E any](schema schemax.Resource) Mapper[E] {
 	mapper, err := NewMapper[E](schema)
 	if err != nil {
 		panic(err)
@@ -90,11 +91,11 @@ func MustMapper[E any](schema SchemaResource) Mapper[E] {
 }
 
 // NewMapper creates a schema-bound mapper. Use when you have a Schema (CRUD, relation load, repository).
-func NewMapper[E any](schema SchemaResource) (Mapper[E], error) {
+func NewMapper[E any](schema schemax.Resource) (Mapper[E], error) {
 	return NewMapperWithOptions[E](schema)
 }
 
-func MustMapperWithOptions[E any](schema SchemaResource, opts ...MapperOption) Mapper[E] {
+func MustMapperWithOptions[E any](schema schemax.Resource, opts ...MapperOption) Mapper[E] {
 	mapper, err := NewMapperWithOptions[E](schema, opts...)
 	if err != nil {
 		panic(err)
@@ -102,13 +103,13 @@ func MustMapperWithOptions[E any](schema SchemaResource, opts ...MapperOption) M
 	return mapper
 }
 
-func NewMapperWithOptions[E any](schema SchemaResource, opts ...MapperOption) (Mapper[E], error) {
+func NewMapperWithOptions[E any](schema schemax.Resource, opts ...MapperOption) (Mapper[E], error) {
 	structMapper, err := NewStructMapperWithOptions[E](opts...)
 	if err != nil {
 		return Mapper[E]{}, err
 	}
 
-	mappedFields := collectionx.FilterMapList(schema.schemaRef().columns, func(_ int, column ColumnMeta) (MappedField, bool) {
+	mappedFields := collectionx.FilterMapList(schema.Spec().Columns, func(_ int, column schemax.ColumnMeta) (MappedField, bool) {
 		return structMapper.meta.byColumn.Get(column.Name)
 	})
 	byColumn := collectionx.AssociateList(mappedFields, func(_ int, field MappedField) (string, MappedField) {
@@ -134,6 +135,34 @@ func (m Mapper[E]) FieldByColumn(column string) (MappedField, bool) {
 		return MappedField{}, false
 	}
 	return m.byColumn.Get(column)
+}
+
+func (m Mapper[E]) BoundFieldValue(entity *E, column string) (any, bool, error) {
+	field, ok := m.FieldByColumn(column)
+	if !ok {
+		return nil, false, &UnmappedColumnError{Column: column}
+	}
+	value, err := m.entityValue(entity)
+	if err != nil {
+		return nil, false, err
+	}
+	fieldValue, err := fieldValueForRead(value, field)
+	if err != nil {
+		return nil, false, err
+	}
+	boundValue, err := boundFieldValue(field, fieldValue)
+	if err != nil {
+		return nil, false, err
+	}
+	return boundValue, true, nil
+}
+
+func (m Mapper[E]) FieldType(column string) (reflect.Type, bool) {
+	field, ok := m.FieldByColumn(column)
+	if !ok {
+		return nil, false
+	}
+	return field.Type, true
 }
 
 func (m StructMapper[E]) Fields() collectionx.List[MappedField] {

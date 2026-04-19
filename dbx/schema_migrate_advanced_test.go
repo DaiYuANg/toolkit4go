@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 	"testing"
@@ -32,15 +34,15 @@ type advancedRoleSchema struct {
 
 type advancedUserSchema struct {
 	Schema[advancedUser]
-	ID          Column[advancedUser, int64]           `dbx:"id"`
-	TenantID    Column[advancedUser, int64]           `dbx:"tenant_id"`
-	Username    Column[advancedUser, string]          `dbx:"username"`
-	Status      Column[advancedUser, int]             `dbx:"status"`
-	RoleID      Column[advancedUser, int64]           `dbx:"role_id"`
-	Role        BelongsTo[advancedUser, advancedRole] `rel:"table=roles,local=role_id,target=id"`
-	LookupIndex Index[advancedUser]                   `idx:"columns=tenant_id|username"`
-	PK          CompositeKey[advancedUser]            `key:"columns=id|tenant_id"`
-	StatusCheck Check[advancedUser]                   `check:"expr=status >= 0"`
+	ID          Column[advancedUser, int64]                     `dbx:"id"`
+	TenantID    Column[advancedUser, int64]                     `dbx:"tenant_id"`
+	Username    Column[advancedUser, string]                    `dbx:"username"`
+	Status      Column[advancedUser, int]                       `dbx:"status"`
+	RoleID      Column[advancedUser, int64]                     `dbx:"role_id"`
+	Role        relationx.BelongsTo[advancedUser, advancedRole] `rel:"table=roles,local=role_id,target=id"`
+	LookupIndex Index[advancedUser]                             `idx:"columns=tenant_id|username"`
+	PK          CompositeKey[advancedUser]                      `key:"columns=id|tenant_id"`
+	StatusCheck Check[advancedUser]                             `check:"expr=status >= 0"`
 }
 
 func TestPlanSchemaChangesIncludesDerivedConstraints(t *testing.T) {
@@ -57,11 +59,11 @@ func TestPlanSchemaChangesIncludesDerivedConstraints(t *testing.T) {
 		t.Fatalf("unexpected action count: %d", plan.Actions.Len())
 	}
 	first, _ := plan.Actions.Get(0)
-	if first.Kind != MigrationActionCreateTable {
+	if first.Kind != schemax.MigrationActionCreateTable {
 		t.Fatalf("unexpected first action: %+v", first)
 	}
 	second, _ := plan.Actions.Get(1)
-	if second.Kind != MigrationActionCreateIndex {
+	if second.Kind != schemax.MigrationActionCreateIndex {
 		t.Fatalf("unexpected second action: %+v", second)
 	}
 	if report := plan.Report; report.Tables.Len() != 1 {
@@ -84,18 +86,18 @@ func TestPlanSchemaChangesIncludesDerivedConstraints(t *testing.T) {
 func TestAutoMigrateAddsMissingForeignKeyAndCheck(t *testing.T) {
 	users := MustSchema("users", advancedUserSchema{})
 	schemaDialect := newFakeSchemaDialect()
-	schemaDialect.tables["users"] = TableState{
+	schemaDialect.tables["users"] = schemax.TableState{
 		Exists: true,
 		Name:   "users",
 		Columns: collectionx.NewList(
-			ColumnState{Name: "id", Type: "bigint", Nullable: false},
-			ColumnState{Name: "tenant_id", Type: "bigint", Nullable: false},
-			ColumnState{Name: "username", Type: "text", Nullable: false},
-			ColumnState{Name: "status", Type: "integer", Nullable: false},
-			ColumnState{Name: "role_id", Type: "bigint", Nullable: false},
+			schemax.ColumnState{Name: "id", Type: "bigint", Nullable: false},
+			schemax.ColumnState{Name: "tenant_id", Type: "bigint", Nullable: false},
+			schemax.ColumnState{Name: "username", Type: "text", Nullable: false},
+			schemax.ColumnState{Name: "status", Type: "integer", Nullable: false},
+			schemax.ColumnState{Name: "role_id", Type: "bigint", Nullable: false},
 		),
 		Indexes:    toIndexStates(IndexesForTest(users)),
-		PrimaryKey: &PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList("id", "tenant_id")},
+		PrimaryKey: &schemax.PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList("id", "tenant_id")},
 	}
 	session := &fakeSession{dialect: schemaDialect}
 
@@ -128,7 +130,7 @@ func (failingIndexDialect) RenderLimitOffset(limit, offset *int) (string, error)
 func (failingIndexDialect) NormalizeType(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
-func (d failingIndexDialect) BuildCreateTable(spec TableSpec) (sqlstmt.Bound, error) {
+func (d failingIndexDialect) BuildCreateTable(spec schemax.TableSpec) (sqlstmt.Bound, error) {
 	parts := make([]string, 0, spec.Columns.Len())
 	singlePK := ""
 	if spec.PrimaryKey != nil && spec.PrimaryKey.Columns.Len() == 1 {
@@ -151,22 +153,22 @@ func (d failingIndexDialect) BuildCreateTable(spec TableSpec) (sqlstmt.Bound, er
 	}
 	return sqlstmt.Bound{SQL: "CREATE TABLE IF NOT EXISTS " + d.QuoteIdent(spec.Name) + " (" + strings.Join(parts, ", ") + ")"}, nil
 }
-func (d failingIndexDialect) BuildAddColumn(table string, column ColumnMeta) (sqlstmt.Bound, error) {
+func (d failingIndexDialect) BuildAddColumn(table string, column schemax.ColumnMeta) (sqlstmt.Bound, error) {
 	return sqlstmt.Bound{}, fmt.Errorf("unexpected add column for test table %s column %s", table, column.Name)
 }
-func (d failingIndexDialect) BuildCreateIndex(index IndexMeta) (sqlstmt.Bound, error) {
+func (d failingIndexDialect) BuildCreateIndex(index schemax.IndexMeta) (sqlstmt.Bound, error) {
 	return sqlstmt.Bound{SQL: "CREATE INDEX broken syntax"}, nil
 }
-func (d failingIndexDialect) BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (sqlstmt.Bound, error) {
+func (d failingIndexDialect) BuildAddForeignKey(table string, foreignKey schemax.ForeignKeyMeta) (sqlstmt.Bound, error) {
 	return sqlstmt.Bound{}, fmt.Errorf("unexpected add foreign key for test table %s constraint %s", table, foreignKey.Name)
 }
-func (d failingIndexDialect) BuildAddCheck(table string, check CheckMeta) (sqlstmt.Bound, error) {
+func (d failingIndexDialect) BuildAddCheck(table string, check schemax.CheckMeta) (sqlstmt.Bound, error) {
 	return sqlstmt.Bound{}, fmt.Errorf("unexpected add check for test table %s check %s", table, check.Name)
 }
-func (d failingIndexDialect) InspectTable(ctx context.Context, executor Executor, table string) (state TableState, err error) {
+func (d failingIndexDialect) InspectTable(ctx context.Context, executor Executor, table string) (state schemax.TableState, err error) {
 	rows, err := executor.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", table)
 	if err != nil {
-		return TableState{}, fmt.Errorf("inspect test table %s: %w", table, err)
+		return schemax.TableState{}, fmt.Errorf("inspect test table %s: %w", table, err)
 	}
 	defer func() {
 		err = errors.Join(err, CloseRowsForTest(rows))
@@ -174,12 +176,12 @@ func (d failingIndexDialect) InspectTable(ctx context.Context, executor Executor
 
 	exists := rows.Next()
 	if iterErr := rows.Err(); iterErr != nil {
-		return TableState{}, fmt.Errorf("inspect test table %s rows: %w", table, iterErr)
+		return schemax.TableState{}, fmt.Errorf("inspect test table %s rows: %w", table, iterErr)
 	}
 	if !exists {
-		return TableState{Name: table, Exists: false}, nil
+		return schemax.TableState{Name: table, Exists: false}, nil
 	}
-	return TableState{Name: table, Exists: true}, nil
+	return schemax.TableState{Name: table, Exists: true}, nil
 }
 
 func TestAutoMigrateRollsBackTransactionalDDLOnFailure(t *testing.T) {
@@ -190,7 +192,7 @@ func TestAutoMigrateRollsBackTransactionalDDLOnFailure(t *testing.T) {
 	core := MustNewWithOptions(raw, failingIndexDialect{})
 	users := MustSchema("users", UserSchema{})
 
-	_, err := core.AutoMigrate(ctx, users)
+	_, err := AutoMigrate(ctx, core, users)
 	if err == nil {
 		t.Fatal("expected automigrate to fail on invalid index SQL")
 	}

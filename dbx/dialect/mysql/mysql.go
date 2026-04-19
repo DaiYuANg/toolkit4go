@@ -3,12 +3,14 @@ package mysql
 import (
 	"context"
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
+	schemamigrate "github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 )
 
 // Dialect implements MySQL rendering and schema inspection.
@@ -48,21 +50,21 @@ func (Dialect) QueryFeatures() dialect.QueryFeatures {
 }
 
 // BuildCreateTable builds a CREATE TABLE statement.
-func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (sqlstmt.Bound, error) {
+func (d Dialect) BuildCreateTable(spec schemax.TableSpec) (sqlstmt.Bound, error) {
 	parts := collectionx.NewListWithCapacity[string](spec.Columns.Len() + spec.ForeignKeys.Len() + spec.Checks.Len() + 1)
 	inlinePrimaryKey := singlePrimaryKeyColumn(spec.PrimaryKey)
-	spec.Columns.Range(func(_ int, column dbx.ColumnMeta) bool {
+	spec.Columns.Range(func(_ int, column schemax.ColumnMeta) bool {
 		parts.Add(d.columnDDL(column, inlinePrimaryKey == column.Name, false))
 		return true
 	})
 	if spec.PrimaryKey != nil && spec.PrimaryKey.Columns.Len() > 1 {
 		parts.Add(d.primaryKeyDDL(*spec.PrimaryKey))
 	}
-	spec.ForeignKeys.Range(func(_ int, foreignKey dbx.ForeignKeyMeta) bool {
+	spec.ForeignKeys.Range(func(_ int, foreignKey schemax.ForeignKeyMeta) bool {
 		parts.Add(d.foreignKeyDDL(foreignKey))
 		return true
 	})
-	spec.Checks.Range(func(_ int, check dbx.CheckMeta) bool {
+	spec.Checks.Range(func(_ int, check schemax.CheckMeta) bool {
 		parts.Add(d.checkDDL(check))
 		return true
 	})
@@ -72,14 +74,14 @@ func (d Dialect) BuildCreateTable(spec dbx.TableSpec) (sqlstmt.Bound, error) {
 }
 
 // BuildAddColumn builds an ALTER TABLE ADD COLUMN statement.
-func (d Dialect) BuildAddColumn(table string, column dbx.ColumnMeta) (sqlstmt.Bound, error) {
+func (d Dialect) BuildAddColumn(table string, column schemax.ColumnMeta) (sqlstmt.Bound, error) {
 	return sqlstmt.Bound{
 		SQL: "ALTER TABLE " + d.QuoteIdent(table) + " ADD COLUMN " + d.columnDDL(column, false, true),
 	}, nil
 }
 
 // BuildCreateIndex builds a CREATE INDEX statement.
-func (d Dialect) BuildCreateIndex(index dbx.IndexMeta) (sqlstmt.Bound, error) {
+func (d Dialect) BuildCreateIndex(index schemax.IndexMeta) (sqlstmt.Bound, error) {
 	prefix := "CREATE INDEX "
 	if index.Unique {
 		prefix = "CREATE UNIQUE INDEX "
@@ -90,50 +92,50 @@ func (d Dialect) BuildCreateIndex(index dbx.IndexMeta) (sqlstmt.Bound, error) {
 }
 
 // BuildAddForeignKey builds an ALTER TABLE ADD CONSTRAINT statement for a foreign key.
-func (d Dialect) BuildAddForeignKey(table string, foreignKey dbx.ForeignKeyMeta) (sqlstmt.Bound, error) {
+func (d Dialect) BuildAddForeignKey(table string, foreignKey schemax.ForeignKeyMeta) (sqlstmt.Bound, error) {
 	return sqlstmt.Bound{
 		SQL: "ALTER TABLE " + d.QuoteIdent(table) + " ADD " + d.foreignKeyDDL(foreignKey),
 	}, nil
 }
 
 // BuildAddCheck builds an ALTER TABLE ADD CONSTRAINT statement for a check.
-func (d Dialect) BuildAddCheck(table string, check dbx.CheckMeta) (sqlstmt.Bound, error) {
+func (d Dialect) BuildAddCheck(table string, check schemax.CheckMeta) (sqlstmt.Bound, error) {
 	return sqlstmt.Bound{
 		SQL: "ALTER TABLE " + d.QuoteIdent(table) + " ADD " + d.checkDDL(check),
 	}, nil
 }
 
 // InspectTable inspects a MySQL table definition from information_schema.
-func (d Dialect) InspectTable(ctx context.Context, executor dbx.Executor, table string) (dbx.TableState, error) {
+func (d Dialect) InspectTable(ctx context.Context, executor dbx.Executor, table string) (schemax.TableState, error) {
 	exists, err := inspectMySQLTableExists(ctx, executor, table)
 	if err != nil {
-		return dbx.TableState{}, err
+		return schemax.TableState{}, err
 	}
 	if !exists {
-		return dbx.TableState{Name: table, Exists: false}, nil
+		return schemax.TableState{Name: table, Exists: false}, nil
 	}
 
 	columns, primaryKey, err := d.inspectColumns(ctx, executor, table)
 	if err != nil {
-		return dbx.TableState{}, err
+		return schemax.TableState{}, err
 	}
 
 	indexes, err := d.inspectIndexes(ctx, executor, table)
 	if err != nil {
-		return dbx.TableState{}, err
+		return schemax.TableState{}, err
 	}
 
 	foreignKeys, err := d.inspectForeignKeys(ctx, executor, table)
 	if err != nil {
-		return dbx.TableState{}, err
+		return schemax.TableState{}, err
 	}
 
 	checks, err := d.inspectChecks(ctx, executor, table)
 	if err != nil {
-		return dbx.TableState{}, err
+		return schemax.TableState{}, err
 	}
 
-	return dbx.TableState{
+	return schemax.TableState{
 		Exists:      true,
 		Name:        table,
 		Columns:     collectionx.NewListWithCapacity(len(columns), columns...),
@@ -153,4 +155,4 @@ func (Dialect) NormalizeType(value string) string {
 	return typeName
 }
 
-var _ dbx.SchemaDialect = Dialect{}
+var _ schemamigrate.Dialect = Dialect{}

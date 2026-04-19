@@ -1,6 +1,7 @@
 package dbx_test
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"testing"
 )
 
@@ -29,7 +30,7 @@ func assertUserReferenceMetadata(t *testing.T, users UserSchema) {
 	if !ok {
 		t.Fatal("expected role_id reference metadata")
 	}
-	if ref.TargetTable != "roles" || ref.TargetColumn != "id" || ref.OnDelete != ReferentialCascade {
+	if ref.TargetTable != "roles" || ref.TargetColumn != "id" || ref.OnDelete != schemax.ReferentialCascade {
 		t.Fatalf("unexpected reference metadata: %+v", ref)
 	}
 }
@@ -45,11 +46,11 @@ func assertUserRelationMetadata(t *testing.T, users UserSchema) {
 		t.Fatalf("unexpected relations metadata count: %d", relations.Len())
 	}
 	first, ok := relations.Get(0)
-	if !ok || first.Kind != RelationBelongsTo || first.TargetTable != "roles" {
+	if !ok || first.Kind != schemax.RelationBelongsTo || first.TargetTable != "roles" {
 		t.Fatalf("unexpected first relation metadata: %+v", first)
 	}
 	last, ok := relations.Get(3)
-	if !ok || last.Kind != RelationManyToMany || last.ThroughTable != "user_roles" {
+	if !ok || last.Kind != schemax.RelationManyToMany || last.ThroughTable != "user_roles" {
 		t.Fatalf("unexpected many-to-many metadata: %+v", last)
 	}
 }

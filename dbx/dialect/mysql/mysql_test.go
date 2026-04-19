@@ -1,42 +1,42 @@
 package mysql_test
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/dbx"
 	mysql "github.com/DaiYuANg/arcgo/dbx/dialect/mysql"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuildCreateTable(t *testing.T) {
-	bound, err := mysql.New().BuildCreateTable(dbx.TableSpec{
+	bound, err := mysql.New().BuildCreateTable(schemax.TableSpec{
 		Name: "users",
 		Columns: collectionx.NewList(
-			dbx.ColumnMeta{Name: "id", Table: "users", GoType: reflect.TypeFor[int64](), PrimaryKey: true, AutoIncrement: true},
-			dbx.ColumnMeta{Name: "username", Table: "users", GoType: reflect.TypeFor[string]()},
-			dbx.ColumnMeta{Name: "email_address", Table: "users", GoType: reflect.TypeFor[string]()},
-			dbx.ColumnMeta{Name: "role_id", Table: "users", GoType: reflect.TypeFor[int64]()},
-			dbx.ColumnMeta{Name: "status", Table: "users", GoType: reflect.TypeFor[int]()},
+			schemax.ColumnMeta{Name: "id", Table: "users", GoType: reflect.TypeFor[int64](), PrimaryKey: true, AutoIncrement: true},
+			schemax.ColumnMeta{Name: "username", Table: "users", GoType: reflect.TypeFor[string]()},
+			schemax.ColumnMeta{Name: "email_address", Table: "users", GoType: reflect.TypeFor[string]()},
+			schemax.ColumnMeta{Name: "role_id", Table: "users", GoType: reflect.TypeFor[int64]()},
+			schemax.ColumnMeta{Name: "status", Table: "users", GoType: reflect.TypeFor[int]()},
 		),
-		PrimaryKey: &dbx.PrimaryKeyMeta{
+		PrimaryKey: &schemax.PrimaryKeyMeta{
 			Name:    "pk_users",
 			Table:   "users",
 			Columns: collectionx.NewList("id"),
 		},
 		ForeignKeys: collectionx.NewList(
-			dbx.ForeignKeyMeta{
+			schemax.ForeignKeyMeta{
 				Name:          "fk_users_role_id",
 				Table:         "users",
 				Columns:       collectionx.NewList("role_id"),
 				TargetTable:   "roles",
 				TargetColumns: collectionx.NewList("id"),
-				OnDelete:      dbx.ReferentialCascade,
+				OnDelete:      schemax.ReferentialCascade,
 			},
 		),
 		Checks: collectionx.NewList(
-			dbx.CheckMeta{
+			schemax.CheckMeta{
 				Name:       "ck_users_status",
 				Table:      "users",
 				Expression: "status >= 0",

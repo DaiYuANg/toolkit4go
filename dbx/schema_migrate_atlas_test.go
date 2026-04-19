@@ -3,6 +3,7 @@ package dbx_test
 import (
 	"context"
 	"database/sql"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"strings"
 	"testing"
 
@@ -54,7 +55,7 @@ func TestAtlasSplitChangesSeparatesExecutableAndManualChanges(t *testing.T) {
 	if len(manual) != 1 {
 		t.Fatalf("expected one manual action, got: %d", len(manual))
 	}
-	if manual[0].Kind != MigrationActionManual {
+	if manual[0].Kind != schemax.MigrationActionManual {
 		t.Fatalf("unexpected manual action kind: %+v", manual[0])
 	}
 }
@@ -73,7 +74,7 @@ func TestPlanSchemaChangesWithAtlasIncludesSQLPreview(t *testing.T) {
 	core := New(raw, testSQLiteDialect{})
 	users := MustSchema("users", UserSchema{})
 
-	plan, err := core.PlanSchemaChanges(context.Background(), users)
+	plan, err := PlanSchemaChanges(context.Background(), core, users)
 	if err != nil {
 		t.Fatalf("PlanSchemaChanges returned error: %v", err)
 	}

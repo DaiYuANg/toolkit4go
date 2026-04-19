@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"testing"
@@ -227,7 +228,7 @@ func runInsertAssignmentBenchmark(b *testing.B, name string, reset func(), run f
 	})
 }
 
-func benchmarkQueryCursorOnce(b *testing.B, core *DB, query *SelectQuery, mapper StructMapper[accountRecord]) {
+func benchmarkQueryCursorOnce(b *testing.B, core *DB, query *querydsl.SelectQuery, mapper StructMapper[accountRecord]) {
 	b.Helper()
 	cursor, err := QueryCursor(context.Background(), core, query, mapper)
 	if err != nil {

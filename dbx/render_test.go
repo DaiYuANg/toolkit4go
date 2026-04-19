@@ -105,7 +105,7 @@ func TestJoinRelationBuildSQLite(t *testing.T) {
 	roles := Alias(MustSchema("roles", RoleSchema{}), "r")
 
 	query := Select(users.ID, roles.Name).From(users)
-	if _, err := query.JoinRelation(users, users.Role, roles); err != nil {
+	if _, err := JoinRelation(query, users, users.Role, roles); err != nil {
 		t.Fatalf("JoinRelation returned error: %v", err)
 	}
 
@@ -125,7 +125,7 @@ func TestJoinRelationManyToManyBuildSQLite(t *testing.T) {
 	roles := Alias(MustSchema("roles", RoleSchema{}), "r")
 
 	query := Select(users.ID, roles.Name).From(users)
-	if _, err := query.JoinRelation(users, users.Roles, roles); err != nil {
+	if _, err := JoinRelation(query, users, users.Roles, roles); err != nil {
 		t.Fatalf("JoinRelation returned error: %v", err)
 	}
 

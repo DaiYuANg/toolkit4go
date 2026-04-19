@@ -3,6 +3,8 @@ package dbx_test
 import (
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -56,11 +58,11 @@ type UserSchema struct {
 	Username Column[User, string]
 	Email    Column[User, string] `dbx:"email_address,index"`
 	Status   Column[User, int]
-	RoleID   Column[User, int64]    `dbx:"role_id,ref=roles.id,ondelete=cascade"`
-	Role     BelongsTo[User, Role]  `rel:"table=roles,local=role_id,target=id"`
-	Peer     HasOne[User, User]     `rel:"table=user_peers,local=id,target=user_id"`
-	Children HasMany[User, User]    `rel:"table=users,local=id,target=parent_id"`
-	Roles    ManyToMany[User, Role] `rel:"table=roles,target=id,join=user_roles,join_local=user_id,join_target=role_id"`
+	RoleID   Column[User, int64]              `dbx:"role_id,ref=roles.id,ondelete=cascade"`
+	Role     relationx.BelongsTo[User, Role]  `rel:"table=roles,local=role_id,target=id"`
+	Peer     relationx.HasOne[User, User]     `rel:"table=user_peers,local=id,target=user_id"`
+	Children relationx.HasMany[User, User]    `rel:"table=users,local=id,target=parent_id"`
+	Roles    relationx.ManyToMany[User, Role] `rel:"table=roles,target=id,join=user_roles,join_local=user_id,join_target=role_id"`
 }
 
 func TestMustSchemaBindsColumnsAndRelations(t *testing.T) {
@@ -189,7 +191,7 @@ func TestInsertBuilderValuesGridTracksAssignmentState(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
 
 	query := InsertInto(users).ValuesGrid(collectionx.NewGrid(
-		[]Assignment{
+		[]querydsl.Assignment{
 			users.Username.Set("alice"),
 			users.Status.Set(1),
 		},
@@ -202,7 +204,7 @@ func TestInsertBuilderValuesGridTracksAssignmentState(t *testing.T) {
 	}
 
 	query = query.ValuesGrid(collectionx.NewGrid(
-		[]Assignment{
+		[]querydsl.Assignment{
 			users.Status.Set(2),
 			users.Username.Set("bob"),
 		},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -39,7 +40,7 @@ func inspectMySQLTableExists(ctx context.Context, executor dbx.Executor, table s
 	return exists, nil
 }
 
-func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.ColumnState, _ *dbx.PrimaryKeyState, resultErr error) {
+func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.ColumnState, _ *schemax.PrimaryKeyState, resultErr error) {
 	const action = "inspect mysql columns"
 
 	rows, err := queryMySQLRows(ctx, executor, action, mysqlColumnsQuery, table)
@@ -52,7 +53,7 @@ func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, tabl
 		}
 	}()
 
-	columns := make([]dbx.ColumnState, 0, 8)
+	columns := make([]schemax.ColumnState, 0, 8)
 	primaryColumns := make([]string, 0, 2)
 	for rows.Next() {
 		column, isPrimary, scanErr := scanMySQLColumn(rows)
@@ -72,7 +73,7 @@ func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, tabl
 	return columns, mysqlPrimaryKeyState(primaryColumns), nil
 }
 
-func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.IndexState, resultErr error) {
+func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.IndexState, resultErr error) {
 	const action = "inspect mysql indexes"
 
 	rows, err := queryMySQLRows(ctx, executor, action, mysqlIndexesQuery, table)
@@ -85,7 +86,7 @@ func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, tabl
 		}
 	}()
 
-	groups := collectionx.NewOrderedMap[string, dbx.IndexState]()
+	groups := collectionx.NewOrderedMap[string, schemax.IndexState]()
 	for rows.Next() {
 		name, state, scanErr := scanMySQLIndex(rows)
 		if scanErr != nil {
@@ -101,15 +102,15 @@ func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, tabl
 		return nil, rowsErr
 	}
 
-	indexes := make([]dbx.IndexState, 0, groups.Len())
-	groups.Range(func(_ string, value dbx.IndexState) bool {
+	indexes := make([]schemax.IndexState, 0, groups.Len())
+	groups.Range(func(_ string, value schemax.IndexState) bool {
 		indexes = append(indexes, value)
 		return true
 	})
 	return indexes, nil
 }
 
-func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.ForeignKeyState, resultErr error) {
+func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.ForeignKeyState, resultErr error) {
 	const action = "inspect mysql foreign keys"
 
 	rows, err := queryMySQLRows(ctx, executor, action, mysqlForeignKeysQuery, table)
@@ -122,7 +123,7 @@ func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, 
 		}
 	}()
 
-	groups := collectionx.NewOrderedMap[string, dbx.ForeignKeyState]()
+	groups := collectionx.NewOrderedMap[string, schemax.ForeignKeyState]()
 	for rows.Next() {
 		name, state, scanErr := scanMySQLForeignKey(rows)
 		if scanErr != nil {
@@ -144,15 +145,15 @@ func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, 
 		return nil, rowsErr
 	}
 
-	foreignKeys := make([]dbx.ForeignKeyState, 0, groups.Len())
-	groups.Range(func(_ string, value dbx.ForeignKeyState) bool {
+	foreignKeys := make([]schemax.ForeignKeyState, 0, groups.Len())
+	groups.Range(func(_ string, value schemax.ForeignKeyState) bool {
 		foreignKeys = append(foreignKeys, value)
 		return true
 	})
 	return foreignKeys, nil
 }
 
-func (d Dialect) inspectChecks(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.CheckState, resultErr error) {
+func (d Dialect) inspectChecks(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.CheckState, resultErr error) {
 	const action = "inspect mysql checks"
 
 	rows, err := queryMySQLRows(ctx, executor, action, mysqlChecksQuery, table)
@@ -165,7 +166,7 @@ func (d Dialect) inspectChecks(ctx context.Context, executor dbx.Executor, table
 		}
 	}()
 
-	checks := make([]dbx.CheckState, 0, 4)
+	checks := make([]schemax.CheckState, 0, 4)
 	for rows.Next() {
 		check, scanErr := scanMySQLCheck(rows)
 		if scanErr != nil {
@@ -181,7 +182,7 @@ func (d Dialect) inspectChecks(ctx context.Context, executor dbx.Executor, table
 	return checks, nil
 }
 
-func scanMySQLColumn(rows *sql.Rows) (dbx.ColumnState, bool, error) {
+func scanMySQLColumn(rows *sql.Rows) (schemax.ColumnState, bool, error) {
 	var name string
 	var columnType string
 	var isNullable string
@@ -190,11 +191,11 @@ func scanMySQLColumn(rows *sql.Rows) (dbx.ColumnState, bool, error) {
 	var defaultValue sql.NullString
 
 	if err := rows.Scan(&name, &columnType, &isNullable, &defaultValue, &columnKey, &extra); err != nil {
-		return dbx.ColumnState{}, false, fmt.Errorf("scan mysql column: %w", err)
+		return schemax.ColumnState{}, false, fmt.Errorf("scan mysql column: %w", err)
 	}
 
 	isPrimary := strings.EqualFold(columnKey, "PRI")
-	return dbx.ColumnState{
+	return schemax.ColumnState{
 		Name:          name,
 		Type:          columnType,
 		Nullable:      strings.EqualFold(isNullable, "YES"),
@@ -204,23 +205,23 @@ func scanMySQLColumn(rows *sql.Rows) (dbx.ColumnState, bool, error) {
 	}, isPrimary, nil
 }
 
-func scanMySQLIndex(rows *sql.Rows) (string, dbx.IndexState, error) {
+func scanMySQLIndex(rows *sql.Rows) (string, schemax.IndexState, error) {
 	var name string
 	var column string
 	var nonUnique int
 
 	if err := rows.Scan(&name, &nonUnique, &column); err != nil {
-		return "", dbx.IndexState{}, fmt.Errorf("scan mysql index: %w", err)
+		return "", schemax.IndexState{}, fmt.Errorf("scan mysql index: %w", err)
 	}
 
-	return name, dbx.IndexState{
+	return name, schemax.IndexState{
 		Name:    name,
 		Columns: collectionx.NewList(column),
 		Unique:  nonUnique == 0,
 	}, nil
 }
 
-func appendMySQLIndex(groups collectionx.OrderedMap[string, dbx.IndexState], name string, state dbx.IndexState) {
+func appendMySQLIndex(groups collectionx.OrderedMap[string, schemax.IndexState], name string, state schemax.IndexState) {
 	current, ok := groups.Get(name)
 	if !ok {
 		groups.Set(name, state)
@@ -230,7 +231,7 @@ func appendMySQLIndex(groups collectionx.OrderedMap[string, dbx.IndexState], nam
 	groups.Set(name, current)
 }
 
-func scanMySQLForeignKey(rows *sql.Rows) (string, dbx.ForeignKeyState, error) {
+func scanMySQLForeignKey(rows *sql.Rows) (string, schemax.ForeignKeyState, error) {
 	var name string
 	var column string
 	var targetTable string
@@ -239,10 +240,10 @@ func scanMySQLForeignKey(rows *sql.Rows) (string, dbx.ForeignKeyState, error) {
 	var deleteRule sql.NullString
 
 	if err := rows.Scan(&name, &column, &targetTable, &targetColumn, &updateRule, &deleteRule); err != nil {
-		return "", dbx.ForeignKeyState{}, fmt.Errorf("scan mysql foreign key: %w", err)
+		return "", schemax.ForeignKeyState{}, fmt.Errorf("scan mysql foreign key: %w", err)
 	}
 
-	return name, dbx.ForeignKeyState{
+	return name, schemax.ForeignKeyState{
 		Name:          name,
 		TargetTable:   targetTable,
 		Columns:       collectionx.NewList(column),
@@ -252,22 +253,22 @@ func scanMySQLForeignKey(rows *sql.Rows) (string, dbx.ForeignKeyState, error) {
 	}, nil
 }
 
-func scanMySQLCheck(rows *sql.Rows) (dbx.CheckState, error) {
+func scanMySQLCheck(rows *sql.Rows) (schemax.CheckState, error) {
 	var name string
 	var clause string
 
 	if err := rows.Scan(&name, &clause); err != nil {
-		return dbx.CheckState{}, fmt.Errorf("scan mysql check: %w", err)
+		return schemax.CheckState{}, fmt.Errorf("scan mysql check: %w", err)
 	}
 
-	return dbx.CheckState{Name: name, Expression: clause}, nil
+	return schemax.CheckState{Name: name, Expression: clause}, nil
 }
 
-func mysqlPrimaryKeyState(columns []string) *dbx.PrimaryKeyState {
+func mysqlPrimaryKeyState(columns []string) *schemax.PrimaryKeyState {
 	if len(columns) == 0 {
 		return nil
 	}
-	return &dbx.PrimaryKeyState{Name: "PRIMARY", Columns: collectionx.NewList(columns...)}
+	return &schemax.PrimaryKeyState{Name: "PRIMARY", Columns: collectionx.NewList(columns...)}
 }
 
 func queryMySQLRows(ctx context.Context, executor dbx.Executor, action, query string, args ...any) (*sql.Rows, error) {

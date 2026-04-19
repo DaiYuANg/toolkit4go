@@ -1,117 +1,116 @@
 package dbx
 
 import (
+	"fmt"
+
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
 type schemaSelectItem struct {
-	meta ColumnMeta
+	meta schemax.ColumnMeta
 }
 
-func (s schemaSelectItem) selectItemNode() {}
+func (s schemaSelectItem) QueryExpression() {}
+func (s schemaSelectItem) QuerySelectItem() {}
 
-func (s schemaSelectItem) columnRef() ColumnMeta {
+func (s schemaSelectItem) columnRef() schemax.ColumnMeta {
 	return s.meta
 }
 
-func (s Schema[E]) AllColumns() collectionx.List[SelectItem] {
-	return collectionx.MapList(s.def.columns, func(_ int, column ColumnMeta) SelectItem {
+func (s schemaSelectItem) ColumnRef() schemax.ColumnMeta {
+	return s.columnRef()
+}
+
+func (s schemaSelectItem) RenderOperand(state *querydsl.State) (string, error) {
+	return renderColumnOperand(state, s.columnRef())
+}
+
+func (s Schema[E]) AllColumns() collectionx.List[querydsl.SelectItem] {
+	return collectionx.MapList(s.def.columns, func(_ int, column schemax.ColumnMeta) querydsl.SelectItem {
 		return schemaSelectItem{meta: cloneColumnMeta(column)}
 	})
 }
 
-func (s Schema[E]) PrimaryColumn() (ColumnMeta, bool) {
-	column, ok := collectionx.FindList(s.def.columns, func(_ int, column ColumnMeta) bool {
+func (s Schema[E]) PrimaryColumn() (schemax.ColumnMeta, bool) {
+	column, ok := collectionx.FindList(s.def.columns, func(_ int, column schemax.ColumnMeta) bool {
 		return column.PrimaryKey
 	})
 	if !ok {
-		return ColumnMeta{}, false
+		return schemax.ColumnMeta{}, false
 	}
 	return cloneColumnMeta(column), true
 }
 
-func (s Schema[E]) ColumnByName(name string) (ColumnMeta, bool) {
+func (s Schema[E]) ColumnByName(name string) (schemax.ColumnMeta, bool) {
 	column, ok := s.def.columnByName(name)
 	if !ok {
-		return ColumnMeta{}, false
+		return schemax.ColumnMeta{}, false
 	}
 	return cloneColumnMeta(column), true
 }
 
 type metadataAssignment struct {
-	meta  ColumnMeta
+	meta  schemax.ColumnMeta
 	value any
 }
 
 type metadataComparisonPredicate struct {
-	left  ColumnMeta
+	left  schemax.ColumnMeta
 	op    querydsl.ComparisonOperator
 	right any
 }
 
-type metadataColumnOperand struct {
-	meta ColumnMeta
-}
+func (metadataAssignment) QueryAssignment() {}
 
-func (metadataAssignment) assignmentNode() {}
+func (metadataComparisonPredicate) QueryExpression() {}
+func (metadataComparisonPredicate) QueryPredicate()  {}
 
-func (metadataComparisonPredicate) expressionNode() {}
-func (metadataComparisonPredicate) predicateNode()  {}
-func (metadataColumnOperand) expressionNode()       {}
-
-func (a metadataAssignment) assignmentColumn() ColumnMeta {
+func (a metadataAssignment) assignmentColumn() schemax.ColumnMeta {
 	return a.meta
 }
 
-func (a metadataAssignment) renderAssignment(state *renderState) error {
-	state.writeQuotedIdent(a.meta.Name)
-	state.writeString(" = ")
-	operand, err := renderOperandValue(state, a.value)
+func (a metadataAssignment) AssignmentColumn() schemax.ColumnMeta {
+	return a.assignmentColumn()
+}
+
+func (a metadataAssignment) RenderAssignment(state *querydsl.State) error {
+	state.WriteQuotedIdent(a.meta.Name)
+	state.WriteString(" = ")
+	operand, err := querydsl.RenderOperandValue(state, a.value)
 	if err != nil {
-		return err
+		return fmt.Errorf("dbx: render metadata assignment operand: %w", err)
 	}
-	state.writeString(operand)
+	state.WriteString(operand)
 	return nil
 }
 
-func (a metadataAssignment) renderAssignmentValue(state *renderState) error {
-	operand, err := renderOperandValue(state, a.value)
+func (a metadataAssignment) RenderAssignmentValue(state *querydsl.State) error {
+	operand, err := querydsl.RenderOperandValue(state, a.value)
 	if err != nil {
-		return err
+		return fmt.Errorf("dbx: render metadata assignment value: %w", err)
 	}
-	state.writeString(operand)
+	state.WriteString(operand)
 	return nil
 }
 
-func (p metadataComparisonPredicate) renderPredicate(state *renderState) error {
-	state.renderColumn(p.left)
+func (p metadataComparisonPredicate) RenderPredicate(state *querydsl.State) error {
+	state.RenderColumn(p.left)
 	if p.op == querydsl.OpIs || p.op == querydsl.OpIsNot {
-		state.writeByte(' ')
-		state.writeString(string(p.op))
-		state.writeString(" NULL")
+		state.WriteRawByte(' ')
+		state.WriteString(string(p.op))
+		state.WriteString(" NULL")
 		return nil
 	}
 
-	operand, err := renderOperandValue(state, p.right)
+	operand, err := querydsl.RenderOperandValue(state, p.right)
 	if err != nil {
-		return err
+		return fmt.Errorf("dbx: render metadata predicate operand: %w", err)
 	}
-	state.writeByte(' ')
-	state.writeString(string(p.op))
-	state.writeByte(' ')
-	state.writeString(operand)
+	state.WriteRawByte(' ')
+	state.WriteString(string(p.op))
+	state.WriteRawByte(' ')
+	state.WriteString(operand)
 	return nil
-}
-
-func (o metadataColumnOperand) renderOperand(state *renderState) (string, error) {
-	var builder renderBuffer
-	table := o.meta.Table
-	if o.meta.Alias != "" {
-		table = o.meta.Alias
-	}
-	builder.writeString(state.dialect.QuoteIdent(table))
-	builder.writeByte('.')
-	builder.writeString(state.dialect.QuoteIdent(o.meta.Name))
-	return builder.String(), builder.Err("render metadata column operand")
 }

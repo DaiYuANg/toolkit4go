@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"slices"
 	"strings"
 
@@ -20,14 +21,14 @@ type countRow struct {
 	Count int64 `dbx:"count"`
 }
 
-func (r *Base[E, S]) defaultSelect() *dbx.SelectQuery {
-	items := collectionx.MapList(r.mapper.Fields(), func(_ int, field dbx.MappedField) dbx.SelectItem {
+func (r *Base[E, S]) defaultSelect() *querydsl.SelectQuery {
+	items := collectionx.MapList(r.mapper.Fields(), func(_ int, field dbx.MappedField) querydsl.SelectItem {
 		return dbx.NamedColumn[any](r.schema, field.Column)
 	})
 	return dbx.SelectList(items).From(r.schema)
 }
 
-func (r *Base[E, S]) applySpecs(specs ...Spec) *dbx.SelectQuery {
+func (r *Base[E, S]) applySpecs(specs ...Spec) *querydsl.SelectQuery {
 	query := r.defaultSelect()
 	for _, spec := range specs {
 		if spec != nil {
@@ -37,7 +38,7 @@ func (r *Base[E, S]) applySpecs(specs ...Spec) *dbx.SelectQuery {
 	return query
 }
 
-func cloneForCount(query *dbx.SelectQuery) *dbx.SelectQuery {
+func cloneForCount(query *querydsl.SelectQuery) *querydsl.SelectQuery {
 	cloned := query.Clone()
 	if cloned == nil {
 		return nil
@@ -48,16 +49,16 @@ func cloneForCount(query *dbx.SelectQuery) *dbx.SelectQuery {
 	return cloned
 }
 
-func countQueryRequiresWrap(query *dbx.SelectQuery) bool {
+func countQueryRequiresWrap(query *querydsl.SelectQuery) bool {
 	return queryRequiresProjectionWrap(query)
 }
 
-func queryRequiresProjectionWrap(query *dbx.SelectQuery) bool {
+func queryRequiresProjectionWrap(query *querydsl.SelectQuery) bool {
 	return query != nil &&
 		(query.Distinct || query.Groups.Len() > 0 || query.HavingExp != nil || query.Unions.Len() > 0)
 }
 
-func wrappedCountBound(session dbx.Session, query *dbx.SelectQuery) (sqlstmt.Bound, error) {
+func wrappedCountBound(session dbx.Session, query *querydsl.SelectQuery) (sqlstmt.Bound, error) {
 	source := cloneForCount(query)
 	bound, err := dbx.Build(session, source)
 	if err != nil {
@@ -72,7 +73,7 @@ func wrappedCountBound(session dbx.Session, query *dbx.SelectQuery) (sqlstmt.Bou
 	}, nil
 }
 
-func (r *Base[E, S]) existsBound(query *dbx.SelectQuery) (sqlstmt.Bound, error) {
+func (r *Base[E, S]) existsBound(query *querydsl.SelectQuery) (sqlstmt.Bound, error) {
 	if queryRequiresProjectionWrap(query) {
 		return wrappedExistsBound(r.session, query)
 	}
@@ -87,20 +88,20 @@ func (r *Base[E, S]) existsBound(query *dbx.SelectQuery) (sqlstmt.Bound, error) 
 	return bound, nil
 }
 
-func (r *Base[E, S]) existsSelect(query *dbx.SelectQuery) (*dbx.SelectQuery, error) {
+func (r *Base[E, S]) existsSelect(query *querydsl.SelectQuery) (*querydsl.SelectQuery, error) {
 	item, err := r.existsSelectItem()
 	if err != nil {
 		return nil, err
 	}
 	source := cloneOrDefault(r, query)
-	source.Items = collectionx.NewList[dbx.SelectItem](item)
+	source.Items = collectionx.NewList[querydsl.SelectItem](item)
 	source.Orders = nil
 	source.LimitN = nil
 	source.Limit(1)
 	return source, nil
 }
 
-func (r *Base[E, S]) existsSelectItem() (dbx.SelectItem, error) {
+func (r *Base[E, S]) existsSelectItem() (querydsl.SelectItem, error) {
 	field, ok := r.mapper.Fields().GetFirst()
 	if !ok {
 		return nil, fmt.Errorf("dbx: repository %s mapper has no selectable fields", r.schema.TableName())
@@ -108,7 +109,7 @@ func (r *Base[E, S]) existsSelectItem() (dbx.SelectItem, error) {
 	return dbx.NamedColumn[any](r.schema, field.Column), nil
 }
 
-func wrappedExistsBound(session dbx.Session, query *dbx.SelectQuery) (sqlstmt.Bound, error) {
+func wrappedExistsBound(session dbx.Session, query *querydsl.SelectQuery) (sqlstmt.Bound, error) {
 	source := cloneForExists(query)
 	bound, err := dbx.Build(session, source)
 	if err != nil {
@@ -122,7 +123,7 @@ func wrappedExistsBound(session dbx.Session, query *dbx.SelectQuery) (sqlstmt.Bo
 	}, nil
 }
 
-func cloneForExists(query *dbx.SelectQuery) *dbx.SelectQuery {
+func cloneForExists(query *querydsl.SelectQuery) *querydsl.SelectQuery {
 	cloned := query.Clone()
 	if cloned == nil {
 		return nil
@@ -165,7 +166,7 @@ func firstCount(rows collectionx.List[countRow]) int64 {
 	return row.Count
 }
 
-func cloneOrDefault[E any, S EntitySchema[E]](r *Base[E, S], query *dbx.SelectQuery) *dbx.SelectQuery {
+func cloneOrDefault[E any, S EntitySchema[E]](r *Base[E, S], query *querydsl.SelectQuery) *querydsl.SelectQuery {
 	if query == nil {
 		return r.defaultSelect()
 	}
@@ -184,7 +185,7 @@ func optionFromResult[T any](item T, err error) (mo.Option[T], error) {
 
 func (r *Base[E, S]) primaryColumnName() string {
 	type primaryColumnProvider interface {
-		PrimaryColumn() (dbx.ColumnMeta, bool)
+		PrimaryColumn() (schemax.ColumnMeta, bool)
 	}
 	if provider, ok := any(r.schema).(primaryColumnProvider); ok {
 		if column, ok := provider.PrimaryColumn(); ok && column.Name != "" {
@@ -196,7 +197,7 @@ func (r *Base[E, S]) primaryColumnName() string {
 
 func (r *Base[E, S]) primaryKeyColumns() []string {
 	type primaryKeyProvider interface {
-		PrimaryKey() (dbx.PrimaryKeyMeta, bool)
+		PrimaryKey() (schemax.PrimaryKeyMeta, bool)
 	}
 	if provider, ok := any(r.schema).(primaryKeyProvider); ok {
 		if primary, ok := provider.PrimaryKey(); ok && primary.Columns.Len() > 0 {
@@ -206,13 +207,13 @@ func (r *Base[E, S]) primaryKeyColumns() []string {
 	return []string{r.primaryColumnName()}
 }
 
-func keyPredicate[S querydsl.TableSource](schema S, key Key) dbx.Predicate {
+func keyPredicate[S querydsl.TableSource](schema S, key Key) querydsl.Predicate {
 	if len(key) == 0 {
 		return nil
 	}
 	columns := lo.Keys(key)
 	slices.Sort(columns)
-	predicates := lo.Map(columns, func(column string, _ int) dbx.Predicate {
+	predicates := lo.Map(columns, func(column string, _ int) querydsl.Predicate {
 		return dbx.NamedColumn[any](schema, column).Eq(key[column])
 	})
 	return dbx.And(predicates...)

@@ -2,8 +2,7 @@ package repository
 
 import (
 	"context"
-
-	"github.com/DaiYuANg/arcgo/dbx"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/mo"
 )
 
@@ -18,7 +17,7 @@ func (r *Base[E, S]) GetByKeyOption(ctx context.Context, key Key) (mo.Option[E],
 }
 
 // FirstOption returns the first matching entity as an option.
-func (r *Base[E, S]) FirstOption(ctx context.Context, query *dbx.SelectQuery) (mo.Option[E], error) {
+func (r *Base[E, S]) FirstOption(ctx context.Context, query *querydsl.SelectQuery) (mo.Option[E], error) {
 	return optionFromResult(r.First(ctx, query))
 }
 

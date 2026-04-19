@@ -34,7 +34,7 @@ func BenchmarkPlanSchemaChangesSQLiteAtlasEmpty(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			if _, err := core.PlanSchemaChanges(ctx, roles, users); err != nil {
+			if _, err := PlanSchemaChanges(ctx, core, roles, users); err != nil {
 				b.Fatalf("PlanSchemaChanges returned error: %v", err)
 			}
 		}
@@ -56,13 +56,13 @@ func BenchmarkValidateSchemasSQLiteAtlasMatched(b *testing.B) {
 	run := func(b *testing.B, db *sql.DB) {
 		b.Helper()
 		core := New(db, testSQLiteDialect{})
-		if _, err := core.AutoMigrate(ctx, roles, users); err != nil {
+		if _, err := AutoMigrate(ctx, core, roles, users); err != nil {
 			b.Fatalf("AutoMigrate returned error: %v", err)
 		}
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			if _, err := core.ValidateSchemas(ctx, roles, users); err != nil {
+			if _, err := ValidateSchemas(ctx, core, roles, users); err != nil {
 				b.Fatalf("ValidateSchemas returned error: %v", err)
 			}
 		}
@@ -84,7 +84,7 @@ func BenchmarkMigrationPlanSQLPreview(b *testing.B) {
 	run := func(b *testing.B, db *sql.DB) {
 		b.Helper()
 		core := New(db, testSQLiteDialect{})
-		plan, err := core.PlanSchemaChanges(ctx, roles, users)
+		plan, err := PlanSchemaChanges(ctx, core, roles, users)
 		if err != nil {
 			b.Fatalf("PlanSchemaChanges returned error: %v", err)
 		}

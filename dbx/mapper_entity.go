@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -11,7 +12,7 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 )
 
-func (m Mapper[E]) InsertAssignments(session Session, schema SchemaResource, entity *E) (collectionx.List[Assignment], error) {
+func (m Mapper[E]) InsertAssignments(session Session, schema schemax.Resource, entity *E) (collectionx.List[querydsl.Assignment], error) {
 	if session == nil {
 		return nil, ErrNilDB
 	}
@@ -22,8 +23,8 @@ func (m Mapper[E]) InsertAssignments(session Session, schema SchemaResource, ent
 	return m.InsertAssignmentsWithID(context.Background(), schema, entity, carrier.IDGenerator())
 }
 
-func (m Mapper[E]) InsertAssignmentsWithID(ctx context.Context, schema SchemaResource, entity *E, generator idgen.Generator) (collectionx.List[Assignment], error) {
-	return m.entityAssignments(ctx, schema, entity, generator, func(column ColumnMeta, field MappedField) bool {
+func (m Mapper[E]) InsertAssignmentsWithID(ctx context.Context, schema schemax.Resource, entity *E, generator idgen.Generator) (collectionx.List[querydsl.Assignment], error) {
+	return m.entityAssignments(ctx, schema, entity, generator, func(column schemax.ColumnMeta, field MappedField) bool {
 		if !field.Insertable {
 			return false
 		}
@@ -34,8 +35,8 @@ func (m Mapper[E]) InsertAssignmentsWithID(ctx context.Context, schema SchemaRes
 	})
 }
 
-func (m Mapper[E]) UpdateAssignments(schema SchemaResource, entity *E) (collectionx.List[Assignment], error) {
-	return m.entityAssignments(context.Background(), schema, entity, nil, func(column ColumnMeta, field MappedField) bool {
+func (m Mapper[E]) UpdateAssignments(schema schemax.Resource, entity *E) (collectionx.List[querydsl.Assignment], error) {
+	return m.entityAssignments(context.Background(), schema, entity, nil, func(column schemax.ColumnMeta, field MappedField) bool {
 		if !field.Updatable {
 			return false
 		}
@@ -43,15 +44,15 @@ func (m Mapper[E]) UpdateAssignments(schema SchemaResource, entity *E) (collecti
 	})
 }
 
-func (m Mapper[E]) PrimaryPredicate(schema SchemaResource, entity *E) (Predicate, error) {
+func (m Mapper[E]) PrimaryPredicate(schema schemax.Resource, entity *E) (querydsl.Predicate, error) {
 	value, err := m.entityValue(entity)
 	if err != nil {
 		return nil, err
 	}
 
-	var predicate Predicate
+	var predicate querydsl.Predicate
 	var resultErr error
-	schema.schemaRef().columns.Range(func(_ int, column ColumnMeta) bool {
+	schema.Spec().Columns.Range(func(_ int, column schemax.ColumnMeta) bool {
 		if !column.PrimaryKey {
 			return true
 		}
@@ -72,7 +73,7 @@ func (m Mapper[E]) PrimaryPredicate(schema SchemaResource, entity *E) (Predicate
 	return nil, ErrNoPrimaryKey
 }
 
-func (m Mapper[E]) primaryColumnPredicate(value reflect.Value, column ColumnMeta) (Predicate, error) {
+func (m Mapper[E]) primaryColumnPredicate(value reflect.Value, column schemax.ColumnMeta) (querydsl.Predicate, error) {
 	field, ok := m.byColumn.Get(column.Name)
 	if !ok {
 		return nil, &PrimaryKeyUnmappedError{Column: column.Name}
@@ -92,16 +93,16 @@ func (m Mapper[E]) primaryColumnPredicate(value reflect.Value, column ColumnMeta
 	}, nil
 }
 
-func (m Mapper[E]) entityAssignments(ctx context.Context, schema SchemaResource, entity *E, generator idgen.Generator, include func(column ColumnMeta, field MappedField) bool) (collectionx.List[Assignment], error) {
+func (m Mapper[E]) entityAssignments(ctx context.Context, schema schemax.Resource, entity *E, generator idgen.Generator, include func(column schemax.ColumnMeta, field MappedField) bool) (collectionx.List[querydsl.Assignment], error) {
 	value, err := m.entityValue(entity)
 	if err != nil {
 		return nil, err
 	}
 
-	def := schema.schemaRef()
-	assignments := collectionx.NewListWithCapacity[Assignment](def.columns.Len())
+	columns := schema.Spec().Columns
+	assignments := collectionx.NewListWithCapacity[querydsl.Assignment](columns.Len())
 	var resultErr error
-	def.columns.Range(func(_ int, column ColumnMeta) bool {
+	columns.Range(func(_ int, column schemax.ColumnMeta) bool {
 		field, ok := m.byColumn.Get(column.Name)
 		if !ok || !include(column, field) {
 			return true
@@ -123,14 +124,14 @@ func (m Mapper[E]) entityAssignments(ctx context.Context, schema SchemaResource,
 	return assignments, nil
 }
 
-func shouldGenerateID(column ColumnMeta) bool {
+func shouldGenerateID(column schemax.ColumnMeta) bool {
 	return column.IDStrategy == idgen.StrategySnowflake ||
 		column.IDStrategy == idgen.StrategyUUID ||
 		column.IDStrategy == idgen.StrategyULID ||
 		column.IDStrategy == idgen.StrategyKSUID
 }
 
-func (m Mapper[E]) ensureGeneratedID(ctx context.Context, root reflect.Value, field MappedField, column ColumnMeta, generator idgen.Generator) (reflect.Value, bool, error) {
+func (m Mapper[E]) ensureGeneratedID(ctx context.Context, root reflect.Value, field MappedField, column schemax.ColumnMeta, generator idgen.Generator) (reflect.Value, bool, error) {
 	fieldValue, err := fieldValueForRead(root, field)
 	if err != nil {
 		return reflect.Value{}, false, err
@@ -167,7 +168,7 @@ func (m Mapper[E]) ensureGeneratedID(ctx context.Context, root reflect.Value, fi
 	return reflect.Value{}, false, fmt.Errorf("dbx: generated id type %s cannot be assigned to %s for column %s", reflect.TypeOf(generated), targetField.Type(), column.Name)
 }
 
-func setGeneratedValue(targetField reflect.Value, generated any, column ColumnMeta) (reflect.Value, bool, error) {
+func setGeneratedValue(targetField reflect.Value, generated any, column schemax.ColumnMeta) (reflect.Value, bool, error) {
 	generatedValue := reflect.ValueOf(generated)
 	if !generatedValue.IsValid() {
 		return reflect.Value{}, false, fmt.Errorf("dbx: generated id is invalid for column %s", column.Name)
@@ -190,14 +191,14 @@ func (m Mapper[E]) entityValue(entity *E) (reflect.Value, error) {
 	return reflect.ValueOf(entity).Elem(), nil
 }
 
-func (m Mapper[E]) buildAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator idgen.Generator) (Assignment, bool, error) {
+func (m Mapper[E]) buildAssignment(ctx context.Context, root reflect.Value, column schemax.ColumnMeta, field MappedField, generator idgen.Generator) (querydsl.Assignment, bool, error) {
 	if column.PrimaryKey && shouldGenerateID(column) {
 		return m.generatedOrExistingAssignment(ctx, root, column, field, generator)
 	}
 	return buildFieldAssignment(root, column, field)
 }
 
-func (m Mapper[E]) generatedOrExistingAssignment(ctx context.Context, root reflect.Value, column ColumnMeta, field MappedField, generator idgen.Generator) (Assignment, bool, error) {
+func (m Mapper[E]) generatedOrExistingAssignment(ctx context.Context, root reflect.Value, column schemax.ColumnMeta, field MappedField, generator idgen.Generator) (querydsl.Assignment, bool, error) {
 	fieldValue, generated, err := m.ensureGeneratedID(ctx, root, field, column, generator)
 	if err != nil {
 		return nil, false, err
@@ -208,7 +209,7 @@ func (m Mapper[E]) generatedOrExistingAssignment(ctx context.Context, root refle
 	return buildFieldAssignment(root, column, field)
 }
 
-func buildFieldAssignment(root reflect.Value, column ColumnMeta, field MappedField) (Assignment, bool, error) {
+func buildFieldAssignment(root reflect.Value, column schemax.ColumnMeta, field MappedField) (querydsl.Assignment, bool, error) {
 	fieldValue, err := fieldValueForRead(root, field)
 	if err != nil {
 		return nil, false, err
@@ -216,7 +217,7 @@ func buildFieldAssignment(root reflect.Value, column ColumnMeta, field MappedFie
 	return assignmentFromValue(column, field, fieldValue)
 }
 
-func assignmentFromValue(column ColumnMeta, field MappedField, fieldValue reflect.Value) (Assignment, bool, error) {
+func assignmentFromValue(column schemax.ColumnMeta, field MappedField, fieldValue reflect.Value) (querydsl.Assignment, bool, error) {
 	boundValue, err := boundFieldValue(field, fieldValue)
 	if err != nil {
 		return nil, false, err

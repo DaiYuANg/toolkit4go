@@ -3,12 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 
 	"github.com/DaiYuANg/arcgo/dbx"
 )
 
 // Update executes the provided update query through the repository session.
-func (r *Base[E, S]) Update(ctx context.Context, query *dbx.UpdateQuery) (sql.Result, error) {
+func (r *Base[E, S]) Update(ctx context.Context, query *querydsl.UpdateQuery) (sql.Result, error) {
 	if r == nil || r.session == nil {
 		return nil, dbx.ErrNilDB
 	}
@@ -27,7 +28,7 @@ func (r *Base[E, S]) Update(ctx context.Context, query *dbx.UpdateQuery) (sql.Re
 }
 
 // Delete executes the provided delete query through the repository session.
-func (r *Base[E, S]) Delete(ctx context.Context, query *dbx.DeleteQuery) (sql.Result, error) {
+func (r *Base[E, S]) Delete(ctx context.Context, query *querydsl.DeleteQuery) (sql.Result, error) {
 	if r == nil || r.session == nil {
 		return nil, dbx.ErrNilDB
 	}
@@ -46,7 +47,7 @@ func (r *Base[E, S]) Delete(ctx context.Context, query *dbx.DeleteQuery) (sql.Re
 }
 
 // UpdateByID updates the row identified by the repository primary key.
-func (r *Base[E, S]) UpdateByID(ctx context.Context, id any, assignments ...dbx.Assignment) (sql.Result, error) {
+func (r *Base[E, S]) UpdateByID(ctx context.Context, id any, assignments ...querydsl.Assignment) (sql.Result, error) {
 	if len(assignments) == 0 {
 		return nil, ErrNilMutation
 	}
@@ -81,7 +82,7 @@ func (r *Base[E, S]) DeleteByID(ctx context.Context, id any) (sql.Result, error)
 }
 
 // UpdateByVersion performs an optimistic-lock update against the version column.
-func (r *Base[E, S]) UpdateByVersion(ctx context.Context, key Key, currentVersion int64, assignments ...dbx.Assignment) (sql.Result, error) {
+func (r *Base[E, S]) UpdateByVersion(ctx context.Context, key Key, currentVersion int64, assignments ...querydsl.Assignment) (sql.Result, error) {
 	if len(key) == 0 {
 		return nil, &ValidationError{Message: "key is empty"}
 	}

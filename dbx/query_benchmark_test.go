@@ -1,6 +1,7 @@
 package dbx_test
 
 import (
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"testing"
 
 	basedialect "github.com/DaiYuANg/arcgo/dbx/dialect"
@@ -84,7 +85,7 @@ type benchmarkDialect struct {
 	dialect basedialect.Dialect
 }
 
-func benchmarkBuildAcrossDialects(b *testing.B, query QueryBuilder) {
+func benchmarkBuildAcrossDialects(b *testing.B, query querydsl.Builder) {
 	b.Helper()
 	benchmarkBuildWithDialects(b, query,
 		benchmarkDialect{name: "sqlite", dialect: testSQLiteDialect{}},
@@ -93,7 +94,7 @@ func benchmarkBuildAcrossDialects(b *testing.B, query QueryBuilder) {
 	)
 }
 
-func benchmarkBuildWithDialects(b *testing.B, query QueryBuilder, dialects ...benchmarkDialect) {
+func benchmarkBuildWithDialects(b *testing.B, query querydsl.Builder, dialects ...benchmarkDialect) {
 	b.Helper()
 	for _, item := range dialects {
 		b.Run(item.name, func(b *testing.B) {

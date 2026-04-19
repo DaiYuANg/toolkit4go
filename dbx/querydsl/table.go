@@ -37,6 +37,13 @@ func NewTableRef(name, alias string, schemaType, entityType reflect.Type) Table 
 	}
 }
 
+func TableRef(source TableSource) Table {
+	if source == nil {
+		return Table{}
+	}
+	return NewTableRef(source.TableName(), source.TableAlias(), nil, nil)
+}
+
 func (t Table) Name() string {
 	return t.name
 }

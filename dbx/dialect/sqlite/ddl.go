@@ -2,12 +2,12 @@ package sqlite
 
 import (
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	"github.com/DaiYuANg/arcgo/dbx"
 )
 
 type columnDDLConfig struct {
@@ -16,7 +16,7 @@ type columnDDLConfig struct {
 	IncludeReference   bool
 }
 
-func (d Dialect) columnDDL(column dbx.ColumnMeta, config columnDDLConfig) (string, error) {
+func (d Dialect) columnDDL(column schemax.ColumnMeta, config columnDDLConfig) (string, error) {
 	parts := make([]string, 0, 5)
 	parts = append(parts, d.QuoteIdent(column.Name))
 
@@ -34,7 +34,7 @@ func (d Dialect) columnDDL(column dbx.ColumnMeta, config columnDDLConfig) (strin
 	return strings.Join(parts, " "), nil
 }
 
-func (d Dialect) sqliteAutoIncrementDDL(column dbx.ColumnMeta, config columnDDLConfig) (string, bool, error) {
+func (d Dialect) sqliteAutoIncrementDDL(column schemax.ColumnMeta, config columnDDLConfig) (string, bool, error) {
 	if !config.InlinePrimaryKey || !column.AutoIncrement || !config.AllowAutoIncrement {
 		return "", false, nil
 	}
@@ -47,7 +47,7 @@ func (d Dialect) sqliteAutoIncrementDDL(column dbx.ColumnMeta, config columnDDLC
 	return "INTEGER PRIMARY KEY AUTOINCREMENT", true, nil
 }
 
-func sqliteColumnConstraintParts(column dbx.ColumnMeta, config columnDDLConfig) []string {
+func sqliteColumnConstraintParts(column schemax.ColumnMeta, config columnDDLConfig) []string {
 	parts := make([]string, 0, 3)
 	if config.InlinePrimaryKey {
 		parts = append(parts, "PRIMARY KEY")
@@ -61,7 +61,7 @@ func sqliteColumnConstraintParts(column dbx.ColumnMeta, config columnDDLConfig) 
 	return parts
 }
 
-func (d Dialect) sqliteReferenceParts(column dbx.ColumnMeta, includeReference bool) []string {
+func (d Dialect) sqliteReferenceParts(column schemax.ColumnMeta, includeReference bool) []string {
 	if !includeReference || column.References == nil {
 		return nil
 	}
@@ -78,18 +78,18 @@ func (d Dialect) sqliteReferenceParts(column dbx.ColumnMeta, includeReference bo
 	return parts
 }
 
-func resolvedSQLiteType(column dbx.ColumnMeta) string {
+func resolvedSQLiteType(column schemax.ColumnMeta) string {
 	if column.SQLType != "" {
 		return column.SQLType
 	}
 	return sqliteType(column)
 }
 
-func (d Dialect) primaryKeyDDL(primaryKey dbx.PrimaryKeyMeta) string {
+func (d Dialect) primaryKeyDDL(primaryKey schemax.PrimaryKeyMeta) string {
 	return "CONSTRAINT " + d.QuoteIdent(primaryKey.Name) + " PRIMARY KEY (" + d.joinQuotedIdentifiers(primaryKey.Columns) + ")"
 }
 
-func (d Dialect) foreignKeyDDL(foreignKey dbx.ForeignKeyMeta) string {
+func (d Dialect) foreignKeyDDL(foreignKey schemax.ForeignKeyMeta) string {
 	parts := collectionx.NewList[string]()
 	parts.Add("CONSTRAINT " + d.QuoteIdent(foreignKey.Name))
 	parts.Add("FOREIGN KEY (" + d.joinQuotedIdentifiers(foreignKey.Columns) + ")")
@@ -103,11 +103,11 @@ func (d Dialect) foreignKeyDDL(foreignKey dbx.ForeignKeyMeta) string {
 	return joinSQLiteStrings(parts, " ")
 }
 
-func (d Dialect) checkDDL(check dbx.CheckMeta) string {
+func (d Dialect) checkDDL(check schemax.CheckMeta) string {
 	return "CONSTRAINT " + d.QuoteIdent(check.Name) + " CHECK (" + check.Expression + ")"
 }
 
-func sqliteType(column dbx.ColumnMeta) string {
+func sqliteType(column schemax.ColumnMeta) string {
 	if column.SQLType != "" {
 		return column.SQLType
 	}
@@ -165,7 +165,7 @@ func fallbackSQLiteType(typ reflect.Type) string {
 	return "TEXT"
 }
 
-func singlePrimaryKeyColumn(primaryKey *dbx.PrimaryKeyMeta) string {
+func singlePrimaryKeyColumn(primaryKey *schemax.PrimaryKeyMeta) string {
 	if primaryKey == nil || primaryKey.Columns.Len() != 1 {
 		return ""
 	}

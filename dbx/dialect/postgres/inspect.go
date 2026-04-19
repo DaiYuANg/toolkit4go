@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -42,7 +43,7 @@ func inspectPostgresTableExists(ctx context.Context, executor dbx.Executor, tabl
 	return exists, nil
 }
 
-func inspectPostgresPrimaryKey(ctx context.Context, executor dbx.Executor, table string) (_ *dbx.PrimaryKeyState, _ map[string]struct{}, resultErr error) {
+func inspectPostgresPrimaryKey(ctx context.Context, executor dbx.Executor, table string) (_ *schemax.PrimaryKeyState, _ map[string]struct{}, resultErr error) {
 	const action = "inspect postgres primary key"
 
 	rows, err := queryPostgresRows(ctx, executor, action, postgresPrimaryKeyQuery, table)
@@ -75,7 +76,7 @@ func inspectPostgresPrimaryKey(ctx context.Context, executor dbx.Executor, table
 	return postgresPrimaryKeyState(name, columns), columnSet, nil
 }
 
-func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, table string, primaryColumns map[string]struct{}) (_ []dbx.ColumnState, resultErr error) {
+func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, table string, primaryColumns map[string]struct{}) (_ []schemax.ColumnState, resultErr error) {
 	const action = "inspect postgres columns"
 
 	rows, err := queryPostgresRows(ctx, executor, action, postgresColumnsQuery, table)
@@ -88,7 +89,7 @@ func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, tabl
 		}
 	}()
 
-	columns := make([]dbx.ColumnState, 0, 8)
+	columns := make([]schemax.ColumnState, 0, 8)
 	for rows.Next() {
 		column, scanErr := scanPostgresColumn(rows)
 		if scanErr != nil {
@@ -105,7 +106,7 @@ func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, tabl
 	return columns, nil
 }
 
-func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.IndexState, resultErr error) {
+func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.IndexState, resultErr error) {
 	const action = "inspect postgres indexes"
 
 	rows, err := queryPostgresRows(ctx, executor, action, postgresIndexesQuery, table)
@@ -118,7 +119,7 @@ func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, tabl
 		}
 	}()
 
-	indexes := make([]dbx.IndexState, 0, 4)
+	indexes := make([]schemax.IndexState, 0, 4)
 	for rows.Next() {
 		index, skip, scanErr := scanPostgresIndex(rows)
 		if scanErr != nil {
@@ -137,7 +138,7 @@ func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, tabl
 	return indexes, nil
 }
 
-func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.ForeignKeyState, resultErr error) {
+func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.ForeignKeyState, resultErr error) {
 	const action = "inspect postgres foreign keys"
 
 	rows, err := queryPostgresRows(ctx, executor, action, postgresForeignKeysQuery, table)
@@ -150,7 +151,7 @@ func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, 
 		}
 	}()
 
-	groups := collectionx.NewOrderedMap[string, dbx.ForeignKeyState]()
+	groups := collectionx.NewOrderedMap[string, schemax.ForeignKeyState]()
 	for rows.Next() {
 		name, state, scanErr := scanPostgresForeignKey(rows)
 		if scanErr != nil {
@@ -163,15 +164,15 @@ func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, 
 		return nil, rowsErr
 	}
 
-	foreignKeys := make([]dbx.ForeignKeyState, 0, groups.Len())
-	groups.Range(func(_ string, value dbx.ForeignKeyState) bool {
+	foreignKeys := make([]schemax.ForeignKeyState, 0, groups.Len())
+	groups.Range(func(_ string, value schemax.ForeignKeyState) bool {
 		foreignKeys = append(foreignKeys, value)
 		return true
 	})
 	return foreignKeys, nil
 }
 
-func (d Dialect) inspectChecks(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.CheckState, resultErr error) {
+func (d Dialect) inspectChecks(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.CheckState, resultErr error) {
 	const action = "inspect postgres checks"
 
 	rows, err := queryPostgresRows(ctx, executor, action, postgresChecksQuery, table)
@@ -184,7 +185,7 @@ func (d Dialect) inspectChecks(ctx context.Context, executor dbx.Executor, table
 		}
 	}()
 
-	checks := make([]dbx.CheckState, 0, 4)
+	checks := make([]schemax.CheckState, 0, 4)
 	for rows.Next() {
 		check, scanErr := scanPostgresCheck(rows)
 		if scanErr != nil {

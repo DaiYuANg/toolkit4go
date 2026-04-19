@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 
 type SchemaSource[E any] interface {
 	querydsl.TableSource
+	schemax.Resource
 	schemaRef() schemaDefinition
 }
 
@@ -20,12 +22,12 @@ type schemaBinder interface {
 
 type schemaDefinition struct {
 	table         querydsl.Table
-	columns       collectionx.List[ColumnMeta]
-	columnsByName collectionx.Map[string, ColumnMeta]
-	relations     collectionx.List[RelationMeta]
-	indexes       collectionx.List[IndexMeta]
-	primaryKey    *PrimaryKeyMeta
-	checks        collectionx.List[CheckMeta]
+	columns       collectionx.List[schemax.ColumnMeta]
+	columnsByName collectionx.Map[string, schemax.ColumnMeta]
+	relations     collectionx.List[schemax.RelationMeta]
+	indexes       collectionx.List[schemax.IndexMeta]
+	primaryKey    *schemax.PrimaryKeyMeta
+	checks        collectionx.List[schemax.CheckMeta]
 }
 
 type Schema[E any] struct {
@@ -77,34 +79,38 @@ func (s Schema[E]) EntityType() reflect.Type {
 	return s.def.table.EntityType()
 }
 
-func (s Schema[E]) Columns() collectionx.List[ColumnMeta] {
+func (s Schema[E]) Columns() collectionx.List[schemax.ColumnMeta] {
 	return cloneColumnMetas(s.def.columns)
 }
 
-func (s Schema[E]) Relations() collectionx.List[RelationMeta] {
+func (s Schema[E]) Relations() collectionx.List[schemax.RelationMeta] {
 	return s.def.relations.Clone()
 }
 
-func (s Schema[E]) Indexes() collectionx.List[IndexMeta] {
+func (s Schema[E]) Indexes() collectionx.List[schemax.IndexMeta] {
 	return cloneIndexMetas(s.def.indexes)
 }
 
-func (s Schema[E]) PrimaryKey() (PrimaryKeyMeta, bool) {
+func (s Schema[E]) PrimaryKey() (schemax.PrimaryKeyMeta, bool) {
 	if s.def.primaryKey == nil {
-		return PrimaryKeyMeta{}, false
+		return schemax.PrimaryKeyMeta{}, false
 	}
 	return clonePrimaryKeyMeta(*s.def.primaryKey), true
 }
 
-func (s Schema[E]) Checks() collectionx.List[CheckMeta] {
+func (s Schema[E]) Checks() collectionx.List[schemax.CheckMeta] {
 	return cloneCheckMetas(s.def.checks)
 }
 
-func (s Schema[E]) ForeignKeys() collectionx.List[ForeignKeyMeta] {
+func (s Schema[E]) ForeignKeys() collectionx.List[schemax.ForeignKeyMeta] {
 	items := deriveForeignKeys(s.def)
-	return collectionx.MapList(collectionx.NewListWithCapacity(len(items), items...), func(_ int, item ForeignKeyMeta) ForeignKeyMeta {
+	return collectionx.MapList(collectionx.NewListWithCapacity(len(items), items...), func(_ int, item schemax.ForeignKeyMeta) schemax.ForeignKeyMeta {
 		return cloneForeignKeyMeta(item)
 	})
+}
+
+func (s Schema[E]) Spec() schemax.TableSpec {
+	return buildTableSpec(s.def)
 }
 
 func MustSchema[S any](name string, schema S) S {
@@ -136,35 +142,35 @@ func tableRef(source querydsl.TableSource) querydsl.Table {
 	return querydsl.NewTableRef(source.TableName(), source.TableAlias(), nil, nil)
 }
 
-func (d schemaDefinition) columnByName(name string) (ColumnMeta, bool) {
+func (d schemaDefinition) columnByName(name string) (schemax.ColumnMeta, bool) {
 	if d.columnsByName != nil && d.columnsByName.Len() > 0 {
 		return d.columnsByName.Get(name)
 	}
-	return collectionx.FindList(d.columns, func(_ int, column ColumnMeta) bool {
+	return collectionx.FindList(d.columns, func(_ int, column schemax.ColumnMeta) bool {
 		return column.Name == name
 	})
 }
 
-func cloneColumnMetas(items collectionx.List[ColumnMeta]) collectionx.List[ColumnMeta] {
-	return collectionx.MapList(items, func(_ int, column ColumnMeta) ColumnMeta {
+func cloneColumnMetas(items collectionx.List[schemax.ColumnMeta]) collectionx.List[schemax.ColumnMeta] {
+	return collectionx.MapList(items, func(_ int, column schemax.ColumnMeta) schemax.ColumnMeta {
 		return cloneColumnMeta(column)
 	})
 }
 
-func cloneIndexMetas(items collectionx.List[IndexMeta]) collectionx.List[IndexMeta] {
-	return collectionx.MapList(items, func(_ int, item IndexMeta) IndexMeta {
+func cloneIndexMetas(items collectionx.List[schemax.IndexMeta]) collectionx.List[schemax.IndexMeta] {
+	return collectionx.MapList(items, func(_ int, item schemax.IndexMeta) schemax.IndexMeta {
 		return cloneIndexMeta(item)
 	})
 }
 
-func cloneCheckMetas(items collectionx.List[CheckMeta]) collectionx.List[CheckMeta] {
-	return collectionx.MapList(items, func(_ int, item CheckMeta) CheckMeta {
+func cloneCheckMetas(items collectionx.List[schemax.CheckMeta]) collectionx.List[schemax.CheckMeta] {
+	return collectionx.MapList(items, func(_ int, item schemax.CheckMeta) schemax.CheckMeta {
 		return cloneCheckMeta(item)
 	})
 }
 
-func indexColumnsByName(columns collectionx.List[ColumnMeta]) collectionx.Map[string, ColumnMeta] {
-	return collectionx.AssociateList(columns, func(_ int, column ColumnMeta) (string, ColumnMeta) {
+func indexColumnsByName(columns collectionx.List[schemax.ColumnMeta]) collectionx.Map[string, schemax.ColumnMeta] {
+	return collectionx.AssociateList(columns, func(_ int, column schemax.ColumnMeta) (string, schemax.ColumnMeta) {
 		return column.Name, column
 	})
 }

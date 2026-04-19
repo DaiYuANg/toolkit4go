@@ -2,12 +2,13 @@ package dbx
 
 import (
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 )
 
-func normalizeIDPolicy(meta ColumnMeta) (ColumnMeta, error) {
+func normalizeIDPolicy(meta schemax.ColumnMeta) (schemax.ColumnMeta, error) {
 	if !meta.PrimaryKey {
 		return meta, nil
 	}
@@ -24,14 +25,14 @@ func normalizeIDColumnType(columnType reflect.Type) reflect.Type {
 	return columnType
 }
 
-func applyDefaultIDStrategy(meta ColumnMeta, columnType reflect.Type) ColumnMeta {
+func applyDefaultIDStrategy(meta schemax.ColumnMeta, columnType reflect.Type) schemax.ColumnMeta {
 	if meta.IDStrategy != idgen.StrategyUnset {
 		return meta
 	}
 	return inferIDStrategyFromType(meta, columnType)
 }
 
-func validateIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, error) {
+func validateIDStrategy(meta schemax.ColumnMeta, columnType reflect.Type) (schemax.ColumnMeta, error) {
 	if meta.IDStrategy == idgen.StrategyUnset {
 		return meta, nil
 	}
@@ -50,7 +51,7 @@ func validateIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, e
 	return meta, fmt.Errorf("dbx: unsupported id strategy %q for column %s", meta.IDStrategy, meta.Name)
 }
 
-func inferIDStrategyFromType(meta ColumnMeta, columnType reflect.Type) ColumnMeta {
+func inferIDStrategyFromType(meta schemax.ColumnMeta, columnType reflect.Type) schemax.ColumnMeta {
 	switch {
 	case columnType != nil && columnType.Kind() == reflect.Int64:
 		meta.IDStrategy = idgen.StrategyDBAuto
@@ -63,13 +64,13 @@ func inferIDStrategyFromType(meta ColumnMeta, columnType reflect.Type) ColumnMet
 	return meta
 }
 
-func handleDBAutoStrategy(meta ColumnMeta) (ColumnMeta, error) {
+func handleDBAutoStrategy(meta schemax.ColumnMeta) (schemax.ColumnMeta, error) {
 	meta.AutoIncrement = true
 	meta.UUIDVersion = ""
 	return meta, nil
 }
 
-func handleSnowflakeStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, error) {
+func handleSnowflakeStrategy(meta schemax.ColumnMeta, columnType reflect.Type) (schemax.ColumnMeta, error) {
 	if columnType == nil || columnType.Kind() != reflect.Int64 {
 		return meta, fmt.Errorf("dbx: snowflake id strategy only supports int64 primary keys, column %s", meta.Name)
 	}
@@ -78,7 +79,7 @@ func handleSnowflakeStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMe
 	return meta, nil
 }
 
-func handleUUIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, error) {
+func handleUUIDStrategy(meta schemax.ColumnMeta, columnType reflect.Type) (schemax.ColumnMeta, error) {
 	if columnType == nil || columnType.Kind() != reflect.String {
 		return meta, fmt.Errorf("dbx: uuid id strategy only supports string primary keys, column %s", meta.Name)
 	}
@@ -92,7 +93,7 @@ func handleUUIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, e
 	return meta, nil
 }
 
-func handleStringIDStrategy(meta ColumnMeta, columnType reflect.Type) (ColumnMeta, error) {
+func handleStringIDStrategy(meta schemax.ColumnMeta, columnType reflect.Type) (schemax.ColumnMeta, error) {
 	if columnType == nil || columnType.Kind() != reflect.String {
 		return meta, fmt.Errorf("dbx: %s id strategy only supports string primary keys, column %s", meta.IDStrategy, meta.Name)
 	}

@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"slices"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
 )
 
-func scanSQLiteColumn(rows *sql.Rows) (dbx.ColumnState, int, error) {
+func scanSQLiteColumn(rows *sql.Rows) (schemax.ColumnState, int, error) {
 	var cid int
 	var name string
 	var typeName string
@@ -19,10 +20,10 @@ func scanSQLiteColumn(rows *sql.Rows) (dbx.ColumnState, int, error) {
 	var primaryPosition int
 
 	if err := rows.Scan(&cid, &name, &typeName, &notNull, &defaultValue, &primaryPosition); err != nil {
-		return dbx.ColumnState{}, 0, fmt.Errorf("scan sqlite column: %w", err)
+		return schemax.ColumnState{}, 0, fmt.Errorf("scan sqlite column: %w", err)
 	}
 
-	return dbx.ColumnState{
+	return schemax.ColumnState{
 		Name:         name,
 		Type:         typeName,
 		Nullable:     notNull == 0,
@@ -57,7 +58,7 @@ func scanSQLiteIndexColumn(rows *sql.Rows) (string, error) {
 	return column, nil
 }
 
-func scanSQLiteForeignKey(rows *sql.Rows) (int, dbx.ForeignKeyState, error) {
+func scanSQLiteForeignKey(rows *sql.Rows) (int, schemax.ForeignKeyState, error) {
 	var id int
 	var seq int
 	var targetTable string
@@ -68,10 +69,10 @@ func scanSQLiteForeignKey(rows *sql.Rows) (int, dbx.ForeignKeyState, error) {
 	var match string
 
 	if err := rows.Scan(&id, &seq, &targetTable, &from, &to, &onUpdate, &onDelete, &match); err != nil {
-		return 0, dbx.ForeignKeyState{}, fmt.Errorf("scan sqlite foreign key: %w", err)
+		return 0, schemax.ForeignKeyState{}, fmt.Errorf("scan sqlite foreign key: %w", err)
 	}
 
-	return id, dbx.ForeignKeyState{
+	return id, schemax.ForeignKeyState{
 		TargetTable:   targetTable,
 		Columns:       collectionx.NewList(from),
 		TargetColumns: collectionx.NewList(to),
@@ -89,7 +90,7 @@ func scanSQLiteCreateSQL(rows *sql.Rows) (string, error) {
 	return createSQL.String, nil
 }
 
-func sqlitePrimaryKeyState(positions map[int]string) *dbx.PrimaryKeyState {
+func sqlitePrimaryKeyState(positions map[int]string) *schemax.PrimaryKeyState {
 	if len(positions) == 0 {
 		return nil
 	}
@@ -105,10 +106,10 @@ func sqlitePrimaryKeyState(positions map[int]string) *dbx.PrimaryKeyState {
 		columns = append(columns, positions[position])
 	}
 
-	return &dbx.PrimaryKeyState{Columns: collectionx.NewList(columns...)}
+	return &schemax.PrimaryKeyState{Columns: collectionx.NewList(columns...)}
 }
 
-func appendSQLiteForeignKey(groups collectionx.OrderedMap[int, dbx.ForeignKeyState], id int, state dbx.ForeignKeyState) {
+func appendSQLiteForeignKey(groups collectionx.OrderedMap[int, schemax.ForeignKeyState], id int, state schemax.ForeignKeyState) {
 	current, ok := groups.Get(id)
 	if !ok {
 		groups.Set(id, state)
@@ -144,7 +145,7 @@ func sqliteRowsError(action string, rows *sql.Rows) error {
 	return nil
 }
 
-func markSQLiteAutoincrementColumns(columns []dbx.ColumnState, autoincrementColumns map[string]struct{}) []dbx.ColumnState {
+func markSQLiteAutoincrementColumns(columns []schemax.ColumnState, autoincrementColumns map[string]struct{}) []schemax.ColumnState {
 	for i := range columns {
 		if _, ok := autoincrementColumns[columns[i].Name]; ok {
 			columns[i].AutoIncrement = true

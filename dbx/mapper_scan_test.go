@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"strings"
 	"testing"
 )
@@ -206,7 +207,7 @@ func collectAccountCursor(t *testing.T, cursor Cursor[accountRecord]) []accountR
 	return items
 }
 
-func collectAccountEach(t *testing.T, core *DB, query *SelectQuery, mapper StructMapper[accountRecord]) []accountRecord {
+func collectAccountEach(t *testing.T, core *DB, query *querydsl.SelectQuery, mapper StructMapper[accountRecord]) []accountRecord {
 	t.Helper()
 	var items []accountRecord
 	QueryEach(context.Background(), core, query, mapper)(func(item accountRecord, err error) bool {

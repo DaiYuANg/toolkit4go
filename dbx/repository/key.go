@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 
 	"github.com/DaiYuANg/arcgo/dbx"
 )
@@ -27,7 +28,7 @@ func (r *Base[E, S]) GetByKey(ctx context.Context, key Key) (E, error) {
 }
 
 // UpdateByKey updates rows matched by the provided key.
-func (r *Base[E, S]) UpdateByKey(ctx context.Context, key Key, assignments ...dbx.Assignment) (sql.Result, error) {
+func (r *Base[E, S]) UpdateByKey(ctx context.Context, key Key, assignments ...querydsl.Assignment) (sql.Result, error) {
 	if len(key) == 0 {
 		return nil, &ValidationError{Message: "key is empty"}
 	}

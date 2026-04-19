@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -9,7 +10,7 @@ import (
 )
 
 // List returns every entity matched by the query.
-func (r *Base[E, S]) List(ctx context.Context, query *dbx.SelectQuery) (collectionx.List[E], error) {
+func (r *Base[E, S]) List(ctx context.Context, query *querydsl.SelectQuery) (collectionx.List[E], error) {
 	if r == nil || r.session == nil {
 		return nil, dbx.ErrNilDB
 	}
@@ -30,7 +31,7 @@ func (r *Base[E, S]) ListSpec(ctx context.Context, specs ...Spec) (collectionx.L
 }
 
 // First returns the first entity matched by the query.
-func (r *Base[E, S]) First(ctx context.Context, query *dbx.SelectQuery) (E, error) {
+func (r *Base[E, S]) First(ctx context.Context, query *querydsl.SelectQuery) (E, error) {
 	var zero E
 	if r == nil || r.session == nil {
 		return zero, dbx.ErrNilDB
@@ -57,7 +58,7 @@ func (r *Base[E, S]) FirstSpec(ctx context.Context, specs ...Spec) (E, error) {
 }
 
 // Count returns the number of rows matched by the query.
-func (r *Base[E, S]) Count(ctx context.Context, query *dbx.SelectQuery) (int64, error) {
+func (r *Base[E, S]) Count(ctx context.Context, query *querydsl.SelectQuery) (int64, error) {
 	if r == nil || r.session == nil {
 		return 0, dbx.ErrNilDB
 	}
@@ -75,7 +76,7 @@ func (r *Base[E, S]) Count(ctx context.Context, query *dbx.SelectQuery) (int64, 
 	if query != nil {
 		countQuery = cloneForCount(query)
 	}
-	countQuery.Items = collectionx.NewList[dbx.SelectItem](dbx.CountAll().As("count"))
+	countQuery.Items = collectionx.NewList[querydsl.SelectItem](querydsl.CountAll().As("count"))
 	rows, err := dbx.QueryAll[countRow](ctx, r.session, countQuery, dbx.MustStructMapper[countRow]())
 	if err != nil {
 		dbx.LogRuntimeNode(r.session, "repository.count.error", "table", r.schema.TableName(), "error", err)
@@ -86,7 +87,7 @@ func (r *Base[E, S]) Count(ctx context.Context, query *dbx.SelectQuery) (int64, 
 	return total, nil
 }
 
-func (r *Base[E, S]) countWrapped(ctx context.Context, query *dbx.SelectQuery) (int64, error) {
+func (r *Base[E, S]) countWrapped(ctx context.Context, query *querydsl.SelectQuery) (int64, error) {
 	bound, err := wrappedCountBound(r.session, query)
 	if err != nil {
 		return 0, err
@@ -104,7 +105,7 @@ func (r *Base[E, S]) CountSpec(ctx context.Context, specs ...Spec) (int64, error
 }
 
 // Exists reports whether the query matches at least one row.
-func (r *Base[E, S]) Exists(ctx context.Context, query *dbx.SelectQuery) (bool, error) {
+func (r *Base[E, S]) Exists(ctx context.Context, query *querydsl.SelectQuery) (bool, error) {
 	if r == nil || r.session == nil {
 		return false, dbx.ErrNilDB
 	}
@@ -129,12 +130,12 @@ func (r *Base[E, S]) ExistsSpec(ctx context.Context, specs ...Spec) (bool, error
 }
 
 // ListPage returns one page of results together with the total row count.
-func (r *Base[E, S]) ListPage(ctx context.Context, query *dbx.SelectQuery, page, pageSize int) (paging.Result[E], error) {
+func (r *Base[E, S]) ListPage(ctx context.Context, query *querydsl.SelectQuery, page, pageSize int) (paging.Result[E], error) {
 	return r.ListPageRequest(ctx, query, paging.NewRequest(page, pageSize))
 }
 
 // ListPageRequest returns one page of results using a shared page request.
-func (r *Base[E, S]) ListPageRequest(ctx context.Context, query *dbx.SelectQuery, request paging.Request) (paging.Result[E], error) {
+func (r *Base[E, S]) ListPageRequest(ctx context.Context, query *querydsl.SelectQuery, request paging.Request) (paging.Result[E], error) {
 	if r == nil || r.session == nil {
 		return paging.Result[E]{}, dbx.ErrNilDB
 	}

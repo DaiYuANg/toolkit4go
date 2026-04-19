@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
@@ -14,7 +15,7 @@ import (
 )
 
 type fakeSchemaDialect struct {
-	tables   map[string]TableState
+	tables   map[string]schemax.TableState
 	actions  map[string]func()
 	executed []string
 }
@@ -27,7 +28,7 @@ type fakeResult struct{}
 
 func newFakeSchemaDialect() *fakeSchemaDialect {
 	return &fakeSchemaDialect{
-		tables:   make(map[string]TableState),
+		tables:   make(map[string]schemax.TableState),
 		actions:  make(map[string]func()),
 		executed: make([]string, 0, 8),
 	}
@@ -45,11 +46,11 @@ func (d *fakeSchemaDialect) NormalizeType(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
-func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (sqlstmt.Bound, error) {
+func (d *fakeSchemaDialect) BuildCreateTable(spec schemax.TableSpec) (sqlstmt.Bound, error) {
 	stmt := "create table " + spec.Name
-	columns := collectionx.NewListWithCapacity[ColumnState](spec.Columns.Len())
-	spec.Columns.Range(func(_ int, column ColumnMeta) bool {
-		state := ColumnState{
+	columns := collectionx.NewListWithCapacity[schemax.ColumnState](spec.Columns.Len())
+	spec.Columns.Range(func(_ int, column schemax.ColumnMeta) bool {
+		state := schemax.ColumnState{
 			Name:          column.Name,
 			Type:          strings.ToLower(column.SQLType),
 			Nullable:      column.Nullable,
@@ -64,15 +65,15 @@ func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (sqlstmt.Bound, err
 		return true
 	})
 	indexes := toIndexStates(spec.Indexes)
-	var primaryKey *PrimaryKeyState
+	var primaryKey *schemax.PrimaryKeyState
 	if spec.PrimaryKey != nil {
 		copyPrimary := ClonePrimaryKeyMetaForTest(*spec.PrimaryKey)
-		primaryKey = &PrimaryKeyState{Name: copyPrimary.Name, Columns: copyPrimary.Columns}
+		primaryKey = &schemax.PrimaryKeyState{Name: copyPrimary.Name, Columns: copyPrimary.Columns}
 	}
 	foreignKeys := toForeignKeyStates(spec.ForeignKeys)
 	checks := toCheckStates(spec.Checks)
 	d.actions[stmt] = func() {
-		d.tables[spec.Name] = TableState{
+		d.tables[spec.Name] = schemax.TableState{
 			Exists:      true,
 			Name:        spec.Name,
 			Columns:     columns,
@@ -85,20 +86,20 @@ func (d *fakeSchemaDialect) BuildCreateTable(spec TableSpec) (sqlstmt.Bound, err
 	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildAddColumn(table string, column ColumnMeta) (sqlstmt.Bound, error) {
+func (d *fakeSchemaDialect) BuildAddColumn(table string, column schemax.ColumnMeta) (sqlstmt.Bound, error) {
 	stmt := "alter table " + table + " add column " + column.Name
 	state := toColumnState(column)
 	d.actions[stmt] = func() {
 		current := d.tables[table]
 		if current.Columns == nil {
-			current.Columns = collectionx.NewList[ColumnState]()
+			current.Columns = collectionx.NewList[schemax.ColumnState]()
 		}
 		current.Columns.Add(state)
 		if column.References != nil {
 			if current.ForeignKeys == nil {
-				current.ForeignKeys = collectionx.NewList[ForeignKeyState]()
+				current.ForeignKeys = collectionx.NewList[schemax.ForeignKeyState]()
 			}
-			current.ForeignKeys.Add(ForeignKeyState{
+			current.ForeignKeys.Add(schemax.ForeignKeyState{
 				Name:          "fk_" + table + "_" + column.Name,
 				Columns:       collectionx.NewList(column.Name),
 				TargetTable:   column.References.TargetTable,
@@ -112,13 +113,13 @@ func (d *fakeSchemaDialect) BuildAddColumn(table string, column ColumnMeta) (sql
 	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildCreateIndex(index IndexMeta) (sqlstmt.Bound, error) {
+func (d *fakeSchemaDialect) BuildCreateIndex(index schemax.IndexMeta) (sqlstmt.Bound, error) {
 	stmt := "create index " + index.Name + " on " + index.Table + "(" + strings.Join(index.Columns.Values(), ",") + ")"
-	state := IndexState{Name: index.Name, Columns: index.Columns.Clone(), Unique: index.Unique}
+	state := schemax.IndexState{Name: index.Name, Columns: index.Columns.Clone(), Unique: index.Unique}
 	d.actions[stmt] = func() {
 		current := d.tables[index.Table]
 		if current.Indexes == nil {
-			current.Indexes = collectionx.NewList[IndexState]()
+			current.Indexes = collectionx.NewList[schemax.IndexState]()
 		}
 		current.Indexes.Add(state)
 		d.tables[index.Table] = current
@@ -126,9 +127,9 @@ func (d *fakeSchemaDialect) BuildCreateIndex(index IndexMeta) (sqlstmt.Bound, er
 	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignKeyMeta) (sqlstmt.Bound, error) {
+func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey schemax.ForeignKeyMeta) (sqlstmt.Bound, error) {
 	stmt := "alter table " + table + " add constraint " + foreignKey.Name + " foreign key"
-	state := ForeignKeyState{
+	state := schemax.ForeignKeyState{
 		Name:          foreignKey.Name,
 		Columns:       foreignKey.Columns.Clone(),
 		TargetTable:   foreignKey.TargetTable,
@@ -139,7 +140,7 @@ func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignK
 	d.actions[stmt] = func() {
 		current := d.tables[table]
 		if current.ForeignKeys == nil {
-			current.ForeignKeys = collectionx.NewList[ForeignKeyState]()
+			current.ForeignKeys = collectionx.NewList[schemax.ForeignKeyState]()
 		}
 		current.ForeignKeys.Add(state)
 		d.tables[table] = current
@@ -147,13 +148,13 @@ func (d *fakeSchemaDialect) BuildAddForeignKey(table string, foreignKey ForeignK
 	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) BuildAddCheck(table string, check CheckMeta) (sqlstmt.Bound, error) {
+func (d *fakeSchemaDialect) BuildAddCheck(table string, check schemax.CheckMeta) (sqlstmt.Bound, error) {
 	stmt := "alter table " + table + " add constraint " + check.Name + " check"
-	state := CheckState{Name: check.Name, Expression: check.Expression}
+	state := schemax.CheckState{Name: check.Name, Expression: check.Expression}
 	d.actions[stmt] = func() {
 		current := d.tables[table]
 		if current.Checks == nil {
-			current.Checks = collectionx.NewList[CheckState]()
+			current.Checks = collectionx.NewList[schemax.CheckState]()
 		}
 		current.Checks.Add(state)
 		d.tables[table] = current
@@ -161,20 +162,20 @@ func (d *fakeSchemaDialect) BuildAddCheck(table string, check CheckMeta) (sqlstm
 	return sqlstmt.Bound{SQL: stmt}, nil
 }
 
-func (d *fakeSchemaDialect) InspectTable(_ context.Context, _ Executor, table string) (TableState, error) {
+func (d *fakeSchemaDialect) InspectTable(_ context.Context, _ Executor, table string) (schemax.TableState, error) {
 	if state, ok := d.tables[table]; ok {
 		copyState := state
 		copyState.Columns = state.Columns.Clone()
 		copyState.Indexes = state.Indexes.Clone()
 		if state.PrimaryKey != nil {
-			copyState.PrimaryKey = new(PrimaryKeyState)
+			copyState.PrimaryKey = new(schemax.PrimaryKeyState)
 			*copyState.PrimaryKey = ClonePrimaryKeyStateForTest(*state.PrimaryKey)
 		}
 		copyState.ForeignKeys = state.ForeignKeys.Clone()
 		copyState.Checks = state.Checks.Clone()
 		return copyState, nil
 	}
-	return TableState{Name: table, Exists: false}, nil
+	return schemax.TableState{Name: table, Exists: false}, nil
 }
 
 func (s *fakeSession) Dialect() dialect.Dialect {
@@ -232,7 +233,7 @@ func TestValidateSchemasReportsMissingTable(t *testing.T) {
 	if report.Complete {
 		t.Fatal("expected legacy validation report to be partial")
 	}
-	if report.Backend != ValidationBackendLegacy {
+	if report.Backend != schemax.ValidationBackendLegacy {
 		t.Fatalf("expected legacy backend report, got: %q", report.Backend)
 	}
 	if !report.HasWarnings() {
@@ -266,18 +267,18 @@ func TestAutoMigrateCreatesTableAndIndexes(t *testing.T) {
 func TestAutoMigrateReturnsDriftForIncompatibleColumn(t *testing.T) {
 	users := MustSchema("users", UserSchema{})
 	schemaDialect := newFakeSchemaDialect()
-	schemaDialect.tables["users"] = TableState{
+	schemaDialect.tables["users"] = schemax.TableState{
 		Exists: true,
 		Name:   "users",
 		Columns: collectionx.NewList(
-			ColumnState{Name: "id", Type: "bigint", PrimaryKey: true},
-			ColumnState{Name: "username", Type: "bigint", Nullable: false},
-			ColumnState{Name: "email_address", Type: "text", Nullable: false},
-			ColumnState{Name: "status", Type: "integer", Nullable: false},
-			ColumnState{Name: "role_id", Type: "bigint", Nullable: false},
+			schemax.ColumnState{Name: "id", Type: "bigint", PrimaryKey: true},
+			schemax.ColumnState{Name: "username", Type: "bigint", Nullable: false},
+			schemax.ColumnState{Name: "email_address", Type: "text", Nullable: false},
+			schemax.ColumnState{Name: "status", Type: "integer", Nullable: false},
+			schemax.ColumnState{Name: "role_id", Type: "bigint", Nullable: false},
 		),
 		Indexes:    toIndexStates(IndexesForTest(users)),
-		PrimaryKey: &PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList("id")},
+		PrimaryKey: &schemax.PrimaryKeyState{Name: "pk_users", Columns: collectionx.NewList("id")},
 	}
 	session := &fakeSession{dialect: schemaDialect}
 
@@ -285,7 +286,8 @@ func TestAutoMigrateReturnsDriftForIncompatibleColumn(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected schema drift error")
 	}
-	if _, ok := errors.AsType[SchemaDriftError](err); !ok {
+	var driftErr schemax.SchemaDriftError
+	if !errors.As(err, &driftErr) {
 		t.Fatalf("unexpected error type: %T", err)
 	}
 	if report.Valid() {

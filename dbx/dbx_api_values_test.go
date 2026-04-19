@@ -5,7 +5,10 @@ import (
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/paging"
+	projectionx "github.com/DaiYuANg/arcgo/dbx/projection"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
+	schemamigrate "github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 )
@@ -23,14 +26,14 @@ var ErrUnknownCodec = codecx.ErrUnknown
 var ErrUnmappedColumn = dbx.ErrUnmappedColumn
 
 var And = dbx.And
-var AtlasSplitChangesForTest = dbx.AtlasSplitChangesForTest
-var AutoMigrate = dbx.AutoMigrate
+var AtlasSplitChangesForTest = schemamigrate.AtlasSplitChangesForTest
+var AutoMigrate = schemamigrate.AutoMigrate
 var Build = dbx.Build
 var ClonePrimaryKeyMetaForTest = dbx.ClonePrimaryKeyMetaForTest
 var ClonePrimaryKeyStateForTest = dbx.ClonePrimaryKeyStateForTest
 var CloseRowsForTest = dbx.CloseRowsForTest
-var CompileAtlasSchemaForTest = dbx.CompileAtlasSchemaForTest
-var CountAll = dbx.CountAll
+var CompileAtlasSchemaForTest = schemamigrate.CompileAtlasSchemaForTest
+var CountAll = querydsl.CountAll
 var DefaultOptions = dbx.DefaultOptions
 var DefaultOptionsList = dbx.DefaultOptionsList
 var DeleteFrom = dbx.DeleteFrom
@@ -40,10 +43,11 @@ var Exists = dbx.Exists
 var IndexesForTest = dbx.IndexesForTest
 var InferTypeNameForTest = dbx.InferTypeNameForTest
 var InsertInto = dbx.InsertInto
+var JoinRelation = relationx.Join
 var MustNewWithOptions = dbx.MustNewWithOptions
 var MustNewWithOptionsList = dbx.MustNewWithOptionsList
 var MustRegisterCodec = codecx.MustRegister
-var MustSelectMapped = dbx.MustSelectMapped
+var MustSelectMapped = projectionx.MustSelect
 var NamedTable = querydsl.NamedTable
 var New = dbx.New
 var NewDefaultIDGenerator = idgen.NewDefault
@@ -57,18 +61,18 @@ var NewUUIDGenerator = idgen.NewUUID
 var NewWithOptions = dbx.NewWithOptions
 var NewWithOptionsList = dbx.NewWithOptionsList
 var Page = paging.Page
-var PlanSchemaChanges = dbx.PlanSchemaChanges
+var PlanSchemaChanges = schemamigrate.PlanSchemaChanges
 var ProductionOptions = dbx.ProductionOptions
 var ProductionOptionsList = dbx.ProductionOptionsList
-var ProjectionOf = dbx.ProjectionOf
+var ProjectionOf = projectionx.Of
 var RowsIterErrorForTest = dbx.RowsIterErrorForTest
 var Select = dbx.Select
-var SelectMapped = dbx.SelectMapped
+var SelectMapped = projectionx.Select
 var TableSpecForTest = dbx.TableSpecForTest
 var TestOptions = dbx.TestOptions
 var TestOptionsList = dbx.TestOptionsList
 var Update = dbx.Update
-var ValidateSchemas = dbx.ValidateSchemas
+var ValidateSchemas = schemamigrate.ValidateSchemas
 var WithDebug = dbx.WithDebug
 var WithHooks = dbx.WithHooks
 var WithHooksList = dbx.WithHooksList

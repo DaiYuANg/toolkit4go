@@ -177,3 +177,38 @@ func (o runtimeObserver) buildLogAttrs(event HookEvent) []any {
 	}
 	return attrs.Values()
 }
+
+// ObserveOperation runs fn through DB/Tx hooks when the session carries a runtime observer.
+func ObserveOperation[T any](ctx context.Context, session Session, event HookEvent, fn func(context.Context) (T, error)) (T, error) {
+	var zero T
+	observer, ok := observerForSession(session)
+	if !ok {
+		return fn(ctx)
+	}
+	ctx, observedEvent, err := observer.before(ctx, event)
+	if err != nil {
+		observer.after(ctx, observedEvent)
+		return zero, err
+	}
+	value, runErr := fn(ctx)
+	observedEvent.Err = runErr
+	observer.after(ctx, observedEvent)
+	return value, runErr
+}
+
+func observerForSession(session Session) (runtimeObserver, bool) {
+	switch typed := session.(type) {
+	case *DB:
+		if typed == nil {
+			return runtimeObserver{}, false
+		}
+		return typed.observe, true
+	case *Tx:
+		if typed == nil {
+			return runtimeObserver{}, false
+		}
+		return typed.observe, true
+	default:
+		return runtimeObserver{}, false
+	}
+}

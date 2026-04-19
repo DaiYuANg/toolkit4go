@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
@@ -29,14 +30,10 @@ type Session interface {
 	SQL() *sqlexec.Executor
 }
 
-type QueryBuilder interface {
-	Build(d dialect.Dialect) (sqlstmt.Bound, error)
-}
-
-// Build compiles a QueryBuilder into sqlstmt.Bound using the session's dialect.
+// Build compiles a querydsl.Builder into sqlstmt.Bound using the session's dialect.
 // For "build once, execute many" reuse: call Build once, then pass the result to
 // ExecBound, QueryAllBound, QueryCursorBound, or QueryEachBound in a loop.
-func Build(session Session, query QueryBuilder) (sqlstmt.Bound, error) {
+func Build(session Session, query querydsl.Builder) (sqlstmt.Bound, error) {
 	if session == nil {
 		return sqlstmt.Bound{}, oops.In("dbx").
 			With("op", "build_query").
@@ -63,7 +60,7 @@ func Build(session Session, query QueryBuilder) (sqlstmt.Bound, error) {
 	return bound, nil
 }
 
-func Exec(ctx context.Context, session Session, query QueryBuilder) (sql.Result, error) {
+func Exec(ctx context.Context, session Session, query querydsl.Builder) (sql.Result, error) {
 	bound, err := Build(session, query)
 	if err != nil {
 		return nil, err
@@ -85,7 +82,7 @@ func ExecBound(ctx context.Context, session Session, bound sqlstmt.Bound) (sql.R
 	return result, wrapDBError("execute bound query", err)
 }
 
-func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAll[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_all").
@@ -99,7 +96,7 @@ func QueryAll[E any](ctx context.Context, session Session, query QueryBuilder, m
 }
 
 // QueryAllList builds a query and maps all rows into a collectionx.List.
-func QueryAllList[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (collectionx.List[E], error) {
+func QueryAllList[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (collectionx.List[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_all_list").

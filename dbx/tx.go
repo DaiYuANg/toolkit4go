@@ -3,13 +3,15 @@ package dbx
 import (
 	"context"
 	"database/sql"
-	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	"github.com/DaiYuANg/arcgo/dbx/relationruntime"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
+
 	"github.com/samber/oops"
 )
 
@@ -17,7 +19,7 @@ type Tx struct {
 	raw         *sql.Tx
 	dialect     dialect.Dialect
 	observe     runtimeObserver
-	relation    *RelationRuntime
+	relation    *relationruntime.Runtime
 	idGenerator idgen.Generator
 	nodeID      uint16
 }
@@ -188,9 +190,9 @@ func (tx *Tx) NodeID() uint16 {
 }
 
 // RelationRuntime returns the relation load runtime for this Tx.
-func (tx *Tx) RelationRuntime() *RelationRuntime {
+func (tx *Tx) RelationRuntime() *relationruntime.Runtime {
 	if tx == nil || tx.relation == nil {
-		return defaultRelationRuntime
+		return relationruntime.Default()
 	}
 	return tx.relation
 }

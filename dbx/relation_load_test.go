@@ -2,6 +2,7 @@ package dbx_test
 
 import (
 	"context"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
 	"testing"
 
 	"github.com/samber/mo"
@@ -72,13 +73,13 @@ type relationTagSchema struct {
 
 type relationUserSchema struct {
 	Schema[relationUser]
-	ID      Column[relationUser, int64]           `dbx:"id,pk,auto"`
-	Name    Column[relationUser, string]          `dbx:"name"`
-	RoleID  Column[relationUser, int64]           `dbx:"role_id"`
-	Role    BelongsTo[relationUser, relationRole] `rel:"table=roles,local=role_id,target=id"`
-	Profile HasOne[relationUser, relationProfile] `rel:"table=profiles,local=id,target=user_id"`
-	Posts   HasMany[relationUser, relationPost]   `rel:"table=posts,local=id,target=user_id"`
-	Tags    ManyToMany[relationUser, relationTag] `rel:"table=tags,target=id,join=user_tags,join_local=user_id,join_target=tag_id"`
+	ID      Column[relationUser, int64]                     `dbx:"id,pk,auto"`
+	Name    Column[relationUser, string]                    `dbx:"name"`
+	RoleID  Column[relationUser, int64]                     `dbx:"role_id"`
+	Role    relationx.BelongsTo[relationUser, relationRole] `rel:"table=roles,local=role_id,target=id"`
+	Profile relationx.HasOne[relationUser, relationProfile] `rel:"table=profiles,local=id,target=user_id"`
+	Posts   relationx.HasMany[relationUser, relationPost]   `rel:"table=posts,local=id,target=user_id"`
+	Tags    relationx.ManyToMany[relationUser, relationTag] `rel:"table=tags,target=id,join=user_tags,join_local=user_id,join_target=tag_id"`
 }
 
 func TestLoadBelongsToBatchesAndAttaches(t *testing.T) {

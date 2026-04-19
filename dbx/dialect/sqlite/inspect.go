@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
@@ -34,7 +35,7 @@ func inspectSQLiteTableExists(ctx context.Context, executor dbx.Executor, table 
 	return exists, nil
 }
 
-func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.ColumnState, _ *dbx.PrimaryKeyState, resultErr error) {
+func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.ColumnState, _ *schemax.PrimaryKeyState, resultErr error) {
 	const action = "inspect sqlite columns"
 
 	rows, err := querySQLiteRows(ctx, executor, action, "PRAGMA table_info("+d.QuoteIdent(table)+")")
@@ -47,7 +48,7 @@ func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, tabl
 		}
 	}()
 
-	columns := make([]dbx.ColumnState, 0, 8)
+	columns := make([]schemax.ColumnState, 0, 8)
 	primaryPositions := make(map[int]string, 2)
 	for rows.Next() {
 		column, primaryPosition, scanErr := scanSQLiteColumn(rows)
@@ -67,7 +68,7 @@ func (d Dialect) inspectColumns(ctx context.Context, executor dbx.Executor, tabl
 	return columns, sqlitePrimaryKeyState(primaryPositions), nil
 }
 
-func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.IndexState, resultErr error) {
+func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.IndexState, resultErr error) {
 	const action = "inspect sqlite indexes"
 
 	rows, err := querySQLiteRows(ctx, executor, action, "PRAGMA index_list("+d.QuoteIdent(table)+")")
@@ -80,7 +81,7 @@ func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, tabl
 		}
 	}()
 
-	indexes := make([]dbx.IndexState, 0, 4)
+	indexes := make([]schemax.IndexState, 0, 4)
 	for rows.Next() {
 		index, skip, indexErr := d.loadSQLiteIndex(ctx, executor, rows)
 		if indexErr != nil {
@@ -98,28 +99,28 @@ func (d Dialect) inspectIndexes(ctx context.Context, executor dbx.Executor, tabl
 	return indexes, nil
 }
 
-func (d Dialect) loadSQLiteIndex(ctx context.Context, executor dbx.Executor, rows *sql.Rows) (dbx.IndexState, bool, error) {
+func (d Dialect) loadSQLiteIndex(ctx context.Context, executor dbx.Executor, rows *sql.Rows) (schemax.IndexState, bool, error) {
 	name, unique, origin, err := scanSQLiteIndexList(rows)
 	if err != nil {
-		return dbx.IndexState{}, false, err
+		return schemax.IndexState{}, false, err
 	}
 	if origin == "pk" {
-		return dbx.IndexState{}, true, nil
+		return schemax.IndexState{}, true, nil
 	}
 
 	index, err := d.inspectIndex(ctx, executor, name, unique)
 	if err != nil {
-		return dbx.IndexState{}, false, err
+		return schemax.IndexState{}, false, err
 	}
 	return index, false, nil
 }
 
-func (d Dialect) inspectIndex(ctx context.Context, executor dbx.Executor, name string, unique bool) (dbx.IndexState, error) {
+func (d Dialect) inspectIndex(ctx context.Context, executor dbx.Executor, name string, unique bool) (schemax.IndexState, error) {
 	columns, err := d.inspectIndexColumns(ctx, executor, name)
 	if err != nil {
-		return dbx.IndexState{}, err
+		return schemax.IndexState{}, err
 	}
-	return dbx.IndexState{Name: name, Columns: collectionx.NewList(columns...), Unique: unique}, nil
+	return schemax.IndexState{Name: name, Columns: collectionx.NewList(columns...), Unique: unique}, nil
 }
 
 func (d Dialect) inspectIndexColumns(ctx context.Context, executor dbx.Executor, name string) (_ []string, resultErr error) {
@@ -151,7 +152,7 @@ func (d Dialect) inspectIndexColumns(ctx context.Context, executor dbx.Executor,
 	return columns, nil
 }
 
-func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.ForeignKeyState, resultErr error) {
+func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.ForeignKeyState, resultErr error) {
 	const action = "inspect sqlite foreign keys"
 
 	rows, err := querySQLiteRows(ctx, executor, action, "PRAGMA foreign_key_list("+d.QuoteIdent(table)+")")
@@ -164,7 +165,7 @@ func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, 
 		}
 	}()
 
-	groups := collectionx.NewOrderedMap[int, dbx.ForeignKeyState]()
+	groups := collectionx.NewOrderedMap[int, schemax.ForeignKeyState]()
 	for rows.Next() {
 		id, state, scanErr := scanSQLiteForeignKey(rows)
 		if scanErr != nil {
@@ -177,15 +178,15 @@ func (d Dialect) inspectForeignKeys(ctx context.Context, executor dbx.Executor, 
 		return nil, rowsErr
 	}
 
-	foreignKeys := make([]dbx.ForeignKeyState, 0, groups.Len())
-	groups.Range(func(_ int, value dbx.ForeignKeyState) bool {
+	foreignKeys := make([]schemax.ForeignKeyState, 0, groups.Len())
+	groups.Range(func(_ int, value schemax.ForeignKeyState) bool {
 		foreignKeys = append(foreignKeys, value)
 		return true
 	})
 	return foreignKeys, nil
 }
 
-func inspectSQLiteCreateMetadata(ctx context.Context, executor dbx.Executor, table string) (_ []dbx.CheckState, _ map[string]struct{}, resultErr error) {
+func inspectSQLiteCreateMetadata(ctx context.Context, executor dbx.Executor, table string) (_ []schemax.CheckState, _ map[string]struct{}, resultErr error) {
 	const action = "inspect sqlite create metadata"
 
 	rows, err := querySQLiteRows(ctx, executor, action, sqliteCreateSQLQuery, table)
@@ -198,7 +199,7 @@ func inspectSQLiteCreateMetadata(ctx context.Context, executor dbx.Executor, tab
 		}
 	}()
 
-	checks := make([]dbx.CheckState, 0, 2)
+	checks := make([]schemax.CheckState, 0, 2)
 	autoincrementColumns := make(map[string]struct{}, 1)
 	for rows.Next() {
 		createSQL, scanErr := scanSQLiteCreateSQL(rows)

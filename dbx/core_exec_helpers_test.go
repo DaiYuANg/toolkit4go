@@ -2,6 +2,7 @@ package dbx_test
 
 import (
 	"context"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
@@ -30,7 +31,7 @@ func collectUserSummaryCursor(t *testing.T, cursor Cursor[UserSummary]) []UserSu
 	return items
 }
 
-func collectUserSummaryEach(t *testing.T, core *DB, query *SelectQuery, mapper StructMapper[UserSummary]) []UserSummary {
+func collectUserSummaryEach(t *testing.T, core *DB, query *querydsl.SelectQuery, mapper StructMapper[UserSummary]) []UserSummary {
 	t.Helper()
 	var items []UserSummary
 	QueryEach(context.Background(), core, query, mapper)(func(item UserSummary, err error) bool {
@@ -50,7 +51,7 @@ func assertUserSummaryRows(t *testing.T, items []UserSummary) {
 	}
 }
 
-func mustInsertAssignments(t *testing.T, mapper Mapper[User], users UserSchema, entity *User) collectionx.List[Assignment] {
+func mustInsertAssignments(t *testing.T, mapper Mapper[User], users UserSchema, entity *User) collectionx.List[querydsl.Assignment] {
 	t.Helper()
 	assignments, err := mapper.InsertAssignments(New(nil, testSQLiteDialect{}), users, entity)
 	if err != nil {
@@ -59,7 +60,7 @@ func mustInsertAssignments(t *testing.T, mapper Mapper[User], users UserSchema, 
 	return assignments
 }
 
-func mustUpdateAssignments(t *testing.T, mapper Mapper[User], users UserSchema, entity *User) collectionx.List[Assignment] {
+func mustUpdateAssignments(t *testing.T, mapper Mapper[User], users UserSchema, entity *User) collectionx.List[querydsl.Assignment] {
 	t.Helper()
 	assignments, err := mapper.UpdateAssignments(users, entity)
 	if err != nil {
@@ -68,7 +69,7 @@ func mustUpdateAssignments(t *testing.T, mapper Mapper[User], users UserSchema, 
 	return assignments
 }
 
-func mustPrimaryPredicate(t *testing.T, mapper Mapper[User], users UserSchema, entity *User) Predicate {
+func mustPrimaryPredicate(t *testing.T, mapper Mapper[User], users UserSchema, entity *User) querydsl.Predicate {
 	t.Helper()
 	predicate, err := mapper.PrimaryPredicate(users, entity)
 	if err != nil {

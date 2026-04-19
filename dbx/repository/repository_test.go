@@ -3,11 +3,13 @@ package repository_test
 import (
 	"context"
 	"database/sql"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"testing"
 
 	"github.com/DaiYuANg/arcgo/dbx"
 	sqlitedialect "github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
 	repository "github.com/DaiYuANg/arcgo/dbx/repository"
+	schemamigrate "github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 )
@@ -246,10 +248,10 @@ func openRepositoryCore(t *testing.T, dsn string) *dbx.DB {
 	return dbx.MustNewWithOptions(raw, sqlitedialect.New())
 }
 
-func mustAutoMigrate(ctx context.Context, t *testing.T, core *dbx.DB, schemas ...dbx.SchemaResource) {
+func mustAutoMigrate(ctx context.Context, t *testing.T, core *dbx.DB, schemas ...schemamigrate.Resource) {
 	t.Helper()
 
-	_, err := core.AutoMigrate(ctx, schemas...)
+	_, err := schemamigrate.AutoMigrate(ctx, core, schemas...)
 	require.NoError(t, err)
 }
 
@@ -261,11 +263,11 @@ func seedUsers(ctx context.Context, t *testing.T, repo *repository.Base[User, Us
 	}
 }
 
-func newOrderedUserQuery(users UserSchema) *dbx.SelectQuery {
+func newOrderedUserQuery(users UserSchema) *querydsl.SelectQuery {
 	return dbx.Select(users.AllColumns().Values()...).From(users).OrderBy(users.Name.Asc()).Limit(10).Offset(5)
 }
 
-func assertOrderedUserQueryUnchanged(t *testing.T, query *dbx.SelectQuery) {
+func assertOrderedUserQueryUnchanged(t *testing.T, query *querydsl.SelectQuery) {
 	t.Helper()
 
 	require.NotNil(t, query.LimitN)

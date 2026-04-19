@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"strings"
 
@@ -14,47 +15,12 @@ type Ref[E any, T any] interface {
 	refNode()
 }
 
-type ReferentialAction string
-
 type IDMarker interface {
 	idStrategy() idgen.Strategy
 	uuidVersion() string
 }
 
-const (
-	ReferentialNoAction   ReferentialAction = "NO ACTION"
-	ReferentialRestrict   ReferentialAction = "RESTRICT"
-	ReferentialCascade    ReferentialAction = "CASCADE"
-	ReferentialSetNull    ReferentialAction = "SET NULL"
-	ReferentialSetDefault ReferentialAction = "SET DEFAULT"
-)
-
-type ForeignKeyRef struct {
-	TargetTable  string
-	TargetColumn string
-	OnDelete     ReferentialAction
-	OnUpdate     ReferentialAction
-}
-
-type ColumnMeta struct {
-	Name          string
-	Table         string
-	Alias         string
-	FieldName     string
-	GoType        reflect.Type
-	SQLType       string
-	PrimaryKey    bool
-	AutoIncrement bool
-	Nullable      bool
-	Unique        bool
-	Indexed       bool
-	DefaultValue  string
-	References    *ForeignKeyRef
-	IDStrategy    idgen.Strategy
-	UUIDVersion   string
-}
-
-func cloneColumnMeta(meta ColumnMeta) ColumnMeta {
+func cloneColumnMeta(meta schemax.ColumnMeta) schemax.ColumnMeta {
 	if meta.References == nil {
 		return meta
 	}
@@ -67,7 +33,7 @@ type columnBinder interface {
 }
 
 type columnAccessor interface {
-	columnRef() ColumnMeta
+	columnRef() schemax.ColumnMeta
 }
 
 type columnTypeReporter interface {
@@ -75,15 +41,15 @@ type columnTypeReporter interface {
 }
 
 type typedColumn[T any] interface {
-	columnRef() ColumnMeta
+	columnRef() schemax.ColumnMeta
 }
 
 type columnBinding struct {
-	meta ColumnMeta
+	meta schemax.ColumnMeta
 }
 
 type Column[E any, T any] struct {
-	meta ColumnMeta
+	meta schemax.ColumnMeta
 }
 
 // IDColumn declares an ID policy directly in the schema field type.
@@ -150,7 +116,7 @@ func (c IDColumn[E, T, M]) bindColumn(binding columnBinding) any {
 func NamedColumn[T any](source querydsl.TableSource, name string) Column[struct{}, T] {
 	table := tableRef(source)
 	return Column[struct{}, T]{
-		meta: ColumnMeta{
+		meta: schemax.ColumnMeta{
 			Name:   strings.TrimSpace(name),
 			Table:  table.Name(),
 			Alias:  table.Alias(),
@@ -161,7 +127,7 @@ func NamedColumn[T any](source querydsl.TableSource, name string) Column[struct{
 
 func ResultColumn[T any](name string) Column[struct{}, T] {
 	return Column[struct{}, T]{
-		meta: ColumnMeta{
+		meta: schemax.ColumnMeta{
 			Name:   strings.TrimSpace(name),
 			GoType: reflect.TypeFor[T](),
 		},

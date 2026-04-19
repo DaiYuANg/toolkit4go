@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"strings"
 
@@ -9,28 +10,6 @@ import (
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/samber/lo"
 )
-
-type PrimaryKeyMeta struct {
-	Name    string
-	Table   string
-	Columns collectionx.List[string]
-}
-
-type ForeignKeyMeta struct {
-	Name          string
-	Table         string
-	Columns       collectionx.List[string]
-	TargetTable   string
-	TargetColumns collectionx.List[string]
-	OnDelete      ReferentialAction
-	OnUpdate      ReferentialAction
-}
-
-type CheckMeta struct {
-	Name       string
-	Table      string
-	Expression string
-}
 
 type constraintBinder interface {
 	bindConstraint(constraintBinding) any
@@ -41,9 +20,9 @@ type keyMetadata interface {
 }
 
 type constraintBinding struct {
-	indexes    []IndexMeta
-	primaryKey *PrimaryKeyMeta
-	check      *CheckMeta
+	indexes    []schemax.IndexMeta
+	primaryKey *schemax.PrimaryKeyMeta
+	check      *schemax.CheckMeta
 }
 
 type keyBindingMeta struct {
@@ -52,19 +31,19 @@ type keyBindingMeta struct {
 }
 
 type Index[E any] struct {
-	meta IndexMeta
+	meta schemax.IndexMeta
 }
 
 type Unique[E any] struct {
-	meta IndexMeta
+	meta schemax.IndexMeta
 }
 
 type CompositeKey[E any] struct {
-	meta PrimaryKeyMeta
+	meta schemax.PrimaryKeyMeta
 }
 
 type Check[E any] struct {
-	meta CheckMeta
+	meta schemax.CheckMeta
 }
 
 func (Index[E]) keyMeta() keyBindingMeta        { return keyBindingMeta{} }
@@ -99,10 +78,10 @@ func (c Check[E]) bindConstraint(binding constraintBinding) any {
 	return c
 }
 
-func (i Index[E]) Meta() IndexMeta             { return cloneIndexMeta(i.meta) }
-func (u Unique[E]) Meta() IndexMeta            { return cloneIndexMeta(u.meta) }
-func (c CompositeKey[E]) Meta() PrimaryKeyMeta { return clonePrimaryKeyMeta(c.meta) }
-func (c Check[E]) Meta() CheckMeta             { return cloneCheckMeta(c.meta) }
+func (i Index[E]) Meta() schemax.IndexMeta             { return cloneIndexMeta(i.meta) }
+func (u Unique[E]) Meta() schemax.IndexMeta            { return cloneIndexMeta(u.meta) }
+func (c CompositeKey[E]) Meta() schemax.PrimaryKeyMeta { return clonePrimaryKeyMeta(c.meta) }
+func (c Check[E]) Meta() schemax.CheckMeta             { return cloneCheckMeta(c.meta) }
 
 func resolveConstraintBinding(def querydsl.Table, field reflect.StructField, value any) (constraintBinding, error) {
 	if key, ok := value.(keyMetadata); ok {
@@ -124,7 +103,7 @@ func resolveKeyConstraintBinding(def querydsl.Table, field reflect.StructField, 
 	}
 	if meta.primary {
 		return constraintBinding{
-			primaryKey: &PrimaryKeyMeta{
+			primaryKey: &schemax.PrimaryKeyMeta{
 				Name:    name,
 				Table:   def.Name(),
 				Columns: collectionx.NewList(columns...),
@@ -132,7 +111,7 @@ func resolveKeyConstraintBinding(def querydsl.Table, field reflect.StructField, 
 		}, nil
 	}
 	return constraintBinding{
-		indexes: []IndexMeta{{
+		indexes: []schemax.IndexMeta{{
 			Name:    name,
 			Table:   def.Name(),
 			Columns: collectionx.NewList(columns...),
@@ -159,7 +138,7 @@ func resolveCheckConstraintBinding(def querydsl.Table, field reflect.StructField
 		name = "ck_" + def.Name() + "_" + toSnakeCase(field.Name)
 	}
 	return constraintBinding{
-		check: &CheckMeta{
+		check: &schemax.CheckMeta{
 			Name:       name,
 			Table:      def.Name(),
 			Expression: expression,
@@ -198,22 +177,34 @@ func defaultConstraintName(table, field string, meta keyBindingMeta) string {
 	return prefix + "_" + table + "_" + toSnakeCase(field)
 }
 
-func cloneIndexMeta(meta IndexMeta) IndexMeta {
+func cloneIndexMeta(meta schemax.IndexMeta) schemax.IndexMeta {
 	meta.Columns = meta.Columns.Clone()
 	return meta
 }
 
-func clonePrimaryKeyMeta(meta PrimaryKeyMeta) PrimaryKeyMeta {
+func clonePrimaryKeyMeta(meta schemax.PrimaryKeyMeta) schemax.PrimaryKeyMeta {
 	meta.Columns = meta.Columns.Clone()
 	return meta
 }
 
-func cloneForeignKeyMeta(meta ForeignKeyMeta) ForeignKeyMeta {
+func clonePrimaryKeyMetaPtr(meta *schemax.PrimaryKeyMeta) *schemax.PrimaryKeyMeta {
+	if meta == nil {
+		return nil
+	}
+	return new(clonePrimaryKeyMeta(*meta))
+}
+
+func clonePrimaryKeyState(state schemax.PrimaryKeyState) schemax.PrimaryKeyState {
+	state.Columns = state.Columns.Clone()
+	return state
+}
+
+func cloneForeignKeyMeta(meta schemax.ForeignKeyMeta) schemax.ForeignKeyMeta {
 	meta.Columns = meta.Columns.Clone()
 	meta.TargetColumns = meta.TargetColumns.Clone()
 	return meta
 }
 
-func cloneCheckMeta(meta CheckMeta) CheckMeta {
+func cloneCheckMeta(meta schemax.CheckMeta) schemax.CheckMeta {
 	return meta
 }

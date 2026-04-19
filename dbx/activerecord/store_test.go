@@ -10,6 +10,7 @@ import (
 	activerecord "github.com/DaiYuANg/arcgo/dbx/activerecord"
 	sqlitedialect "github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
+	schemamigrate "github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 )
@@ -114,7 +115,7 @@ func openUserStore(tb testing.TB, dsn string) (context.Context, *activerecord.St
 	core := dbx.MustNewWithOptions(raw, sqlitedialect.New())
 	users := dbx.MustSchema("users", UserSchema{})
 
-	_, err = core.AutoMigrate(ctx, users)
+	_, err = schemamigrate.AutoMigrate(ctx, core, users)
 	require.NoError(tb, err)
 
 	return ctx, activerecord.New[User, UserSchema](core, users)

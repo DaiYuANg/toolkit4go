@@ -2,6 +2,7 @@ package activerecord
 
 import (
 	"fmt"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"maps"
 	"reflect"
 
@@ -44,7 +45,7 @@ func (s *Store[E, S]) keyOf(entity *E) repository.Key {
 
 func primaryKeyColumns[S querydsl.TableSource](schema S) []string {
 	type primaryKeyProvider interface {
-		PrimaryKey() (dbx.PrimaryKeyMeta, bool)
+		PrimaryKey() (schemax.PrimaryKeyMeta, bool)
 	}
 	if provider, ok := any(schema).(primaryKeyProvider); ok {
 		if primary, ok := provider.PrimaryKey(); ok && primary.Columns.Len() > 0 {
@@ -52,7 +53,7 @@ func primaryKeyColumns[S querydsl.TableSource](schema S) []string {
 		}
 	}
 	type primaryColumnProvider interface {
-		PrimaryColumn() (dbx.ColumnMeta, bool)
+		PrimaryColumn() (schemax.ColumnMeta, bool)
 	}
 	if provider, ok := any(schema).(primaryColumnProvider); ok {
 		if column, ok := provider.PrimaryColumn(); ok && column.Name != "" {

@@ -1,6 +1,7 @@
 package dbx
 
 import (
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"reflect"
 	"strings"
 	"unicode"
@@ -96,18 +97,18 @@ func splitReference(input string) (string, string, bool) {
 	return table, column, true
 }
 
-func parseReferentialAction(input string) ReferentialAction {
+func parseReferentialAction(input string) schemax.ReferentialAction {
 	switch strings.ToUpper(strings.TrimSpace(input)) {
-	case string(ReferentialCascade):
-		return ReferentialCascade
-	case string(ReferentialSetNull):
-		return ReferentialSetNull
-	case string(ReferentialSetDefault):
-		return ReferentialSetDefault
-	case string(ReferentialRestrict):
-		return ReferentialRestrict
-	case string(ReferentialNoAction):
-		return ReferentialNoAction
+	case string(schemax.ReferentialCascade):
+		return schemax.ReferentialCascade
+	case string(schemax.ReferentialSetNull):
+		return schemax.ReferentialSetNull
+	case string(schemax.ReferentialSetDefault):
+		return schemax.ReferentialSetDefault
+	case string(schemax.ReferentialRestrict):
+		return schemax.ReferentialRestrict
+	case string(schemax.ReferentialNoAction):
+		return schemax.ReferentialNoAction
 	default:
 		return ""
 	}
@@ -118,21 +119,20 @@ func toSnakeCase(input string) string {
 		return ""
 	}
 
-	var out renderBuffer
-	out.buf.Grow(len(input) + 4)
+	out := make([]rune, 0, len(input)+4)
 
 	for index, r := range input {
 		if unicode.IsUpper(r) {
 			if shouldInsertSnakeCaseUnderscore(input, index) {
-				out.writeByte('_')
+				out = append(out, '_')
 			}
-			out.writeString(string(unicode.ToLower(r)))
+			out = append(out, unicode.ToLower(r))
 			continue
 		}
-		out.writeString(string(r))
+		out = append(out, r)
 	}
 
-	return out.String()
+	return string(out)
 }
 
 func shouldInsertSnakeCaseUnderscore(input string, index int) bool {

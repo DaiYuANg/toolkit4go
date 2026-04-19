@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
 	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 
@@ -76,7 +77,7 @@ func (c *sliceCursor[E]) Err() error {
 	return nil
 }
 
-func QueryCursor[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) (Cursor[E], error) {
+func QueryCursor[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) (Cursor[E], error) {
 	if mapper == nil {
 		return nil, oops.In("dbx").
 			With("op", "query_cursor").
@@ -136,7 +137,7 @@ func QueryCursorBound[E any](ctx context.Context, session Session, bound sqlstmt
 	return newSliceCursor(items), nil
 }
 
-func QueryEach[E any](ctx context.Context, session Session, query QueryBuilder, mapper RowsScanner[E]) func(func(E, error) bool) {
+func QueryEach[E any](ctx context.Context, session Session, query querydsl.Builder, mapper RowsScanner[E]) func(func(E, error) bool) {
 	return iterateCursor(func() (Cursor[E], error) {
 		return QueryCursor(ctx, session, query, mapper)
 	})
