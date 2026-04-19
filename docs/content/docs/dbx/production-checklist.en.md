@@ -15,7 +15,7 @@ Checklist before production rollout:
 - During architecture/security/reliability review.
 
 - explicit dialect selection (`sqlite.New()`, `postgres.New()`, `mysql.New()`)
-- schema-first metadata (`dbx.Schema[E]`)
+- schema-first metadata (`schemax.Schema[E]`)
 - explicit ID strategy (`IDColumn[..., ..., Marker]`)
 - node ID strategy for Snowflake in multi-instance deployment
 - schema-level index declaration (single and composite)

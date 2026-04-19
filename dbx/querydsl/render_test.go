@@ -31,6 +31,21 @@ func TestSelectBuildSQLite(t *testing.T) {
 	}
 }
 
+func TestAllColumnsBuildSQLite(t *testing.T) {
+	users := MustSchema("users", UserSchema{})
+
+	query := Select(AllColumns(users).Values()...).From(users)
+	bound, err := query.Build(testSQLiteDialect{})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	expectedSQL := `SELECT "users"."id", "users"."username", "users"."email_address", "users"."status", "users"."role_id" FROM "users"`
+	if bound.SQL != expectedSQL {
+		t.Fatalf("unexpected all columns SQL:\nwant: %s\n got: %s", expectedSQL, bound.SQL)
+	}
+}
+
 func TestSelectBuildPostgresWithAliasAndIn(t *testing.T) {
 	users := Alias(MustSchema("users", UserSchema{}), "u")
 

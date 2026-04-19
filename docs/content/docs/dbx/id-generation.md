@@ -21,11 +21,11 @@ Configure ID behavior directly in schema fields with `IDColumn[..., ..., Marker]
 | Marker | ID type | Behavior |
 | --- | --- | --- |
 | `dbx.IDAuto` | `int64` | Database auto-increment/identity (default for `int64` PK) |
-| `dbx.IDSnowflake` | `int64` | App-generated Snowflake ID |
+| `idgen.IDSnowflake` | `int64` | App-generated Snowflake ID |
 | `dbx.IDUUID` | `string` | App-generated UUID (defaults to v7) |
-| `dbx.IDUUIDv7` | `string` | App-generated UUIDv7 |
+| `idgen.IDUUIDv7` | `string` | App-generated UUIDv7 |
 | `dbx.IDUUIDv4` | `string` | App-generated UUIDv4 |
-| `dbx.IDULID` | `string` | App-generated ULID |
+| `idgen.IDULID` | `string` | App-generated ULID |
 | `dbx.IDKSUID` | `string` | App-generated KSUID |
 
 ## Recommended Usage
@@ -37,11 +37,11 @@ type Event struct {
 }
 
 type EventSchema struct {
-    dbx.Schema[Event]
-    ID   dbx.IDColumn[Event, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-    Name dbx.Column[Event, string]                   `dbx:"name"`
+    schemax.Schema[Event]
+    ID   columnx.IDColumn[Event, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+    Name columnx.Column[Event, string]                   `dbx:"name"`
 }
-var Events = dbx.MustSchema("events", EventSchema{})
+var Events = schemax.MustSchema("events", EventSchema{})
 ```
 
 ## Minimal Project Layout

@@ -31,10 +31,10 @@ Declare indexes directly in column tags:
 
 ```go
 type UserSchema struct {
-	dbx.Schema[User]
-	ID       dbx.Column[User, int64]  `dbx:"id,pk"`
-	Username dbx.Column[User, string] `dbx:"username,index"`
-	Email    dbx.Column[User, string] `dbx:"email,unique"`
+	schemax.Schema[User]
+	ID       columnx.Column[User, int64]  `dbx:"id,pk"`
+	Username columnx.Column[User, string] `dbx:"username,index"`
+	Email    columnx.Column[User, string] `dbx:"email,unique"`
 }
 ```
 
@@ -47,13 +47,13 @@ Use dedicated fields with `idx` tag:
 
 ```go
 type UserSchema struct {
-	dbx.Schema[User]
-	TenantID dbx.Column[User, int64]  `dbx:"tenant_id"`
-	Username dbx.Column[User, string] `dbx:"username"`
-	Email    dbx.Column[User, string] `dbx:"email"`
+	schemax.Schema[User]
+	TenantID columnx.Column[User, int64]  `dbx:"tenant_id"`
+	Username columnx.Column[User, string] `dbx:"username"`
+	Email    columnx.Column[User, string] `dbx:"email"`
 
-	ByTenantAndUsername dbx.Index[User]  `idx:"columns=tenant_id|username"`
-	UniqueTenantEmail   dbx.Unique[User] `idx:"columns=tenant_id|email"`
+	ByTenantAndUsername schemax.Index[User]  `idx:"columns=tenant_id|username"`
+	UniqueTenantEmail   schemax.Unique[User] `idx:"columns=tenant_id|email"`
 }
 ```
 

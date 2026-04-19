@@ -4,11 +4,17 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
+	"github.com/DaiYuANg/arcgo/dbx/relationload"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
+	"github.com/DaiYuANg/arcgo/dbx/sqlstmt"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 	"github.com/samber/mo"
 )
@@ -60,7 +66,7 @@ func openRelationsDB() (*dbx.DB, func() error) {
 }
 
 func prepareRelationsData(ctx context.Context, core *dbx.DB, catalog shared.Catalog) {
-	_, err := core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+	_, err := schemamigrate.AutoMigrate(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 	if err != nil {
 		panic(err)
 	}
@@ -71,11 +77,11 @@ func prepareRelationsData(ctx context.Context, core *dbx.DB, catalog shared.Cata
 }
 
 func runBelongsToExample(ctx context.Context, core *dbx.DB, catalog shared.Catalog) (string, collectionx.List[userRoleRow]) {
-	users := dbx.Alias(catalog.Users, "u")
-	roles := dbx.Alias(catalog.Roles, "r")
+	users := schemax.Alias(catalog.Users, "u")
+	roles := schemax.Alias(catalog.Roles, "r")
 
-	query := dbx.Select(users.ID, users.Username, roles.Name).From(users)
-	_, err := query.JoinRelation(users, users.Role, roles)
+	query := querydsl.Select(users.ID, users.Username, roles.Name).From(users)
+	_, err := relationx.Join(query, users, users.Role, roles)
 	if err != nil {
 		panic(err)
 	}
@@ -90,11 +96,11 @@ func runBelongsToExample(ctx context.Context, core *dbx.DB, catalog shared.Catal
 }
 
 func runManyToManyExample(ctx context.Context, core *dbx.DB, catalog shared.Catalog) (string, collectionx.List[userRolePair]) {
-	users := dbx.Alias(catalog.Users, "u")
-	roles := dbx.Alias(catalog.Roles, "r")
+	users := schemax.Alias(catalog.Users, "u")
+	roles := schemax.Alias(catalog.Roles, "r")
 
-	query := dbx.Select(users.Username, roles.Name).From(users)
-	_, err := query.JoinRelation(users, users.Roles, roles)
+	query := querydsl.Select(users.Username, roles.Name).From(users)
+	_, err := relationx.Join(query, users, users.Roles, roles)
 	if err != nil {
 		panic(err)
 	}
@@ -157,12 +163,12 @@ func scanUserRolePairs(ctx context.Context, core *dbx.DB, bound sqlstmt.Bound) c
 }
 
 func loadRelations(ctx context.Context, core *dbx.DB, catalog shared.Catalog) collectionx.List[loadedUserRelations] {
-	userMapper := dbx.MustMapper[shared.User](catalog.Users)
-	roleMapper := dbx.MustMapper[shared.Role](catalog.Roles)
+	userMapper := mapperx.MustMapper[shared.User](catalog.Users)
+	roleMapper := mapperx.MustMapper[shared.Role](catalog.Roles)
 	usersToLoad, err := dbx.QueryAll[shared.User](
 		ctx,
 		core,
-		dbx.Select(catalog.Users.AllColumns().Values()...).From(catalog.Users).OrderBy(catalog.Users.ID.Asc()),
+		querydsl.Select(querydsl.AllColumns(catalog.Users).Values()...).From(catalog.Users).OrderBy(catalog.Users.ID.Asc()),
 		userMapper,
 	)
 	if err != nil {
@@ -170,7 +176,7 @@ func loadRelations(ctx context.Context, core *dbx.DB, catalog shared.Catalog) co
 	}
 
 	loadedRole := make([]mo.Option[shared.Role], usersToLoad.Len())
-	err = dbx.LoadBelongsTo(
+	err = relationload.LoadBelongsTo(
 		ctx,
 		core,
 		usersToLoad.Values(),
@@ -188,7 +194,7 @@ func loadRelations(ctx context.Context, core *dbx.DB, catalog shared.Catalog) co
 	}
 
 	loadedRoles := make([][]shared.Role, usersToLoad.Len())
-	err = dbx.LoadManyToMany(
+	err = relationload.LoadManyToMany(
 		ctx,
 		core,
 		usersToLoad.Values(),

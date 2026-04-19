@@ -53,6 +53,8 @@ import (
 
 	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -83,20 +85,20 @@ func main() {
 	registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 	stmt := registry.MustStatement("sql/user/find_active.sql")
 
-	items, err := dbx.SQLList(
+	items, err := sqlexec.List(
 		ctx,
 		core,
 		stmt,
 		sqltmplx.WithPage(struct {
 			Status int `dbx:"status"`
-		}{Status: 1}, dbx.Page(1, 20)),
-		dbx.MustStructMapper[UserSummary](),
+		}{Status: 1}, sqltmplx.Page(1, 20)),
+		mapperx.MustStructMapper[UserSummary](),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("active rows=%d\n", len(items))
+	fmt.Printf("active rows=%d\n", items.Len())
 }
 ```
 

@@ -7,6 +7,11 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
@@ -26,16 +31,16 @@ type userArchive struct {
 }
 
 type userArchiveSchema struct {
-	dbx.Schema[userArchive]
-	ID       dbx.Column[userArchive, int64]  `dbx:"id,pk,auto"`
-	Username dbx.Column[userArchive, string] `dbx:"username,unique"`
-	Status   dbx.Column[userArchive, int]    `dbx:"status"`
+	schemax.Schema[userArchive]
+	ID       columnx.Column[userArchive, int64]  `dbx:"id,pk,auto"`
+	Username columnx.Column[userArchive, string] `dbx:"username,unique"`
+	Status   columnx.Column[userArchive, int]    `dbx:"status"`
 }
 
 func main() {
 	ctx := context.Background()
 	catalog := shared.NewCatalog()
-	archive := dbx.MustSchema("user_archive", userArchiveSchema{})
+	archive := schemax.MustSchema("user_archive", userArchiveSchema{})
 
 	core, closeDB := openMutationDB()
 	defer closeOrPanic(closeDB)
@@ -45,7 +50,7 @@ func main() {
 	printStatusSummaries(queryStatusSummaries(ctx, core, catalog))
 	printUserNameRows("users resolved by subquery + exists:", queryAdminUsers(ctx, core, catalog))
 
-	archiveMapper := dbx.MustMapper[userArchive](archive)
+	archiveMapper := mapperx.MustMapper[userArchive](archive)
 	printArchiveRows("insert-select returning:", insertArchiveFromSelect(ctx, core, catalog, archive, archiveMapper))
 	printArchiveRows("batch insert returning:", batchInsertArchive(ctx, core, archive, archiveMapper))
 	printArchiveRows("upsert returning:", upsertArchive(ctx, core, archive, archiveMapper))
@@ -65,7 +70,7 @@ func openMutationDB() (*dbx.DB, func() error) {
 }
 
 func prepareMutationData(ctx context.Context, core *dbx.DB, catalog shared.Catalog, archive userArchiveSchema) {
-	_, err := core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles, archive)
+	_, err := schemamigrate.AutoMigrate(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles, archive)
 	if err != nil {
 		panic(err)
 	}
@@ -79,15 +84,15 @@ func queryStatusSummaries(ctx context.Context, core *dbx.DB, catalog shared.Cata
 	rows, err := dbx.QueryAll[statusSummary](
 		ctx,
 		core,
-		dbx.Select(
+		querydsl.Select(
 			catalog.Users.Status,
-			dbx.CountAll().As("user_count"),
+			querydsl.CountAll().As("user_count"),
 		).
 			From(catalog.Users).
 			GroupBy(catalog.Users.Status).
-			Having(dbx.CountAll().Gt(int64(0))).
+			Having(querydsl.CountAll().Gt(int64(0))).
 			OrderBy(catalog.Users.Status.Asc()),
-		dbx.MustStructMapper[statusSummary](),
+		mapperx.MustStructMapper[statusSummary](),
 	)
 	if err != nil {
 		panic(err)
@@ -97,25 +102,25 @@ func queryStatusSummaries(ctx context.Context, core *dbx.DB, catalog shared.Cata
 }
 
 func queryAdminUsers(ctx context.Context, core *dbx.DB, catalog shared.Catalog) collectionx.List[userNameRow] {
-	adminRoleIDs := dbx.Select(catalog.Roles.ID).
+	adminRoleIDs := querydsl.Select(catalog.Roles.ID).
 		From(catalog.Roles).
 		Where(catalog.Roles.Name.Eq("admin"))
 
 	rows, err := dbx.QueryAll[userNameRow](
 		ctx,
 		core,
-		dbx.Select(catalog.Users.Username).
+		querydsl.Select(catalog.Users.Username).
 			From(catalog.Users).
-			Where(dbx.And(
+			Where(querydsl.And(
 				catalog.Users.RoleID.InQuery(adminRoleIDs),
-				dbx.Exists(
-					dbx.Select(catalog.UserRoles.UserID).
+				querydsl.Exists(
+					querydsl.Select(catalog.UserRoles.UserID).
 						From(catalog.UserRoles).
 						Where(catalog.UserRoles.UserID.EqColumn(catalog.Users.ID)).
 						Limit(1),
 				),
 			)),
-		dbx.MustStructMapper[userNameRow](),
+		mapperx.MustStructMapper[userNameRow](),
 	)
 	if err != nil {
 		panic(err)
@@ -129,15 +134,15 @@ func insertArchiveFromSelect(
 	core *dbx.DB,
 	catalog shared.Catalog,
 	archive userArchiveSchema,
-	archiveMapper dbx.Mapper[userArchive],
+	archiveMapper mapperx.Mapper[userArchive],
 ) collectionx.List[userArchive] {
 	rows, err := dbx.QueryAll[userArchive](
 		ctx,
 		core,
-		dbx.InsertInto(archive).
+		querydsl.InsertInto(archive).
 			Columns(archive.Username, archive.Status).
 			FromSelect(
-				dbx.Select(catalog.Users.Username, catalog.Users.Status).
+				querydsl.Select(catalog.Users.Username, catalog.Users.Status).
 					From(catalog.Users).
 					Where(catalog.Users.Status.Eq(1)).
 					OrderBy(catalog.Users.ID.Asc()),
@@ -156,12 +161,12 @@ func batchInsertArchive(
 	ctx context.Context,
 	core *dbx.DB,
 	archive userArchiveSchema,
-	archiveMapper dbx.Mapper[userArchive],
+	archiveMapper mapperx.Mapper[userArchive],
 ) collectionx.List[userArchive] {
 	rows, err := dbx.QueryAll[userArchive](
 		ctx,
 		core,
-		dbx.InsertInto(archive).
+		querydsl.InsertInto(archive).
 			Values(
 				archive.Username.Set("eve"),
 				archive.Status.Set(1),
@@ -184,12 +189,12 @@ func upsertArchive(
 	ctx context.Context,
 	core *dbx.DB,
 	archive userArchiveSchema,
-	archiveMapper dbx.Mapper[userArchive],
+	archiveMapper mapperx.Mapper[userArchive],
 ) collectionx.List[userArchive] {
 	rows, err := dbx.QueryAll[userArchive](
 		ctx,
 		core,
-		dbx.InsertInto(archive).
+		querydsl.InsertInto(archive).
 			Values(
 				archive.Username.Set("alice"),
 				archive.Status.Set(9),

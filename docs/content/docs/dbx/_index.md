@@ -27,7 +27,7 @@ The current `dbx` implementation includes:
 - query DSL support for aggregates, subqueries, CTE, `UNION ALL`, `CASE WHEN`, batch insert, `INSERT ... SELECT`, upsert, and `RETURNING`
 - `StructMapper[E]` (schema-less pure DTO mapping) and `Mapper[E]` (schema-bound, for CRUD/relation load); `RowsScanner` as read contract
 - field codecs with built-in `json`, `text`, `unix_time`, `unix_milli_time`, `unix_nano_time`, `rfc3339_time`, and `rfc3339nano_time`
-- scoped custom codecs via `dbx.WithMapperCodecs(...)`
+- scoped custom codecs via `mapperx.WithMapperCodecs(...)`
 - `DB.SQL()` / `Tx.SQL()` as the pure SQL execution entry
 - relation loading APIs and relation-aware join helpers
 - `PlanSchemaChanges`, `ValidateSchemas`, `AutoMigrate`, and `MigrationPlan.SQLPreview()`
@@ -131,23 +131,23 @@ type User struct {
 }
 
 type RoleSchema struct {
-    dbx.Schema[Role]
-    ID   dbx.Column[Role, int64]  `dbx:"id,pk"`
-    Name dbx.Column[Role, string] `dbx:"name,unique"`
+    schemax.Schema[Role]
+    ID   columnx.Column[Role, int64]  `dbx:"id,pk"`
+    Name columnx.Column[Role, string] `dbx:"name,unique"`
 }
 
 type UserSchema struct {
-    dbx.Schema[User]
-    ID       dbx.Column[User, int64]   `dbx:"id,pk"`
-    Username dbx.Column[User, string]  `dbx:"username"`
-    Email    dbx.Column[User, string]  `dbx:"email_address,unique"`
-    Status   dbx.Column[User, int]     `dbx:"status,default=1"`
-    RoleID   dbx.Column[User, int64]   `dbx:"role_id,ref=roles.id,ondelete=cascade"`
-    Role     dbx.BelongsTo[User, Role] `rel:"table=roles,local=role_id,target=id"`
+    schemax.Schema[User]
+    ID       columnx.Column[User, int64]   `dbx:"id,pk"`
+    Username columnx.Column[User, string]  `dbx:"username"`
+    Email    columnx.Column[User, string]  `dbx:"email_address,unique"`
+    Status   columnx.Column[User, int]     `dbx:"status,default=1"`
+    RoleID   columnx.Column[User, int64]   `dbx:"role_id,ref=roles.id,ondelete=cascade"`
+    Role     relationx.BelongsTo[User, Role] `rel:"table=roles,local=role_id,target=id"`
 }
 
-var Roles = dbx.MustSchema("roles", RoleSchema{})
-var Users = dbx.MustSchema("users", UserSchema{})
+var Roles = schemax.MustSchema("roles", RoleSchema{})
+var Users = schemax.MustSchema("users", UserSchema{})
 ```
 
 For explicit typed ID strategy configuration, use marker types:
@@ -159,12 +159,12 @@ type Event struct {
 }
 
 type EventSchema struct {
-    dbx.Schema[Event]
-    ID   dbx.IDColumn[Event, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-    Name dbx.Column[Event, string]                   `dbx:"name"`
+    schemax.Schema[Event]
+    ID   columnx.IDColumn[Event, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+    Name columnx.Column[Event, string]                   `dbx:"name"`
 }
 
-var Events = dbx.MustSchema("events", EventSchema{})
+var Events = schemax.MustSchema("events", EventSchema{})
 ```
 
 ## Query DSL
@@ -172,7 +172,7 @@ var Events = dbx.MustSchema("events", EventSchema{})
 `dbx` renders typed queries into `BoundQuery`, then executes them through `DB` or `Tx`. For "build once, execute many" reuse, call `Build` once and use `ExecBound`, `QueryAllBound`, `QueryCursorBound`, or `QueryEachBound` in a loop:
 
 ```go
-query := dbx.Select(Users.ID, Users.Username).From(Users).Where(Users.Status.Eq(1))
+query := querydsl.Select(Users.ID, Users.Username).From(Users).Where(Users.Status.Eq(1))
 bound, _ := dbx.Build(session, query)
 for range batches {
     items, _ := dbx.QueryAllBound(ctx, session, bound, mapper)
@@ -181,24 +181,24 @@ for range batches {
 ```
 
 ```go
-statusLabel := dbx.CaseWhen[string](Users.Status.Eq(1), "active").
+statusLabel := querydsl.CaseWhen[string](Users.Status.Eq(1), "active").
     When(Users.Status.Eq(2), "blocked").
     Else("unknown").
     As("status_label")
 
-activeUsers := dbx.NamedTable("active_users")
-activeID := dbx.NamedColumn[int64](activeUsers, "id")
-activeName := dbx.NamedColumn[string](activeUsers, "username")
+activeUsers := querydsl.NamedTable("active_users")
+activeID := columnx.Named[int64](activeUsers, "id")
+activeName := columnx.Named[string](activeUsers, "username")
 
-query := dbx.Select(activeID, activeName, statusLabel).
+query := querydsl.Select(activeID, activeName, statusLabel).
     With("active_users",
-        dbx.Select(Users.ID, Users.Username).
+        querydsl.Select(Users.ID, Users.Username).
             From(Users).
             Where(Users.Status.Eq(1)),
     ).
     From(activeUsers).
     UnionAll(
-        dbx.Select(Users.ID, Users.Username, statusLabel).
+        querydsl.Select(Users.ID, Users.Username, statusLabel).
             From(Users).
             Where(Users.Status.Ne(1)),
     )
@@ -228,8 +228,8 @@ csvCodec := dbx.NewCodec[[]string](
     func(values []string) (any, error) { /* ... */ },
 )
 
-mapper := dbx.MustStructMapperWithOptions[Account](
-    dbx.WithMapperCodecs(csvCodec),
+mapper := mapperx.MustStructMapperWithOptions[Account](
+    mapperx.WithMapperCodecs(csvCodec),
 )
 ```
 
@@ -238,10 +238,10 @@ mapper := dbx.MustStructMapperWithOptions[Account](
 `dbx` now supports batch relation loading in addition to join helpers.
 
 ```go
-userMapper := dbx.MustMapper[User](Users)
-roleMapper := dbx.MustMapper[Role](Roles)
+userMapper := mapperx.MustMapper[User](Users)
+roleMapper := mapperx.MustMapper[Role](Roles)
 
-if err := dbx.LoadBelongsTo(
+if err := relationload.LoadBelongsTo(
     ctx,
     core,
     users,
@@ -268,14 +268,14 @@ var sqlFS embed.FS
 
 registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 
-items, err := dbx.SQLList(
+items, err := sqlexec.List(
 	ctx,
 	core,
 	registry.MustStatement("sql/user/find_active.sql"),
 	sqltmplx.WithPage(struct {
 		Status int `dbx:"status"`
-	}{Status: 1}, dbx.Page(1, 20)),
-	dbx.MustStructMapper[UserSummary](),
+	}{Status: 1}, sqltmplx.Page(1, 20)),
+	mapperx.MustStructMapper[UserSummary](),
 )
 if err != nil {
 	panic(err)
@@ -285,11 +285,11 @@ if err != nil {
 Pure SQL helpers:
 
 - `db.SQL().Exec(...)` / `tx.SQL().Exec(...)`
-- `dbx.SQLList(...)`
-- `dbx.SQLGet(...)`
-- `dbx.SQLFind(...)`
-- `dbx.SQLScalar(...)`
-- `dbx.SQLScalarOption(...)`
+- `sqlexec.List(...)`
+- `sqlexec.Get(...)`
+- `sqlexec.Find(...)`
+- `sqlexec.Scalar(...)`
+- `sqlexec.ScalarOption(...)`
 
 `SQLFind` and `SQLScalarOption` return `mo.Option[T]`.
 
@@ -298,7 +298,7 @@ Pure SQL helpers:
 `dbx` supports schema planning, validation, SQL preview, conservative auto-migrate, and a separate migration runner.
 
 ```go
-plan, err := core.PlanSchemaChanges(ctx, Roles, Users)
+plan, err := schemamigrate.PlanSchemaChanges(ctx, core, Roles, Users)
 if err != nil {
     panic(err)
 }

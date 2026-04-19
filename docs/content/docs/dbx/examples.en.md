@@ -48,20 +48,20 @@ go run ./examples/dbx/id_generation
 | `query_advanced` | `WITH`, `UNION ALL`, `CASE WHEN`, named tables, result columns | [examples/dbx/query_advanced](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/query_advanced) |
 | `relations` | alias + relation metadata + `JoinRelation`, plus `LoadBelongsTo` and `LoadManyToMany` | [examples/dbx/relations](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/relations) |
 | `migration` | `PlanSchemaChanges`, `SQLPreview`, `AutoMigrate`, `ValidateSchemas`, `migrate.NewRunner(core.SQLDB(), core.Dialect(), ...).UpGo/UpSQL` | [examples/dbx/migration](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/migration) |
-| `pure_sql` | `sqltmplx` registry, shared `PageRequest` pagination, `dbx.SQLList/SQLGet/SQLFind/SQLScalar`, statement-name logging, `tx.SQL().Exec(...)` | [examples/dbx/pure_sql](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/pure_sql) |
+| `pure_sql` | `sqltmplx` registry, shared `PageRequest` pagination, `sqlexec.List/Get/Find/Scalar`, statement-name logging, `tx.SQL().Exec(...)` | [examples/dbx/pure_sql](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/pure_sql) |
 | `id_generation` | typed ID strategy markers: `IDAuto`, `IDSnowflake`, `IDUUIDv7`, and `IDColumn` | [examples/dbx/id_generation](https://github.com/DaiYuANg/arcgo/tree/main/examples/dbx/id_generation) |
 
 ## Example: Codec and StructMapper
 
 ```go
-mapper := dbx.MustStructMapperWithOptions[shared.Account](
-    dbx.WithMapperCodecs(csvCodec),
+mapper := mapperx.MustStructMapperWithOptions[shared.Account](
+    mapperx.WithMapperCodecs(csvCodec),
 )
 
 items, err := dbx.QueryAll(
     ctx,
     core,
-    dbx.Select(catalog.Accounts.AllColumns().Values()...).From(catalog.Accounts),
+    querydsl.Select(querydsl.AllColumns(catalog.Accounts).Values()...).From(catalog.Accounts),
     mapper,
 )
 if err != nil {
@@ -72,17 +72,17 @@ if err != nil {
 ## Example: Advanced Query DSL
 
 ```go
-statusLabel := dbx.CaseWhen[string](catalog.Users.Status.Eq(1), "active").
+statusLabel := querydsl.CaseWhen[string](catalog.Users.Status.Eq(1), "active").
     Else("inactive").
     As("status_label")
 
-activeUsers := dbx.NamedTable("active_users")
-activeID := dbx.NamedColumn[int64](activeUsers, "id")
-activeName := dbx.NamedColumn[string](activeUsers, "username")
+activeUsers := querydsl.NamedTable("active_users")
+activeID := columnx.Named[int64](activeUsers, "id")
+activeName := columnx.Named[string](activeUsers, "username")
 
-query := dbx.Select(activeID, activeName, statusLabel).
+query := querydsl.Select(activeID, activeName, statusLabel).
     With("active_users",
-        dbx.Select(catalog.Users.ID, catalog.Users.Username).
+        querydsl.Select(catalog.Users.ID, catalog.Users.Username).
             From(catalog.Users).
             Where(catalog.Users.Status.Eq(1)),
     ).
@@ -92,7 +92,7 @@ query := dbx.Select(activeID, activeName, statusLabel).
 ## Example: Relation Loading
 
 ```go
-if err := dbx.LoadBelongsTo(
+if err := relationload.LoadBelongsTo(
     ctx,
     core,
     users,
@@ -112,7 +112,7 @@ if err := dbx.LoadBelongsTo(
 ## Example: Schema Plan Preview and Runner
 
 ```go
-plan, err := core.PlanSchemaChanges(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+plan, err := schemamigrate.PlanSchemaChanges(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 if err != nil {
     panic(err)
 }
@@ -121,7 +121,7 @@ for _, sqlText := range plan.SQLPreview() {
     fmt.Println(sqlText)
 }
 
-runner := core.Migrator(migrate.RunnerOptions{ValidateHash: true})
+runner := migrate.NewRunner(core.SQLDB(), core.Dialect(), migrate.RunnerOptions{ValidateHash: true})
 _, err = runner.UpSQL(ctx, source)
 if err != nil {
     panic(err)
@@ -133,14 +133,14 @@ if err != nil {
 ```go
 registry := sqltmplx.NewRegistry(sqlFS, core.Dialect())
 
-items, err := dbx.SQLList(
+items, err := sqlexec.List(
 	ctx,
 	core,
 	registry.MustStatement("sql/user/find_active.sql"),
 	sqltmplx.WithPage(struct {
 		Status int `dbx:"status"`
-	}{Status: 1}, dbx.Page(1, 20)),
-	dbx.MustStructMapper[shared.UserSummary](),
+	}{Status: 1}, sqltmplx.Page(1, 20)),
+	mapperx.MustStructMapper[shared.UserSummary](),
 )
 if err != nil {
 	panic(err)

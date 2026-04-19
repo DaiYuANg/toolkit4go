@@ -14,20 +14,20 @@ Use `IDColumn[..., ..., Marker]` to configure primary-key ID generation directly
 | Marker | ID type | Behavior |
 | --- | --- | --- |
 | `dbx.IDAuto` | `int64` | Database auto-increment/identity |
-| `dbx.IDSnowflake` | `int64` | App-generated Snowflake ID |
+| `idgen.IDSnowflake` | `int64` | App-generated Snowflake ID |
 | `dbx.IDUUID` | `string` | App-generated UUID (default v7) |
-| `dbx.IDUUIDv7` | `string` | App-generated UUIDv7 |
+| `idgen.IDUUIDv7` | `string` | App-generated UUIDv7 |
 | `dbx.IDUUIDv4` | `string` | App-generated UUIDv4 |
-| `dbx.IDULID` | `string` | App-generated ULID |
+| `idgen.IDULID` | `string` | App-generated ULID |
 | `dbx.IDKSUID` | `string` | App-generated KSUID |
 
 ## Example
 
 ```go
 type EventSchema struct {
-    dbx.Schema[Event]
-    ID   dbx.IDColumn[Event, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-    Name dbx.Column[Event, string]                   `dbx:"name"`
+    schemax.Schema[Event]
+    ID   columnx.IDColumn[Event, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+    Name columnx.Column[Event, string]                   `dbx:"name"`
 }
 ```
 

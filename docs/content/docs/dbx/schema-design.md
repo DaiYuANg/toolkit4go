@@ -31,7 +31,12 @@ weight: 8
 ```go
 package main
 
-import "github.com/DaiYuANg/arcgo/dbx"
+import (
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+)
 
 type Role struct {
 	ID   int64  `dbx:"id"`
@@ -48,45 +53,45 @@ type User struct {
 }
 
 type RoleSchema struct {
-	dbx.Schema[Role]
-	ID   dbx.IDColumn[Role, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Name dbx.Column[Role, string]                   `dbx:"name,unique"`
+	schemax.Schema[Role]
+	ID   columnx.IDColumn[Role, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Name columnx.Column[Role, string]                   `dbx:"name,unique"`
 }
 
 type UserSchema struct {
-	dbx.Schema[User]
-	ID       dbx.IDColumn[User, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	TenantID dbx.Column[User, int64]                    `dbx:"tenant_id,index"`
-	RoleID   dbx.Column[User, int64]                    `dbx:"role_id,ref=roles.id,ondelete=cascade,index"`
-	Username dbx.Column[User, string]                   `dbx:"username,index"`
-	Email    dbx.Column[User, string]                   `dbx:"email,unique"`
-	Status   dbx.Column[User, int]                      `dbx:"status,default=1,index"`
-	Role     dbx.BelongsTo[User, Role]                  `rel:"table=roles,local=role_id,target=id"`
+	schemax.Schema[User]
+	ID       columnx.IDColumn[User, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	TenantID columnx.Column[User, int64]                    `dbx:"tenant_id,index"`
+	RoleID   columnx.Column[User, int64]                    `dbx:"role_id,ref=roles.id,ondelete=cascade,index"`
+	Username columnx.Column[User, string]                   `dbx:"username,index"`
+	Email    columnx.Column[User, string]                   `dbx:"email,unique"`
+	Status   columnx.Column[User, int]                      `dbx:"status,default=1,index"`
+	Role     relationx.BelongsTo[User, Role]                  `rel:"table=roles,local=role_id,target=id"`
 
 	// Composite non-unique index: (tenant_id, username)
-	Lookup dbx.Index[User] `idx:"columns=tenant_id|username"`
+	Lookup schemax.Index[User] `idx:"columns=tenant_id|username"`
 
 	// Composite unique index: (tenant_id, email)
-	UniquePerTenant dbx.Unique[User] `idx:"columns=tenant_id|email"`
+	UniquePerTenant schemax.Unique[User] `idx:"columns=tenant_id|email"`
 }
 
-var Roles = dbx.MustSchema("roles", RoleSchema{})
-var Users = dbx.MustSchema("users", UserSchema{})
+var Roles = schemax.MustSchema("roles", RoleSchema{})
+var Users = schemax.MustSchema("users", UserSchema{})
 ```
 
 ## Declaration Rules
 
-- Use `dbx.Schema[E]` as the first embedded field in each schema struct.
-- Use `dbx.Column[E, T]` for regular fields.
+- Use `schemax.Schema[E]` as the first embedded field in each schema struct.
+- Use `columnx.Column[E, T]` for regular fields.
 - Use relation fields (`BelongsTo`, `HasOne`, `HasMany`, `ManyToMany`) for relation metadata.
-- Use `dbx.IDColumn[E, T, Marker]` for explicit PK generation strategy.
+- Use `columnx.IDColumn[E, T, Marker]` for explicit PK generation strategy.
 
 ## ID Strategy in Schema
 
 Recommended strategy declaration is type-level:
 
 ```go
-ID dbx.IDColumn[Order, string, dbx.IDULID] `dbx:"id,pk"`
+ID columnx.IDColumn[Order, string, idgen.IDULID] `dbx:"id,pk"`
 ```
 
 See full strategy matrix and runtime generator options in [ID Generation](./id-generation).
@@ -95,8 +100,8 @@ See full strategy matrix and runtime generator options in [ID Generation](./id-g
 
 - Single-column index via tag: `dbx:"field,index"`
 - Single-column unique via tag: `dbx:"field,unique"`
-- Composite index via `dbx.Index[E]` + `idx:"columns=..."`
-- Composite unique via `dbx.Unique[E]` + `idx:"columns=..."`
+- Composite index via `schemax.Index[E]` + `idx:"columns=..."`
+- Composite unique via `schemax.Unique[E]` + `idx:"columns=..."`
 
 See more patterns in [Indexes](./indexes).
 

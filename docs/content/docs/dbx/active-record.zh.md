@@ -46,8 +46,12 @@ import (
 
 	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/activerecord"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
 type User struct {
@@ -56,18 +60,18 @@ type User struct {
 }
 
 type UserSchema struct {
-	dbx.Schema[User]
-	ID   dbx.IDColumn[User, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Name dbx.Column[User, string] `dbx:"name"`
+	schemax.Schema[User]
+	ID   columnx.IDColumn[User, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Name columnx.Column[User, string] `dbx:"name"`
 }
 
-var Users = dbx.MustSchema("users", UserSchema{})
+var Users = schemax.MustSchema("users", UserSchema{})
 
 func main() {
 	ctx := context.Background()
 	raw, _ := sql.Open("sqlite3", "file:ar_example.db?cache=shared")
 	core := dbx.MustNewWithOptions(raw, sqlite.New())
-	_, _ = core.AutoMigrate(ctx, Users)
+	_, _ = schemamigrate.AutoMigrate(ctx, core, Users)
 
 	store := activerecord.New[User](core, Users)
 	m := store.Wrap(&User{Name: "alice"})

@@ -25,8 +25,13 @@ import (
 	"database/sql"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
 	"github.com/DaiYuANg/arcgo/dbx/repository"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+	"github.com/DaiYuANg/arcgo/dbx/sqltmplx"
 )
 
 type User struct {
@@ -35,23 +40,23 @@ type User struct {
 }
 
 type UserSchema struct {
-	dbx.Schema[User]
-	ID   dbx.IDColumn[User, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Name dbx.Column[User, string]                   `dbx:"name,index"`
+	schemax.Schema[User]
+	ID   columnx.IDColumn[User, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Name columnx.Column[User, string]                   `dbx:"name,index"`
 }
 
-var Users = dbx.MustSchema("users", UserSchema{})
+var Users = schemax.MustSchema("users", UserSchema{})
 
 func main() {
 	ctx := context.Background()
 	raw, _ := sql.Open("sqlite3", "file:repo_example.db?cache=shared")
 	core := dbx.MustNewWithOptions(raw, sqlite.New())
-	_, _ = core.AutoMigrate(ctx, Users)
+	_, _ = schemamigrate.AutoMigrate(ctx, core, Users)
 
 	repo := repository.NewWithOptions[User](core, Users, repository.WithByIDNotFoundAsError(true))
 	_ = repo.CreateMany(ctx, &User{Name: "alice"}, &User{Name: "bob"})
 	_ = repo.Upsert(ctx, &User{ID: 1, Name: "alice-v2"})
-	page, _ := repo.ListPageSpecRequest(ctx, dbx.Page(1, 20), repository.Where(Users.Name.Eq("alice-v2")))
+	page, _ := repo.ListPageSpecRequest(ctx, sqltmplx.Page(1, 20), repository.Where(Users.Name.Eq("alice-v2")))
 	_ = page.HasNext
 }
 ```
@@ -61,7 +66,7 @@ func main() {
 - CRUD: `Create`, `CreateMany`, `List`, `First`, `Update`, `Delete`
 - PK helpers: `GetByID`, `UpdateByID`, `DeleteByID`
 - Composite key helpers: `GetByKey`, `UpdateByKey`, `DeleteByKey`
-- Pagination: `dbx.PageRequest`, `dbx.PageResult`, `ListPage`, `ListPageRequest`, `ListPageSpec`, `ListPageSpecRequest`
+- Pagination: `paging.Request`, `paging.Result`, `ListPage`, `ListPageRequest`, `ListPageSpec`, `ListPageSpecRequest`
 - Upsert: `Upsert(ctx, entity, conflictColumns...)`
 - Transactions: `InTx`
 - Specs: `Where`, `OrderBy`, `Limit`, `Offset`, `Page`, `PageByRequest`
@@ -69,10 +74,10 @@ func main() {
 
 ## Pagination
 
-Use `dbx.Page(page, pageSize)` or `dbx.NewPageRequest(page, pageSize)` when you need one pagination model across repository, active-record, and template SQL code paths.
+Use `paging.Page(page, pageSize)` or `paging.NewRequest(page, pageSize)` when you need one pagination model across repository, active-record, and template SQL code paths.
 
 ```go
-request := dbx.Page(1, 20)
+request := sqltmplx.Page(1, 20)
 
 page, err := repo.ListPageSpecRequest(
 	ctx,
@@ -106,7 +111,7 @@ Semantics:
 When to use which:
 
 - Prefer `GetByID` / `First` + `errors.Is(err, repository.ErrNotFound)` when not-found is exceptional or you want uniform `if err != nil` handling.
-- Prefer `*Option` when absence is a normal outcome and you want `(mo.Option[E], error)` to separate “missing row” from “real errors”, consistent with `dbx.SQLFind` / `dbx.SQLScalarOption`.
+- Prefer `*Option` when absence is a normal outcome and you want `(mo.Option[E], error)` to separate “missing row” from “real errors”, consistent with `sqlexec.Find` / `sqlexec.ScalarOption`.
 
 ```go
 // Assumes User, UserSchema, Users, repo, and ctx from the "Complete Example" above.

@@ -7,7 +7,10 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
 	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
@@ -36,7 +39,7 @@ func main() {
 	}
 	defer closeOrPanic(closeDB)
 
-	_, err = core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+	_, err = schemamigrate.AutoMigrate(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 	if err != nil {
 		panic(err)
 	}
@@ -46,27 +49,27 @@ func main() {
 	}
 
 	activeUsers := querydsl.NamedTable("active_users")
-	activeID := dbx.NamedColumn[int64](activeUsers, "id")
-	activeUsername := dbx.NamedColumn[string](activeUsers, "username")
-	activeQuery := dbx.Select(activeID, activeUsername).
+	activeID := columnx.Named[int64](activeUsers, "id")
+	activeUsername := columnx.Named[string](activeUsers, "username")
+	activeQuery := querydsl.Select(activeID, activeUsername).
 		With("active_users",
-			dbx.Select(catalog.Users.ID, catalog.Users.Username).
+			querydsl.Select(catalog.Users.ID, catalog.Users.Username).
 				From(catalog.Users).
 				Where(catalog.Users.Status.Eq(1)),
 		).
 		From(activeUsers).
 		OrderBy(activeID.Asc())
 
-	activeRows, err := dbx.QueryAll[activeUserRow](ctx, core, activeQuery, dbx.MustStructMapper[activeUserRow]())
+	activeRows, err := dbx.QueryAll[activeUserRow](ctx, core, activeQuery, mapperx.MustStructMapper[activeUserRow]())
 	if err != nil {
 		panic(err)
 	}
 	printActiveRows(activeRows)
 
-	statusLabel := dbx.CaseWhen[string](catalog.Users.Status.Eq(1), "active").
+	statusLabel := querydsl.CaseWhen[string](catalog.Users.Status.Eq(1), "active").
 		When(catalog.Users.Status.Eq(0), "inactive").
 		Else("unknown")
-	labeledQuery := dbx.Select(
+	labeledQuery := querydsl.Select(
 		catalog.Users.ID,
 		catalog.Users.Username,
 		statusLabel.As("status_label"),
@@ -74,23 +77,23 @@ func main() {
 		From(catalog.Users).
 		OrderBy(catalog.Users.ID.Asc())
 
-	labeledRows, err := dbx.QueryAll[labeledUserRow](ctx, core, labeledQuery, dbx.MustStructMapper[labeledUserRow]())
+	labeledRows, err := dbx.QueryAll[labeledUserRow](ctx, core, labeledQuery, mapperx.MustStructMapper[labeledUserRow]())
 	if err != nil {
 		panic(err)
 	}
 	printLabeledRows(labeledRows)
 
-	label := dbx.ResultColumn[string]("label")
-	unionQuery := dbx.Select(catalog.Users.Username.As("label")).
+	label := columnx.Result[string]("label")
+	unionQuery := querydsl.Select(catalog.Users.Username.As("label")).
 		From(catalog.Users).
 		Where(catalog.Users.Status.Eq(1)).
 		UnionAll(
-			dbx.Select(catalog.Roles.Name.As("label")).
+			querydsl.Select(catalog.Roles.Name.As("label")).
 				From(catalog.Roles),
 		).
 		OrderBy(label.Asc())
 
-	unionRows, err := dbx.QueryAll[unionLabelRow](ctx, core, unionQuery, dbx.MustStructMapper[unionLabelRow]())
+	unionRows, err := dbx.QueryAll[unionLabelRow](ctx, core, unionQuery, mapperx.MustStructMapper[unionLabelRow]())
 	if err != nil {
 		panic(err)
 	}

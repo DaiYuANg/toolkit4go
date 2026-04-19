@@ -12,6 +12,7 @@ func main() {
 	printLine("  go run ./examples/dbx/relations")
 	printLine("  go run ./examples/dbx/migration")
 	printLine("  go run ./examples/dbx/pure_sql")
+	printLine("  go run ./examples/dbx/id_generation")
 }
 
 func printLine(text string) {

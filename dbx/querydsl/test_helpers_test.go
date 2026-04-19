@@ -46,6 +46,7 @@ type UserSchema struct {
 }
 
 var And = querydsl.And
+var AllColumns = querydsl.AllColumns
 var CountAll = querydsl.CountAll
 var DeleteFrom = querydsl.DeleteFrom
 var Exists = querydsl.Exists

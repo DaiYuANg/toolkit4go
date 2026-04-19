@@ -22,7 +22,7 @@ dbx 与 sqltmplx 的方言抽象。能力分层，按需实现即可。
 
 1. 实现 `dialect.Dialect`（Contract + QuoteIdent + RenderLimitOffset）。
 2. 实现 `dialect.QueryFeaturesProvider` 声明 upsert/returning 支持（或使用 `DefaultQueryFeatures` 若方言匹配已知类型）。
-3. 若需 schema migration：实现 `dbx.SchemaDialect`（BuildCreateTable、InspectTable 等），或使用 Atlas 支持时依赖 Atlas。
+3. 若需 schema migration：实现 `schemamigrate.Dialect`（BuildCreateTable、InspectTable 等），或使用 Atlas 支持时依赖 Atlas。
 4. 若需 sqltmplx 校验：通过 `validate.Register(dialectName, factory)` 注册 parser。
 
 无需在 render.go、schema_migrate_atlas.go 或 sqltmplx 中增加方言分支——能力通过接口声明即可。

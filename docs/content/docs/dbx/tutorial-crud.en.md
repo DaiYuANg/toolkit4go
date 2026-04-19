@@ -21,7 +21,13 @@ import (
 	"log"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -34,14 +40,14 @@ type User struct {
 }
 
 type UserSchema struct {
-	dbx.Schema[User]
-	ID       dbx.IDColumn[User, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Username dbx.Column[User, string]                   `dbx:"username,index"`
-	Email    dbx.Column[User, string]                   `dbx:"email,unique"`
-	Status   dbx.Column[User, int]                      `dbx:"status,default=1,index"`
+	schemax.Schema[User]
+	ID       columnx.IDColumn[User, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Username columnx.Column[User, string]                   `dbx:"username,index"`
+	Email    columnx.Column[User, string]                   `dbx:"email,unique"`
+	Status   columnx.Column[User, int]                      `dbx:"status,default=1,index"`
 }
 
-var Users = dbx.MustSchema("users", UserSchema{})
+var Users = schemax.MustSchema("users", UserSchema{})
 
 func main() {
 	ctx := context.Background()
@@ -55,38 +61,38 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := core.AutoMigrate(ctx, Users); err != nil {
+	if _, err := schemamigrate.AutoMigrate(ctx, core, Users); err != nil {
 		log.Fatal(err)
 	}
 
-	mapper := dbx.MustMapper[User](Users)
+	mapper := mapperx.MustMapper[User](Users)
 	u := &User{Username: "alice", Email: "alice@example.com", Status: 1}
 	assignments, err := mapper.InsertAssignments(core, Users, u)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if _, err := dbx.Exec(ctx, core, dbx.InsertInto(Users).Values(assignments...)); err != nil {
+	if _, err := dbx.Exec(ctx, core, querydsl.InsertInto(Users).Values(assignments.Values()...)); err != nil {
 		log.Fatal(err)
 	}
 
 	list, err := dbx.QueryAll(
 		ctx, core,
-		dbx.Select(Users.AllColumns().Values()...).From(Users).Where(Users.Username.Eq("alice")),
+		querydsl.Select(querydsl.AllColumns(Users).Values()...).From(Users).Where(Users.Username.Eq("alice")),
 		mapper,
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("query rows=%d\n", len(list))
+	fmt.Printf("query rows=%d\n", list.Len())
 
 	if _, err := dbx.Exec(
 		ctx, core,
-		dbx.Update(Users).Set(Users.Status.Assign(2)).Where(Users.Username.Eq("alice")),
+		querydsl.Update(Users).Set(Users.Status.Set(2)).Where(Users.Username.Eq("alice")),
 	); err != nil {
 		log.Fatal(err)
 	}
 
-	if _, err := dbx.Exec(ctx, core, dbx.DeleteFrom(Users).Where(Users.Username.Eq("alice"))); err != nil {
+	if _, err := dbx.Exec(ctx, core, querydsl.DeleteFrom(Users).Where(Users.Username.Eq("alice"))); err != nil {
 		log.Fatal(err)
 	}
 }

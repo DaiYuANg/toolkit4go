@@ -15,7 +15,7 @@ weight: 17
 - 架构评审、上线评审阶段。
 
 - 明确方言配置（`sqlite.New()`、`postgres.New()`、`mysql.New()`）
-- 采用 schema-first 元数据（`dbx.Schema[E]`）
+- 采用 schema-first 元数据（`schemax.Schema[E]`）
 - 显式声明 ID 策略（`IDColumn[..., ..., Marker]`）
 - 多实例 Snowflake 明确 node id 策略
 - schema 层声明单列与复合索引

@@ -5,17 +5,20 @@ import (
 	"fmt"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
 // InsertAll inserts multiple items for a schema using dbx mapper assignments.
-func InsertAll[E any, S dbx.SchemaSource[E]](ctx context.Context, session dbx.Session, schema S, items ...E) error {
-	mapper := dbx.MustMapper[E](schema)
+func InsertAll[E any, S schemax.SchemaSource[E]](ctx context.Context, session dbx.Session, schema S, items ...E) error {
+	mapper := mapperx.MustMapper[E](schema)
 	for _, item := range items {
 		assignments, err := mapper.InsertAssignments(session, schema, new(item))
 		if err != nil {
 			return fmt.Errorf("build insert assignments: %w", err)
 		}
-		if _, err := dbx.Exec(ctx, session, dbx.InsertInto(schema).Values(assignments.Values()...)); err != nil {
+		if _, err := dbx.Exec(ctx, session, querydsl.InsertInto(schema).Values(assignments.Values()...)); err != nil {
 			return fmt.Errorf("execute insert: %w", err)
 		}
 	}

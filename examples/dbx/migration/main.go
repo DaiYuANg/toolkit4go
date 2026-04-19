@@ -10,6 +10,8 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
 	"github.com/DaiYuANg/arcgo/dbx/migrate"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
@@ -44,8 +46,8 @@ func openMigrationDB() (*dbx.DB, func() error) {
 	return core, closeDB
 }
 
-func planSchemaChanges(ctx context.Context, core *dbx.DB, catalog shared.Catalog) dbx.MigrationPlan {
-	plan, err := core.PlanSchemaChanges(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+func planSchemaChanges(ctx context.Context, core *dbx.DB, catalog shared.Catalog) schemax.MigrationPlan {
+	plan, err := schemamigrate.PlanSchemaChanges(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 	if err != nil {
 		panic(err)
 	}
@@ -53,9 +55,9 @@ func planSchemaChanges(ctx context.Context, core *dbx.DB, catalog shared.Catalog
 	return plan
 }
 
-func printMigrationPlan(plan dbx.MigrationPlan) {
+func printMigrationPlan(plan schemax.MigrationPlan) {
 	printLine("planned migration actions:")
-	plan.Actions.Range(func(_ int, action dbx.MigrationAction) bool {
+	plan.Actions.Range(func(_ int, action schemax.MigrationAction) bool {
 		printFormat("- kind=%s executable=%t summary=%s\n", action.Kind, action.Executable, action.Summary)
 		return true
 	})
@@ -68,8 +70,8 @@ func printMigrationPlan(plan dbx.MigrationPlan) {
 	})
 }
 
-func autoMigrateSchemas(ctx context.Context, core *dbx.DB, catalog shared.Catalog) dbx.ValidationReport {
-	report, err := core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+func autoMigrateSchemas(ctx context.Context, core *dbx.DB, catalog shared.Catalog) schemax.ValidationReport {
+	report, err := schemamigrate.AutoMigrate(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 	if err != nil {
 		panic(err)
 	}
@@ -77,12 +79,12 @@ func autoMigrateSchemas(ctx context.Context, core *dbx.DB, catalog shared.Catalo
 	return report
 }
 
-func printMigrationReport(report dbx.ValidationReport) {
+func printMigrationReport(report schemax.ValidationReport) {
 	printFormat("auto migrate valid=%t tables=%d\n", report.Valid(), report.Tables.Len())
 }
 
-func validateSchemas(ctx context.Context, core *dbx.DB, catalog shared.Catalog) dbx.ValidationReport {
-	report, err := core.ValidateSchemas(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+func validateSchemas(ctx context.Context, core *dbx.DB, catalog shared.Catalog) schemax.ValidationReport {
+	report, err := schemamigrate.ValidateSchemas(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 	if err != nil {
 		panic(err)
 	}
@@ -90,14 +92,14 @@ func validateSchemas(ctx context.Context, core *dbx.DB, catalog shared.Catalog) 
 	return report
 }
 
-func printSchemaValidation(report dbx.ValidationReport) {
+func printSchemaValidation(report schemax.ValidationReport) {
 	printFormat("validate valid=%t\n", report.Valid())
 }
 
 func printForeignKeys(catalog shared.Catalog) {
 	printLine("users foreign keys:")
 	foreignKeys := catalog.Users.ForeignKeys()
-	foreignKeys.Range(func(_ int, fk dbx.ForeignKeyMeta) bool {
+	foreignKeys.Range(func(_ int, fk schemax.ForeignKeyMeta) bool {
 		printFormat("- name=%s columns=%v target=%s(%v)\n", fk.Name, fk.Columns, fk.TargetTable, fk.TargetColumns)
 		return true
 	})

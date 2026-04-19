@@ -10,6 +10,11 @@ import (
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
 	codecx "github.com/DaiYuANg/arcgo/dbx/codec"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
@@ -55,13 +60,13 @@ type account struct {
 }
 
 type accountSchema struct {
-	dbx.Schema[account]
-	ID          dbx.Column[account, int64]         `dbx:"id,pk,auto"`
-	Username    dbx.Column[account, string]        `dbx:"username,unique"`
-	Status      dbx.Column[account, accountStatus] `dbx:"status,type=text"`
-	CreatedAt   dbx.Column[account, time.Time]     `dbx:"created_at,type=integer"`
-	Preferences dbx.Column[account, preferences]   `dbx:"preferences,type=text"`
-	Tags        dbx.Column[account, []string]      `dbx:"tags,type=text"`
+	schemax.Schema[account]
+	ID          columnx.Column[account, int64]         `dbx:"id,pk,auto"`
+	Username    columnx.Column[account, string]        `dbx:"username,unique"`
+	Status      columnx.Column[account, accountStatus] `dbx:"status,type=text"`
+	CreatedAt   columnx.Column[account, time.Time]     `dbx:"created_at,type=integer"`
+	Preferences columnx.Column[account, preferences]   `dbx:"preferences,type=text"`
+	Tags        columnx.Column[account, []string]      `dbx:"tags,type=text"`
 }
 
 func main() {
@@ -81,13 +86,13 @@ func main() {
 		}
 	}()
 
-	accounts := dbx.MustSchema("accounts", accountSchema{})
-	_, err = core.AutoMigrate(ctx, accounts)
+	accounts := schemax.MustSchema("accounts", accountSchema{})
+	_, err = schemamigrate.AutoMigrate(ctx, core, accounts)
 	if err != nil {
 		panic(err)
 	}
 
-	mapper := dbx.MustMapperWithOptions[account](accounts, dbx.WithMapperCodecs(newCSVCodec()))
+	mapper := mapperx.MustMapperWithOptions[account](accounts, mapperx.WithMapperCodecs(newCSVCodec()))
 	insertAccounts(ctx, core, accounts, mapper)
 
 	items, err := queryAccounts(ctx, core, accounts, mapper)
@@ -133,7 +138,7 @@ func insertAccounts(
 	ctx context.Context,
 	session dbx.Session,
 	schema accountSchema,
-	mapper dbx.Mapper[account],
+	mapper mapperx.Mapper[account],
 ) {
 	accountsToInsert := []*account{
 		{
@@ -163,7 +168,7 @@ func insertAccounts(
 		if err != nil {
 			panic(err)
 		}
-		if _, err = dbx.Exec(ctx, session, dbx.InsertInto(schema).Values(assignments.Values()...)); err != nil {
+		if _, err = dbx.Exec(ctx, session, querydsl.InsertInto(schema).Values(assignments.Values()...)); err != nil {
 			panic(err)
 		}
 	}
@@ -173,12 +178,12 @@ func queryAccounts(
 	ctx context.Context,
 	session dbx.Session,
 	schema accountSchema,
-	mapper dbx.Mapper[account],
+	mapper mapperx.Mapper[account],
 ) (collectionx.List[account], error) {
 	return dbx.QueryAll[account](
 		ctx,
 		session,
-		dbx.Select(schema.AllColumns().Values()...).From(schema).OrderBy(schema.ID.Asc()),
+		querydsl.Select(querydsl.AllColumns(schema).Values()...).From(schema).OrderBy(schema.ID.Asc()),
 		mapper,
 	)
 }

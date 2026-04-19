@@ -7,6 +7,10 @@ import (
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	projectionx "github.com/DaiYuANg/arcgo/dbx/projection"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
 
@@ -47,7 +51,7 @@ func openBasicDB() (*dbx.DB, func() error) {
 }
 
 func prepareBasicData(ctx context.Context, core *dbx.DB, catalog shared.Catalog) {
-	_, err := core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+	_, err := schemamigrate.AutoMigrate(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 	if err != nil {
 		panic(err)
 	}
@@ -58,11 +62,11 @@ func prepareBasicData(ctx context.Context, core *dbx.DB, catalog shared.Catalog)
 }
 
 func queryActiveUsers(ctx context.Context, core *dbx.DB, catalog shared.Catalog) collectionx.List[shared.User] {
-	userMapper := dbx.MustMapper[shared.User](catalog.Users)
+	userMapper := mapperx.MustMapper[shared.User](catalog.Users)
 	users, err := dbx.QueryAll[shared.User](
 		ctx,
 		core,
-		dbx.Select(catalog.Users.AllColumns().Values()...).
+		querydsl.Select(querydsl.AllColumns(catalog.Users).Values()...).
 			From(catalog.Users).
 			Where(catalog.Users.Status.Eq(1)).
 			OrderBy(catalog.Users.ID.Asc()),
@@ -84,11 +88,11 @@ func printActiveUsers(users collectionx.List[shared.User]) {
 }
 
 func queryUserSummaries(ctx context.Context, core *dbx.DB, catalog shared.Catalog) collectionx.List[shared.UserSummary] {
-	summaryMapper := dbx.MustMapper[shared.UserSummary](catalog.Users)
+	summaryMapper := mapperx.MustMapper[shared.UserSummary](catalog.Users)
 	summaries, err := dbx.QueryAll[shared.UserSummary](
 		ctx,
 		core,
-		dbx.MustSelectMapped(catalog.Users, summaryMapper).OrderBy(catalog.Users.ID.Asc()),
+		projectionx.MustSelect(catalog.Users, summaryMapper).OrderBy(catalog.Users.ID.Asc()),
 		summaryMapper,
 	)
 	if err != nil {
@@ -115,7 +119,7 @@ func updateUserStatus(ctx context.Context, core *dbx.DB, catalog shared.Catalog,
 	_, err = dbx.Exec(
 		ctx,
 		tx,
-		dbx.Update(catalog.Users).
+		querydsl.Update(catalog.Users).
 			Set(catalog.Users.Status.Set(status)).
 			Where(catalog.Users.Username.Eq(username)),
 	)
@@ -129,11 +133,11 @@ func updateUserStatus(ctx context.Context, core *dbx.DB, catalog shared.Catalog,
 }
 
 func queryUsersByUsername(ctx context.Context, core *dbx.DB, catalog shared.Catalog, username string) collectionx.List[shared.User] {
-	userMapper := dbx.MustMapper[shared.User](catalog.Users)
+	userMapper := mapperx.MustMapper[shared.User](catalog.Users)
 	users, err := dbx.QueryAll[shared.User](
 		ctx,
 		core,
-		dbx.Select(catalog.Users.AllColumns().Values()...).
+		querydsl.Select(querydsl.AllColumns(catalog.Users).Values()...).
 			From(catalog.Users).
 			Where(catalog.Users.Username.Eq(username)),
 		userMapper,

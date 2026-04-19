@@ -14,20 +14,20 @@ weight: 9
 | Marker | ID 类型 | 行为 |
 | --- | --- | --- |
 | `dbx.IDAuto` | `int64` | 数据库自增 / identity |
-| `dbx.IDSnowflake` | `int64` | 应用侧生成 Snowflake ID |
+| `idgen.IDSnowflake` | `int64` | 应用侧生成 Snowflake ID |
 | `dbx.IDUUID` | `string` | 应用侧生成 UUID（默认 v7） |
-| `dbx.IDUUIDv7` | `string` | 应用侧生成 UUIDv7 |
+| `idgen.IDUUIDv7` | `string` | 应用侧生成 UUIDv7 |
 | `dbx.IDUUIDv4` | `string` | 应用侧生成 UUIDv4 |
-| `dbx.IDULID` | `string` | 应用侧生成 ULID |
+| `idgen.IDULID` | `string` | 应用侧生成 ULID |
 | `dbx.IDKSUID` | `string` | 应用侧生成 KSUID |
 
 ## 示例
 
 ```go
 type EventSchema struct {
-    dbx.Schema[Event]
-    ID   dbx.IDColumn[Event, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-    Name dbx.Column[Event, string]                   `dbx:"name"`
+    schemax.Schema[Event]
+    ID   columnx.IDColumn[Event, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+    Name columnx.Column[Event, string]                   `dbx:"name"`
 }
 ```
 

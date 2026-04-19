@@ -22,7 +22,7 @@ Dialect abstraction for dbx and sqltmplx. Capabilities are layered; implement on
 
 1. Implement `dialect.Dialect` (Contract + QuoteIdent + RenderLimitOffset).
 2. Implement `dialect.QueryFeaturesProvider` to declare upsert/returning support (or rely on `DefaultQueryFeatures` if your dialect matches a known one).
-3. For schema migration: implement `dbx.SchemaDialect` (BuildCreateTable, InspectTable, etc.) or rely on Atlas when supported.
+3. For schema migration: implement `schemamigrate.Dialect` (BuildCreateTable, InspectTable, etc.) or rely on Atlas when supported.
 4. For sqltmplx validation: register a parser via `validate.Register(dialectName, factory)`.
 
 No need to add dialect branches in render.go, schema_migrate_atlas.go, or sqltmplx—capabilities are declared via interfaces.

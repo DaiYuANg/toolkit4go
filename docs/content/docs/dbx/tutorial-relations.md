@@ -35,7 +35,15 @@ import (
 	"log"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/querydsl"
+	relationx "github.com/DaiYuANg/arcgo/dbx/relation"
+	"github.com/DaiYuANg/arcgo/dbx/relationload"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 	"github.com/samber/mo"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -53,21 +61,21 @@ type User struct {
 }
 
 type RoleSchema struct {
-	dbx.Schema[Role]
-	ID   dbx.IDColumn[Role, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Name dbx.Column[Role, string]                   `dbx:"name,unique"`
+	schemax.Schema[Role]
+	ID   columnx.IDColumn[Role, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Name columnx.Column[Role, string]                   `dbx:"name,unique"`
 }
 
 type UserSchema struct {
-	dbx.Schema[User]
-	ID       dbx.IDColumn[User, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	RoleID   dbx.Column[User, int64]                    `dbx:"role_id,ref=roles.id,ondelete=cascade,index"`
-	Username dbx.Column[User, string]                   `dbx:"username,index"`
-	Role     dbx.BelongsTo[User, Role]                  `rel:"table=roles,local=role_id,target=id"`
+	schemax.Schema[User]
+	ID       columnx.IDColumn[User, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	RoleID   columnx.Column[User, int64]                    `dbx:"role_id,ref=roles.id,ondelete=cascade,index"`
+	Username columnx.Column[User, string]                   `dbx:"username,index"`
+	Role     relationx.BelongsTo[User, Role]                  `rel:"table=roles,local=role_id,target=id"`
 }
 
-var Roles = dbx.MustSchema("roles", RoleSchema{})
-var Users = dbx.MustSchema("users", UserSchema{})
+var Roles = schemax.MustSchema("roles", RoleSchema{})
+var Users = schemax.MustSchema("users", UserSchema{})
 
 func main() {
 	ctx := context.Background()
@@ -81,22 +89,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := core.AutoMigrate(ctx, Roles, Users); err != nil {
+	if _, err := schemamigrate.AutoMigrate(ctx, core, Roles, Users); err != nil {
 		log.Fatal(err)
 	}
 
-	userMapper := dbx.MustMapper[User](Users)
-	roleMapper := dbx.MustMapper[Role](Roles)
+	userMapper := mapperx.MustMapper[User](Users)
+	roleMapper := mapperx.MustMapper[Role](Roles)
 
-	items, err := dbx.QueryAll(ctx, core, dbx.Select(Users.AllColumns().Values()...).From(Users), userMapper)
+	items, err := dbx.QueryAll(ctx, core, querydsl.Select(querydsl.AllColumns(Users).Values()...).From(Users), userMapper)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := dbx.LoadBelongsTo(
+	if err := relationload.LoadBelongsTo(
 		ctx,
 		core,
-		items,
+		items.Values(),
 		Users,
 		userMapper,
 		Users.Role,

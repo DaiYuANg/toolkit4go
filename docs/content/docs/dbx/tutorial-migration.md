@@ -35,7 +35,11 @@ import (
 	"log"
 
 	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/dialect/sqlite"
+	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -47,13 +51,13 @@ type User struct {
 }
 
 type UserSchema struct {
-	dbx.Schema[User]
-	ID       dbx.IDColumn[User, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Username dbx.Column[User, string]                   `dbx:"username,index"`
-	Email    dbx.Column[User, string]                   `dbx:"email,unique"`
+	schemax.Schema[User]
+	ID       columnx.IDColumn[User, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Username columnx.Column[User, string]                   `dbx:"username,index"`
+	Email    columnx.Column[User, string]                   `dbx:"email,unique"`
 }
 
-var Users = dbx.MustSchema("users", UserSchema{})
+var Users = schemax.MustSchema("users", UserSchema{})
 
 func main() {
 	ctx := context.Background()
@@ -68,19 +72,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	plan, err := core.PlanSchemaChanges(ctx, Users)
+	plan, err := schemamigrate.PlanSchemaChanges(ctx, core, Users)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, sqlText := range plan.SQLPreview() {
+	plan.SQLPreview().Range(func(_ int, sqlText string) bool {
 		fmt.Println(sqlText)
-	}
+		return true
+	})
 
-	if err := core.ValidateSchemas(ctx, Users); err != nil {
+	if _, err := schemamigrate.ValidateSchemas(ctx, core, Users); err != nil {
 		fmt.Println("validate before migrate:", err)
 	}
 
-	if err := core.AutoMigrate(ctx, Users); err != nil {
+	if _, err := schemamigrate.AutoMigrate(ctx, core, Users); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DaiYuANg/arcgo/dbx"
+	columnx "github.com/DaiYuANg/arcgo/dbx/column"
 	"github.com/DaiYuANg/arcgo/dbx/idgen"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	schemax "github.com/DaiYuANg/arcgo/dbx/schema"
 )
 
 type snowflakeUser struct {
@@ -15,9 +17,9 @@ type snowflakeUser struct {
 }
 
 type snowflakeUserSchema struct {
-	dbx.Schema[snowflakeUser]
-	ID   dbx.IDColumn[snowflakeUser, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Name dbx.Column[snowflakeUser, string]                   `dbx:"name"`
+	schemax.Schema[snowflakeUser]
+	ID   columnx.IDColumn[snowflakeUser, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Name columnx.Column[snowflakeUser, string]                     `dbx:"name"`
 }
 
 type uuidUser struct {
@@ -26,9 +28,9 @@ type uuidUser struct {
 }
 
 type uuidUserSchema struct {
-	dbx.Schema[uuidUser]
-	ID   dbx.Column[uuidUser, string] `dbx:"id,pk"`
-	Name dbx.Column[uuidUser, string] `dbx:"name"`
+	schemax.Schema[uuidUser]
+	ID   columnx.Column[uuidUser, string] `dbx:"id,pk"`
+	Name columnx.Column[uuidUser, string] `dbx:"name"`
 }
 
 type strongTypedUser struct {
@@ -37,33 +39,33 @@ type strongTypedUser struct {
 }
 
 type strongTypedUserSchema struct {
-	dbx.Schema[strongTypedUser]
-	ID   dbx.IDColumn[strongTypedUser, int64, dbx.IDSnowflake] `dbx:"id,pk"`
-	Name dbx.Column[strongTypedUser, string]                   `dbx:"name"`
+	schemax.Schema[strongTypedUser]
+	ID   columnx.IDColumn[strongTypedUser, int64, idgen.IDSnowflake] `dbx:"id,pk"`
+	Name columnx.Column[strongTypedUser, string]                     `dbx:"name"`
 }
 
 func main() {
-	snowflakeSchema := dbx.MustSchema("snowflake_users", snowflakeUserSchema{})
+	snowflakeSchema := schemax.MustSchema("snowflake_users", snowflakeUserSchema{})
 	idGenerator, err := idgen.NewDefault(idgen.DefaultNodeID)
 	if err != nil {
 		panic(err)
 	}
 	snowflakeEntity := &snowflakeUser{Name: "alice"}
-	snowflakeAssignments, err := dbx.MustMapper[snowflakeUser](snowflakeSchema).InsertAssignmentsWithID(context.Background(), snowflakeSchema, snowflakeEntity, idGenerator)
+	snowflakeAssignments, err := mapperx.MustMapper[snowflakeUser](snowflakeSchema).InsertAssignmentsWithID(context.Background(), snowflakeSchema, snowflakeEntity, idGenerator)
 	if err != nil {
 		panic(err)
 	}
 
-	uuidSchema := dbx.MustSchema("uuid_users", uuidUserSchema{})
+	uuidSchema := schemax.MustSchema("uuid_users", uuidUserSchema{})
 	uuidEntity := &uuidUser{Name: "bob"}
-	uuidAssignments, err := dbx.MustMapper[uuidUser](uuidSchema).InsertAssignmentsWithID(context.Background(), uuidSchema, uuidEntity, idGenerator)
+	uuidAssignments, err := mapperx.MustMapper[uuidUser](uuidSchema).InsertAssignmentsWithID(context.Background(), uuidSchema, uuidEntity, idGenerator)
 	if err != nil {
 		panic(err)
 	}
 
-	strongTypedSchema := dbx.MustSchema("strong_typed_users", strongTypedUserSchema{})
+	strongTypedSchema := schemax.MustSchema("strong_typed_users", strongTypedUserSchema{})
 	strongTypedEntity := &strongTypedUser{Name: "carol"}
-	strongTypedAssignments, err := dbx.MustMapper[strongTypedUser](strongTypedSchema).InsertAssignmentsWithID(context.Background(), strongTypedSchema, strongTypedEntity, idGenerator)
+	strongTypedAssignments, err := mapperx.MustMapper[strongTypedUser](strongTypedSchema).InsertAssignmentsWithID(context.Background(), strongTypedSchema, strongTypedEntity, idGenerator)
 	if err != nil {
 		panic(err)
 	}

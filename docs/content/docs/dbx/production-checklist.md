@@ -23,7 +23,7 @@ Use this checklist before production rollout.
 
 ## 2) Schema Declaration
 
-- use `dbx.Schema[E]` as single metadata source
+- use `schemax.Schema[E]` as single metadata source
 - avoid duplicated table metadata outside schema types
 - define relation metadata with typed relation fields
 

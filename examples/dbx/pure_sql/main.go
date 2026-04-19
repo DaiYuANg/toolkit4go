@@ -5,10 +5,12 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dbx"
+	mapperx "github.com/DaiYuANg/arcgo/dbx/mapper"
+	"github.com/DaiYuANg/arcgo/dbx/schemamigrate"
+	"github.com/DaiYuANg/arcgo/dbx/sqlexec"
 	"github.com/DaiYuANg/arcgo/dbx/sqltmplx"
 	"github.com/DaiYuANg/arcgo/examples/dbx/internal/shared"
 )
@@ -44,7 +46,7 @@ func openPureSQLDB() (*dbx.DB, func() error, *sqltmplx.Registry) {
 }
 
 func preparePureSQLData(ctx context.Context, core *dbx.DB, catalog shared.Catalog) {
-	_, err := core.AutoMigrate(ctx, catalog.Roles, catalog.Users, catalog.UserRoles)
+	_, err := schemamigrate.AutoMigrate(ctx, core, catalog.Roles, catalog.Users, catalog.UserRoles)
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +64,7 @@ func runActiveUserQuery(ctx context.Context, core *dbx.DB, registry *sqltmplx.Re
 		sqltmplx.WithPage(struct {
 			Status int `dbx:"status"`
 		}{Status: 1}, sqltmplx.Page(1, 20)),
-		dbx.MustStructMapper[shared.UserSummary](),
+		mapperx.MustStructMapper[shared.UserSummary](),
 	)
 	if err != nil {
 		panic(err)
@@ -133,7 +135,7 @@ func runUserByUsername(ctx context.Context, core *dbx.DB, registry *sqltmplx.Reg
 		struct {
 			Username string `dbx:"username"`
 		}{Username: username},
-		dbx.MustStructMapper[shared.User](),
+		mapperx.MustStructMapper[shared.User](),
 	)
 	if err != nil {
 		panic(err)
