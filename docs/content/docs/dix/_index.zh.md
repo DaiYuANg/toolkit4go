@@ -35,6 +35,16 @@ weight: 6
 - 版本说明：[dix v0.3.0](./release-v0.3.0)
 - 可运行示例导航：[dix 示例](./examples)
 
+## 集合贡献
+
+`Into[T]` 和 `ContributeN[T]` 用于把分散在多个模块里的 provider 汇总到同一个集合角色，例如把多个 endpoint provider 汇总成 `Endpoint` 集合。
+
+- 普通 provider 既要保留具体类型注入能力，又要加入集合角色时，用 `dix.Into[T](...)`。
+- 构造结果只服务于集合角色时，用 `dix.ContributeN[T](...)`。
+- `dix.Key(...)` 用于 map 类集合的 key；`dix.Order(...)` 用于 slice/list 的排序。
+- 消费方可以直接依赖 `[]T`、`collectionx.List[T]`、`map[string]T`、`collectionx.Map[string, T]` 或 `collectionx.OrderedMap[string, T]`。
+- `dix.As[T]()` 仍然表示唯一 typed alias，不表示多绑定集合贡献。
+
 ## Install / Import
 
 ```bash

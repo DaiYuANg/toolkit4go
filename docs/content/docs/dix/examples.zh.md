@@ -16,6 +16,7 @@ weight: 10
 ```bash
 cd examples/dix
 go run ./basic
+go run ./collection_contributions
 go run ./runtime_scope
 go run ./inspect
 ```
@@ -24,6 +25,7 @@ go run ./inspect
 
 | 示例 | 关注点 | 目录 |
 | --- | --- | --- |
+| `collection_contributions` | 分散 provider 汇总成 slice、map 与 `collectionx` 容器 | [examples/dix/collection_contributions](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/collection_contributions) |
 | `basic` | 不可变 app spec、`app.Start(ctx)`、health check、`logx` 集成 | [examples/dix/basic](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/basic) |
 | `aggregate_params` | 多个 typed dependency 的 provider graph 组合 | [examples/dix/aggregate_params](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/aggregate_params) |
 | `build_runtime` | 显式 `Build()` 到 `Runtime` 的流程 | [examples/dix/build_runtime](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_runtime) |
@@ -40,6 +42,39 @@ go run ./inspect
 | `transient` | transient provider 语义 | [examples/dix/transient](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/transient) |
 | `override` | 结构化 override | [examples/dix/override](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/override) |
 | `inspect` | runtime inspection 与诊断 | [examples/dix/inspect](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/inspect) |
+
+## 示例：集合贡献
+
+```go
+endpointModule := dix.NewModule("endpoints",
+    dix.Providers(
+        dix.Provider0(func() *HealthEndpoint {
+            return &HealthEndpoint{}
+        }, dix.As[Endpoint](), dix.Into[Endpoint](dix.Key("health"), dix.Order(-100))),
+        dix.Provider1(func(cfg Config) *UserEndpoint {
+            return &UserEndpoint{Config: cfg}
+        }, dix.Into[Endpoint](dix.Key("users"), dix.Order(10))),
+        dix.Contribute0[Endpoint](func() Endpoint {
+            return &MetricsEndpoint{}
+        }, dix.Key("metrics"), dix.Order(20)),
+    ),
+)
+
+serverModule := dix.NewModule("server",
+    dix.Imports(endpointModule),
+    dix.Providers(
+        dix.Provider2(func(routes []Endpoint, byName collectionx.OrderedMap[string, Endpoint]) *Server {
+            return &Server{Routes: routes, RoutesByName: byName}
+        }),
+    ),
+)
+```
+
+普通 provider 既要保留自己的具体类型注入能力，又要加入 `Endpoint` 这类集合角色时，用 `Into[T]`。
+如果这个构造只服务于集合角色，用 `ContributeN[T]`。
+消费方可以直接依赖 `[]T`、`collectionx.List[T]`、`map[string]T`、`collectionx.Map[string, T]` 或 `collectionx.OrderedMap[string, T]`。
+`Order(...)` 控制 slice/list 的顺序；解析 map 类集合时，每个贡献都需要提供 `Key(...)`。
+`As[T]` 仍然是唯一 alias 绑定，不是多绑定集合贡献。
 
 ## 示例：基础应用组装
 

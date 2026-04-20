@@ -16,6 +16,7 @@ Run from the `examples/dix` module:
 ```bash
 cd examples/dix
 go run ./basic
+go run ./collection_contributions
 go run ./runtime_scope
 go run ./inspect
 ```
@@ -26,6 +27,7 @@ go run ./inspect
 | --- | --- | --- |
 | `basic` | immutable app spec, `app.Start(ctx)`, health checks, `logx` integration | [examples/dix/basic](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/basic) |
 | `aggregate_params` | provider graph composition with multiple typed dependencies | [examples/dix/aggregate_params](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/aggregate_params) |
+| `collection_contributions` | distributed providers collected into slices, maps, and `collectionx` containers | [examples/dix/collection_contributions](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/collection_contributions) |
 | `build_runtime` | explicit `Build()` to `Runtime` flow | [examples/dix/build_runtime](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_runtime) |
 | `build_failure` | validation/build failure behavior | [examples/dix/build_failure](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/build_failure) |
 | `metrics` | `dix/metrics`, external Prometheus handler, runtime metrics | [examples/dix/metrics](https://github.com/DaiYuANg/arcgo/tree/main/examples/dix/metrics) |
@@ -61,6 +63,39 @@ From the repository root:
 ```bash
 go run ./examples/dix/backend
 ```
+
+## Example: Collection Contributions
+
+```go
+endpointModule := dix.NewModule("endpoints",
+    dix.Providers(
+        dix.Provider0(func() *HealthEndpoint {
+            return &HealthEndpoint{}
+        }, dix.As[Endpoint](), dix.Into[Endpoint](dix.Key("health"), dix.Order(-100))),
+        dix.Provider1(func(cfg Config) *UserEndpoint {
+            return &UserEndpoint{Config: cfg}
+        }, dix.Into[Endpoint](dix.Key("users"), dix.Order(10))),
+        dix.Contribute0[Endpoint](func() Endpoint {
+            return &MetricsEndpoint{}
+        }, dix.Key("metrics"), dix.Order(20)),
+    ),
+)
+
+serverModule := dix.NewModule("server",
+    dix.Imports(endpointModule),
+    dix.Providers(
+        dix.Provider2(func(routes []Endpoint, byName collectionx.OrderedMap[string, Endpoint]) *Server {
+            return &Server{Routes: routes, RoutesByName: byName}
+        }),
+    ),
+)
+```
+
+Use `Into[T]` when a normal provider should remain injectable as its concrete output and also join a collection role such as `Endpoint`.
+Use `ContributeN[T]` when the provider only exists for that collection role.
+Consumers can depend directly on `[]T`, `collectionx.List[T]`, `map[string]T`, `collectionx.Map[string, T]`, or `collectionx.OrderedMap[string, T]`.
+`Order(...)` controls slice/list order, and `Key(...)` is required when resolving map-like collections.
+`As[T]` is still a unique alias binding, not a multi-binding collection contribution.
 
 ## Example: Basic App Composition
 

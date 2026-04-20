@@ -15,6 +15,7 @@ and a runtime model without forcing most users to deal with `do` directly.
 
 - **Immutable spec**: `App` and `Module` are built as declarative specs.
 - **Typed DI**: `ProviderN` registers typed constructors; `InvokeN` runs typed eager initialization.
+- **Collection contributions**: `Into[T]` and `ContributeN[T]` collect distributed providers into typed slices, maps, and `collectionx` containers.
 - **Lifecycle**: `OnStart` / `OnStop` hooks with `Runtime.Start/Stop/StopWithReport`.
 - **Validation**: `app.Validate()` fails on graph errors; `app.ValidateReport()` also exposes validation warnings for raw escape hatches.
 - **Runtime**: container access, health checks, and diagnostics.
@@ -55,6 +56,7 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `dix.WithModuleProviders(...)`, `dix.WithModuleHooks(...)`, `dix.WithModuleImports(...)`
 - `dix.WithModuleProvider(...)`, `dix.WithModuleHook(...)`, `dix.WithModuleImport(...)`
 - `dix.Value(...)`, `dix.Invoke(...)`, `dix.ProviderN(...)`, `dix.OnStart(...)`, `dix.OnStop(...)`
+- `dix.As[T]()`, `dix.Into[T](...)`, `dix.Key(...)`, `dix.Order(...)`, `dix.ContributeN[T](...)`
 - `advanced.Named(...)`, `advanced.Alias(...)`, `advanced.NamedAlias(...)`, `advanced.Transient(...)`, `advanced.Override(...)`
 - `app.Validate()`, `app.ValidateReport()`, `app.Build()`, `app.Start(ctx)`, `app.RunContext(ctx)`
 - `rt.Start(ctx)`, `rt.Stop(ctx)`, `rt.StopWithReport(ctx)`
@@ -68,6 +70,7 @@ go get github.com/DaiYuANg/arcgo/dix@latest
 - `WithLoggerFrom...` remains supported for custom resolver flows, but a normal logger should live in the module graph.
 - `Observers(...)` remain the extension path for sidecar consumers such as metrics, not the primary framework logger hook.
 - For zero-dependency registrations, `Value(...)` and `Invoke(...)` reduce the remaining boilerplate on the core path.
+- Use `As[T]` for a unique typed alias, and `Into[T]` / `ContributeN[T]` for multi-binding collection roles. Collection consumers can depend directly on `[]T`, `collectionx.List[T]`, `map[string]T`, `collectionx.Map[string, T]`, or `collectionx.OrderedMap[string, T]`.
 - In `dix/advanced`, the shorter aliases such as `Named(...)`, `Alias(...)`, `Transient(...)`, and `Override(...)` keep the same semantics as the older explicit names.
 - When you want the common build-then-start flow, prefer `app.Start(ctx)`; use `app.Build()` when you need an explicit pre-start runtime handle.
 - When the caller owns cancellation or shutdown timing, prefer `app.RunContext(ctx)` over `app.Run()`.
