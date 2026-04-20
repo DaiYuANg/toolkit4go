@@ -97,6 +97,7 @@ func resolveDeclaredBuildProfile(ctx context.Context, app *App, plan *buildPlan)
 	rt := newRuntime(app.spec, plan)
 	plan.registerRuntimeCoreServices(rt)
 	plan.registerProviders(ctx, rt, false)
+	newContributionPlan(plan.modules).register(ctx, rt, false)
 
 	profile, resolveErr := ResolveAs[Profile](rt.container)
 	if resolveErr != nil {
@@ -147,6 +148,7 @@ func (p *buildPlan) Build(ctx context.Context) (_ *Runtime, err error) {
 	} else {
 		p.registerProviders(ctx, rt, debugEnabled)
 	}
+	newContributionPlan(p.modules).register(ctx, rt, debugEnabled)
 
 	if err := p.bindHooksAndRunSetups(ctx, rt, debugEnabled); err != nil {
 		err = cleanupBuildFailure(ctx, rt, err)

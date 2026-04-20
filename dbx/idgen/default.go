@@ -1,7 +1,9 @@
+// Package idgen provides ID generator strategies for database-oriented services.
 package idgen
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
 )
@@ -33,5 +35,9 @@ func (g *defaultGenerator) GenerateID(ctx context.Context, request Request) (any
 	if !ok {
 		return nil, unsupportedStrategy(request.Strategy)
 	}
-	return generator.GenerateID(ctx, request)
+	id, err := generator.GenerateID(ctx, request)
+	if err != nil {
+		return nil, fmt.Errorf("dbx/idgen: generate %s id: %w", request.Strategy, err)
+	}
+	return id, nil
 }

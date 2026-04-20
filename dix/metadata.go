@@ -54,6 +54,11 @@ func newValidationState(includeDefaultLogger, includeDefaultAppMeta, includeDefa
 }
 
 func collectDeclaredOutputs(modules *collectionlist.List[*moduleSpec], state *validationState) {
+	collectExplicitOutputs(modules, state)
+	collectContributionCollectionOutputs(modules, state)
+}
+
+func collectExplicitOutputs(modules *collectionlist.List[*moduleSpec], state *validationState) {
 	modules.Range(func(_ int, mod *moduleSpec) bool {
 		if mod == nil {
 			return true
@@ -67,23 +72,50 @@ func collectDeclaredOutputs(modules *collectionlist.List[*moduleSpec], state *va
 func collectProviderOutputs(mod *moduleSpec, state *validationState) {
 	mod.providers.Range(func(_ int, provider ProviderFunc) bool {
 		meta := provider.meta
-		if meta.Output.Name != "" {
-			if state.known.Contains(meta.Output.Name) {
-				state.err.Add(oops.In("dix").
-					With("op", "validate_provider_output", "module", mod.name, "label", meta.Label, "service", meta.Output.Name).
-					Errorf("duplicate provider output `%s` in module `%s` via %s", meta.Output.Name, mod.name, meta.Label))
-				return true
-			}
-			state.known.Add(meta.Output.Name)
-			return true
-		}
-		if meta.Raw {
+		collectProviderOutput(mod.name, meta, state)
+		collectProviderAliases(mod.name, meta, state)
+		if meta.Output.Name == "" && meta.Raw {
 			state.addWarning(
 				ValidationWarningRawProviderUndeclaredOutput,
 				mod.name,
 				meta.Label,
 				"raw provider has no declared output; validation cannot model services it registers",
 			)
+		}
+		return true
+	})
+}
+
+func collectProviderOutput(moduleName string, meta ProviderMetadata, state *validationState) {
+	if meta.Output.Name == "" {
+		return
+	}
+	if state.known.Contains(meta.Output.Name) {
+		state.err.Add(oops.In("dix").
+			With("op", "validate_provider_output", "module", moduleName, "label", meta.Label, "service", meta.Output.Name).
+			Errorf("duplicate provider output `%s` in module `%s` via %s", meta.Output.Name, moduleName, meta.Label))
+		return
+	}
+	state.known.Add(meta.Output.Name)
+}
+
+func collectProviderAliases(moduleName string, meta ProviderMetadata, state *validationState) {
+	meta.Aliases.Range(func(_ int, alias ServiceRef) bool {
+		if state.known.Contains(alias.Name) {
+			state.err.Add(oops.In("dix").
+				With("op", "validate_provider_alias", "module", moduleName, "label", meta.Label, "service", alias.Name).
+				Errorf("duplicate provider alias `%s` in module `%s` via %s", alias.Name, moduleName, meta.Label))
+			return true
+		}
+		state.known.Add(alias.Name)
+		return true
+	})
+}
+
+func collectContributionCollectionOutputs(modules *collectionlist.List[*moduleSpec], state *validationState) {
+	newContributionPlan(modules).syntheticOutputs().Range(func(_ int, output ServiceRef) bool {
+		if !state.known.Contains(output.Name) {
+			state.known.Add(output.Name)
 		}
 		return true
 	})

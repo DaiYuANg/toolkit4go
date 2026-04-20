@@ -22,10 +22,23 @@ func NamedService(name string) ServiceRef {
 
 // ProviderMetadata describes a provider registration for validation and inspection.
 type ProviderMetadata struct {
-	Label        string
-	Output       ServiceRef
-	Dependencies collectionx.List[ServiceRef]
-	Raw          bool
+	Label         string
+	Output        ServiceRef
+	Dependencies  collectionx.List[ServiceRef]
+	Aliases       collectionx.List[ServiceRef]
+	Contributions collectionx.List[ContributionRef]
+	Raw           bool
+}
+
+// ContributionRef describes one provider contribution to a typed collection role.
+type ContributionRef struct {
+	Target  ServiceRef
+	Service ServiceRef
+	Key     string
+	HasKey  bool
+	Order   int
+
+	sequence int
 }
 
 // InvokeMetadata describes an invoke registration for validation and inspection.
@@ -85,6 +98,18 @@ func NewProviderFunc(register func(*Container), meta ProviderMetadata) ProviderF
 	}
 }
 
+func NewProviderFuncWithCollections(
+	register func(*Container),
+	meta ProviderMetadata,
+	collections collectionx.List[collectionFactory],
+) ProviderFunc {
+	return ProviderFunc{
+		register:            register,
+		meta:                normalizeProviderMetadata(meta),
+		collectionFactories: collections,
+	}
+}
+
 // NewInvokeFunc constructs an invoke registration from a callback and metadata.
 func NewInvokeFunc(run func(*Container) error, meta InvokeMetadata) InvokeFunc {
 	return InvokeFunc{
@@ -114,6 +139,8 @@ func normalizeProviderMetadata(meta ProviderMetadata) ProviderMetadata {
 		meta.Label = "Provider"
 	}
 	meta.Dependencies = normalizeServiceRefs(meta.Dependencies)
+	meta.Aliases = normalizeServiceRefs(meta.Aliases)
+	meta.Contributions = normalizeContributionRefs(meta.Contributions)
 	return meta
 }
 
@@ -148,4 +175,18 @@ func normalizeServiceRefs(refs collectionx.List[ServiceRef]) collectionx.List[Se
 		return collectionx.NewList[ServiceRef]()
 	}
 	return ServiceRefs(refs.Values()...)
+}
+
+func normalizeContributionRefs(refs collectionx.List[ContributionRef]) collectionx.List[ContributionRef] {
+	if refs == nil || refs.Len() == 0 {
+		return collectionx.NewList[ContributionRef]()
+	}
+	filtered := collectionx.NewListWithCapacity[ContributionRef](refs.Len())
+	refs.Range(func(_ int, ref ContributionRef) bool {
+		if ref.Target.Name != "" && ref.Service.Name != "" {
+			filtered.Add(ref)
+		}
+		return true
+	})
+	return filtered
 }
