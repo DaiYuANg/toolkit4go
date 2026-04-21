@@ -37,11 +37,9 @@ func WithModule(module Module) AppOption {
 // WithObservers appends runtime observers that receive internal dix events.
 func WithObservers(observers ...Observer) AppOption {
 	return func(spec *appSpec) {
-		for _, observer := range observers {
-			if observer != nil {
-				spec.observers = append(spec.observers, observer)
-				spec.observersConfigured = true
-			}
+		spec.appendObserversWithLogger(func() *slog.Logger { return spec.logger }, observers...)
+		if spec != nil && spec.observers.Len() > 0 {
+			spec.observersConfigured = true
 		}
 	}
 }
@@ -140,7 +138,12 @@ func (a *App) Modules() collectionx.List[Module] {
 
 // Build compiles the immutable App spec into a Runtime.
 func (a *App) Build() (*Runtime, error) {
-	return a.buildWithContext(context.Background())
+	return a.BuildContext(context.Background())
+}
+
+// BuildContext compiles the immutable App spec into a Runtime using the provided context.
+func (a *App) BuildContext(ctx context.Context) (*Runtime, error) {
+	return a.buildWithContext(ctx)
 }
 
 func (a *App) buildWithContext(ctx context.Context) (*Runtime, error) {

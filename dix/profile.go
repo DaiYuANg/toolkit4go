@@ -2,15 +2,9 @@ package dix
 
 import (
 	"os"
+	"strings"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-)
-
-var builtInProfiles = collectionx.NewSet(
-	ProfileDefault,
-	ProfileDev,
-	ProfileTest,
-	ProfileProd,
 )
 
 // ProfileManager provides utilities for working with application profiles.
@@ -24,16 +18,11 @@ type ProfileManager struct{}
 //
 //	profile := ProfileFromEnv("APP_PROFILE", ProfileProd)
 func ProfileFromEnv(envVar string, defaultProfile Profile) Profile {
-	value := os.Getenv(envVar)
+	value := strings.TrimSpace(os.Getenv(envVar))
 	if value == "" {
 		return defaultProfile
 	}
-
-	profile := Profile(value)
-	if builtInProfiles.Contains(profile) {
-		return profile
-	}
-	return defaultProfile
+	return Profile(value)
 }
 
 // IsProfile checks if the current profile matches the given profile.

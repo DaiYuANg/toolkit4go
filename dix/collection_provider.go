@@ -11,24 +11,10 @@ import (
 
 func registerCollectionProviders[T any](c *Container, refs collectionx.List[ContributionRef], explicit serviceNameSet) {
 	ordered := orderedContributionRefs(refs)
-	registerContributionSliceProvider[T](c, ordered, explicit)
 	registerContributionListProvider[T](c, ordered, explicit)
 	registerContributionMapProvider[T](c, ordered, explicit)
 	registerContributionCollectionMapProvider[T](c, ordered, explicit)
 	registerContributionOrderedMapProvider[T](c, ordered, explicit)
-}
-
-func registerContributionSliceProvider[T any](
-	c *Container,
-	refs collectionx.List[ContributionRef],
-	explicit serviceNameSet,
-) {
-	if explicit.Contains(TypedService[[]T]().Name) {
-		return
-	}
-	ProvideTErr[[]T](c, func() ([]T, error) {
-		return resolveContributionSlice[T](c.Raw(), refs)
-	})
 }
 
 func registerContributionListProvider[T any](
@@ -40,11 +26,7 @@ func registerContributionListProvider[T any](
 		return
 	}
 	ProvideTErr[collectionx.List[T]](c, func() (collectionx.List[T], error) {
-		values, err := resolveContributionSlice[T](c.Raw(), refs)
-		if err != nil {
-			return nil, err
-		}
-		return collectionx.NewListWithCapacity(len(values), values...), nil
+		return resolveContributionList[T](c.Raw(), refs)
 	})
 }
 
@@ -102,8 +84,8 @@ func orderedContributionRefs(refs collectionx.List[ContributionRef]) collectionx
 	return collectionx.NewListWithCapacity(len(ordered), ordered...)
 }
 
-func resolveContributionSlice[T any](injector do.Injector, refs collectionx.List[ContributionRef]) ([]T, error) {
-	values := make([]T, 0, refs.Len())
+func resolveContributionList[T any](injector do.Injector, refs collectionx.List[ContributionRef]) (collectionx.List[T], error) {
+	values := collectionx.NewListWithCapacity[T](refs.Len())
 	var resolveErr error
 	refs.Range(func(_ int, ref ContributionRef) bool {
 		value, err := do.InvokeNamed[T](injector, ref.Service.Name)
@@ -111,7 +93,7 @@ func resolveContributionSlice[T any](injector do.Injector, refs collectionx.List
 			resolveErr = fmt.Errorf("dix: resolve contribution `%s`: %w", ref.Service.Name, err)
 			return false
 		}
-		values = append(values, value)
+		values.Add(value)
 		return true
 	})
 	if resolveErr != nil {

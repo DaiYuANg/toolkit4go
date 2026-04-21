@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 )
 
 type serviceNameSet struct {
@@ -32,7 +31,7 @@ type contributionPlan struct {
 	explicit      serviceNameSet
 }
 
-func newContributionPlan(modules *collectionlist.List[*moduleSpec]) contributionPlan {
+func newContributionPlan(modules collectionx.List[*moduleSpec]) contributionPlan {
 	plan := contributionPlan{
 		contributions: collectionx.NewMultiMap[string, ContributionRef](),
 		factories:     collectionx.NewMap[string, collectionFactory](),
@@ -92,7 +91,7 @@ func (p contributionPlan) collectProviderCollectionFactories(provider ProviderFu
 	})
 }
 
-func explicitServiceOutputs(modules *collectionlist.List[*moduleSpec]) serviceNameSet {
+func explicitServiceOutputs(modules collectionx.List[*moduleSpec]) serviceNameSet {
 	known := newServiceNameSet(64)
 	if modules == nil {
 		return known

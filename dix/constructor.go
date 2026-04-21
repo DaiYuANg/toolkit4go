@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/pkg/option"
 )
 
@@ -15,10 +16,16 @@ func NewDefault(opts ...AppOption) *App {
 // New creates an immutable application specification.
 func New(name string, opts ...AppOption) *App {
 	spec := &appSpec{
-		meta:           AppMeta{Name: name},
-		profile:        ProfileDefault,
-		logger:         defaultLogger(),
-		runStopTimeout: DefaultRunStopTimeout,
+		meta:                AppMeta{Name: name},
+		profile:             ProfileDefault,
+		modules:             collectionx.NewList[Module](),
+		logger:              defaultLogger(),
+		observers:           collectionx.NewList[Observer](),
+		observerDispatchers: collectionx.NewList[*observerDispatcher](),
+		runStopTimeout:      DefaultRunStopTimeout,
+		debug: debugSettings{
+			namedServiceDependencies: collectionx.NewOrderedSet[string](),
+		},
 	}
 
 	option.Apply(spec, opts...)

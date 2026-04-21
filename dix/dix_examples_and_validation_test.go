@@ -1,3 +1,5 @@
+//revive:disable:file-length-limit Examples and validation tests are kept together to cover the public surface.
+
 package dix_test
 
 import (
@@ -101,12 +103,38 @@ func TestResolveOptionAndResolveOr(t *testing.T) {
 	assert.Equal(t, 42, dix.ResolveOr[int](rt.Container(), 42))
 }
 
+func TestResolveOptionEAndResolveOrErrExposeProviderErrors(t *testing.T) {
+	rt := buildRuntime(t, dix.NewApp("test",
+		dix.NewModule("deps",
+			dix.WithModuleProviders(
+				dix.ProviderErr0(func() (string, error) {
+					return "", errors.New("boom")
+				}),
+			),
+		),
+	))
+
+	option, err := dix.ResolveOptionE[string](rt.Container())
+	require.Error(t, err)
+	assert.False(t, option.IsPresent())
+	assert.Contains(t, err.Error(), "boom")
+
+	value, ok, err := dix.ResolveOptionalE[string](rt.Container())
+	require.Error(t, err)
+	assert.False(t, ok)
+	assert.Equal(t, "", value)
+
+	fallback, err := dix.ResolveOrErr[string](rt.Container(), "fallback")
+	require.Error(t, err)
+	assert.Equal(t, "fallback", fallback)
+}
+
 func TestProfileFromEnv(t *testing.T) {
 	t.Setenv("ARCGO_DIX_PROFILE", string(dix.ProfileDev))
 	assert.Equal(t, dix.ProfileDev, dix.ProfileFromEnv("ARCGO_DIX_PROFILE", dix.ProfileProd))
 
-	t.Setenv("ARCGO_DIX_PROFILE", "invalid")
-	assert.Equal(t, dix.ProfileProd, dix.ProfileFromEnv("ARCGO_DIX_PROFILE", dix.ProfileProd))
+	t.Setenv("ARCGO_DIX_PROFILE", "custom.profile")
+	assert.Equal(t, dix.Profile("custom.profile"), dix.ProfileFromEnv("ARCGO_DIX_PROFILE", dix.ProfileProd))
 }
 
 func TestWithDoSetup(t *testing.T) {
@@ -225,6 +253,46 @@ func TestValidateReportReturnsIndependentCollectionsAndStillBuilds(t *testing.T)
 	rt, err := app.Build()
 	require.NoError(t, err)
 	assert.NotNil(t, rt)
+}
+
+func TestValidateReportDoesNotFreezeDIResolvedProfile(t *testing.T) {
+	t.Setenv("ARCGO_DIX_PROFILE", "preview")
+
+	app := dix.New("profile-cache",
+		dix.WithModules(
+			dix.NewModule("profile",
+				dix.WithModuleProviders(
+					dix.Provider0(func() dix.Profile {
+						return dix.ProfileFromEnv("ARCGO_DIX_PROFILE", dix.ProfileProd)
+					}),
+				),
+			),
+			dix.NewModule("preview-only",
+				dix.WithModuleProfiles(dix.Profile("preview")),
+				dix.WithModuleProviders(
+					dix.Provider0(func() string { return "preview" }),
+				),
+			),
+			dix.NewModule("prod-only",
+				dix.WithModuleProfiles(dix.ProfileProd),
+				dix.WithModuleProviders(
+					dix.Provider0(func() string { return "prod" }),
+				),
+			),
+		),
+	)
+
+	report := app.ValidateReport()
+	require.False(t, report.HasErrors(), report.Err())
+
+	t.Setenv("ARCGO_DIX_PROFILE", string(dix.ProfileProd))
+
+	rt := buildRuntime(t, app)
+	assert.Equal(t, dix.ProfileProd, rt.Profile())
+
+	value, err := dix.ResolveAs[string](rt.Container())
+	require.NoError(t, err)
+	assert.Equal(t, "prod", value)
 }
 
 func TestBuildFailureShutsDownResolvedServices(t *testing.T) {

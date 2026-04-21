@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/samber/oops"
 )
 
 type buildPlan struct {
 	spec    *appSpec
-	modules *collectionlist.List[*moduleSpec]
+	modules collectionx.List[*moduleSpec]
 	profile Profile
 }
 
@@ -33,7 +32,7 @@ func newUnvalidatedBuildPlan(ctx context.Context, app *App) (*buildPlan, error) 
 			Wrapf(err, "resolve build profile failed")
 	}
 
-	modules, err := flattenModuleList(&app.spec.modules, profile)
+	modules, err := flattenModuleList(app.spec.modules, profile)
 	if err != nil {
 		logMessageEvent(ctx, app.spec.resolvedEventLogger(), EventLevelError, "module flatten failed", "app", app.Name(), "error", err)
 		return nil, oops.In("dix").
@@ -82,7 +81,7 @@ func validateProfileResolutionApp(app *App) error {
 }
 
 func newProfileBootstrapPlan(app *App) (*buildPlan, error) {
-	modules, err := flattenProfileBootstrapModuleList(&app.spec.modules)
+	modules, err := flattenProfileBootstrapModuleList(app.spec.modules)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +175,7 @@ func (p *buildPlan) emitBuildResult(ctx context.Context, rt *Runtime, duration t
 	}
 	event := p.runtimeBuildEvent(rt, duration, err)
 	emitEventLogger(ctx, rt.eventLogger, event)
-	emitObservers(ctx, rt.logger, rt.spec.observers, func(ctx context.Context, observer Observer) {
+	emitObservers(ctx, rt.spec.observerDispatchers, func(ctx context.Context, observer Observer) {
 		observer.OnBuild(ctx, event)
 	})
 }

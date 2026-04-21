@@ -25,8 +25,8 @@ type contributionServer struct {
 	names []string
 }
 
-func TestProviderIntoInjectsSliceByRole(t *testing.T) {
-	app := dix.New("contribution-slice",
+func TestProviderIntoInjectsCollectionxListByRole(t *testing.T) {
+	app := dix.New("contribution-list-by-role",
 		dix.WithModules(
 			dix.NewModule("endpoints",
 				dix.Providers(
@@ -36,12 +36,11 @@ func TestProviderIntoInjectsSliceByRole(t *testing.T) {
 					dix.Provider0(func() *betaContributionEndpoint {
 						return &betaContributionEndpoint{}
 					}, dix.Into[contributionEndpoint](dix.Order(10))),
-					dix.Provider1(func(endpoints []contributionEndpoint) *contributionServer {
-						names := make([]string, 0, len(endpoints))
-						for _, endpoint := range endpoints {
-							names = append(names, endpoint.Name())
-						}
-						return &contributionServer{names: names}
+					dix.Provider1(func(endpoints collectionx.List[contributionEndpoint]) *contributionServer {
+						names := collectionx.MapList(endpoints, func(_ int, endpoint contributionEndpoint) string {
+							return endpoint.Name()
+						})
+						return &contributionServer{names: names.Values()}
 					}),
 				),
 			),
@@ -68,12 +67,10 @@ func TestContributeInjectsCollectionxList(t *testing.T) {
 						return &betaContributionEndpoint{}
 					}),
 					dix.Provider1(func(endpoints collectionx.List[contributionEndpoint]) *contributionServer {
-						names := make([]string, 0, endpoints.Len())
-						endpoints.Range(func(_ int, endpoint contributionEndpoint) bool {
-							names = append(names, endpoint.Name())
-							return true
+						names := collectionx.MapList(endpoints, func(_ int, endpoint contributionEndpoint) string {
+							return endpoint.Name()
 						})
-						return &contributionServer{names: names}
+						return &contributionServer{names: names.Values()}
 					}),
 				),
 			),
@@ -100,12 +97,12 @@ func TestContributeInjectsOrderedMapByKey(t *testing.T) {
 						return &betaContributionEndpoint{}
 					}, dix.Key("beta")),
 					dix.Provider1(func(endpoints collectionx.OrderedMap[string, contributionEndpoint]) *contributionServer {
-						names := make([]string, 0, endpoints.Len())
+						names := collectionx.NewListWithCapacity[string](endpoints.Len())
 						endpoints.Range(func(key string, endpoint contributionEndpoint) bool {
-							names = append(names, key+":"+endpoint.Name())
+							names.Add(key + ":" + endpoint.Name())
 							return true
 						})
-						return &contributionServer{names: names}
+						return &contributionServer{names: names.Values()}
 					}),
 				),
 			),

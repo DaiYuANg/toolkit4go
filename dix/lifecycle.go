@@ -6,7 +6,6 @@ import (
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	"github.com/samber/oops"
 )
 
@@ -49,8 +48,8 @@ func RawHookWithMetadata(fn func(*Container, Lifecycle), meta HookMetadata) Hook
 
 // lifecycleImpl is the internal implementation.
 type lifecycleImpl struct {
-	startHooks  collectionlist.List[StartHook]
-	stopHooks   collectionlist.List[StopHook]
+	startHooks  collectionx.List[StartHook]
+	stopHooks   collectionx.List[StopHook]
 	logger      *slog.Logger
 	eventLogger EventLogger
 }
@@ -60,7 +59,9 @@ func newLifecycle(logger *slog.Logger) *lifecycleImpl {
 		logger = defaultLogger()
 	}
 	return &lifecycleImpl{
-		logger: logger,
+		startHooks: collectionx.NewList[StartHook](),
+		stopHooks:  collectionx.NewList[StopHook](),
+		logger:     logger,
 	}
 }
 

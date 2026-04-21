@@ -10,12 +10,22 @@ import (
 
 // Validate validates the immutable app spec and current module graph.
 func (a *App) Validate() error {
-	return a.ValidateReport().Err()
+	return a.ValidateContext(context.Background())
 }
 
 // ValidateReport validates the app and returns the full validation report.
 func (a *App) ValidateReport() ValidationReport {
-	_, report, err := a.cachedBuildPlan(context.Background())
+	return a.ValidateReportContext(context.Background())
+}
+
+// ValidateContext validates the immutable app spec and current module graph using the provided context.
+func (a *App) ValidateContext(ctx context.Context) error {
+	return a.ValidateReportContext(ctx).Err()
+}
+
+// ValidateReportContext validates the app and returns the full validation report using the provided context.
+func (a *App) ValidateReportContext(ctx context.Context) ValidationReport {
+	_, report, err := a.cachedBuildPlan(ctx)
 	if err != nil && (report.Errors == nil || report.Errors.IsEmpty()) {
 		report.Errors = collectionx.NewList(err)
 	}

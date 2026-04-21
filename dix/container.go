@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/do/v2"
 )
 
@@ -14,7 +14,7 @@ import (
 // Raw() exists as an explicit escape hatch for advanced integrations.
 type Container struct {
 	injector     do.Injector
-	healthChecks collectionlist.List[healthCheckEntry]
+	healthChecks collectionx.List[healthCheckEntry]
 	logger       *slog.Logger
 	eventLogger  EventLogger
 }
@@ -35,7 +35,8 @@ func newContainer(logger *slog.Logger) *Container {
 				logger.Debug(fmt.Sprintf(format, args...))
 			},
 		}),
-		logger: logger,
+		healthChecks: collectionx.NewList[healthCheckEntry](),
+		logger:       logger,
 	}
 }
 

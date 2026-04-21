@@ -4,7 +4,6 @@ import (
 	"log/slog"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 	collectionset "github.com/DaiYuANg/arcgo/collectionx/set"
 	"github.com/samber/oops"
 )
@@ -30,8 +29,8 @@ func validateTypedGraphReport(plan *buildPlan) ValidationReport {
 
 type validationState struct {
 	known    *collectionset.Set[string]
-	err      *collectionlist.List[error]
-	warnings *collectionlist.List[ValidationWarning]
+	err      collectionx.List[error]
+	warnings collectionx.List[ValidationWarning]
 }
 
 func newValidationState(includeDefaultLogger, includeDefaultAppMeta, includeDefaultProfile bool) *validationState {
@@ -48,17 +47,17 @@ func newValidationState(includeDefaultLogger, includeDefaultAppMeta, includeDefa
 
 	return &validationState{
 		known:    known,
-		err:      collectionlist.NewListWithCapacity[error](4),
-		warnings: collectionlist.NewListWithCapacity[ValidationWarning](2),
+		err:      collectionx.NewListWithCapacity[error](4),
+		warnings: collectionx.NewListWithCapacity[ValidationWarning](2),
 	}
 }
 
-func collectDeclaredOutputs(modules *collectionlist.List[*moduleSpec], state *validationState) {
+func collectDeclaredOutputs(modules collectionx.List[*moduleSpec], state *validationState) {
 	collectExplicitOutputs(modules, state)
 	collectContributionCollectionOutputs(modules, state)
 }
 
-func collectExplicitOutputs(modules *collectionlist.List[*moduleSpec], state *validationState) {
+func collectExplicitOutputs(modules collectionx.List[*moduleSpec], state *validationState) {
 	modules.Range(func(_ int, mod *moduleSpec) bool {
 		if mod == nil {
 			return true
@@ -112,7 +111,7 @@ func collectProviderAliases(moduleName string, meta ProviderMetadata, state *val
 	})
 }
 
-func collectContributionCollectionOutputs(modules *collectionlist.List[*moduleSpec], state *validationState) {
+func collectContributionCollectionOutputs(modules collectionx.List[*moduleSpec], state *validationState) {
 	newContributionPlan(modules).syntheticOutputs().Range(func(_ int, output ServiceRef) bool {
 		if !state.known.Contains(output.Name) {
 			state.known.Add(output.Name)
@@ -146,7 +145,7 @@ func collectSetupOutputs(mod *moduleSpec, state *validationState) {
 	})
 }
 
-func validateDeclaredDependencies(modules *collectionlist.List[*moduleSpec], state *validationState) {
+func validateDeclaredDependencies(modules collectionx.List[*moduleSpec], state *validationState) {
 	modules.Range(func(_ int, mod *moduleSpec) bool {
 		if mod == nil {
 			return true
@@ -237,7 +236,7 @@ func (s *validationState) validateDeps(moduleName, kind, label string, deps coll
 }
 
 func validateDependencies(
-	err *collectionlist.List[error],
+	err collectionx.List[error],
 	known *collectionset.Set[string],
 	moduleName string,
 	kind string,

@@ -125,22 +125,22 @@ func TestContainerHealthChecks_UsesCollectionList(t *testing.T) {
 func TestLifecycle_UsesCollectionBackedHooks(t *testing.T) {
 	logger := defaultLogger()
 	lc := newLifecycle(logger)
-	order := make([]string, 0, 4)
+	order := collectionx.NewListWithCapacity[string](4)
 
 	lc.OnStart(func(context.Context) error {
-		order = append(order, "start-1")
+		order.Add("start-1")
 		return nil
 	})
 	lc.OnStart(func(context.Context) error {
-		order = append(order, "start-2")
+		order.Add("start-2")
 		return nil
 	})
 	lc.OnStop(func(context.Context) error {
-		order = append(order, "stop-2")
+		order.Add("stop-2")
 		return nil
 	})
 	lc.OnStop(func(context.Context) error {
-		order = append(order, "stop-1")
+		order.Add("stop-1")
 		return nil
 	})
 
@@ -148,7 +148,7 @@ func TestLifecycle_UsesCollectionBackedHooks(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, started)
 	require.NoError(t, lc.executeStopHooks(context.Background(), newContainer(logger)))
-	assert.Equal(t, []string{"start-1", "start-2", "stop-1", "stop-2"}, order)
+	assert.Equal(t, []string{"start-1", "start-2", "stop-1", "stop-2"}, order.Values())
 }
 
 func TestFlattenModules_VisitorOrderIsDependencyFirst(t *testing.T) {
@@ -167,8 +167,8 @@ func TestFlattenModules_VisitorOrderIsDependencyFirst(t *testing.T) {
 }
 
 func TestWalkModules_DetectsImportCycle(t *testing.T) {
-	left := &moduleSpec{name: "left"}
-	right := &moduleSpec{name: "right"}
+	left := NewModule("left").spec
+	right := NewModule("right").spec
 
 	left.imports.Add(Module{spec: right})
 	right.imports.Add(Module{spec: left})
@@ -181,8 +181,8 @@ func TestWalkModules_DetectsImportCycle(t *testing.T) {
 }
 
 func TestProfileFilter_FilterModulesEReturnsFlattenErrors(t *testing.T) {
-	left := &moduleSpec{name: "left"}
-	right := &moduleSpec{name: "right"}
+	left := NewModule("left").spec
+	right := NewModule("right").spec
 
 	left.imports.Add(Module{spec: right})
 	right.imports.Add(Module{spec: left})

@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/DaiYuANg/arcgo/collectionx"
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
-	collectionset "github.com/DaiYuANg/arcgo/collectionx/set"
 )
 
 // Profile represents an application profile (environment).
@@ -90,14 +88,15 @@ type appSpec struct {
 	meta                     AppMeta
 	profile                  Profile
 	profileConfigured        bool
-	modules                  collectionlist.List[Module]
+	modules                  collectionx.List[Module]
 	logger                   *slog.Logger
 	loggerConfigured         bool
 	loggerFromContainer      func(*Container) (*slog.Logger, error)
 	eventLogger              EventLogger
 	eventLoggerConfigured    bool
 	eventLoggerFromContainer func(*Container) (EventLogger, error)
-	observers                []Observer
+	observers                collectionx.List[Observer]
+	observerDispatchers      collectionx.List[*observerDispatcher]
 	observersConfigured      bool
 	runStopTimeout           time.Duration
 	versionConfigured        bool
@@ -108,20 +107,20 @@ type appSpec struct {
 type moduleSpec struct {
 	name            string
 	description     string
-	providers       collectionlist.List[ProviderFunc]
-	setups          collectionlist.List[SetupFunc]
-	invokes         collectionlist.List[InvokeFunc]
-	hooks           collectionlist.List[HookFunc]
-	imports         collectionlist.List[Module]
-	profiles        collectionset.Set[Profile]
-	excludeProfiles collectionset.Set[Profile]
+	providers       collectionx.List[ProviderFunc]
+	setups          collectionx.List[SetupFunc]
+	invokes         collectionx.List[InvokeFunc]
+	hooks           collectionx.List[HookFunc]
+	imports         collectionx.List[Module]
+	profiles        collectionx.Set[Profile]
+	excludeProfiles collectionx.Set[Profile]
 	disabled        bool
-	tags            collectionset.OrderedSet[string]
+	tags            collectionx.OrderedSet[string]
 }
 
 type debugSettings struct {
 	scopeTree                bool
-	namedServiceDependencies collectionset.OrderedSet[string]
+	namedServiceDependencies collectionx.OrderedSet[string]
 }
 
 // ValidationWarningKind identifies a validation warning category.

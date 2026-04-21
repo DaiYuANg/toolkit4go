@@ -100,7 +100,6 @@ func Into[T any](options ...ContributionOption) ProviderOption {
 
 func collectionServiceRefs[T any]() collectionx.List[ServiceRef] {
 	return ServiceRefs(
-		TypedService[[]T](),
 		TypedService[collectionx.List[T]](),
 		TypedService[map[string]T](),
 		TypedService[collectionx.Map[string, T]](),
@@ -119,7 +118,7 @@ func Key(key string) ContributionOption {
 	}
 }
 
-// Order assigns the relative order for slice and list collection injection.
+// Order assigns the relative order for collectionx list injection.
 func Order(order int) ContributionOption {
 	return func(opts *contributionOptions) {
 		if opts != nil {

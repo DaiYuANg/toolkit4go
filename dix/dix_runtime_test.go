@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/DaiYuANg/arcgo/dix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -531,6 +532,7 @@ func TestApp_MoreShortOptionAliases(t *testing.T) {
 	require.NotNil(t, rt.Logger())
 	require.NoError(t, rt.Start(context.Background()))
 	require.NoError(t, rt.Stop(context.Background()))
+	waitForObserverEvents(t, observer, 1, 1, 0, 4)
 	assert.NotEmpty(t, observer.starts)
 	assert.NotEmpty(t, observer.stops)
 	assert.Contains(t, buf.String(), "scope tree")
@@ -670,10 +672,10 @@ func TestUseEventLogger1_RoutesAllDixLogsThroughConfiguredLogger(t *testing.T) {
 	assert.NotEmpty(t, eventLogger.health)
 	assert.NotEmpty(t, eventLogger.transitions)
 
-	messageTexts := make([]string, 0, len(eventLogger.messages))
-	for _, event := range eventLogger.messages {
-		messageTexts = append(messageTexts, event.Message)
-	}
+	messageTexts := collectionx.MapList(
+		collectionx.NewListWithCapacity(len(eventLogger.messages), eventLogger.messages...),
+		func(_ int, event dix.MessageEvent) string { return event.Message },
+	).Values()
 	assert.Contains(t, messageTexts, "registering provider")
 	assert.Contains(t, messageTexts, "starting app")
 	assert.Contains(t, messageTexts, "stopping app")

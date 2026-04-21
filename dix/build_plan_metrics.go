@@ -2,33 +2,32 @@ package dix
 
 import (
 	"github.com/DaiYuANg/arcgo/collectionx"
-	collectionlist "github.com/DaiYuANg/arcgo/collectionx/list"
 )
 
-func countModules(modules *collectionlist.List[*moduleSpec]) int {
+func countModules(modules collectionx.List[*moduleSpec]) int {
 	if modules == nil {
 		return 0
 	}
 	return modules.Len()
 }
 
-func countModuleProviders(modules *collectionlist.List[*moduleSpec]) int {
+func countModuleProviders(modules collectionx.List[*moduleSpec]) int {
 	return sumModuleCounts(modules, func(mod *moduleSpec) int { return mod.providers.Len() })
 }
 
-func countModuleHooks(modules *collectionlist.List[*moduleSpec]) int {
+func countModuleHooks(modules collectionx.List[*moduleSpec]) int {
 	return sumModuleCounts(modules, func(mod *moduleSpec) int { return mod.hooks.Len() })
 }
 
-func countModuleSetups(modules *collectionlist.List[*moduleSpec]) int {
+func countModuleSetups(modules collectionx.List[*moduleSpec]) int {
 	return sumModuleCounts(modules, func(mod *moduleSpec) int { return mod.setups.Len() })
 }
 
-func countModuleInvokes(modules *collectionlist.List[*moduleSpec]) int {
+func countModuleInvokes(modules collectionx.List[*moduleSpec]) int {
 	return sumModuleCounts(modules, func(mod *moduleSpec) int { return mod.invokes.Len() })
 }
 
-func sumModuleCounts(modules *collectionlist.List[*moduleSpec], selector func(*moduleSpec) int) int {
+func sumModuleCounts(modules collectionx.List[*moduleSpec], selector func(*moduleSpec) int) int {
 	if modules == nil || selector == nil {
 		return 0
 	}

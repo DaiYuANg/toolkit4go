@@ -4,17 +4,18 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/do/v2"
 	"github.com/samber/oops"
 )
 
 type frameworkConfigDeclarations struct {
-	slogLogger    bool
-	eventLogger   bool
-	appMeta       bool
-	profile       bool
-	observer      bool
-	observerSlice bool
+	slogLogger   bool
+	eventLogger  bool
+	appMeta      bool
+	profile      bool
+	observer     bool
+	observerList bool
 }
 
 func (p *buildPlan) prepareFrameworkConfig(ctx context.Context, rt *Runtime) (bool, error) {
@@ -55,12 +56,12 @@ func (p *buildPlan) frameworkConfigDeclarations() frameworkConfigDeclarations {
 		return frameworkConfigDeclarations{}
 	}
 	return frameworkConfigDeclarations{
-		slogLogger:    p.declaresProviderOutput(TypedService[*slog.Logger]()),
-		eventLogger:   p.declaresProviderOutput(TypedService[EventLogger]()),
-		appMeta:       p.declaresProviderOutput(TypedService[AppMeta]()),
-		profile:       p.declaresProviderOutput(TypedService[Profile]()),
-		observer:      p.declaresProviderOutput(TypedService[Observer]()),
-		observerSlice: p.declaresProviderOutput(TypedService[[]Observer]()),
+		slogLogger:   p.declaresProviderOutput(TypedService[*slog.Logger]()),
+		eventLogger:  p.declaresProviderOutput(TypedService[EventLogger]()),
+		appMeta:      p.declaresProviderOutput(TypedService[AppMeta]()),
+		profile:      p.declaresProviderOutput(TypedService[Profile]()),
+		observer:     p.declaresProviderOutput(TypedService[Observer]()),
+		observerList: p.declaresProviderOutput(TypedService[collectionx.List[Observer]]()),
 	}
 }
 
@@ -93,7 +94,7 @@ func (d frameworkConfigDeclarations) needsProviderRegistration(spec *appSpec) bo
 }
 
 func (d frameworkConfigDeclarations) hasObservers() bool {
-	return d.observer || d.observerSlice
+	return d.observer || d.observerList
 }
 
 func (p *buildPlan) applyFrameworkLogger(rt *Runtime, declared frameworkConfigDeclarations) error {
@@ -123,13 +124,6 @@ func (p *buildPlan) applyFrameworkAppMeta(rt *Runtime, declared frameworkConfigD
 		return nil
 	}
 	return p.applyDeclaredAppMeta(rt)
-}
-
-func (p *buildPlan) applyFrameworkObservers(rt *Runtime, declared frameworkConfigDeclarations) error {
-	if p.spec.observersConfigured || !declared.hasObservers() {
-		return nil
-	}
-	return p.applyDeclaredObservers(rt, declared)
 }
 
 func (p *buildPlan) applyResolvedEventLogger(rt *Runtime) error {
@@ -186,80 +180,6 @@ func (p *buildPlan) applyRuntimeProfile(rt *Runtime) {
 		return
 	}
 	do.OverrideNamedValue(rt.container.Raw(), serviceNameOf[Profile](), rt.spec.profile)
-}
-
-func (p *buildPlan) applyDeclaredObservers(rt *Runtime, declared frameworkConfigDeclarations) error {
-	observers, err := p.resolveDeclaredObservers(rt, declared)
-	if err != nil {
-		return err
-	}
-	if len(observers) > 0 {
-		rt.spec.observers = append(rt.spec.observers, observers...)
-	}
-	return nil
-}
-
-func (p *buildPlan) resolveDeclaredObservers(rt *Runtime, declared frameworkConfigDeclarations) ([]Observer, error) {
-	observers := make([]Observer, 0, 1)
-	if declared.observer {
-		var err error
-		observers, err = p.appendDeclaredObserver(rt, observers)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if declared.observerSlice {
-		var err error
-		observers, err = p.appendDeclaredObserverSlice(rt, observers)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return observers, nil
-}
-
-func (p *buildPlan) appendDeclaredObserver(rt *Runtime, observers []Observer) ([]Observer, error) {
-	observer, err := p.resolveDeclaredObserver(rt)
-	if err != nil {
-		return nil, err
-	}
-	if observer != nil {
-		observers = append(observers, observer)
-	}
-	return observers, nil
-}
-
-func (p *buildPlan) appendDeclaredObserverSlice(rt *Runtime, observers []Observer) ([]Observer, error) {
-	resolvedObservers, err := p.resolveDeclaredObserverSlice(rt)
-	if err != nil {
-		return nil, err
-	}
-	for _, observer := range resolvedObservers {
-		if observer != nil {
-			observers = append(observers, observer)
-		}
-	}
-	return observers, nil
-}
-
-func (p *buildPlan) resolveDeclaredObserver(rt *Runtime) (Observer, error) {
-	observer, err := ResolveAs[Observer](rt.container)
-	if err != nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_declared_observer", "app", rt.Name(), "service", serviceNameOf[Observer]()).
-			Wrapf(err, "resolve declared observer failed")
-	}
-	return observer, nil
-}
-
-func (p *buildPlan) resolveDeclaredObserverSlice(rt *Runtime) ([]Observer, error) {
-	observers, err := ResolveAs[[]Observer](rt.container)
-	if err != nil {
-		return nil, oops.In("dix").
-			With("op", "resolve_declared_observers", "app", rt.Name(), "service", serviceNameOf[[]Observer]()).
-			Wrapf(err, "resolve declared observers failed")
-	}
-	return observers, nil
 }
 
 func (p *buildPlan) applyResolvedLogger(rt *Runtime) error {

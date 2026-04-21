@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/DaiYuANg/arcgo/collectionx"
 	"github.com/samber/do/v2"
 	"github.com/samber/oops"
 )
@@ -38,6 +39,7 @@ func newRuntime(spec *appSpec, plan *buildPlan) *Runtime {
 	rt.container.eventLogger = rt.eventLogger
 	rt.lifecycle.logger = rt.logger
 	rt.lifecycle.eventLogger = rt.eventLogger
+	rt.spec.rebuildObserverDispatchers(func() *slog.Logger { return rt.logger })
 
 	return rt
 }
@@ -47,7 +49,8 @@ func cloneAppSpec(spec *appSpec) *appSpec {
 		return nil
 	}
 	cloned := *spec
-	cloned.observers = append([]Observer(nil), spec.observers...)
+	cloned.observers = spec.observers.Clone()
+	cloned.observerDispatchers = collectionx.NewList[*observerDispatcher]()
 	return &cloned
 }
 

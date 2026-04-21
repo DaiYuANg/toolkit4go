@@ -10,7 +10,17 @@ type ModuleOption func(*moduleSpec)
 
 // NewModule creates an immutable module specification.
 func NewModule(name string, opts ...ModuleOption) Module {
-	spec := &moduleSpec{name: name}
+	spec := &moduleSpec{
+		name:            name,
+		providers:       collectionx.NewList[ProviderFunc](),
+		setups:          collectionx.NewList[SetupFunc](),
+		invokes:         collectionx.NewList[InvokeFunc](),
+		hooks:           collectionx.NewList[HookFunc](),
+		imports:         collectionx.NewList[Module](),
+		profiles:        collectionx.NewSet[Profile](),
+		excludeProfiles: collectionx.NewSet[Profile](),
+		tags:            collectionx.NewOrderedSet[string](),
+	}
 	option.Apply(spec, opts...)
 	return Module{spec: spec}
 }
